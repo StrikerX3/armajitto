@@ -20,6 +20,8 @@ endif ()
 ## Create the main armajitto library target
 add_library(armajitto 
     include/armajitto/armajitto.hpp
+    include/armajitto/arm/mode.hpp
+    include/armajitto/arm/psr.hpp
     include/armajitto/arm/state.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
@@ -44,6 +46,8 @@ target_compile_features(armajitto PUBLIC cxx_std_20)
 ## Build precompiled header
 target_precompile_headers(armajitto
     PUBLIC
+        <array>
+        <cassert>
         <cstdint>
 )
 

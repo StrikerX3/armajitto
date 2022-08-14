@@ -86,9 +86,9 @@ int main() {
 
     // Fill in the ROM with some code
     bool thumb = false;
-    sys.WriteROMWord(0x000, 0xE3A00012); // mov r0, #0x12
-    sys.WriteROMWord(0x004, 0xE3801B0D); // orr r1, r0, #0x3400
-    sys.WriteROMWord(0x008, 0xEAFFFFFC); // b #0
+    sys.WriteROMWord(0x0100, 0xE3A00012); // mov r0, #0x12
+    sys.WriteROMWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
+    sys.WriteROMWord(0x0108, 0xEAFFFFFC); // b #0
 
     // Define a specification for the recompiler
     armajitto::Specification spec{
@@ -102,15 +102,17 @@ int main() {
     // Get the ARM state -- registers, coprocessors, etc.
     auto &armState = jit.ARMState();
 
-    /*
-    // Convenience method to start execution at the specified address and execution state
-    jit.JumpTo(0x0000, thumb); // bool parameter is the desired state of the T bit (aka Thumb mode)
+    // Start execution at the specified address and execution state
+    armState.JumpTo(0x0100, thumb);
     // The above is equivalent to:
-    // armState.GPR(15) = 0x0000 + (thumb ? 4 : 8);
+    // armState.GPR(15) = 0x0100 + (thumb ? 4 : 8);
     // armState.CPSR().t = thumb;
 
+    printf("PC = %08X  T = %u\n", armState.GPR(15), armState.CPSR().t);
+
+    /*
     // Raise the IRQ line
-    jit.IRQLine() = true;
+    // jit.IRQLine() = true;
     // Interrupts are handled in Run()
 
     // Run for at least 32 cycles
