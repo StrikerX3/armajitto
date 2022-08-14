@@ -9,7 +9,7 @@ namespace detail {
     inline uint32_t DecodeRotatedImm(uint32_t opcode) {
         const uint8_t imm = bit::extract<0, 8>(opcode);
         const uint8_t rotate = bit::extract<8, 4>(opcode);
-        return RotateImm(imm, rotate);
+        return std::rotr(imm, rotate * 2);
     }
 
     inline RegisterSpecifiedShift DecodeShift(uint32_t opcode) {
