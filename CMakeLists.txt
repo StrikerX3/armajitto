@@ -20,6 +20,7 @@ endif ()
 ## Create the main armajitto library target
 add_library(armajitto 
     include/armajitto/armajitto.hpp
+    include/armajitto/arm/state.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp

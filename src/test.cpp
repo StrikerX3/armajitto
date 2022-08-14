@@ -85,6 +85,7 @@ int main() {
     System sys{};
 
     // Fill in the ROM with some code
+    bool thumb = false;
     sys.WriteROMWord(0x000, 0xE3A00012); // mov r0, #0x12
     sys.WriteROMWord(0x004, 0xE3801B0D); // orr r1, r0, #0x3400
     sys.WriteROMWord(0x008, 0xEAFFFFFC); // b #0
@@ -98,15 +99,15 @@ int main() {
     // Make a recompiler from the specification
     armajitto::Recompiler jit{spec};
 
-    /*
     // Get the ARM state -- registers, coprocessors, etc.
-    armajitto::arm::State &armState = jit.ARMState();
+    auto &armState = jit.ARMState();
 
+    /*
     // Convenience method to start execution at the specified address and execution state
-    jit.JumpTo(0x2000000, armajitto::arm::ExecState::ARM);
+    jit.JumpTo(0x0000, thumb); // bool parameter is the desired state of the T bit (aka Thumb mode)
     // The above is equivalent to:
-    // armState.GPR(15) = 0x2000008; // note the +8
-    // armState.CPSR().t = 0;
+    // armState.GPR(15) = 0x0000 + (thumb ? 4 : 8);
+    // armState.CPSR().t = thumb;
 
     // Raise the IRQ line
     jit.IRQLine() = true;
