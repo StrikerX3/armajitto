@@ -78,9 +78,7 @@ private:
     }
 };
 
-int main() {
-    printf("armajitto %s\n", armajitto::version::name);
-
+void testBasic() {
     // System implements the armajitto::ISystem interface
     System sys{};
 
@@ -93,7 +91,7 @@ int main() {
     // Define a specification for the recompiler
     armajitto::Specification spec{
         .system = sys,
-        .cpuModel = armajitto::CPUModel::ARMv5TE,
+        .arch = armajitto::CPUArch::ARMv5TE,
     };
 
     // Make a recompiler from the specification
@@ -111,15 +109,22 @@ int main() {
     printf("PC = %08X  T = %u\n", armState.GPR(15), armState.CPSR().t);
 
     /*
-    // Raise the IRQ line
-    // jit.IRQLine() = true;
-    // Interrupts are handled in Run()
-
     // Run for at least 32 cycles
     uint64_t cyclesExecuted = jit.Run(32);
+
+    // Raise the IRQ line
+    sys.IRQLine() = true;
+    // Interrupts are handled in Run()
 
     // Switch to FIQ mode (also switches banked registers and updates I and F flags)
     armState.SetMode(armajitto::arm::Mode::FIQ);
     */
+}
+
+int main() {
+    printf("armajitto %s\n", armajitto::version::name);
+
+    testBasic();
+
     return EXIT_SUCCESS;
 }

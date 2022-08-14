@@ -2,7 +2,7 @@
 
 namespace armajitto {
 
-enum class CPUModel {
+enum class CPUArch {
     ARMv4T,
     ARMv5TE,
 };

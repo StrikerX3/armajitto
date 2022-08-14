@@ -26,12 +26,19 @@ add_library(armajitto
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
-    include/armajitto/defs/cpu_model.hpp
+    include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
     src/abi/x86_64/cpuid.cpp
     src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
+    src/arm/decoder.hpp
+    src/arm/decoder/decoder_arm.hpp
+    src/arm/decoder/decoder_client.hpp
+    src/arm/decoder/decoder_common.hpp
+    src/arm/decoder/decoder_instrs.hpp
+    src/arm/decoder/decoder_thumb.hpp
     src/core/recompiler.cpp
+    src/util/bit_ops.hpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
@@ -47,8 +54,11 @@ target_compile_features(armajitto PUBLIC cxx_std_20)
 target_precompile_headers(armajitto
     PUBLIC
         <array>
+        <bit>
         <cassert>
+        <concepts>
         <cstdint>
+        <type_traits>
 )
 
 ## Define version string and numbers as compiler macros
