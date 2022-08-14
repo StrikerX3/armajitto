@@ -23,6 +23,7 @@ add_library(armajitto
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_model.hpp
+    include/armajitto/defs/memory_access.hpp
     src/abi/x86_64/cpuid.cpp
     src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
@@ -40,7 +41,7 @@ target_compile_features(armajitto PUBLIC cxx_std_20)
 ## Build precompiled header
 target_precompile_headers(armajitto
     PUBLIC
-        <utility>
+        <cstdint>
 )
 
 ## Define version string and numbers as compiler macros
@@ -50,7 +51,7 @@ target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_MINOR=${armajitto_
 target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_PATCH=${armajitto_VERSION_PATCH}u)
 
 ######### TEMPORARY #########
-## Add a test library
+## Add a test executable to aid development
 add_executable(armajitto-test
     src/test.cpp
 )
