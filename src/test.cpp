@@ -84,8 +84,9 @@ int main() {
     // System implements the armajitto::ISystem interface
     System sys{};
 
+    // Fill in the ROM with some code
     sys.WriteROMWord(0x000, 0xE3A00012); // mov r0, #0x12
-    sys.WriteROMWord(0x004, 0xE3801C23); // orr r1, r0, #0x2300
+    sys.WriteROMWord(0x004, 0xE3801B0D); // orr r1, r0, #0x3400
     sys.WriteROMWord(0x008, 0xEAFFFFFC); // b #0
 
     // Define a specification for the recompiler
@@ -94,15 +95,18 @@ int main() {
         .cpuModel = armajitto::CPUModel::ARMv5TE,
     };
 
-    /*
     // Make a recompiler from the specification
     armajitto::Recompiler jit{spec};
 
+    /*
     // Get the ARM state -- registers, coprocessors, etc.
     armajitto::arm::State &armState = jit.ARMState();
 
     // Convenience method to start execution at the specified address and execution state
     jit.JumpTo(0x2000000, armajitto::arm::ExecState::ARM);
+    // The above is equivalent to:
+    // armState.GPR(15) = 0x2000008; // note the +8
+    // armState.CPSR().t = 0;
 
     // Raise the IRQ line
     jit.IRQLine() = true;

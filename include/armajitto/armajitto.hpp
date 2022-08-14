@@ -1,7 +1,6 @@
 #pragma once
 
-#include "core/specification.hpp"
-#include "core/system_interface.hpp"
+#include "core/recompiler.hpp"
 
 namespace armajitto::version {
 

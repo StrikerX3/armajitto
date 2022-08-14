@@ -20,6 +20,7 @@ endif ()
 ## Create the main armajitto library target
 add_library(armajitto 
     include/armajitto/armajitto.hpp
+    include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_model.hpp
@@ -27,6 +28,7 @@ add_library(armajitto
     src/abi/x86_64/cpuid.cpp
     src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
+    src/core/recompiler.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
