@@ -42,19 +42,19 @@ struct DataProcessing {
     Opcode opcode;
     bool immediate;
     bool setFlags;
-    uint8_t dstReg;
-    uint8_t lhsReg;
+    uint8_t dstReg; // Rd
+    uint8_t lhsReg; // Rn
     union {
-        uint32_t imm;                 // when immediate == true
-        RegisterSpecifiedShift shift; // when immediate == false
+        uint32_t imm;                 // (when immediate == true)
+        RegisterSpecifiedShift shift; // (when immediate == false)
     } rhs;
 };
 
 // CLZ
 struct CountLeadingZeros {
     Condition cond;
-    uint8_t dstReg;
-    uint8_t argReg;
+    uint8_t dstReg; // Rd
+    uint8_t argReg; // Rm
 };
 
 // QADD,QSUB,QDADD,QDSUB
@@ -65,9 +65,9 @@ struct CountLeadingZeros {
 //  +   +   QDSUB
 struct SaturatingAddSub {
     Condition cond;
-    uint8_t dstReg;
-    uint8_t lhsReg;
-    uint8_t rhsReg;
+    uint8_t dstReg; // Rd
+    uint8_t lhsReg; // Rm
+    uint8_t rhsReg; // Rn
     bool sub;
     bool dbl;
 };
@@ -78,12 +78,12 @@ struct SaturatingAddSub {
 //      +      MLA
 struct MultiplyAccumulate {
     Condition cond;
-    uint8_t dstReg;
-    uint8_t lhsReg;
-    uint8_t rhsReg;
-    uint8_t accReg; // when accumulate == true
+    uint8_t dstReg; // Rd
+    uint8_t lhsReg; // Rm
+    uint8_t rhsReg; // Rs
+    uint8_t accReg; // Rn (when accumulate == true)
     bool accumulate;
-    bool setFlags;
+    bool setFlags; // S bit
 };
 
 // SMULL,UMULL,SMLAL,UMLAL
@@ -94,13 +94,13 @@ struct MultiplyAccumulate {
 //     +          +      SMLAL
 struct MultiplyAccumulateLong {
     Condition cond;
-    uint8_t dstAccHiReg; // also accumulator when accumulate == true
-    uint8_t dstAccLoReg; // also accumulator when accumulate == true
-    uint8_t lhsReg;
-    uint8_t rhsReg;
+    uint8_t dstAccLoReg; // RdHi (also accumulator when accumulate == true)
+    uint8_t dstAccHiReg; // RdLo (also accumulator when accumulate == true)
+    uint8_t lhsReg;      // Rm
+    uint8_t rhsReg;      // Rs
     bool signedMul;
     bool accumulate;
-    bool setFlags;
+    bool setFlags; // S bit
 };
 
 // SMUL<x><y>,SMLA<x><y>
@@ -109,10 +109,10 @@ struct MultiplyAccumulateLong {
 //      +      SMLA<x><y>
 struct SignedMultiplyAccumulate {
     Condition cond;
-    uint8_t dstReg;
-    uint8_t lhsReg;
-    uint8_t rhsReg;
-    uint8_t accReg; // when accumulate == true
+    uint8_t dstReg; // Rd
+    uint8_t lhsReg; // Rm
+    uint8_t rhsReg; // Rs
+    uint8_t accReg; // Rn (when accumulate == true)
     bool x;
     bool y;
     bool accumulate;
@@ -124,10 +124,10 @@ struct SignedMultiplyAccumulate {
 //      +      SMLAW<y>
 struct SignedMultiplyAccumulateWord {
     Condition cond;
-    uint8_t dstReg;
-    uint8_t lhsReg;
-    uint8_t rhsReg;
-    uint8_t accReg; // when accumulate == true
+    uint8_t dstReg; // Rd
+    uint8_t lhsReg; // Rm
+    uint8_t rhsReg; // Rs
+    uint8_t accReg; // Rn (when accumulate == true)
     bool y;
     bool accumulate;
 };
@@ -135,10 +135,10 @@ struct SignedMultiplyAccumulateWord {
 // SMLAL<x><y>
 struct SignedMultiplyAccumulateLong {
     Condition cond;
-    uint8_t dstAccHiReg;
-    uint8_t dstAccLoReg;
-    uint8_t lhsReg;
-    uint8_t rhsReg;
+    uint8_t dstAccLoReg; // RdLo
+    uint8_t dstAccHiReg; // RdHi
+    uint8_t lhsReg;      // Rm
+    uint8_t rhsReg;      // Rs
     bool x;
     bool y;
 };
@@ -147,7 +147,7 @@ struct SignedMultiplyAccumulateLong {
 struct PSRRead {
     Condition cond;
     bool spsr;
-    uint8_t dstReg;
+    uint8_t dstReg; // Rd
 };
 
 // MSR
@@ -160,8 +160,8 @@ struct PSRWrite {
     bool x;
     bool c;
     union {
-        uint32_t imm; // when immediate == true
-        uint8_t reg;  // when immediate == false
+        uint32_t imm; // (when immediate == true)
+        uint8_t reg;  // Rm (when immediate == false)
     } value;
 };
 
@@ -177,7 +177,7 @@ struct SingleDataTransfer {
     bool byte;       // B bit
     bool writeback;  // W bit
     bool load;       // L bit
-    uint8_t dstReg;
+    uint8_t dstReg;  // Rd
     AddressingOffset offset;
 };
 
@@ -199,11 +199,11 @@ struct HalfwordAndSignedTransfer {
     bool load;           // L bit
     bool sign;           // S bit
     bool half;           // H bit
-    uint8_t dstReg;
-    uint8_t baseReg;
+    uint8_t dstReg;      // Rd
+    uint8_t baseReg;     // Rn
     union {
-        uint16_t imm; // when immediate == true
-        uint8_t reg;  // when immediate = false
+        uint16_t imm; // (when immediate == true)
+        uint8_t reg;  // Rm (when immediate == false)
     } offset;
 };
 
@@ -218,7 +218,7 @@ struct BlockTransfer {
     bool userMode;       // S bit
     bool writeback;      // W bit
     bool load;           // L bit
-    uint8_t baseReg;
+    uint8_t baseReg;     // Rn
     uint16_t regList;
 };
 
@@ -228,10 +228,10 @@ struct BlockTransfer {
 //   +   SWPB
 struct SingleDataSwap {
     Condition cond;
-    bool byte; // B bit
-    uint8_t dstReg;
-    uint8_t addressReg1;
-    uint8_t addressReg2;
+    bool byte;          // B bit
+    uint8_t dstReg;     // Rd
+    uint8_t valueReg;   // Rm
+    uint8_t addressReg; // Rn
 };
 
 // SWI

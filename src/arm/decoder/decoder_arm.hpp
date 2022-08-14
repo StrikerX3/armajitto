@@ -119,8 +119,8 @@ namespace detail {
     inline auto MultiplyAccumulateLong(uint32_t opcode, Condition cond) {
         instrs::MultiplyAccumulateLong instr{.cond = cond};
 
-        instr.dstAccHiReg = bit::extract<16, 4>(opcode);
         instr.dstAccLoReg = bit::extract<12, 4>(opcode);
+        instr.dstAccHiReg = bit::extract<16, 4>(opcode);
         instr.lhsReg = bit::extract<0, 4>(opcode);
         instr.rhsReg = bit::extract<8, 4>(opcode);
         instr.signedMul = bit::test<22>(opcode);
@@ -163,8 +163,8 @@ namespace detail {
     inline auto SignedMultiplyAccumulateLong(uint32_t opcode, Condition cond) {
         instrs::SignedMultiplyAccumulateLong instr{.cond = cond};
 
-        instr.dstAccHiReg = bit::extract<16, 4>(opcode);
         instr.dstAccLoReg = bit::extract<12, 4>(opcode);
+        instr.dstAccHiReg = bit::extract<16, 4>(opcode);
         instr.lhsReg = bit::extract<0, 4>(opcode);
         instr.rhsReg = bit::extract<8, 4>(opcode);
         instr.x = bit::test<5>(opcode);
@@ -220,10 +220,20 @@ namespace detail {
     inline auto HalfwordAndSignedTransfer(uint32_t opcode, Condition cond) {
         instrs::HalfwordAndSignedTransfer instr{.cond = cond};
 
-        const bool l = bit::test<20>(opcode);
-        const bool s = bit::test<6>(opcode);
-        const bool h = bit::test<5>(opcode);
-        // TODO: implement
+        instr.preindexed = bit::test<24>(opcode);
+        instr.positiveOffset = bit::test<23>(opcode);
+        instr.immediate = bit::test<22>(opcode);
+        instr.writeback = bit::test<21>(opcode);
+        instr.load = bit::test<20>(opcode);
+        instr.sign = bit::test<6>(opcode);
+        instr.half = bit::test<5>(opcode);
+        instr.dstReg = bit::extract<12, 4>(opcode);
+        instr.baseReg = bit::extract<16, 4>(opcode);
+        if (instr.immediate) {
+            instr.offset.imm = bit::extract<0, 8>(opcode);
+        } else {
+            instr.offset.reg = bit::extract<0, 4>(opcode);
+        }
 
         return instr;
     }
@@ -232,8 +242,13 @@ namespace detail {
     inline auto BlockTransfer(uint32_t opcode, Condition cond) {
         instrs::BlockTransfer instr{.cond = cond};
 
-        const bool l = bit::test<20>(opcode);
-        // TODO: implement
+        instr.preindexed = bit::test<24>(opcode);
+        instr.positiveOffset = bit::test<23>(opcode);
+        instr.userMode = bit::test<22>(opcode);
+        instr.writeback = bit::test<21>(opcode);
+        instr.load = bit::test<20>(opcode);
+        instr.baseReg = bit::extract<16, 4>(opcode);
+        instr.regList = bit::extract<0, 16>(opcode);
 
         return instr;
     }
@@ -242,28 +257,22 @@ namespace detail {
     inline auto SingleDataSwap(uint32_t opcode, Condition cond) {
         instrs::SingleDataSwap instr{.cond = cond};
 
-        // TODO: implement
-        const bool b = bit::test<22>(opcode);
+        instr.byte = bit::test<22>(opcode);
+        instr.dstReg = bit::extract<12, 4>(opcode);
+        instr.valueReg = bit::extract<0, 4>(opcode);
+        instr.addressReg = bit::extract<16, 4>(opcode);
 
         return instr;
     }
 
     // SWI
     inline auto SoftwareInterrupt(uint32_t opcode, Condition cond) {
-        instrs::SoftwareInterrupt instr{.cond = cond};
-
-        // TODO: implement
-
-        return instr;
+        return instrs::SoftwareInterrupt{.cond = cond};
     }
 
     // BKPT
     inline auto SoftwareBreakpoint(uint32_t opcode, Condition cond) {
-        instrs::SoftwareBreakpoint instr{.cond = cond};
-
-        // TODO: implement
-
-        return instr;
+        return instrs::SoftwareBreakpoint{.cond = cond};
     }
 
     // PLD
@@ -279,7 +288,13 @@ namespace detail {
     inline auto CopDataOperations(uint32_t opcode, Condition cond, bool ext) {
         instrs::CopDataOperations instr{.cond = cond};
 
-        // TODO: implement
+        instr.opcode1 = bit::extract<20, 4>(opcode);
+        instr.crn = bit::extract<16, 4>(opcode);
+        instr.crd = bit::extract<12, 4>(opcode);
+        instr.cpnum = bit::extract<8, 4>(opcode);
+        instr.opcode2 = bit::extract<5, 3>(opcode);
+        instr.crm = bit::extract<0, 4>(opcode);
+        instr.ext = ext;
 
         return instr;
     }
@@ -297,6 +312,7 @@ namespace detail {
         instr.crd = bit::extract<12, 4>(opcode);
         instr.cpnum = bit::extract<8, 4>(opcode);
         instr.offset = bit::extract<0, 8>(opcode);
+        instr.ext = ext;
 
         return instr;
     }
@@ -305,8 +321,14 @@ namespace detail {
     inline auto CopRegTransfer(uint32_t opcode, Condition cond, bool ext) {
         instrs::CopRegTransfer instr{.cond = cond};
 
-        const bool s = bit::test<20>(opcode);
-        // TODO: implement
+        instr.store = bit::test<20>(opcode);
+        instr.opcode1 = bit::extract<21, 3>(opcode);
+        instr.crn = bit::extract<16, 4>(opcode);
+        instr.rd = bit::extract<12, 4>(opcode);
+        instr.cpnum = bit::extract<8, 4>(opcode);
+        instr.opcode2 = bit::extract<5, 3>(opcode);
+        instr.crm = bit::extract<0, 4>(opcode);
+        instr.ext = ext;
 
         return instr;
     }
@@ -315,8 +337,12 @@ namespace detail {
     inline auto CopDualRegTransfer(uint32_t opcode, Condition cond) {
         instrs::CopDualRegTransfer instr{.cond = cond};
 
-        const bool s = bit::test<20>(opcode);
-        // TODO: implement
+        instr.store = bit::test<20>(opcode);
+        instr.rn = bit::extract<16, 4>(opcode);
+        instr.rd = bit::extract<12, 4>(opcode);
+        instr.cpnum = bit::extract<8, 4>(opcode);
+        instr.opcode = bit::extract<4, 4>(opcode);
+        instr.crm = bit::extract<0, 4>(opcode);
 
         return instr;
     }
