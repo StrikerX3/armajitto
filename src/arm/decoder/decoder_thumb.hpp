@@ -161,6 +161,96 @@ namespace detail {
         }
     }
 
+    template <Client TClient>
+    Action HiRegOps(TClient &client, uint16_t opcode) {
+        instrs::DataProcessing instr{.cond = Condition::AL};
+
+        const uint8_t h1 = bit::extract<7>(opcode);
+        const uint8_t h2 = bit::extract<6>(opcode);
+        switch (bit::extract<8, 2>(opcode)) {
+        case 0b00: instr.opcode = instrs::DataProcessing::Opcode::ADD; break;
+        case 0b01: instr.opcode = instrs::DataProcessing::Opcode::CMP; break;
+        case 0b10: instr.opcode = instrs::DataProcessing::Opcode::MOV; break;
+        }
+        instr.immediate = false;
+        instr.setFlags = false;
+        instr.dstReg = bit::extract<0, 3>(opcode) + h1 * 8;
+        instr.lhsReg = 0;
+        instr.rhs.shift = SimpleRegShift(bit::extract<3, 3>(opcode) + h2 * 8);
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action HiRegBranchExchange(TClient &client, uint16_t opcode, bool link) {
+        instrs::BranchAndExchange instr{.cond = Condition::AL};
+
+        const uint8_t h2 = bit::extract<6>(opcode);
+        instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
+        instr.link = link;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action PCRelativeLoad(TClient &client, uint16_t opcode) {
+        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+
+        instr.preindexed = true;
+        instr.byte = false;
+        instr.writeback = false;
+        instr.load = true;
+        instr.dstReg = bit::extract<8, 3>(opcode);
+        instr.offset.immediate = true;
+        instr.offset.positiveOffset = true;
+        instr.offset.baseReg = 15;
+        instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action LoadStoreRegOffset(TClient &client, uint16_t opcode) {
+        if (bit::test<9>(opcode)) {
+            instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
+
+            instr.preindexed = true;
+            instr.positiveOffset = true;
+            instr.immediate = false;
+            instr.writeback = false;
+
+            //              load sign half
+            // 00 = STRH      -    -    +
+            // 01 = LDRSB     +    +    -
+            // 10 = LDRH      +    -    +
+            // 11 = LDRSH     +    +    +
+            const uint8_t op = bit::extract<10, 2>(opcode);
+            instr.load = (op != 0b00);
+            instr.sign = bit::test<0>(op);
+            instr.half = (op != 0b01);
+
+            instr.dstReg = bit::extract<0, 3>(opcode);
+            instr.baseReg = bit::extract<3, 3>(opcode);
+            instr.offset.reg = bit::extract<6, 3>(opcode);
+
+            return client.Process(instr);
+        } else {
+            instrs::SingleDataTransfer instr{.cond = Condition::AL};
+
+            instr.preindexed = true;
+            instr.byte = bit::test<10>(opcode);
+            instr.writeback = false;
+            instr.load = bit::test<11>(opcode);
+            instr.dstReg = bit::extract<0, 3>(opcode);
+            instr.offset.immediate = false;
+            instr.offset.positiveOffset = true;
+            instr.offset.baseReg = bit::extract<3, 3>(opcode);
+            instr.offset.shift = SimpleRegShift(bit::extract<6, 3>(opcode));
+
+            return client.Process(instr);
+        }
+    }
+
 } // namespace detail
 
 template <Client TClient>
@@ -182,38 +272,18 @@ Action DecodeThumb(TClient &client, uint32_t address) {
     case 0b0010:
     case 0b0011: return MovCmpAddSubImm(client, opcode);
     case 0b0100:
-        if (((opcode >> 10) & 0b11) == 0b00) {
-            return DataProcessing(client, opcode);
-        } else if (((opcode >> 10) & 0b11) == 0b01) {
-            const uint8_t op = (opcode >> 8) & 0b11;
-            const bool h1 = (opcode >> 7) & 1;
-            switch (op) {
-            case 0b00: return ADDHiReg(opcode);
-            case 0b01: return CMPHiReg(opcode);
-            case 0b10: return MOVHiReg(opcode);
-            case 0b11:
-                if (arch == CPUArch::ARMv5TE) {
-                    if (h1) {
-                        return BLXHiReg(opcode);
-                    }
-                }
-                return BXHiReg(opcode);
+        switch (bit::extract<10, 2>(opcode)) {
+        case 0b00: return DataProcessing(client, opcode);
+        case 0b01:
+            if (bit::extract<8, 2>(opcode) == 0b11) {
+                const bool link = (arch == CPUArch::ARMv5TE) && bit::test<7>(opcode);
+                return HiRegBranchExchange(client, opcode, link);
+            } else {
+                return HiRegOps(client, opcode);
             }
-        } else {
-            return LDRPCRel(opcode);
+        default: return PCRelativeLoad(client, opcode);
         }
-    case 0b0101:
-        if ((opcode >> 9) & 1) {
-            const bool h = (opcode >> 11) & 1;
-            const bool s = (opcode >> 10) & 1;
-            return h ? (s ? LDRSHRegOffset(opcode) : LDRHRegOffset(opcode))
-                     : (s ? LDRSBRegOffset(opcode) : STRHRegOffset(opcode));
-        } else {
-            const bool l = (opcode >> 11) & 1;
-            const bool b = (opcode >> 10) & 1;
-            return l ? (b ? LDRBRegOffset(opcode) : LDRRegOffset(opcode))
-                     : (b ? STRBRegOffset(opcode) : STRRegOffset(opcode));
-        }
+    case 0b0101: return LoadStoreRegOffset(client, opcode);
     case 0b0110:
     case 0b0111: {
         const bool b = (opcode >> 12) & 1;
