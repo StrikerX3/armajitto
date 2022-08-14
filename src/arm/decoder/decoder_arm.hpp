@@ -357,7 +357,7 @@ template <Client TClient>
 inline Action DecodeARM(TClient &client, uint32_t address) {
     using namespace detail;
 
-    const CPUArch model = client.GetCPUArch();
+    const CPUArch arch = client.GetCPUArch();
     const uint32_t opcode = client.CodeReadWord(address);
 
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
@@ -366,7 +366,7 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
     const uint32_t bits24to20 = bit::extract<20, 5>(opcode);
     const uint32_t bits7to4 = bit::extract<4, 4>(opcode);
 
-    if (model == CPUArch::ARMv5TE) {
+    if (arch == CPUArch::ARMv5TE) {
         if (cond == Condition::NV) {
             switch (op) {
             case 0b000: return client.Process(Undefined(Condition::AL));
@@ -401,31 +401,31 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
         if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
             return client.Process(BranchAndExchange(opcode, cond));
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
-            if (model == CPUArch::ARMv5TE) {
+            if (arch == CPUArch::ARMv5TE) {
                 return client.Process(BranchAndExchange(opcode, cond));
             } else {
                 return client.Process(Undefined(cond));
             }
         } else if ((bits24to20 & 0b1'1111) == 0b1'0110 && (bits7to4 & 0b1111) == 0b0001) {
-            if (model == CPUArch::ARMv5TE) {
+            if (arch == CPUArch::ARMv5TE) {
                 return client.Process(CountLeadingZeros(opcode, cond));
             } else {
                 return client.Process(Undefined(cond));
             }
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0111) {
-            if (model == CPUArch::ARMv5TE) {
+            if (arch == CPUArch::ARMv5TE) {
                 return client.Process(SoftwareBreakpoint(opcode, cond));
             } else {
                 return client.Process(Undefined(cond));
             }
         } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0101) {
-            if (model == CPUArch::ARMv5TE) {
+            if (arch == CPUArch::ARMv5TE) {
                 return client.Process(SaturatingAddSub(opcode, cond));
             } else {
                 return client.Process(Undefined(cond));
             }
         } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1001) == 0b1000) {
-            if (model == CPUArch::ARMv5TE) {
+            if (arch == CPUArch::ARMv5TE) {
                 const uint8_t op = bit::extract<21, 2>(opcode);
                 switch (op) {
                 case 0b00:
@@ -451,7 +451,7 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
                 return client.Process(HalfwordAndSignedTransfer(opcode, cond));
             } else {
                 if (s && h) {
-                    if (model == CPUArch::ARMv5TE) {
+                    if (arch == CPUArch::ARMv5TE) {
                         if (bit12) {
                             return client.Process(Undefined(opcode, cond));
                         } else {
@@ -459,7 +459,7 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
                         }
                     }
                 } else if (s) {
-                    if (model == CPUArch::ARMv5TE) {
+                    if (arch == CPUArch::ARMv5TE) {
                         if (bit12) {
                             return client.Process(Undefined(opcode, cond));
                         } else {
@@ -497,11 +497,11 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
         break;
     case 0b100: return client.Process(BlockTransfer(opcode, cond));
     case 0b101: {
-        const bool switchToThumb = (model == CPUArch::ARMv5TE) && (cond == Condition::NV);
+        const bool switchToThumb = (arch == CPUArch::ARMv5TE) && (cond == Condition::NV);
         return client.Process(Branch(opcode, cond, switchToThumb));
     }
     case 0b110:
-        if (model == CPUArch::ARMv5TE) {
+        if (arch == CPUArch::ARMv5TE) {
             if ((bits24to20 & 0b1'1110) == 0b0'0100) {
                 return client.Process(CopDualRegTransfer(opcode, cond));
             }
