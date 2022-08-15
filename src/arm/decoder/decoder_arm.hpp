@@ -267,7 +267,7 @@ namespace detail {
 
     // SWI
     inline auto SoftwareInterrupt(uint32_t opcode, Condition cond) {
-        return instrs::SoftwareInterrupt{.cond = cond};
+        return instrs::SoftwareInterrupt{.cond = cond, .comment = bit::extract<0, 24>(opcode)};
     }
 
     // BKPT

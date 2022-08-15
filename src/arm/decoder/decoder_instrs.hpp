@@ -237,6 +237,7 @@ struct SingleDataSwap {
 // SWI
 struct SoftwareInterrupt {
     Condition cond;
+    uint32_t comment;
 };
 
 // BKPT

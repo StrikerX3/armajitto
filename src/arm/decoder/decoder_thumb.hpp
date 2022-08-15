@@ -251,6 +251,131 @@ namespace detail {
         }
     }
 
+    template <Client TClient>
+    Action LoadStoreByteWordImmOffset(TClient &client, uint16_t opcode) {
+        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+
+        instr.preindexed = true;
+        instr.byte = bit::test<12>(opcode);
+        instr.writeback = false;
+        instr.load = bit::test<11>(opcode);
+        instr.dstReg = bit::extract<0, 3>(opcode);
+        instr.offset.immediate = true;
+        instr.offset.positiveOffset = true;
+        instr.offset.baseReg = bit::extract<3, 3>(opcode);
+        instr.offset.immValue = bit::extract<6, 5>(opcode);
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action LoadStoreHalfImmOffset(TClient &client, uint16_t opcode) {
+        instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
+
+        instr.preindexed = true;
+        instr.positiveOffset = true;
+        instr.immediate = true;
+        instr.writeback = false;
+        instr.load = bit::test<11>(opcode);
+        instr.sign = false;
+        instr.half = true;
+        instr.dstReg = bit::extract<0, 3>(opcode);
+        instr.baseReg = bit::extract<3, 3>(opcode);
+        instr.offset.imm = bit::extract<6, 5>(opcode);
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action SPRelativeLoadStore(TClient &client, uint16_t opcode) {
+        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+
+        instr.preindexed = true;
+        instr.byte = false;
+        instr.writeback = false;
+        instr.load = bit::test<11>(opcode);
+        instr.dstReg = bit::extract<8, 3>(opcode);
+        instr.offset.immediate = true;
+        instr.offset.positiveOffset = true;
+        instr.offset.baseReg = 13;
+        instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action AddToSPOrPC(TClient &client, uint16_t opcode) {
+        instrs::DataProcessing instr{.cond = Condition::AL};
+
+        instr.opcode = instrs::DataProcessing::Opcode::ADD;
+        instr.immediate = true;
+        instr.setFlags = false;
+        instr.dstReg = bit::extract<8, 3>(opcode);
+        instr.lhsReg = bit::test<11>(opcode) ? 13 : 15;
+        instr.rhs.imm = bit::extract<0, 8>(opcode) * 4;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action AdjustSP(TClient &client, uint16_t opcode) {
+        instrs::DataProcessing instr{.cond = Condition::AL};
+
+        if (bit::test<7>(opcode)) {
+            instr.opcode = instrs::DataProcessing::Opcode::SUB;
+        } else {
+            instr.opcode = instrs::DataProcessing::Opcode::ADD;
+        }
+        instr.immediate = true;
+        instr.setFlags = false;
+        instr.dstReg = 13;
+        instr.lhsReg = 13;
+        instr.rhs.imm = bit::extract<0, 7>(opcode) * 4;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action PushPop(TClient &client, uint16_t opcode) {
+        instrs::BlockTransfer instr{.cond = Condition::AL};
+
+        //                   P U S W L   reg included by R bit
+        // PUSH = STMDB sp!  + - - + -   LR
+        // POP  = LDMIA sp!  - + - + +   PC
+        const bool l = bit::test<11>(opcode);
+        instr.preindexed = !l;
+        instr.positiveOffset = l;
+        instr.userMode = false;
+        instr.writeback = true;
+        instr.load = l;
+        instr.baseReg = 13;
+        instr.regList = bit::extract<0, 8>(opcode);
+        if (bit::test<8>(opcode)) {
+            if (l) {
+                instr.regList |= (1 << 15);
+            } else {
+                instr.regList |= (1 << 14);
+            }
+        }
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action SoftwareInterrupt(TClient &client) {
+        return client.Process(instrs::SoftwareInterrupt{.cond = Condition::AL, .comment = bit::extract<0, 8>(opcode)});
+    }
+
+    template <Client TClient>
+    Action SoftwareBreakpoint(TClient &client) {
+        return client.Process(instrs::SoftwareBreakpoint{.cond = Condition::AL});
+    }
+
+    template <Client TClient>
+    Action Undefined(TClient &client) {
+        return client.Process(instrs::Undefined{.cond = Condition::AL});
+    }
+
 } // namespace detail
 
 template <Client TClient>
@@ -262,14 +387,14 @@ Action DecodeThumb(TClient &client, uint32_t address) {
 
     const uint8_t group = bit::extract<12, 4>(opcode);
     switch (group) {
-    case 0b0000:
+    case 0b0000: // fallthrough
     case 0b0001:
         if (bit::extract<11, 2>(opcode) == 0b11) {
             return AddSubRegImm(client, opcode);
         } else {
             return ShiftByImm(client, opcode);
         }
-    case 0b0010:
+    case 0b0010: // fallthrough
     case 0b0011: return MovCmpAddSubImm(client, opcode);
     case 0b0100:
         switch (bit::extract<10, 2>(opcode)) {
@@ -284,39 +409,25 @@ Action DecodeThumb(TClient &client, uint32_t address) {
         default: return PCRelativeLoad(client, opcode);
         }
     case 0b0101: return LoadStoreRegOffset(client, opcode);
-    case 0b0110:
-    case 0b0111: {
-        const bool b = (opcode >> 12) & 1;
-        const bool l = (opcode >> 11) & 1;
-        return b ? (l ? LDRBImmOffset(opcode) : STRBImmOffset(opcode))
-                 : (l ? LDRImmOffset(opcode) : STRImmOffset(opcode));
-    }
-    case 0b1000: {
-        const bool l = (opcode >> 11) & 1;
-        return l ? LDRHImmOffset(opcode) : STRHImmOffset(opcode);
-    }
-    case 0b1001: {
-        const bool l = (opcode >> 11) & 1;
-        return l ? LDRSPRel(opcode) : STRSPRel(opcode);
-    }
-    case 0b1010: {
-        const bool sp = (opcode >> 11) & 1;
-        return sp ? ADDSP(opcode) : ADDPC(opcode);
-    }
+    case 0b0110: // fallthrough
+    case 0b0111: return LoadStoreByteWordImmOffset(client, opcode);
+    case 0b1000: return LoadStoreHalfImmOffset(client, opcode);
+    case 0b1001: return SPRelativeLoadStore(client, opcode);
+    case 0b1010: return AddToSPOrPC(client, opcode);
     case 0b1011:
-        if (((opcode >> 8) & 0b1111) == 0b0000) {
-            return ADDSUBSP(opcode);
-        } else if (((opcode >> 8) & 0b1111) == 0b1110) {
+        switch (bit::extract<8, 4>(opcode)) {
+        case 0b0000: return AdjustSP(client, opcode);
+        case 0b1110:
             if (arch == CPUArch::ARMv5TE) {
-                return BKPT(opcode);
+                return SoftwareBreakpoint(client, opcode);
             } else {
-                return UDF(opcode);
+                return Undefined(client);
             }
-        } else if (((opcode >> 8) & 0b0110) == 0b0100) {
-            const bool l = (opcode >> 11) & 1;
-            return l ? POP(opcode) : PUSH(opcode);
-        } else {
-            return UDF(opcode);
+        case 0b0100: // fallthrough
+        case 0b0101: // fallthrough
+        case 0b1100: // fallthrough
+        case 0b1101: return PushPop(client, opcode);
+        default: return Undefined(client);
         }
     case 0b1100: {
         const bool l = (opcode >> 11) & 1;
@@ -324,18 +435,18 @@ Action DecodeThumb(TClient &client, uint32_t address) {
     }
     case 0b1101:
         if (((opcode >> 8) & 0b1111) == 0b1111) {
-            return SWI(opcode);
+            return SoftwareInterrupt(client, opcode);
         } else if (((opcode >> 8) & 0b1111) == 0b1110) {
-            return UDF(opcode);
+            return Undefined(client);
         } else {
             return BCond(opcode);
         }
     case 0b1110: {
         if (arch == CPUArch::ARMv5TE) {
-            const bool blx = (opcode >> 11) & 1;
+            const bool blx = bit::test<11>(opcode);
             if (blx) {
-                if (opcode & 1) {
-                    return UDF(opcode);
+                if (bit::test<0>(opcode)) {
+                    return Undefined(client);
                 } else {
                     // BLX suffix
                     const uint32_t suffixOffset = (opcode & 0x7FF);
