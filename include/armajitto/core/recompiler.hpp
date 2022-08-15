@@ -1,20 +1,22 @@
 #pragma once
 
-#include "armajitto/arm/state.hpp"
+#include "armajitto/defs/arm/state.hpp"
+#include "context.hpp"
 #include "specification.hpp"
 
 #include <memory>
 
 namespace armajitto {
 
-class Context;
-
 class Recompiler {
 public:
-    Recompiler(const Specification &spec);
-    ~Recompiler();
+    Recompiler(const Specification &spec)
+        : m_spec(spec)
+        , m_context(spec.arch, spec.system) {}
 
-    arm::State &GetARMState();
+    arm::State &GetARMState() {
+        return m_context.GetARMState();
+    }
 
     CPUArch GetCPUArch() const {
         return m_spec.arch;
@@ -28,7 +30,7 @@ public:
 
 private:
     Specification m_spec;
-    std::unique_ptr<Context> m_context;
+    Context m_context;
 };
 
 } // namespace armajitto

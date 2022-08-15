@@ -1,6 +1,5 @@
-#include <armajitto/arm/decoder.hpp>
 #include <armajitto/armajitto.hpp>
-#include <armajitto/core/ir/emitter.hpp>
+#include <armajitto/ir/translator.hpp>
 
 #include <array>
 #include <cstdio>
@@ -124,46 +123,25 @@ void testBasic() {
     */
 }
 
-void testDecoder() {
+void testTranslator() {
     System sys{};
 
     sys.ROMWriteWord(0x0100, 0xE3A00012); // mov r0, #0x12
     sys.ROMWriteWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
     sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
 
-    struct CodeAccessor {
-        CodeAccessor(System &sys)
-            : sys{sys} {}
+    armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
+    armajitto::BasicBlock block{};
 
-        uint16_t CodeReadHalf(uint32_t address) {
-            return sys.MemReadHalf(address);
-        }
-        uint32_t CodeReadWord(uint32_t address) {
-            return sys.MemReadWord(address);
-        }
-
-        System &sys;
-    } mem{sys};
-
-    armajitto::ir::Emitter emitter{};
-    for (uint32_t addr = 0x100; addr <= 0x108; addr += 4) {
-        auto action = armajitto::DecodeARM(emitter, mem, armajitto::CPUArch::ARMv5TE, addr);
-        switch (action) {
-        case armajitto::DecoderAction::Continue: printf("cont\n"); break;
-        case armajitto::DecoderAction::Split: printf("split\n"); break;
-        case armajitto::DecoderAction::End: printf("end\n"); break;
-        case armajitto::DecoderAction::UnmappedInstruction: printf("unmapped\n"); break;
-        case armajitto::DecoderAction::Unimplemented: printf("unimpl\n"); break;
-        }
-    }
-    emitter.Process(armajitto::arm::instrs::SoftwareBreakpoint{.cond = armajitto::arm::Condition::AL});
+    armajitto::ir::Translator translator{context};
+    translator.TranslateARM(0x0100, block);
 }
 
 int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
     // testBasic();
-    testDecoder();
+    testTranslator();
 
     return EXIT_SUCCESS;
 }

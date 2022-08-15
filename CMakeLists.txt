@@ -20,50 +20,50 @@ endif ()
 ## Create the main armajitto library target
 add_library(armajitto
     include/armajitto/armajitto.hpp
-    include/armajitto/arm/decoder.hpp
-    include/armajitto/arm/mode.hpp
-    include/armajitto/arm/psr.hpp
-    include/armajitto/arm/state.hpp
-    include/armajitto/arm/decoder/decoder_arm.hpp
-    include/armajitto/arm/decoder/decoder_client.hpp
-    include/armajitto/arm/decoder/decoder_common.hpp
-    include/armajitto/arm/decoder/decoder_instrs.hpp
-    include/armajitto/arm/decoder/decoder_thumb.hpp
+    include/armajitto/backend/x86_64/cpuid.hpp
+    include/armajitto/core/context.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
-    include/armajitto/core/ir/emitter.hpp
-    include/armajitto/core/ir/variable.hpp
-    include/armajitto/core/ir/defs/arg_refs.hpp
-    include/armajitto/core/ir/defs/memory_access.hpp
-    include/armajitto/core/ir/defs/opcode_types.hpp
-    include/armajitto/core/ir/ops/ir_alu_ops.hpp
-    include/armajitto/core/ir/ops/ir_branch_ops.hpp
-    include/armajitto/core/ir/ops/ir_cop_ops.hpp
-    include/armajitto/core/ir/ops/ir_cycle_ops.hpp
-    include/armajitto/core/ir/ops/ir_flag_ops.hpp
-    include/armajitto/core/ir/ops/ir_mem_ops.hpp
-    include/armajitto/core/ir/ops/ir_ops.hpp
-    include/armajitto/core/ir/ops/ir_ops_base.hpp
-    include/armajitto/core/ir/ops/ir_reg_ops.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/defs/arm/mode.hpp
+    include/armajitto/defs/arm/instructions.hpp
+    include/armajitto/defs/arm/psr.hpp
+    include/armajitto/defs/arm/state.hpp
+    include/armajitto/ir/emitter.hpp
+    include/armajitto/ir/optimizer.hpp
+    include/armajitto/ir/translator.hpp
+    include/armajitto/ir/defs/arg_refs.hpp
+    include/armajitto/ir/defs/basic_block.hpp
+    include/armajitto/ir/defs/memory_access.hpp
+    include/armajitto/ir/defs/opcode_types.hpp
+    include/armajitto/ir/defs/variable.hpp
+    include/armajitto/ir/ops/ir_alu_ops.hpp
+    include/armajitto/ir/ops/ir_branch_ops.hpp
+    include/armajitto/ir/ops/ir_cop_ops.hpp
+    include/armajitto/ir/ops/ir_cycle_ops.hpp
+    include/armajitto/ir/ops/ir_flag_ops.hpp
+    include/armajitto/ir/ops/ir_mem_ops.hpp
+    include/armajitto/ir/ops/ir_ops.hpp
+    include/armajitto/ir/ops/ir_ops_base.hpp
+    include/armajitto/ir/ops/ir_reg_ops.hpp
     include/armajitto/util/bit_ops.hpp
-    src/test.cpp
-    src/abi/x86_64/cpuid.cpp
-    src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
-    src/core/context.hpp
+    src/backend/x86_64/cpuid.cpp
     src/core/recompiler.cpp
-    src/core/ir/emitter.cpp
-    src/core/ir/defs/arg_refs.cpp
-    src/core/ir/ops/ir_alu_ops.cpp
-    src/core/ir/ops/ir_branch_ops.cpp
-    src/core/ir/ops/ir_cop_ops.cpp
-    src/core/ir/ops/ir_cycle_ops.cpp
-    src/core/ir/ops/ir_flag_ops.cpp
-    src/core/ir/ops/ir_mem_ops.cpp
-    src/core/ir/ops/ir_reg_ops.cpp
+    src/ir/emitter.cpp
+    src/ir/defs/arg_refs.cpp
+    src/ir/ops/ir_alu_ops.cpp
+    src/ir/ops/ir_branch_ops.cpp
+    src/ir/ops/ir_cop_ops.cpp
+    src/ir/ops/ir_cycle_ops.cpp
+    src/ir/ops/ir_flag_ops.cpp
+    src/ir/ops/ir_mem_ops.cpp
+    src/ir/ops/ir_reg_ops.cpp
+    src/ir/translator/decode_arm.hpp
+    src/ir/translator/decode_thumb.hpp
+    src/ir/translator/translator.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
