@@ -20,13 +20,11 @@ namespace armajitto::ir {
 // Signed reads use sign-extension. Other reads use zero-extension.
 // Unaligned halfword and word reads may force-align or rotate the word, depending on the CPU architecture.
 struct IRMemReadOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::MemRead;
+    static constexpr auto kOpcodeType = IROpcodeType::MemRead;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     MemAccessMode mode;
     MemAccessSize size;
@@ -39,13 +37,11 @@ struct IRMemReadOp : public IROpBase {
 //
 // Writes a byte, halfword or word from src into memory at address.
 struct IRMemWriteOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::MemWrite;
+    static constexpr auto kOpcodeType = IROpcodeType::MemWrite;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     MemAccessSize size;
     VarOrImmArg src;

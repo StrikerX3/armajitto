@@ -15,13 +15,11 @@ namespace armajitto::ir {
 // Computes the number of cycles for the specified memory access and adds it to the current cycle count.
 // This assumes only a single bus is available for memory accesses, as seen in ARMv4T CPUs such as ARM7TDMI.
 struct IRAddSingleBusMemCyclesOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::AddSingleBusMemCycles;
+    static constexpr auto kOpcodeType = IROpcodeType::AddSingleBusMemCycles;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     MemAccessType type;
     MemAccessBus bus;
@@ -35,13 +33,11 @@ struct IRAddSingleBusMemCyclesOp : public IROpBase {
 //
 // Computes the number of cycles for the specified multiplication operation and adds it to the current cycle count.
 struct IRAddMulCyclesOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::AddMulCycles;
+    static constexpr auto kOpcodeType = IROpcodeType::AddMulCycles;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     bool sign;
     VarOrImmArg address;
@@ -68,13 +64,11 @@ struct IRAddMulCyclesOp : public IROpBase {
 //    <data cycle> is either {D}ata or {F}ixed
 //
 struct IRAddDualBusCyclesOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::AddDualBusCycles;
+    static constexpr auto kOpcodeType = IROpcodeType::AddDualBusCycles;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     struct Params {
         bool fixed;

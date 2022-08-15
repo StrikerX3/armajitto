@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRLogicalShiftLeftOp::ToString() const {
+/*std::string IRLogicalShiftLeftOp::ToString() const {
     // TODO: implement
     return "lsl";
 }
@@ -110,6 +110,6 @@ std::string IRMultiplyOp::ToString() const {
 std::string IRAddLongOp::ToString() const {
     // TODO: implement
     return "addl";
-}
+}*/
 
 } // namespace armajitto::ir

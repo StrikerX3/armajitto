@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRLoadGPROp::ToString() const {
+/*std::string IRLoadGPROp::ToString() const {
     // TODO: implement
     return "ld.gpr";
 }
@@ -20,6 +20,6 @@ std::string IRLoadPSROp::ToString() const {
 std::string IRStorePSROp::ToString() const {
     // TODO: implement
     return "st.psr";
-}
+}*/
 
 } // namespace armajitto::ir

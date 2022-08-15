@@ -10,13 +10,11 @@ namespace armajitto::ir {
 //
 // Copies the value of the <src> GPR into <dst>.
 struct IRLoadGPROp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::LoadGPR;
+    static constexpr auto kOpcodeType = IROpcodeType::LoadGPR;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     GPRArg src;
     VariableArg dst;
@@ -27,13 +25,11 @@ struct IRLoadGPROp : public IROpBase {
 //
 // Copies the value of <src> into the <dst> GPR.
 struct IRStoreGPROp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::StoreGPR;
+    static constexpr auto kOpcodeType = IROpcodeType::StoreGPR;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     VarOrImmArg src;
     GPRArg dst;
@@ -44,13 +40,11 @@ struct IRStoreGPROp : public IROpBase {
 //
 // Copies the value of the <src> PSR into <dst>.
 struct IRLoadPSROp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::LoadPSR;
+    static constexpr auto kOpcodeType = IROpcodeType::LoadPSR;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     PSRArg src;
     VariableArg dst;
@@ -61,13 +55,11 @@ struct IRLoadPSROp : public IROpBase {
 //
 // Copies the value of <src> into the <dst> PSR.
 struct IRStorePSROp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::StorePSR;
+    static constexpr auto kOpcodeType = IROpcodeType::StorePSR;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     VarOrImmArg src;
     PSRArg dst;

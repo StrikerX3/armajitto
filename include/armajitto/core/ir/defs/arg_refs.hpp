@@ -1,33 +1,36 @@
 #pragma once
 
+#include "armajitto/core/ir/variable.hpp"
+
 #include <cstdint>
-#include <string>
 
 namespace armajitto::ir {
 
 struct GPRArg {
     uint8_t gpr : 4;
     bool userMode;
-
-    std::string ToString() const;
 };
 
 struct PSRArg {
     bool spsr;
-
-    std::string ToString() const;
 };
 
 struct VariableArg {
-    // TODO: variable "name"
+    uint32_t varIndex;
 
-    std::string ToString() const;
+    VariableArg &operator=(const Variable &var) {
+        varIndex = var.index;
+        return *this;
+    }
 };
 
 struct ImmediateArg {
     uint32_t value;
 
-    std::string ToString() const;
+    ImmediateArg &operator=(uint32_t imm) {
+        value = imm;
+        return *this;
+    }
 };
 
 struct VarOrImmArg {
@@ -37,7 +40,17 @@ struct VarOrImmArg {
         ImmediateArg imm;
     } arg;
 
-    std::string ToString() const;
+    VarOrImmArg &operator=(const Variable &var) {
+        immediate = false;
+        arg.var = var;
+        return *this;
+    }
+
+    VarOrImmArg &operator=(uint32_t imm) {
+        immediate = true;
+        arg.imm = imm;
+        return *this;
+    }
 };
 
 } // namespace armajitto::ir

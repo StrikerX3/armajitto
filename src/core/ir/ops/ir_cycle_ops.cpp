@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRAddSingleBusMemCyclesOp::ToString() const {
+/*std::string IRAddSingleBusMemCyclesOp::ToString() const {
     // TODO: implement
     return "cycles.s";
 }
@@ -15,6 +15,6 @@ std::string IRAddMulCyclesOp::ToString() const {
 std::string IRAddDualBusCyclesOp::ToString() const {
     // TODO: implement
     return "cycles.d";
-}
+}*/
 
 } // namespace armajitto::ir

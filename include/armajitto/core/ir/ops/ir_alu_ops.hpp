@@ -62,13 +62,11 @@ namespace detail {
 // Shifts bits in <value> left by <amount>, shifting in zeros, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase {
-    static constexpr auto opcodeType = IROpcodeType::LogicalShiftLeft;
+    static constexpr auto kOpcodeType = IROpcodeType::LogicalShiftLeft;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Logical shift right
@@ -77,13 +75,11 @@ struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase {
 // Shifts bits in value <right> by <amount>, shifting in zeros, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRLogicalShiftRightOp : public detail::IRShiftOpBase {
-    static constexpr auto opcodeType = IROpcodeType::LogicalShiftRight;
+    static constexpr auto kOpcodeType = IROpcodeType::LogicalShiftRight;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Arithmetic shift right
@@ -92,13 +88,11 @@ struct IRLogicalShiftRightOp : public detail::IRShiftOpBase {
 // Shifts bits in <value> right by <amount>, shifting in the sign bit of <value>, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase {
-    static constexpr auto opcodeType = IROpcodeType::ArithmeticShiftRight;
+    static constexpr auto kOpcodeType = IROpcodeType::ArithmeticShiftRight;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Rotate right
@@ -107,13 +101,11 @@ struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase {
 // Rotates bits in <value> right by <amount> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRRotateRightOp : public detail::IRShiftOpBase {
-    static constexpr auto opcodeType = IROpcodeType::RotateRight;
+    static constexpr auto kOpcodeType = IROpcodeType::RotateRight;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Rotate right extend
@@ -122,13 +114,11 @@ struct IRRotateRightOp : public detail::IRShiftOpBase {
 // Rotates bits in <value> right by one, shifting in the carry flag, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRRotateRightExtendOp : public detail::IRShiftOpBase {
-    static constexpr auto opcodeType = IROpcodeType::RotateRightExtend;
+    static constexpr auto kOpcodeType = IROpcodeType::RotateRightExtend;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Bitwise AND
@@ -138,13 +128,11 @@ struct IRRotateRightExtendOp : public detail::IRShiftOpBase {
 // The TST operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitwiseAndOp : public detail::IRComparisonOpBase {
-    static constexpr auto opcodeType = IROpcodeType::BitwiseAnd;
+    static constexpr auto kOpcodeType = IROpcodeType::BitwiseAnd;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Bitwise XOR
@@ -154,13 +142,11 @@ struct IRBitwiseAndOp : public detail::IRComparisonOpBase {
 // The TEQ operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitwiseXorOp : public detail::IRComparisonOpBase {
-    static constexpr auto opcodeType = IROpcodeType::BitwiseXor;
+    static constexpr auto kOpcodeType = IROpcodeType::BitwiseXor;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Subtract
@@ -170,13 +156,11 @@ struct IRBitwiseXorOp : public detail::IRComparisonOpBase {
 // The CMP operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRSubtractOp : public detail::IRComparisonOpBase {
-    static constexpr auto opcodeType = IROpcodeType::Subtract;
+    static constexpr auto kOpcodeType = IROpcodeType::Subtract;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Reverse subtract
@@ -185,13 +169,11 @@ struct IRSubtractOp : public detail::IRComparisonOpBase {
 // Computes <rhs> - <lhs> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRReverseSubtractOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::ReverseSubtract;
+    static constexpr auto kOpcodeType = IROpcodeType::ReverseSubtract;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Add
@@ -201,13 +183,11 @@ struct IRReverseSubtractOp : public detail::IRBinaryOpBase {
 // The CMN operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRAddOp : public detail::IRComparisonOpBase {
-    static constexpr auto opcodeType = IROpcodeType::Add;
+    static constexpr auto kOpcodeType = IROpcodeType::Add;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Add with carry
@@ -216,13 +196,11 @@ struct IRAddOp : public detail::IRComparisonOpBase {
 // Computes <lhs> + <rhs> + (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRAddCarryOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::AddCarry;
+    static constexpr auto kOpcodeType = IROpcodeType::AddCarry;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Subtract with carry
@@ -231,13 +209,11 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase {
 // Computes <lhs> - <rhs> - (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRSubtractCarryOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::SubtractCarry;
+    static constexpr auto kOpcodeType = IROpcodeType::SubtractCarry;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Reverse subtract with carry
@@ -246,13 +222,11 @@ struct IRSubtractCarryOp : public detail::IRBinaryOpBase {
 // Computes <rhs> - <lhs> - (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::ReverseSubtractCarry;
+    static constexpr auto kOpcodeType = IROpcodeType::ReverseSubtractCarry;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Bitwise OR
@@ -261,13 +235,11 @@ struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase {
 // Computes <lhs> OR <rhs> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitwiseOrOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::BitwiseOr;
+    static constexpr auto kOpcodeType = IROpcodeType::BitwiseOr;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Move
@@ -276,13 +248,11 @@ struct IRBitwiseOrOp : public detail::IRBinaryOpBase {
 // Copies <value> into <dst>.
 // Updates host flags if [s] is specified.
 struct IRMoveOp : public detail::IRUnaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::Move;
+    static constexpr auto kOpcodeType = IROpcodeType::Move;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Bit clear
@@ -291,13 +261,11 @@ struct IRMoveOp : public detail::IRUnaryOpBase {
 // Clears the bits set in <rhs> from <lhs> and stores the result into <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitClearOp : public detail::IRBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::BitClear;
+    static constexpr auto kOpcodeType = IROpcodeType::BitClear;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Move negated
@@ -306,13 +274,11 @@ struct IRBitClearOp : public detail::IRBinaryOpBase {
 // Copies <value> negated into <dst>.
 // Updates host flags if [s] is specified.
 struct IRMoveNegatedOp : public detail::IRUnaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::MoveNegated;
+    static constexpr auto kOpcodeType = IROpcodeType::MoveNegated;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Count leading zeros
@@ -321,13 +287,11 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase {
 // Counts 0 bits from the least significant bit until the first 1 in <value> and stores the result in <dst>.
 // Stores 32 if <value> is zero.
 struct IRCountLeadingZerosOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::CountLeadingZeros;
+    static constexpr auto kOpcodeType = IROpcodeType::CountLeadingZeros;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     VariableArg dst;
     VarOrImmArg value;
@@ -340,13 +304,11 @@ struct IRCountLeadingZerosOp : public IROpBase {
 // <rhs> is doubled before the addition if [d] is specified.
 // Updates the Q host flag if the doubling operation or the addition saturates.
 struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::SaturatingAdd;
+    static constexpr auto kOpcodeType = IROpcodeType::SaturatingAdd;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Saturating subtract
@@ -356,13 +318,11 @@ struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase {
 // <rhs> is doubled before the subtraction if [d] is specified.
 // Updates the Q host flag if the doubling operation or the subtraction saturates.
 struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase {
-    static constexpr auto opcodeType = IROpcodeType::SaturatingSubtract;
+    static constexpr auto kOpcodeType = IROpcodeType::SaturatingSubtract;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 };
 
 // Multiply
@@ -372,13 +332,11 @@ struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase {
 // Stores the most significant word of the result in <dstHi> if present.
 // Updates host flags is [s] is specified.
 struct IRMultiplyOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::Multiply;
+    static constexpr auto kOpcodeType = IROpcodeType::Multiply;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     VariableArg dstLo;
     std::optional<VariableArg> dstHi;
@@ -393,13 +351,11 @@ struct IRMultiplyOp : public IROpBase {
 // Adds the 64 bit values <lhsLo>:<lhsHi> + <rhsLo>:<rhsHi> and stores the result in <dstLo>:<dstHi>.
 // Updates host flags if [s] is specified.
 struct IRAddLongOp : public IROpBase {
-    static constexpr auto opcodeType = IROpcodeType::AddLong;
+    static constexpr auto kOpcodeType = IROpcodeType::AddLong;
 
     IROpcodeType GetOpcodeType() const final {
-        return opcodeType;
+        return kOpcodeType;
     }
-
-    std::string ToString() const final;
 
     VariableArg dstLo;
     VariableArg dstHi;

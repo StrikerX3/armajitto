@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string GPRArg::ToString() const {
+/*std::string GPRArg::ToString() const {
     static constexpr const char *names[] = {"r0", "r1", "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
                                             "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
     static constexpr const char *userModeNames[] = {"r0_usr",  "r1_usr",  "r2_usr",  "r3_usr", "r4_usr",  "r5_usr",
@@ -34,6 +34,6 @@ std::string VarOrImmArg::ToString() const {
     } else {
         return std::string("var:") + arg.var.ToString();
     }
-}
+}*/
 
 } // namespace armajitto::ir

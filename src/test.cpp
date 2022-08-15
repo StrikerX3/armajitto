@@ -157,10 +157,6 @@ void testDecoder() {
         }
     }
     emitter.Process(armajitto::arm::instrs::SoftwareBreakpoint{.cond = armajitto::arm::Condition::AL});
-    for (auto *op : emitter.GetBlock()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
 }
 
 int main() {

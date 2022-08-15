@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRMemReadOp::ToString() const {
+/*std::string IRMemReadOp::ToString() const {
     // TODO: implement
     return "ld.mem";
 }
@@ -10,6 +10,6 @@ std::string IRMemReadOp::ToString() const {
 std::string IRMemWriteOp::ToString() const {
     // TODO: implement
     return "st.mem";
-}
+}*/
 
 } // namespace armajitto::ir

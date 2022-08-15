@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRStoreFlagsOp::ToString() const {
+/*std::string IRStoreFlagsOp::ToString() const {
     // TODO: implement
     return "sflg.nzcvq";
 }
@@ -15,6 +15,6 @@ std::string IRUpdateFlagsOp::ToString() const {
 std::string IRUpdateStickyOverflowOp::ToString() const {
     // TODO: implement
     return "uflg.q";
-}
+}*/
 
 } // namespace armajitto::ir

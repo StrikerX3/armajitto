@@ -33,6 +33,7 @@ add_library(armajitto
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/core/ir/emitter.hpp
+    include/armajitto/core/ir/variable.hpp
     include/armajitto/core/ir/defs/arg_refs.hpp
     include/armajitto/core/ir/defs/memory_access.hpp
     include/armajitto/core/ir/defs/opcode_types.hpp

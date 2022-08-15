@@ -7,7 +7,6 @@ namespace armajitto::ir {
 // Base type for all IR opcodes.
 struct IROpBase {
     virtual IROpcodeType GetOpcodeType() const = 0;
-    virtual std::string ToString() const = 0;
 };
 
 } // namespace armajitto::ir

@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRLoadCopRegisterOp::ToString() const {
+/*std::string IRLoadCopRegisterOp::ToString() const {
     // TODO: implement
     return "mrc";
 }
@@ -10,6 +10,6 @@ std::string IRLoadCopRegisterOp::ToString() const {
 std::string IRStoreCopRegisterOp::ToString() const {
     // TODO: implement
     return "mcr";
-}
+}*/
 
 } // namespace armajitto::ir

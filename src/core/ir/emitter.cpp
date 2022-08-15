@@ -6,13 +6,13 @@ using namespace armajitto::arm::instrs;
 namespace armajitto::ir {
 
 DecoderAction Emitter::Process(const Branch &instr) {
+    auto &srcCPSR = CreateVariable("src_cpsr");
+    auto &dstPC = CreateVariable("dst_pc");
     auto *op = new IRBranchOp();
-    op->address.immediate = true;
-    op->address.arg.imm.value = instr.offset;
-    // op->dstPC;
-    op->srcCPSR.immediate = false;
-    // op->srcCPSR.arg.var;
-    m_block.push_back(op);
+    op->dstPC = dstPC;
+    op->srcCPSR = srcCPSR;
+    op->address = instr.offset;
+    ops.push_back(op);
 
     // TODO: implement
     return DecoderAction::End;

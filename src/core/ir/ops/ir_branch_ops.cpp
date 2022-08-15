@@ -2,7 +2,7 @@
 
 namespace armajitto::ir {
 
-std::string IRBranchOp::ToString() const {
+/*std::string IRBranchOp::ToString() const {
     // TODO: implement
     return "b";
 }
@@ -10,6 +10,6 @@ std::string IRBranchOp::ToString() const {
 std::string IRBranchExchangeOp::ToString() const {
     // TODO: implement
     return "bx";
-}
+}*/
 
 } // namespace armajitto::ir
