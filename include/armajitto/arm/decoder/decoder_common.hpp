@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace armajitto::arm::decoder {
+namespace armajitto::arm {
 
 enum class Condition : uint8_t { EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV };
 enum class ShiftType : uint8_t { LSL, LSR, ASR, ROR };
@@ -29,4 +29,4 @@ struct AddressingOffset {
     };
 };
 
-} // namespace armajitto::arm::decoder
+} // namespace armajitto::arm

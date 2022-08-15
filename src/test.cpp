@@ -1,4 +1,5 @@
 #include <armajitto/armajitto.hpp>
+#include <armajitto/core/ir/emitter.hpp>
 
 #include <array>
 #include <cstdio>
@@ -122,10 +123,16 @@ void testBasic() {
     */
 }
 
+void testEmitter() {
+    armajitto::ir::Emitter emitter{};
+    emitter.Process(armajitto::arm::instrs::SoftwareBreakpoint{.cond = armajitto::arm::Condition::AL});
+}
+
 int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
     testBasic();
+    testEmitter();
 
     return EXIT_SUCCESS;
 }

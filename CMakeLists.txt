@@ -20,26 +20,29 @@ endif ()
 ## Create the main armajitto library target
 add_library(armajitto 
     include/armajitto/armajitto.hpp
+    include/armajitto/arm/decoder.hpp
     include/armajitto/arm/mode.hpp
     include/armajitto/arm/psr.hpp
     include/armajitto/arm/state.hpp
+    include/armajitto/arm/decoder/decoder_arm.hpp
+    include/armajitto/arm/decoder/decoder_client.hpp
+    include/armajitto/arm/decoder/decoder_common.hpp
+    include/armajitto/arm/decoder/decoder_instrs.hpp
+    include/armajitto/arm/decoder/decoder_thumb.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
+    include/armajitto/core/ir/emitter.hpp
+    include/armajitto/core/ir/opcodes.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/util/bit_ops.hpp
     src/abi/x86_64/cpuid.cpp
     src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
-    src/arm/decoder.hpp
-    src/arm/decoder/decoder_arm.hpp
-    src/arm/decoder/decoder_client.hpp
-    src/arm/decoder/decoder_common.hpp
-    src/arm/decoder/decoder_instrs.hpp
-    src/arm/decoder/decoder_thumb.hpp
     src/core/context.hpp
     src/core/recompiler.cpp
-    src/util/bit_ops.hpp
+    src/core/ir/emitter.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES

@@ -2,7 +2,7 @@
 
 #include "decoder_common.hpp"
 
-namespace armajitto::arm::decoder::instrs {
+namespace armajitto::arm::instrs {
 
 // B,BL
 // link  opcode
@@ -322,4 +322,4 @@ struct Undefined {
     Condition cond;
 };
 
-} // namespace armajitto::arm::decoder::instrs
+} // namespace armajitto::arm::instrs

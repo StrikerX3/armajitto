@@ -1,12 +1,12 @@
 #pragma once
 
+#include "armajitto/util/bit_ops.hpp"
 #include "decoder_client.hpp"
-#include "util/bit_ops.hpp"
 
-namespace armajitto::arm::decoder {
+namespace armajitto::arm {
 
 namespace detail {
-    auto SimpleRegShift(uint8_t reg) {
+    inline auto SimpleRegShift(uint8_t reg) {
         RegisterSpecifiedShift shift{};
         shift.type = ShiftType::LSL;
         shift.immediate = true;
@@ -15,7 +15,7 @@ namespace detail {
         return shift;
     }
 
-    auto ShiftByImm(uint16_t opcode) {
+    inline auto ShiftByImm(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         instr.opcode = instrs::DataProcessing::Opcode::MOV;
@@ -38,7 +38,7 @@ namespace detail {
         return instr;
     }
 
-    auto AddSubRegImm(uint16_t opcode) {
+    inline auto AddSubRegImm(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         if (bit::test<9>(opcode)) {
@@ -59,7 +59,7 @@ namespace detail {
         return instr;
     }
 
-    auto MovCmpAddSubImm(uint16_t opcode) {
+    inline auto MovCmpAddSubImm(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         switch (bit::extract<11, 2>(opcode)) {
@@ -77,7 +77,7 @@ namespace detail {
         return instr;
     }
 
-    auto DataProcessingStandard(uint16_t opcode, instrs::DataProcessing::Opcode dpOpcode) {
+    inline auto DataProcessingStandard(uint16_t opcode, instrs::DataProcessing::Opcode dpOpcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         instr.opcode = dpOpcode;
@@ -90,7 +90,7 @@ namespace detail {
         return instr;
     }
 
-    auto DataProcessingShift(uint16_t opcode, ShiftType shiftType) {
+    inline auto DataProcessingShift(uint16_t opcode, ShiftType shiftType) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         instr.opcode = instrs::DataProcessing::Opcode::MOV;
@@ -106,7 +106,7 @@ namespace detail {
         return instr;
     }
 
-    auto DataProcessingNegate(uint16_t opcode) {
+    inline auto DataProcessingNegate(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         instr.opcode = instrs::DataProcessing::Opcode::RSB;
@@ -119,7 +119,7 @@ namespace detail {
         return instr;
     }
 
-    auto DataProcessingMultiply(uint16_t opcode) {
+    inline auto DataProcessingMultiply(uint16_t opcode) {
         instrs::MultiplyAccumulate instr{.cond = Condition::AL};
 
         instr.dstReg = bit::extract<0, 3>(opcode);
@@ -132,7 +132,7 @@ namespace detail {
         return instr;
     }
 
-    auto HiRegOps(uint16_t opcode) {
+    inline auto HiRegOps(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         const uint8_t h1 = bit::extract<7>(opcode);
@@ -151,7 +151,7 @@ namespace detail {
         return instr;
     }
 
-    auto HiRegBranchExchange(uint16_t opcode, bool link) {
+    inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
         instrs::BranchAndExchange instr{.cond = Condition::AL};
 
         const uint8_t h2 = bit::extract<6>(opcode);
@@ -161,7 +161,7 @@ namespace detail {
         return instr;
     }
 
-    auto PCRelativeLoad(uint16_t opcode) {
+    inline auto PCRelativeLoad(uint16_t opcode) {
         instrs::SingleDataTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -177,7 +177,7 @@ namespace detail {
         return instr;
     }
 
-    auto LoadStoreByteWordRegOffset(uint16_t opcode) {
+    inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
         instrs::SingleDataTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -193,7 +193,7 @@ namespace detail {
         return instr;
     }
 
-    auto LoadStoreHalfRegOffset(uint16_t opcode) {
+    inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
         instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -218,7 +218,7 @@ namespace detail {
         return instr;
     }
 
-    auto LoadStoreByteWordImmOffset(uint16_t opcode) {
+    inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
         instrs::SingleDataTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -234,7 +234,7 @@ namespace detail {
         return instr;
     }
 
-    auto LoadStoreHalfImmOffset(uint16_t opcode) {
+    inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
         instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -251,7 +251,7 @@ namespace detail {
         return instr;
     }
 
-    auto SPRelativeLoadStore(uint16_t opcode) {
+    inline auto SPRelativeLoadStore(uint16_t opcode) {
         instrs::SingleDataTransfer instr{.cond = Condition::AL};
 
         instr.preindexed = true;
@@ -267,7 +267,7 @@ namespace detail {
         return instr;
     }
 
-    auto AddToSPOrPC(uint16_t opcode) {
+    inline auto AddToSPOrPC(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         instr.opcode = instrs::DataProcessing::Opcode::ADD;
@@ -280,7 +280,7 @@ namespace detail {
         return instr;
     }
 
-    auto AdjustSP(uint16_t opcode) {
+    inline auto AdjustSP(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         if (bit::test<7>(opcode)) {
@@ -297,7 +297,7 @@ namespace detail {
         return instr;
     }
 
-    auto PushPop(uint16_t opcode) {
+    inline auto PushPop(uint16_t opcode) {
         instrs::BlockTransfer instr{.cond = Condition::AL};
 
         //                   P U S W L   reg included by R bit
@@ -322,7 +322,7 @@ namespace detail {
         return instr;
     }
 
-    auto LoadStoreMultiple(uint16_t opcode) {
+    inline auto LoadStoreMultiple(uint16_t opcode) {
         instrs::BlockTransfer instr{.cond = Condition::AL};
 
         // load  P U S W L
@@ -342,15 +342,15 @@ namespace detail {
         return instr;
     }
 
-    auto SoftwareInterrupt(uint16_t opcode) {
+    inline auto SoftwareInterrupt(uint16_t opcode) {
         return instrs::SoftwareInterrupt{.cond = Condition::AL, .comment = bit::extract<0, 8>(opcode)};
     }
 
-    auto SoftwareBreakpoint() {
+    inline auto SoftwareBreakpoint() {
         return instrs::SoftwareBreakpoint{.cond = Condition::AL};
     }
 
-    auto ConditionalBranch(uint16_t opcode) {
+    inline auto ConditionalBranch(uint16_t opcode) {
         instrs::Branch instr{.cond = static_cast<Condition>(bit::extract<8, 4>(opcode))};
 
         instr.offset = bit::sign_extend<8, int32_t>(bit::extract<0, 8>(opcode)) * 2;
@@ -360,7 +360,7 @@ namespace detail {
         return instr;
     }
 
-    auto UnconditionalBranch(uint16_t opcode) {
+    inline auto UnconditionalBranch(uint16_t opcode) {
         instrs::Branch instr{.cond = Condition::AL};
 
         instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
@@ -370,7 +370,7 @@ namespace detail {
         return instr;
     }
 
-    auto LongBranchPrefix(uint16_t opcode) {
+    inline auto LongBranchPrefix(uint16_t opcode) {
         instrs::DataProcessing instr{.cond = Condition::AL};
 
         // LR = PC + (SignExtend(offset_11) << 12)
@@ -384,7 +384,7 @@ namespace detail {
         return instr;
     }
 
-    auto LongBranchSuffix(uint16_t opcode, bool blx) {
+    inline auto LongBranchSuffix(uint16_t opcode, bool blx) {
         instrs::ThumbLongBranchSuffix instr{};
 
         instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
@@ -393,14 +393,14 @@ namespace detail {
         return instr;
     }
 
-    auto Undefined() {
+    inline auto Undefined() {
         return instrs::Undefined{.cond = Condition::AL};
     }
 
 } // namespace detail
 
-template <Client TClient>
-Action DecodeThumb(TClient &client, uint32_t address) {
+template <DecoderClient TClient>
+inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
     using namespace detail;
 
     const CPUArch arch = client.GetCPUArch();
@@ -507,4 +507,4 @@ Action DecodeThumb(TClient &client, uint32_t address) {
     return Action::UnmappedInstruction;
 }
 
-} // namespace armajitto::arm::decoder
+} // namespace armajitto::arm

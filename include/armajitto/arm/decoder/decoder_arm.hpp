@@ -1,9 +1,9 @@
 #pragma once
 
+#include "armajitto/util/bit_ops.hpp"
 #include "decoder_client.hpp"
-#include "util/bit_ops.hpp"
 
-namespace armajitto::arm::decoder {
+namespace armajitto::arm {
 
 namespace detail {
     inline uint32_t DecodeRotatedImm(uint32_t opcode) {
@@ -12,7 +12,7 @@ namespace detail {
         return std::rotr(imm, rotate * 2);
     }
 
-    inline RegisterSpecifiedShift DecodeShift(uint32_t opcode) {
+    inline auto DecodeShift(uint32_t opcode) {
         RegisterSpecifiedShift shift{};
         const uint8_t shiftParam = bit::extract<4, 8>(opcode);
         shift.type = static_cast<ShiftType>(bit::extract<1, 2>(shiftParam));
@@ -26,7 +26,7 @@ namespace detail {
         return shift;
     }
 
-    inline AddressingOffset DecodeAddressing(uint32_t opcode) {
+    inline auto DecodeAddressing(uint32_t opcode) {
         AddressingOffset offset{};
         offset.immediate = !bit::test<25>(opcode); // Note the inverted bit!
         offset.positiveOffset = bit::test<23>(opcode);
@@ -353,8 +353,8 @@ namespace detail {
     }
 } // namespace detail
 
-template <Client TClient>
-inline Action DecodeARM(TClient &client, uint32_t address) {
+template <DecoderClient TClient>
+inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
     using namespace detail;
 
     const CPUArch arch = client.GetCPUArch();
@@ -524,4 +524,4 @@ inline Action DecodeARM(TClient &client, uint32_t address) {
     return Action::UnmappedInstruction;
 }
 
-} // namespace armajitto::arm::decoder
+} // namespace armajitto::arm
