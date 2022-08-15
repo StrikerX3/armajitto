@@ -1,3 +1,4 @@
+#include <armajitto/arm/decoder.hpp>
 #include <armajitto/armajitto.hpp>
 #include <armajitto/core/ir/emitter.hpp>
 
@@ -6,35 +7,35 @@
 
 class System : public armajitto::ISystem {
 public:
-    uint8_t ReadByte(uint32_t address) final {
+    uint8_t MemReadByte(uint32_t address) final {
         return Read<uint8_t>(address);
     }
-    uint16_t ReadHalf(uint32_t address) final {
+    uint16_t MemReadHalf(uint32_t address) final {
         return Read<uint16_t>(address);
     }
-    uint32_t ReadWord(uint32_t address) final {
+    uint32_t MemReadWord(uint32_t address) final {
         return Read<uint32_t>(address);
     }
 
-    void WriteByte(uint32_t address, uint8_t value) final {
+    void MemWriteByte(uint32_t address, uint8_t value) final {
         Write(address, value);
     }
-    void WriteHalf(uint32_t address, uint16_t value) final {
+    void MemWriteHalf(uint32_t address, uint16_t value) final {
         Write(address, value);
     }
-    void WriteWord(uint32_t address, uint32_t value) final {
+    void MemWriteWord(uint32_t address, uint32_t value) final {
         Write(address, value);
     }
 
-    void WriteROMByte(uint32_t address, uint8_t value) {
+    void ROMWriteByte(uint32_t address, uint8_t value) {
         rom[address & 0xFFF] = value;
     }
 
-    void WriteROMHalf(uint32_t address, uint16_t value) {
+    void ROMWriteHalf(uint32_t address, uint16_t value) {
         *reinterpret_cast<uint16_t *>(&rom[address & 0xFFE]) = value;
     }
 
-    void WriteROMWord(uint32_t address, uint32_t value) {
+    void ROMWriteWord(uint32_t address, uint32_t value) {
         *reinterpret_cast<uint32_t *>(&rom[address & 0xFFC]) = value;
     }
 
@@ -85,9 +86,9 @@ void testBasic() {
 
     // Fill in the ROM with some code
     bool thumb = false;
-    sys.WriteROMWord(0x0100, 0xE3A00012); // mov r0, #0x12
-    sys.WriteROMWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
-    sys.WriteROMWord(0x0108, 0xEAFFFFFC); // b #0
+    sys.ROMWriteWord(0x0100, 0xE3A00012); // mov r0, #0x12
+    sys.ROMWriteWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
+    sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
 
     // Define a specification for the recompiler
     armajitto::Specification spec{
@@ -123,16 +124,46 @@ void testBasic() {
     */
 }
 
-void testEmitter() {
+void testDecoder() {
+    System sys{};
+
+    sys.ROMWriteWord(0x0100, 0xE3A00012); // mov r0, #0x12
+    sys.ROMWriteWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
+    sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
+
+    struct CodeAccessor {
+        CodeAccessor(System &sys)
+            : sys{sys} {}
+
+        uint16_t CodeReadHalf(uint32_t address) {
+            return sys.MemReadHalf(address);
+        }
+        uint32_t CodeReadWord(uint32_t address) {
+            return sys.MemReadWord(address);
+        }
+
+        System &sys;
+    } mem{sys};
+
     armajitto::ir::Emitter emitter{};
+    for (uint32_t addr = 0x100; addr <= 0x108; addr += 4) {
+        auto action = armajitto::arm::DecodeARM(emitter, mem, armajitto::CPUArch::ARMv5TE, addr);
+        switch (action) {
+        case armajitto::arm::DecoderAction::Continue: printf("cont\n"); break;
+        case armajitto::arm::DecoderAction::Split: printf("split\n"); break;
+        case armajitto::arm::DecoderAction::End: printf("end\n"); break;
+        case armajitto::arm::DecoderAction::UnmappedInstruction: printf("unmapped\n"); break;
+        case armajitto::arm::DecoderAction::Unimplemented: printf("unimpl\n"); break;
+        }
+    }
     emitter.Process(armajitto::arm::instrs::SoftwareBreakpoint{.cond = armajitto::arm::Condition::AL});
 }
 
 int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
-    testBasic();
-    testEmitter();
+    // testBasic();
+    testDecoder();
 
     return EXIT_SUCCESS;
 }

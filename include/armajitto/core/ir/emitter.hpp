@@ -12,13 +12,6 @@ class Emitter {
 public:
     // --- Decoder client implementation ---------------------------------------
 
-    CPUArch GetCPUArch();
-
-    // Code access
-    uint16_t CodeReadHalf(uint32_t address);
-    uint32_t CodeReadWord(uint32_t address);
-
-    // Instruction handlers
     arm::DecoderAction Process(const arm::instrs::Branch &instr);
     arm::DecoderAction Process(const arm::instrs::BranchAndExchange &instr);
     arm::DecoderAction Process(const arm::instrs::ThumbLongBranchSuffix &instr);

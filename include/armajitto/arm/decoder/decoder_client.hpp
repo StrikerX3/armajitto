@@ -7,21 +7,22 @@
 namespace armajitto::arm {
 
 enum class DecoderAction {
-    Continue,
-    // TODO: other decoder actions
+    Continue, // Decode next instruction in the current block
+    Split,    // Create a new micro block and continue decoding
+    End,      // Finish basic block and stop decoding
 
-    UnmappedInstruction,
+    UnmappedInstruction, // Decoder failed to decode an instruction
+    Unimplemented,       // Decoder reached an unimplemented portion of code
+};
+
+template <typename T>
+concept CodeAccessor = requires(T mem) {
+    { mem.CodeReadHalf(uint32_t{}) } -> std::same_as<uint16_t>;
+    { mem.CodeReadWord(uint32_t{}) } -> std::same_as<uint32_t>;
 };
 
 template <typename T>
 concept DecoderClient = requires(T client) {
-    { client.GetCPUArch() } -> std::same_as<CPUArch>;
-
-    // Code access
-    { client.CodeReadHalf(uint32_t{}) } -> std::same_as<uint16_t>;
-    { client.CodeReadWord(uint32_t{}) } -> std::same_as<uint32_t>;
-
-    // Instruction handlers
     { client.Process(instrs::Branch{}) } -> std::same_as<DecoderAction>;
     { client.Process(instrs::BranchAndExchange{}) } -> std::same_as<DecoderAction>;
     { client.Process(instrs::ThumbLongBranchSuffix{}) } -> std::same_as<DecoderAction>;

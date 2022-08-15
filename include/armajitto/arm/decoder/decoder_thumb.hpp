@@ -399,12 +399,11 @@ namespace detail {
 
 } // namespace detail
 
-template <DecoderClient TClient>
-inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
+template <DecoderClient TClient, CodeAccessor TMemory>
+inline DecoderAction DecodeThumb(TClient &client, TMemory &mem, CPUArch arch, uint32_t address) {
     using namespace detail;
 
-    const CPUArch arch = client.GetCPUArch();
-    const uint16_t opcode = client.CodeReadHalf(address);
+    const uint16_t opcode = mem.CodeReadHalf(address);
 
     const uint8_t group = bit::extract<12, 4>(opcode);
     switch (group) {
@@ -424,22 +423,22 @@ inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
 
             const auto op = bit::extract<6, 4>(opcode);
             switch (op) {
-            case 0x0 /*AND*/: return DataProcessingStandard(opcode, DPOpcode::AND);
-            case 0x1 /*EOR*/: return DataProcessingStandard(opcode, DPOpcode::EOR);
-            case 0x2 /*LSL*/: return DataProcessingShift(opcode, ShiftType::LSL);
-            case 0x3 /*LSR*/: return DataProcessingShift(opcode, ShiftType::LSR);
-            case 0x4 /*ASR*/: return DataProcessingShift(opcode, ShiftType::ASR);
-            case 0x5 /*ADC*/: return DataProcessingStandard(opcode, DPOpcode::ADC);
-            case 0x6 /*SBC*/: return DataProcessing(opcode, DPOpcode::SBC);
-            case 0x7 /*ROR*/: return DataProcessingShift(opcode, ShiftType::ROR);
-            case 0x8 /*TST*/: return DataProcessingStandard(opcode, DPOpcode::TST);
-            case 0x9 /*NEG*/: return DataProcessingNegate(opcode);
-            case 0xA /*CMP*/: return DataProcessingStandard(opcode, DPOpcode::CMP);
-            case 0xB /*CMN*/: return DataProcessingStandard(opcode, DPOpcode::CMN);
-            case 0xC /*ORR*/: return DataProcessingStandard(opcode, DPOpcode::ORR);
-            case 0xD /*MUL*/: return DataProcessingMultiply(opcode);
-            case 0xE /*BIC*/: return DataProcessingStandard(opcode, DPOpcode::BIC);
-            case 0xF /*MVN*/: return DataProcessingStandard(opcode, DPOpcode::MVN);
+            case 0x0 /*AND*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::AND));
+            case 0x1 /*EOR*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::EOR));
+            case 0x2 /*LSL*/: return client.Process(DataProcessingShift(opcode, ShiftType::LSL));
+            case 0x3 /*LSR*/: return client.Process(DataProcessingShift(opcode, ShiftType::LSR));
+            case 0x4 /*ASR*/: return client.Process(DataProcessingShift(opcode, ShiftType::ASR));
+            case 0x5 /*ADC*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::ADC));
+            case 0x6 /*SBC*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::SBC));
+            case 0x7 /*ROR*/: return client.Process(DataProcessingShift(opcode, ShiftType::ROR));
+            case 0x8 /*TST*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::TST));
+            case 0x9 /*NEG*/: return client.Process(DataProcessingNegate(opcode));
+            case 0xA /*CMP*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::CMP));
+            case 0xB /*CMN*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::CMN));
+            case 0xC /*ORR*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::ORR));
+            case 0xD /*MUL*/: return client.Process(DataProcessingMultiply(opcode));
+            case 0xE /*BIC*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::BIC));
+            case 0xF /*MVN*/: return client.Process(DataProcessingStandard(opcode, DPOpcode::MVN));
             }
         }
         case 0b01:
@@ -453,9 +452,9 @@ inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
         }
     case 0b0101:
         if (bit::test<9>(opcode)) {
-            return LoadStoreHalfRegOffset(opcode);
+            return client.Process(LoadStoreHalfRegOffset(opcode));
         } else {
-            return LoadStoreByteWordRegOffset(opcode);
+            return client.Process(LoadStoreByteWordRegOffset(opcode));
         }
     case 0b0110: // fallthrough
     case 0b0111: return client.Process(LoadStoreByteWordImmOffset(opcode));
@@ -477,7 +476,7 @@ inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
         case 0b1101: return client.Process(PushPop(opcode));
         default: return client.Process(Undefined());
         }
-    case 0b1100: return LoadStoreMultiple(client, opcode);
+    case 0b1100: return client.Process(LoadStoreMultiple(opcode));
     case 0b1101:
         switch (bit::extract<8, 4>(opcode)) {
         case 0b1110: return client.Process(Undefined());
@@ -504,7 +503,7 @@ inline DecoderAction DecodeThumb(TClient &client, uint32_t address) {
         }
     }
 
-    return Action::UnmappedInstruction;
+    return DecoderAction::UnmappedInstruction;
 }
 
 } // namespace armajitto::arm

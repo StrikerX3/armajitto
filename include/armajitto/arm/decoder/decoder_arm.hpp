@@ -7,8 +7,8 @@ namespace armajitto::arm {
 
 namespace detail {
     inline uint32_t DecodeRotatedImm(uint32_t opcode) {
-        const uint8_t imm = bit::extract<0, 8>(opcode);
-        const uint8_t rotate = bit::extract<8, 4>(opcode);
+        const uint32_t imm = bit::extract<0, 8>(opcode);
+        const uint32_t rotate = bit::extract<8, 4>(opcode);
         return std::rotr(imm, rotate * 2);
     }
 
@@ -43,7 +43,7 @@ namespace detail {
     inline auto Branch(uint32_t opcode, Condition cond, bool switchToThumb) {
         instrs::Branch instr{.cond = cond};
 
-        instr.offset = bit::sign_extend<24>(bit::extract<24>(opcode)) << 2;
+        instr.offset = bit::sign_extend<24>(bit::extract<0, 24>(opcode)) << 2;
         instr.link = bit::test<24>(opcode);
         instr.switchToThumb = switchToThumb;
 
@@ -353,12 +353,11 @@ namespace detail {
     }
 } // namespace detail
 
-template <DecoderClient TClient>
-inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
+template <DecoderClient TClient, CodeAccessor TMemory>
+inline DecoderAction DecodeARM(TClient &client, TMemory &mem, CPUArch arch, uint32_t address) {
     using namespace detail;
 
-    const CPUArch arch = client.GetCPUArch();
-    const uint32_t opcode = client.CodeReadWord(address);
+    const uint32_t opcode = mem.CodeReadWord(address);
 
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
 
@@ -375,7 +374,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
             case 0b010:
             case 0b011:
                 if ((bits24to20 & 0b1'0111) == 0b1'0101) {
-                    return client.Process(Preload(opcode, Condition::AL));
+                    return client.Process(Preload(opcode));
                 } else {
                     return client.Process(Undefined(cond));
                 }
@@ -434,7 +433,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
                 case 0b10: return client.Process(SignedMultiplyAccumulateLong(opcode, cond));
                 }
             } else {
-                return Undefined(opcode, cond);
+                return client.Process(Undefined(cond));
             }
         } else if ((bits24to20 & 0b1'1100) == 0b0'0000 && (bits7to4 & 0b1111) == 0b1001) {
             return client.Process(MultiplyAccumulate(opcode, cond));
@@ -453,7 +452,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
                 if (s && h) {
                     if (arch == CPUArch::ARMv5TE) {
                         if (bit12) {
-                            return client.Process(Undefined(opcode, cond));
+                            return client.Process(Undefined(cond));
                         } else {
                             return client.Process(HalfwordAndSignedTransfer(opcode, cond));
                         }
@@ -461,7 +460,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
                 } else if (s) {
                     if (arch == CPUArch::ARMv5TE) {
                         if (bit12) {
-                            return client.Process(Undefined(opcode, cond));
+                            return client.Process(Undefined(cond));
                         } else {
                             return client.Process(HalfwordAndSignedTransfer(opcode, cond));
                         }
@@ -482,7 +481,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
         if ((bits24to20 & 0b1'1011) == 0b1'0010) {
             return client.Process(PSRWrite(opcode, cond));
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000) {
-            return client.Process(Undefined(opcode, cond));
+            return client.Process(Undefined(cond));
         } else {
             return client.Process(DataProcessing(opcode, cond));
         }
@@ -490,7 +489,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
     case 0b010:
     case 0b011:
         if (bit::test<0>(op) && bit::test<0>(bits7to4)) {
-            return client.Process(Undefined(opcode, cond));
+            return client.Process(Undefined(cond));
         } else {
             return client.Process(SingleDataTransfer(opcode, cond));
         }
@@ -521,7 +520,7 @@ inline DecoderAction DecodeARM(TClient &client, uint32_t address) {
     }
     }
 
-    return Action::UnmappedInstruction;
+    return DecoderAction::UnmappedInstruction;
 }
 
 } // namespace armajitto::arm

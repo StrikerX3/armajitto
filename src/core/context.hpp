@@ -16,7 +16,7 @@ public:
         return m_armState;
     }
 
-    // --- Decoder client helpers ----------------------------------------------
+    // --- Code accessor implementation ----------------------------------------
 
     CPUArch GetCPUArch() const {
         return m_arch;
@@ -24,12 +24,12 @@ public:
 
     uint16_t CodeReadHalf(uint32_t address) {
         // TODO: handle TCM
-        return m_system.ReadHalf(address);
+        return m_system.MemReadHalf(address);
     }
 
     uint32_t CodeReadWord(uint32_t address) {
         // TODO: handle TCM
-        return m_system.ReadWord(address);
+        return m_system.MemReadWord(address);
     }
 
 private:
