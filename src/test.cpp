@@ -147,13 +147,13 @@ void testDecoder() {
 
     armajitto::ir::Emitter emitter{};
     for (uint32_t addr = 0x100; addr <= 0x108; addr += 4) {
-        auto action = armajitto::arm::DecodeARM(emitter, mem, armajitto::CPUArch::ARMv5TE, addr);
+        auto action = armajitto::DecodeARM(emitter, mem, armajitto::CPUArch::ARMv5TE, addr);
         switch (action) {
-        case armajitto::arm::DecoderAction::Continue: printf("cont\n"); break;
-        case armajitto::arm::DecoderAction::Split: printf("split\n"); break;
-        case armajitto::arm::DecoderAction::End: printf("end\n"); break;
-        case armajitto::arm::DecoderAction::UnmappedInstruction: printf("unmapped\n"); break;
-        case armajitto::arm::DecoderAction::Unimplemented: printf("unimpl\n"); break;
+        case armajitto::DecoderAction::Continue: printf("cont\n"); break;
+        case armajitto::DecoderAction::Split: printf("split\n"); break;
+        case armajitto::DecoderAction::End: printf("end\n"); break;
+        case armajitto::DecoderAction::UnmappedInstruction: printf("unmapped\n"); break;
+        case armajitto::DecoderAction::Unimplemented: printf("unimpl\n"); break;
         }
     }
     emitter.Process(armajitto::arm::instrs::SoftwareBreakpoint{.cond = armajitto::arm::Condition::AL});

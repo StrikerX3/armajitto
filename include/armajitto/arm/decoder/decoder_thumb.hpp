@@ -3,12 +3,12 @@
 #include "armajitto/util/bit_ops.hpp"
 #include "decoder_client.hpp"
 
-namespace armajitto::arm {
+namespace armajitto {
 
 namespace detail {
     inline auto SimpleRegShift(uint8_t reg) {
-        RegisterSpecifiedShift shift{};
-        shift.type = ShiftType::LSL;
+        arm::RegisterSpecifiedShift shift{};
+        shift.type = arm::ShiftType::LSL;
         shift.immediate = true;
         shift.srcReg = reg;
         shift.amount.imm = 0;
@@ -16,9 +16,9 @@ namespace detail {
     }
 
     inline auto ShiftByImm(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
-        instr.opcode = instrs::DataProcessing::Opcode::MOV;
+        instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
         instr.immediate = false;
         instr.setFlags = true;
         instr.dstReg = bit::extract<0, 3>(opcode);
@@ -26,9 +26,9 @@ namespace detail {
 
         const uint8_t op = bit::extract<11, 2>(opcode);
         switch (op) {
-        case 0b00: instr.rhs.shift.type = ShiftType::LSL; break;
-        case 0b01: instr.rhs.shift.type = ShiftType::LSR; break;
-        case 0b10: instr.rhs.shift.type = ShiftType::ASR; break;
+        case 0b00: instr.rhs.shift.type = arm::ShiftType::LSL; break;
+        case 0b01: instr.rhs.shift.type = arm::ShiftType::LSR; break;
+        case 0b10: instr.rhs.shift.type = arm::ShiftType::ASR; break;
         default: break; // TODO: unreachable
         }
         instr.rhs.shift.immediate = true;
@@ -39,12 +39,12 @@ namespace detail {
     }
 
     inline auto AddSubRegImm(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         if (bit::test<9>(opcode)) {
-            instr.opcode = instrs::DataProcessing::Opcode::SUB;
+            instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
         } else {
-            instr.opcode = instrs::DataProcessing::Opcode::ADD;
+            instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
         }
         instr.immediate = bit::test<10>(opcode);
         instr.setFlags = true;
@@ -60,13 +60,13 @@ namespace detail {
     }
 
     inline auto MovCmpAddSubImm(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         switch (bit::extract<11, 2>(opcode)) {
-        case 0b00: instr.opcode = instrs::DataProcessing::Opcode::MOV;
-        case 0b01: instr.opcode = instrs::DataProcessing::Opcode::CMP;
-        case 0b10: instr.opcode = instrs::DataProcessing::Opcode::ADD;
-        case 0b11: instr.opcode = instrs::DataProcessing::Opcode::SUB;
+        case 0b00: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
+        case 0b01: instr.opcode = arm::instrs::DataProcessing::Opcode::CMP;
+        case 0b10: instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
+        case 0b11: instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
         }
         instr.immediate = true;
         instr.setFlags = true;
@@ -77,8 +77,8 @@ namespace detail {
         return instr;
     }
 
-    inline auto DataProcessingStandard(uint16_t opcode, instrs::DataProcessing::Opcode dpOpcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+    inline auto DataProcessingStandard(uint16_t opcode, arm::instrs::DataProcessing::Opcode dpOpcode) {
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         instr.opcode = dpOpcode;
         instr.immediate = false;
@@ -90,10 +90,10 @@ namespace detail {
         return instr;
     }
 
-    inline auto DataProcessingShift(uint16_t opcode, ShiftType shiftType) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+    inline auto DataProcessingShift(uint16_t opcode, arm::ShiftType shiftType) {
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
-        instr.opcode = instrs::DataProcessing::Opcode::MOV;
+        instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
         instr.immediate = false;
         instr.setFlags = true;
         instr.dstReg = bit::extract<0, 3>(opcode);
@@ -107,9 +107,9 @@ namespace detail {
     }
 
     inline auto DataProcessingNegate(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
-        instr.opcode = instrs::DataProcessing::Opcode::RSB;
+        instr.opcode = arm::instrs::DataProcessing::Opcode::RSB;
         instr.immediate = true;
         instr.setFlags = true;
         instr.dstReg = bit::extract<12, 3>(opcode);
@@ -120,7 +120,7 @@ namespace detail {
     }
 
     inline auto DataProcessingMultiply(uint16_t opcode) {
-        instrs::MultiplyAccumulate instr{.cond = Condition::AL};
+        arm::instrs::MultiplyAccumulate instr{.cond = arm::Condition::AL};
 
         instr.dstReg = bit::extract<0, 3>(opcode);
         instr.lhsReg = instr.dstReg;
@@ -133,14 +133,14 @@ namespace detail {
     }
 
     inline auto HiRegOps(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         const uint8_t h1 = bit::extract<7>(opcode);
         const uint8_t h2 = bit::extract<6>(opcode);
         switch (bit::extract<8, 2>(opcode)) {
-        case 0b00: instr.opcode = instrs::DataProcessing::Opcode::ADD; break;
-        case 0b01: instr.opcode = instrs::DataProcessing::Opcode::CMP; break;
-        case 0b10: instr.opcode = instrs::DataProcessing::Opcode::MOV; break;
+        case 0b00: instr.opcode = arm::instrs::DataProcessing::Opcode::ADD; break;
+        case 0b01: instr.opcode = arm::instrs::DataProcessing::Opcode::CMP; break;
+        case 0b10: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV; break;
         }
         instr.immediate = false;
         instr.setFlags = false;
@@ -152,7 +152,7 @@ namespace detail {
     }
 
     inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
-        instrs::BranchAndExchange instr{.cond = Condition::AL};
+        arm::instrs::BranchAndExchange instr{.cond = arm::Condition::AL};
 
         const uint8_t h2 = bit::extract<6>(opcode);
         instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
@@ -162,7 +162,7 @@ namespace detail {
     }
 
     inline auto PCRelativeLoad(uint16_t opcode) {
-        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+        arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.byte = false;
@@ -178,7 +178,7 @@ namespace detail {
     }
 
     inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
-        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+        arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.byte = bit::test<10>(opcode);
@@ -194,7 +194,7 @@ namespace detail {
     }
 
     inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
-        instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
+        arm::instrs::HalfwordAndSignedTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.positiveOffset = true;
@@ -219,7 +219,7 @@ namespace detail {
     }
 
     inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
-        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+        arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.byte = bit::test<12>(opcode);
@@ -235,7 +235,7 @@ namespace detail {
     }
 
     inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
-        instrs::HalfwordAndSignedTransfer instr{.cond = Condition::AL};
+        arm::instrs::HalfwordAndSignedTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.positiveOffset = true;
@@ -252,7 +252,7 @@ namespace detail {
     }
 
     inline auto SPRelativeLoadStore(uint16_t opcode) {
-        instrs::SingleDataTransfer instr{.cond = Condition::AL};
+        arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
 
         instr.preindexed = true;
         instr.byte = false;
@@ -268,9 +268,9 @@ namespace detail {
     }
 
     inline auto AddToSPOrPC(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
-        instr.opcode = instrs::DataProcessing::Opcode::ADD;
+        instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
         instr.immediate = true;
         instr.setFlags = false;
         instr.dstReg = bit::extract<8, 3>(opcode);
@@ -281,12 +281,12 @@ namespace detail {
     }
 
     inline auto AdjustSP(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         if (bit::test<7>(opcode)) {
-            instr.opcode = instrs::DataProcessing::Opcode::SUB;
+            instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
         } else {
-            instr.opcode = instrs::DataProcessing::Opcode::ADD;
+            instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
         }
         instr.immediate = true;
         instr.setFlags = false;
@@ -298,7 +298,7 @@ namespace detail {
     }
 
     inline auto PushPop(uint16_t opcode) {
-        instrs::BlockTransfer instr{.cond = Condition::AL};
+        arm::instrs::BlockTransfer instr{.cond = arm::Condition::AL};
 
         //                   P U S W L   reg included by R bit
         // PUSH = STMDB sp!  + - - + -   LR
@@ -323,7 +323,7 @@ namespace detail {
     }
 
     inline auto LoadStoreMultiple(uint16_t opcode) {
-        instrs::BlockTransfer instr{.cond = Condition::AL};
+        arm::instrs::BlockTransfer instr{.cond = arm::Condition::AL};
 
         // load  P U S W L
         //   -   - + - + -
@@ -343,15 +343,15 @@ namespace detail {
     }
 
     inline auto SoftwareInterrupt(uint16_t opcode) {
-        return instrs::SoftwareInterrupt{.cond = Condition::AL, .comment = bit::extract<0, 8>(opcode)};
+        return arm::instrs::SoftwareInterrupt{.cond = arm::Condition::AL, .comment = bit::extract<0, 8>(opcode)};
     }
 
     inline auto SoftwareBreakpoint() {
-        return instrs::SoftwareBreakpoint{.cond = Condition::AL};
+        return arm::instrs::SoftwareBreakpoint{.cond = arm::Condition::AL};
     }
 
     inline auto ConditionalBranch(uint16_t opcode) {
-        instrs::Branch instr{.cond = static_cast<Condition>(bit::extract<8, 4>(opcode))};
+        arm::instrs::Branch instr{.cond = static_cast<arm::Condition>(bit::extract<8, 4>(opcode))};
 
         instr.offset = bit::sign_extend<8, int32_t>(bit::extract<0, 8>(opcode)) * 2;
         instr.link = false;
@@ -361,7 +361,7 @@ namespace detail {
     }
 
     inline auto UnconditionalBranch(uint16_t opcode) {
-        instrs::Branch instr{.cond = Condition::AL};
+        arm::instrs::Branch instr{.cond = arm::Condition::AL};
 
         instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
         instr.link = false;
@@ -371,10 +371,10 @@ namespace detail {
     }
 
     inline auto LongBranchPrefix(uint16_t opcode) {
-        instrs::DataProcessing instr{.cond = Condition::AL};
+        arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
 
         // LR = PC + (SignExtend(offset_11) << 12)
-        instr.opcode = instrs::DataProcessing::Opcode::ADD;
+        instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
         instr.immediate = true;
         instr.setFlags = false;
         instr.dstReg = 14;
@@ -385,7 +385,7 @@ namespace detail {
     }
 
     inline auto LongBranchSuffix(uint16_t opcode, bool blx) {
-        instrs::ThumbLongBranchSuffix instr{};
+        arm::instrs::ThumbLongBranchSuffix instr{};
 
         instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
         instr.blx = blx;
@@ -394,7 +394,7 @@ namespace detail {
     }
 
     inline auto Undefined() {
-        return instrs::Undefined{.cond = Condition::AL};
+        return arm::instrs::Undefined{.cond = arm::Condition::AL};
     }
 
 } // namespace detail
@@ -402,6 +402,7 @@ namespace detail {
 template <DecoderClient TClient, CodeAccessor TMemory>
 inline DecoderAction DecodeThumb(TClient &client, TMemory &mem, CPUArch arch, uint32_t address) {
     using namespace detail;
+    using namespace arm;
 
     const uint16_t opcode = mem.CodeReadHalf(address);
 
@@ -506,4 +507,4 @@ inline DecoderAction DecodeThumb(TClient &client, TMemory &mem, CPUArch arch, ui
     return DecoderAction::UnmappedInstruction;
 }
 
-} // namespace armajitto::arm
+} // namespace armajitto
