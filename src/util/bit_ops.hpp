@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <cassert>
 #include <concepts>
 #include <cstdint>
 #include <type_traits>
@@ -17,7 +18,7 @@ constexpr bool test(T value) {
 // Returns true if the value has the specified bit set
 template <typename T>
 constexpr bool test(size_t bit, T value) {
-    static_assert(bit < sizeof(T) * 8, "Bit out of range");
+    assert(bit < sizeof(T) * 8 && "Bit out of range");
     return value & (1 << bit);
 }
 

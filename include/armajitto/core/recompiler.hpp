@@ -24,6 +24,8 @@ public:
         return m_spec.system;
     }
 
+    uint64_t Run(uint64_t minCycles);
+
 private:
     Specification m_spec;
     std::unique_ptr<Context> m_context;

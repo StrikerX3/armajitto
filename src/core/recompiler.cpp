@@ -14,4 +14,13 @@ arm::State &Recompiler::GetARMState() {
     return m_context->GetARMState();
 }
 
+uint64_t Recompiler::Run(uint64_t minCycles) {
+    uint64_t cyclesExecuted = 0;
+    while (cyclesExecuted < minCycles) {
+        // TODO: do the JIT magic here
+        ++cyclesExecuted;
+    }
+    return cyclesExecuted;
+}
+
 } // namespace armajitto

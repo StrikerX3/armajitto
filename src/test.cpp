@@ -108,10 +108,11 @@ void testBasic() {
 
     printf("PC = %08X  T = %u\n", armState.GPR(15), armState.CPSR().t);
 
-    /*
     // Run for at least 32 cycles
     uint64_t cyclesExecuted = jit.Run(32);
+    printf("Executed %llu cycles\n", cyclesExecuted);
 
+    /*
     // Raise the IRQ line
     sys.IRQLine() = true;
     // Interrupts are handled in Run()

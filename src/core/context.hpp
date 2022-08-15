@@ -16,7 +16,7 @@ public:
         return m_armState;
     }
 
-    // --- Decoder client implementation helpers -------------------------------
+    // --- Decoder client helpers ----------------------------------------------
 
     CPUArch GetCPUArch() const {
         return m_arch;

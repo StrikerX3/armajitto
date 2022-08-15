@@ -36,13 +36,13 @@ private:
     alignas(16) std::array<uint32_t, 16> m_regs;
     PSR m_cpsr;
 
-    std::array<uint32_t, 14 - 13 + 1> m_regsUSR;
+    /*std::array<uint32_t, 14 - 13 + 1> m_regsUSR;
     std::array<uint32_t, 14 - 13 + 1> m_regsSVC;
     std::array<uint32_t, 14 - 13 + 1> m_regsABT;
     std::array<uint32_t, 14 - 13 + 1> m_regsIRQ;
     std::array<uint32_t, 14 - 13 + 1> m_regsUND;
     std::array<uint32_t, 14 - 8 + 1> m_regsFIQ;
-    std::array<PSR, 6> m_spsr;
+    std::array<PSR, 6> m_spsr;*/
 };
 
 } // namespace armajitto::arm
