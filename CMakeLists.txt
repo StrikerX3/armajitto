@@ -37,6 +37,7 @@ add_library(armajitto
     src/arm/decoder/decoder_common.hpp
     src/arm/decoder/decoder_instrs.hpp
     src/arm/decoder/decoder_thumb.hpp
+    src/core/context.hpp
     src/core/recompiler.cpp
     src/util/bit_ops.hpp
 )

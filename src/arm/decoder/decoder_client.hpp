@@ -8,6 +8,7 @@ namespace armajitto::arm::decoder {
 
 enum class Action {
     Continue,
+    // TODO: other decoder actions
 
     UnmappedInstruction,
 };
@@ -23,6 +24,7 @@ concept Client = requires(T client) {
     // Instruction handlers
     { client.Process(instrs::Branch{}) } -> std::same_as<Action>;
     { client.Process(instrs::BranchAndExchange{}) } -> std::same_as<Action>;
+    { client.Process(instrs::ThumbLongBranchSuffix{}) } -> std::same_as<Action>;
     { client.Process(instrs::DataProcessing{}) } -> std::same_as<Action>;
     { client.Process(instrs::CountLeadingZeros{}) } -> std::same_as<Action>;
     { client.Process(instrs::SaturatingAddSub{}) } -> std::same_as<Action>;

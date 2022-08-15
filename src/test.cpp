@@ -98,7 +98,7 @@ void testBasic() {
     armajitto::Recompiler jit{spec};
 
     // Get the ARM state -- registers, coprocessors, etc.
-    auto &armState = jit.ARMState();
+    auto &armState = jit.GetARMState();
 
     // Start execution at the specified address and execution state
     armState.JumpTo(0x0100, thumb);
