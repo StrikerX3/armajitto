@@ -16,6 +16,10 @@ namespace armajitto::ir {
 struct IRAddSingleBusMemCyclesOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::AddSingleBusMemCycles;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     MemAccessType type;
     MemAccessBus bus;
     MemAccessSize size;
@@ -29,6 +33,10 @@ struct IRAddSingleBusMemCyclesOp : public IROpBase {
 // Computes the number of cycles for the specified multiplication operation and adds it to the current cycle count.
 struct IRAddMulCyclesOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::AddMulCycles;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     bool sign;
     VarOrImmArg address;
@@ -56,6 +64,10 @@ struct IRAddMulCyclesOp : public IROpBase {
 //
 struct IRAddDualBusCyclesOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::AddDualBusCycles;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     struct Params {
         bool fixed;

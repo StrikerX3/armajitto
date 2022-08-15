@@ -21,6 +21,10 @@ namespace armajitto::ir {
 struct IRMemReadOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::MemRead;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     MemAccessMode mode;
     MemAccessSize size;
     VariableArg dst;
@@ -33,6 +37,10 @@ struct IRMemReadOp : public IROpBase {
 // Writes a byte, halfword or word from src into memory at address.
 struct IRMemWriteOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::MemWrite;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     MemAccessSize size;
     VarOrImmArg src;

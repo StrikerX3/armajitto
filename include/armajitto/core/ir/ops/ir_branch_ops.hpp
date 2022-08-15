@@ -11,6 +11,10 @@ namespace armajitto::ir {
 struct IRBranchOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::Branch;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     VariableArg dstPC;
     VarOrImmArg srcCPSR;
     VarOrImmArg address;
@@ -22,6 +26,10 @@ struct IRBranchOp : public IROpBase {
 // <dst_pc>. The CPSR T flag is updated from <src_cpsr> to <dst_cpsr>.
 struct IRBranchExchangeOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::BranchExchange;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VariableArg dstPC;
     VariableArg dstCPSR;

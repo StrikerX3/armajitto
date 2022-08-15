@@ -62,6 +62,10 @@ namespace detail {
 // Updates host flags if [s] is specified.
 struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase {
     static constexpr auto opcodeType = IROpcodeType::LogicalShiftLeft;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Logical shift right
@@ -71,6 +75,10 @@ struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase {
 // Updates host flags if [s] is specified.
 struct IRLogicalShiftRightOp : public detail::IRShiftOpBase {
     static constexpr auto opcodeType = IROpcodeType::LogicalShiftRight;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Arithmetic shift right
@@ -80,6 +88,10 @@ struct IRLogicalShiftRightOp : public detail::IRShiftOpBase {
 // Updates host flags if [s] is specified.
 struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase {
     static constexpr auto opcodeType = IROpcodeType::ArithmeticShiftRight;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Rotate right
@@ -89,6 +101,10 @@ struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase {
 // Updates host flags if [s] is specified.
 struct IRRotateRightOp : public detail::IRShiftOpBase {
     static constexpr auto opcodeType = IROpcodeType::RotateRight;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Rotate right extend
@@ -98,6 +114,10 @@ struct IRRotateRightOp : public detail::IRShiftOpBase {
 // Updates host flags if [s] is specified.
 struct IRRotateRightExtendOp : public detail::IRShiftOpBase {
     static constexpr auto opcodeType = IROpcodeType::RotateRightExtend;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Bitwise AND
@@ -108,6 +128,10 @@ struct IRRotateRightExtendOp : public detail::IRShiftOpBase {
 // Updates host flags if [s] is specified.
 struct IRBitwiseAndOp : public detail::IRComparisonOpBase {
     static constexpr auto opcodeType = IROpcodeType::BitwiseAnd;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Bitwise XOR
@@ -118,6 +142,10 @@ struct IRBitwiseAndOp : public detail::IRComparisonOpBase {
 // Updates host flags if [s] is specified.
 struct IRBitwiseXorOp : public detail::IRComparisonOpBase {
     static constexpr auto opcodeType = IROpcodeType::BitwiseXor;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Subtract
@@ -128,6 +156,10 @@ struct IRBitwiseXorOp : public detail::IRComparisonOpBase {
 // Updates host flags if [s] is specified.
 struct IRSubtractOp : public detail::IRComparisonOpBase {
     static constexpr auto opcodeType = IROpcodeType::Subtract;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Reverse subtract
@@ -137,6 +169,10 @@ struct IRSubtractOp : public detail::IRComparisonOpBase {
 // Updates host flags if [s] is specified.
 struct IRReverseSubtractOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::ReverseSubtract;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Add
@@ -147,6 +183,10 @@ struct IRReverseSubtractOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRAddOp : public detail::IRComparisonOpBase {
     static constexpr auto opcodeType = IROpcodeType::Add;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Add with carry
@@ -156,6 +196,10 @@ struct IRAddOp : public detail::IRComparisonOpBase {
 // Updates host flags if [s] is specified.
 struct IRAddCarryOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::AddCarry;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Subtract with carry
@@ -165,6 +209,10 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRSubtractCarryOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::SubtractCarry;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Reverse subtract with carry
@@ -174,6 +222,10 @@ struct IRSubtractCarryOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::ReverseSubtractCarry;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Bitwise OR
@@ -183,6 +235,10 @@ struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRBitwiseOrOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::BitwiseOr;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Move
@@ -192,6 +248,10 @@ struct IRBitwiseOrOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRMoveOp : public detail::IRUnaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::Move;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Bit clear
@@ -201,6 +261,10 @@ struct IRMoveOp : public detail::IRUnaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRBitClearOp : public detail::IRBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::BitClear;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Move negated
@@ -210,6 +274,10 @@ struct IRBitClearOp : public detail::IRBinaryOpBase {
 // Updates host flags if [s] is specified.
 struct IRMoveNegatedOp : public detail::IRUnaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::MoveNegated;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Count leading zeros
@@ -219,6 +287,10 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase {
 // Stores 32 if <value> is zero.
 struct IRCountLeadingZerosOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::CountLeadingZeros;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VariableArg dst;
     VarOrImmArg value;
@@ -232,6 +304,10 @@ struct IRCountLeadingZerosOp : public IROpBase {
 // Updates the Q host flag if the doubling operation or the addition saturates.
 struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::SaturatingAdd;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Saturating subtract
@@ -242,6 +318,10 @@ struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase {
 // Updates the Q host flag if the doubling operation or the subtraction saturates.
 struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase {
     static constexpr auto opcodeType = IROpcodeType::SaturatingSubtract;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 };
 
 // Multiply
@@ -252,6 +332,10 @@ struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase {
 // Updates host flags is [s] is specified.
 struct IRMultiplyOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::Multiply;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VariableArg dstLo;
     std::optional<VariableArg> dstHi;
@@ -267,6 +351,10 @@ struct IRMultiplyOp : public IROpBase {
 // Updates host flags if [s] is specified.
 struct IRAddLongOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::AddLong;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VariableArg dstLo;
     VariableArg dstHi;

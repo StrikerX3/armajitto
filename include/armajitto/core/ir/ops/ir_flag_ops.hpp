@@ -13,6 +13,10 @@ namespace armajitto::ir {
 struct IRStoreFlagsOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::StoreFlags;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
@@ -25,6 +29,10 @@ struct IRStoreFlagsOp : public IROpBase {
 struct IRUpdateFlagsOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::UpdateFlags;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
@@ -35,6 +43,10 @@ struct IRUpdateFlagsOp : public IROpBase {
 // Sets the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
 struct IRUpdateStickyOverflowOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::UpdateStickyOverflow;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VariableArg dstCPSR;
     VariableArg srcCPSR;

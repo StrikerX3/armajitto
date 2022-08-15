@@ -12,6 +12,10 @@ namespace armajitto::ir {
 struct IRLoadCopRegisterOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::LoadCopRegister;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     VariableArg dstValue;
     uint8_t cpnum;
     uint8_t opcode1;
@@ -27,6 +31,10 @@ struct IRLoadCopRegisterOp : public IROpBase {
 // Stores <src_value> into the coprocessor register specified by <cpnum>, <opcode1>, <crn>, <crm> and <opcode2>.
 struct IRStoreCopRegisterOp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::StoreCopRegister;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VarOrImmArg srcValue;
     uint8_t cpnum;

@@ -11,6 +11,10 @@ namespace armajitto::ir {
 struct IRLoadGPROp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::LoadGPR;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     GPRArg src;
     VariableArg dst;
 };
@@ -21,6 +25,10 @@ struct IRLoadGPROp : public IROpBase {
 // Copies the value of <src> into the <dst> GPR.
 struct IRStoreGPROp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::StoreGPR;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VarOrImmArg src;
     GPRArg dst;
@@ -33,6 +41,10 @@ struct IRStoreGPROp : public IROpBase {
 struct IRLoadPSROp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::LoadPSR;
 
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
+
     PSRArg src;
     VariableArg dst;
 };
@@ -43,6 +55,10 @@ struct IRLoadPSROp : public IROpBase {
 // Copies the value of <src> into the <dst> PSR.
 struct IRStorePSROp : public IROpBase {
     static constexpr auto opcodeType = IROpcodeType::StorePSR;
+
+    IROpcodeType GetOpcodeType() const final {
+        return opcodeType;
+    }
 
     VarOrImmArg src;
     PSRArg dst;
