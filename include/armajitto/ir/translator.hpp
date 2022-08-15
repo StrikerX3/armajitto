@@ -29,34 +29,34 @@ private:
         Unimplemented,       // Decoder reached an unimplemented portion of code
     };
 
-    Action DecodeARM(uint32_t opcode, IRCodeFragment &codeFrag);
-    Action DecodeThumb(uint16_t opcode, IRCodeFragment &codeFrag);
+    Action DecodeARM(uint32_t opcode, Emitter &emitter);
+    Action DecodeThumb(uint16_t opcode, Emitter &emitter);
 
-    Action Translate(const arm::instrs::Branch &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::BranchAndExchange &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::ThumbLongBranchSuffix &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::DataProcessing &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::CountLeadingZeros &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SaturatingAddSub &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::MultiplyAccumulate &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::MultiplyAccumulateLong &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SignedMultiplyAccumulate &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SignedMultiplyAccumulateWord &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SignedMultiplyAccumulateLong &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::PSRRead &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::PSRWrite &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SingleDataTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::HalfwordAndSignedTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::BlockTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SingleDataSwap &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SoftwareInterrupt &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::SoftwareBreakpoint &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::Preload &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::CopDataOperations &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::CopDataTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::CopRegTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::CopDualRegTransfer &instr, IRCodeFragment &codeFrag);
-    Action Translate(const arm::instrs::Undefined &instr, IRCodeFragment &codeFrag);
+    Action Translate(const arm::instrs::Branch &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::BranchAndExchange &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::ThumbLongBranchSuffix &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::DataProcessing &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::CountLeadingZeros &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SaturatingAddSub &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::MultiplyAccumulate &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::MultiplyAccumulateLong &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SignedMultiplyAccumulate &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SignedMultiplyAccumulateWord &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SignedMultiplyAccumulateLong &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::PSRRead &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::PSRWrite &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SingleDataTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::HalfwordAndSignedTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::BlockTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SingleDataSwap &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SoftwareInterrupt &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::SoftwareBreakpoint &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::Preload &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::CopDataOperations &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::CopDataTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::CopRegTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::CopDualRegTransfer &instr, Emitter &emitter);
+    Action Translate(const arm::instrs::Undefined &instr, Emitter &emitter);
 };
 
 } // namespace armajitto::ir

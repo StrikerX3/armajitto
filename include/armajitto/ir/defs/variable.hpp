@@ -3,6 +3,8 @@
 namespace armajitto::ir {
 
 struct Variable {
+    static constexpr size_t kInvalidIndex = ~0;
+
     const size_t index;
     const char *name;
 

@@ -16,8 +16,8 @@ struct IRLoadGPROp : public IROpBase {
         return kOpcodeType;
     }
 
-    GPRArg src;
     VariableArg dst;
+    GPRArg src;
 };
 
 // Store GPR
@@ -31,8 +31,8 @@ struct IRStoreGPROp : public IROpBase {
         return kOpcodeType;
     }
 
-    VarOrImmArg src;
     GPRArg dst;
+    VarOrImmArg src;
 };
 
 // Load PSR

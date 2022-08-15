@@ -139,9 +139,8 @@ void testCPUID() {
 void testTranslator() {
     System sys{};
 
-    sys.ROMWriteWord(0x0100, 0xE3A00012); // mov r0, #0x12
-    sys.ROMWriteWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
-    sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
+    sys.ROMWriteWord(0x0100, 0xE16F2F13); // clz r2, r3
+    sys.ROMWriteWord(0x0104, 0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::ir::BasicBlock block{};
