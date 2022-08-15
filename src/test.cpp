@@ -147,7 +147,7 @@ void testTranslator() {
     armajitto::ir::BasicBlock block{};
 
     armajitto::ir::Translator translator{context};
-    translator.TranslateARM(0x0100, block);
+    translator.TranslateARM(block, 0x0100, 32);
 }
 
 int main() {
