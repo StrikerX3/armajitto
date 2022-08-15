@@ -342,21 +342,42 @@ namespace detail {
         //                   P U S W L   reg included by R bit
         // PUSH = STMDB sp!  + - - + -   LR
         // POP  = LDMIA sp!  - + - + +   PC
-        const bool l = bit::test<11>(opcode);
-        instr.preindexed = !l;
-        instr.positiveOffset = l;
+        const bool load = bit::test<11>(opcode);
+        instr.preindexed = !load;
+        instr.positiveOffset = load;
         instr.userMode = false;
         instr.writeback = true;
-        instr.load = l;
+        instr.load = load;
         instr.baseReg = 13;
         instr.regList = bit::extract<0, 8>(opcode);
         if (bit::test<8>(opcode)) {
-            if (l) {
+            if (load) {
                 instr.regList |= (1 << 15);
             } else {
                 instr.regList |= (1 << 14);
             }
         }
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action LoadStoreMultiple(TClient &client, uint16_t opcode) {
+        instrs::BlockTransfer instr{.cond = Condition::AL};
+
+        // load  P U S W L
+        //   -   - + - + -
+        //   +   - + - * +   *: true if rn not in list, false otherwise
+        const bool load = bit::test<11>(opcode);
+        const uint8_t regList = bit::extract<0, 8>(opcode);
+        const uint8_t rn = bit::extract<8, 3>(opcode);
+        instr.preindexed = false;
+        instr.positiveOffset = true;
+        instr.userMode = false;
+        instr.writeback = !load || !bit::test(rn, regList);
+        instr.load = load;
+        instr.baseReg = 13;
+        instr.regList = regList;
 
         return client.Process(instr);
     }
@@ -369,6 +390,53 @@ namespace detail {
     template <Client TClient>
     Action SoftwareBreakpoint(TClient &client) {
         return client.Process(instrs::SoftwareBreakpoint{.cond = Condition::AL});
+    }
+
+    template <Client TClient>
+    Action ConditionalBranch(TClient &client, uint16_t opcode) {
+        instrs::Branch instr{.cond = static_cast<Condition>(bit::extract<8, 4>(opcode))};
+
+        instr.offset = bit::sign_extend<8, int32_t>(bit::extract<0, 8>(opcode)) * 2;
+        instr.link = false;
+        instr.switchToThumb = false;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action UnconditionalBranch(TClient &client, uint16_t opcode) {
+        instrs::Branch instr{.cond = Condition::AL};
+
+        instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
+        instr.link = false;
+        instr.switchToThumb = false;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action LongBranchPrefix(TClient &client, uint16_t opcode) {
+        instrs::DataProcessing instr{.cond = Condition::AL};
+
+        // LR = PC + (SignExtend(offset_11) << 12)
+        instr.opcode = instrs::DataProcessing::Opcode::ADD;
+        instr.immediate = true;
+        instr.setFlags = false;
+        instr.dstReg = 14;
+        instr.lhsReg = 15;
+        instr.rhs.imm = bit::sign_extend<11>(bit::extract<0, 11>(opcode)) << 12;
+
+        return client.Process(instr);
+    }
+
+    template <Client TClient>
+    Action LongBranchSuffix(TClient &client, uint16_t opcode, bool blx) {
+        instrs::ThumbLongBranchSuffix instr{};
+
+        instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
+        instr.blx = blx;
+
+        return client.Process(instr);
     }
 
     template <Client TClient>
@@ -429,17 +497,12 @@ Action DecodeThumb(TClient &client, uint32_t address) {
         case 0b1101: return PushPop(client, opcode);
         default: return Undefined(client);
         }
-    case 0b1100: {
-        const bool l = (opcode >> 11) & 1;
-        return l ? LDM(opcode) : STM(opcode);
-    }
+    case 0b1100: return LoadStoreMultiple(client, opcode);
     case 0b1101:
-        if (((opcode >> 8) & 0b1111) == 0b1111) {
-            return SoftwareInterrupt(client, opcode);
-        } else if (((opcode >> 8) & 0b1111) == 0b1110) {
-            return Undefined(client);
-        } else {
-            return BCond(opcode);
+        switch (bit::extract<8, 4>(opcode)) {
+        case 0b1110: return Undefined(client);
+        case 0b1111: return SoftwareInterrupt(client, opcode);
+        default: return ConditionalBranch(client, opcode);
         }
     case 0b1110: {
         if (arch == CPUArch::ARMv5TE) {
@@ -448,61 +511,22 @@ Action DecodeThumb(TClient &client, uint32_t address) {
                 if (bit::test<0>(opcode)) {
                     return Undefined(client);
                 } else {
-                    // BLX suffix
-                    const uint32_t suffixOffset = (opcode & 0x7FF);
-                    const uint16_t prefix = readFn(context, address - 2);
-                    if ((prefix & 0xF800) == 0xF000) {
-                        // Valid prefix
-                        const uint32_t prefixOffset = (prefix & 0x7FF);
-                        const int32_t offset = bit::sign_extend<23>(prefixOffset << 12) | (suffixOffset << 1);
-                        return CompleteLongBranchSuffix(opcode, offset, true, prefix);
-                    } else {
-                        // Invalid prefix
-                        return PartialLongBranchSuffix(opcode, suffixOffset << 1, true);
-                    }
+                    return LongBranchSuffix(client, opcode, true);
                 }
             }
         }
-        return B(opcode);
+        return UnconditionalBranch(client, opcode);
     }
     case 0b1111: {
-        const bool h = (opcode >> 11) & 1;
-        if (h) {
-            // BL suffix
-            const uint32_t suffixOffset = (opcode & 0x7FF);
-            const uint16_t prefix = readFn(context, address - 2);
-            if ((prefix & 0xF800) == 0xF000) {
-                // Valid prefix
-                const uint32_t prefixOffset = (prefix & 0x7FF);
-                const int32_t offset = bit::sign_extend<23>(prefixOffset << 12) | (suffixOffset << 1);
-                return CompleteLongBranchSuffix(opcode, offset, false, prefix);
-            } else {
-                // Invalid prefix
-                return PartialLongBranchSuffix(opcode, suffixOffset << 1, false);
-            }
+        if (bit::test<11>(opcode)) {
+            return LongBranchSuffix(client, opcode, false);
         } else {
-            // BL/BLX prefix
-            const uint32_t prefixOffset = (opcode & 0x7FF);
-            const uint16_t suffix = readFn(context, address + 2);
-            if ((suffix & 0xF800) == 0xF800) {
-                // Valid BL suffix
-                const uint32_t suffixOffset = (suffix & 0x7FF);
-                const int32_t offset = bit::sign_extend<23>(prefixOffset << 12) | (suffixOffset << 1);
-                return CompleteLongBranchPrefix(opcode, offset, false, suffix);
-            } else if (arch == CPUArch::ARMv5TE && (suffix & 0xF801) == 0xE800) {
-                // Valid BLX suffix
-                const uint32_t suffixOffset = (suffix & 0x7FF);
-                const int32_t offset = bit::sign_extend<23>(prefixOffset << 12) | (suffixOffset << 1);
-                return CompleteLongBranchPrefix(opcode, offset, true, suffix);
-            } else {
-                // Invalid suffix
-                return PartialLongBranchPrefix(opcode, bit::sign_extend<23>(prefixOffset << 12));
-            }
+            return LongBranchPrefix(client, opcode);
         }
     }
     }
 
-    return Action::UnmappedInstruction
+    return Action::UnmappedInstruction;
 }
 
 } // namespace armajitto::arm::decoder

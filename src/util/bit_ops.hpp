@@ -14,6 +14,13 @@ constexpr bool test(T value) {
     return value & (1 << bit);
 }
 
+// Returns true if the value has the specified bit set
+template <typename T>
+constexpr bool test(size_t bit, T value) {
+    static_assert(bit < sizeof(T) * 8, "Bit out of range");
+    return value & (1 << bit);
+}
+
 // Extracts a range of bits from the value
 template <size_t offset, size_t length = 1, typename T>
 constexpr T extract(T value) {
