@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/ir/defs/arg_refs.hpp"
 #include "armajitto/core/ir/defs/memory_access.hpp"
 #include "ir_ops_base.hpp"
 
@@ -20,6 +21,8 @@ struct IRAddSingleBusMemCyclesOp : public IROpBase {
         return opcodeType;
     }
 
+    std::string ToString() const final;
+
     MemAccessType type;
     MemAccessBus bus;
     MemAccessSize size;
@@ -37,6 +40,8 @@ struct IRAddMulCyclesOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     bool sign;
     VarOrImmArg address;
@@ -68,6 +73,8 @@ struct IRAddDualBusCyclesOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     struct Params {
         bool fixed;

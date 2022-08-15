@@ -6,8 +6,16 @@ using namespace armajitto::arm::instrs;
 namespace armajitto::ir {
 
 DecoderAction Emitter::Process(const Branch &instr) {
+    auto *op = new IRBranchOp();
+    op->address.immediate = true;
+    op->address.arg.imm.value = instr.offset;
+    // op->dstPC;
+    op->srcCPSR.immediate = false;
+    // op->srcCPSR.arg.var;
+    m_block.push_back(op);
+
     // TODO: implement
-    return DecoderAction::Unimplemented;
+    return DecoderAction::End;
 }
 
 DecoderAction Emitter::Process(const BranchAndExchange &instr) {

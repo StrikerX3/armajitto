@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/ir/defs/arg_refs.hpp"
 #include "ir_ops_base.hpp"
 
 namespace armajitto::ir {
@@ -14,6 +15,8 @@ struct IRBranchOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     VariableArg dstPC;
     VarOrImmArg srcCPSR;
@@ -30,6 +33,8 @@ struct IRBranchExchangeOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     VariableArg dstPC;
     VariableArg dstCPSR;

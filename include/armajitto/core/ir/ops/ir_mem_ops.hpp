@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/ir/defs/arg_refs.hpp"
 #include "armajitto/core/ir/defs/memory_access.hpp"
 #include "ir_ops_base.hpp"
 
@@ -25,6 +26,8 @@ struct IRMemReadOp : public IROpBase {
         return opcodeType;
     }
 
+    std::string ToString() const final;
+
     MemAccessMode mode;
     MemAccessSize size;
     VariableArg dst;
@@ -41,6 +44,8 @@ struct IRMemWriteOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     MemAccessSize size;
     VarOrImmArg src;

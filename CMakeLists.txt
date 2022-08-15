@@ -18,7 +18,7 @@ if (DEFINED armajitto_SHARED_LIBS)
 endif ()
 
 ## Create the main armajitto library target
-add_library(armajitto 
+add_library(armajitto
     include/armajitto/armajitto.hpp
     include/armajitto/arm/decoder.hpp
     include/armajitto/arm/mode.hpp
@@ -56,6 +56,13 @@ add_library(armajitto
     src/core/recompiler.cpp
     src/core/ir/emitter.cpp
     src/core/ir/defs/arg_refs.cpp
+    src/core/ir/ops/ir_alu_ops.cpp
+    src/core/ir/ops/ir_branch_ops.cpp
+    src/core/ir/ops/ir_cop_ops.cpp
+    src/core/ir/ops/ir_cycle_ops.cpp
+    src/core/ir/ops/ir_flag_ops.cpp
+    src/core/ir/ops/ir_mem_ops.cpp
+    src/core/ir/ops/ir_reg_ops.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES

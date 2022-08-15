@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/ir/defs/arg_refs.hpp"
 #include "ir_ops_base.hpp"
 
 #include <optional>
@@ -66,6 +67,8 @@ struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Logical shift right
@@ -79,6 +82,8 @@ struct IRLogicalShiftRightOp : public detail::IRShiftOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Arithmetic shift right
@@ -92,6 +97,8 @@ struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Rotate right
@@ -105,6 +112,8 @@ struct IRRotateRightOp : public detail::IRShiftOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Rotate right extend
@@ -118,6 +127,8 @@ struct IRRotateRightExtendOp : public detail::IRShiftOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Bitwise AND
@@ -132,6 +143,8 @@ struct IRBitwiseAndOp : public detail::IRComparisonOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Bitwise XOR
@@ -146,6 +159,8 @@ struct IRBitwiseXorOp : public detail::IRComparisonOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Subtract
@@ -160,6 +175,8 @@ struct IRSubtractOp : public detail::IRComparisonOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Reverse subtract
@@ -173,6 +190,8 @@ struct IRReverseSubtractOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Add
@@ -187,6 +206,8 @@ struct IRAddOp : public detail::IRComparisonOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Add with carry
@@ -200,6 +221,8 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Subtract with carry
@@ -213,6 +236,8 @@ struct IRSubtractCarryOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Reverse subtract with carry
@@ -226,6 +251,8 @@ struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Bitwise OR
@@ -239,6 +266,8 @@ struct IRBitwiseOrOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Move
@@ -252,6 +281,8 @@ struct IRMoveOp : public detail::IRUnaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Bit clear
@@ -265,6 +296,8 @@ struct IRBitClearOp : public detail::IRBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Move negated
@@ -278,6 +311,8 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Count leading zeros
@@ -291,6 +326,8 @@ struct IRCountLeadingZerosOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     VariableArg dst;
     VarOrImmArg value;
@@ -308,6 +345,8 @@ struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Saturating subtract
@@ -322,6 +361,8 @@ struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 };
 
 // Multiply
@@ -337,6 +378,8 @@ struct IRMultiplyOp : public IROpBase {
         return opcodeType;
     }
 
+    std::string ToString() const final;
+
     VariableArg dstLo;
     std::optional<VariableArg> dstHi;
     VarOrImmArg lhs;
@@ -345,7 +388,7 @@ struct IRMultiplyOp : public IROpBase {
 };
 
 // Add long
-//   add64[s] <var:dstLo>, <var:dstHi>, <var/imm:lhsLo>, <var/imm:lhsHi>, <var/imm:rhsLo>, <var/imm:rhsHi>
+//   addl[s] <var:dstLo>, <var:dstHi>, <var/imm:lhsLo>, <var/imm:lhsHi>, <var/imm:rhsLo>, <var/imm:rhsHi>
 //
 // Adds the 64 bit values <lhsLo>:<lhsHi> + <rhsLo>:<rhsHi> and stores the result in <dstLo>:<dstHi>.
 // Updates host flags if [s] is specified.
@@ -355,6 +398,8 @@ struct IRAddLongOp : public IROpBase {
     IROpcodeType GetOpcodeType() const final {
         return opcodeType;
     }
+
+    std::string ToString() const final;
 
     VariableArg dstLo;
     VariableArg dstHi;

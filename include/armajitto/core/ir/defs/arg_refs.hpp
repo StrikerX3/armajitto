@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace armajitto::ir {
@@ -8,25 +9,25 @@ struct GPRArg {
     uint8_t gpr : 4;
     bool userMode;
 
-    std::string ToString();
+    std::string ToString() const;
 };
 
 struct PSRArg {
     bool spsr;
 
-    std::string ToString();
+    std::string ToString() const;
 };
 
 struct VariableArg {
     // TODO: variable "name"
 
-    std::string ToString();
+    std::string ToString() const;
 };
 
 struct ImmediateArg {
     uint32_t value;
 
-    std::string ToString();
+    std::string ToString() const;
 };
 
 struct VarOrImmArg {
@@ -36,7 +37,7 @@ struct VarOrImmArg {
         ImmediateArg imm;
     } arg;
 
-    std::string ToString();
+    std::string ToString() const;
 };
 
 } // namespace armajitto::ir

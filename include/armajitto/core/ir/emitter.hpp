@@ -1,12 +1,16 @@
 #pragma once
 
 #include "armajitto/arm/decoder.hpp"
+#include "armajitto/core/ir/ops/ir_ops.hpp"
 #include "armajitto/defs/cpu_arch.hpp"
 
 #include <cstdint>
 #include <vector>
 
 namespace armajitto::ir {
+
+// TODO: this is obviously a placeholder just to get things going
+using _placeholder_Block = std::vector<IROpBase *>;
 
 class Emitter {
 public:
@@ -38,8 +42,13 @@ public:
     DecoderAction Process(const arm::instrs::CopDualRegTransfer &instr);
     DecoderAction Process(const arm::instrs::Undefined &instr);
 
+    const _placeholder_Block &GetBlock() const {
+        return m_block;
+    }
+
 private:
     // TODO: reference to basic block
+    _placeholder_Block m_block;
 };
 
 } // namespace armajitto::ir
