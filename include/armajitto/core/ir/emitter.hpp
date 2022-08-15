@@ -2,7 +2,6 @@
 
 #include "armajitto/arm/decoder.hpp"
 #include "armajitto/defs/cpu_arch.hpp"
-#include "opcodes.hpp"
 
 #include <cstdint>
 #include <vector>

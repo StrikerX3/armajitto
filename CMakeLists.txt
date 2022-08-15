@@ -33,16 +33,29 @@ add_library(armajitto
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/core/ir/emitter.hpp
-    include/armajitto/core/ir/opcodes.hpp
+    include/armajitto/core/ir/defs/arg_refs.hpp
+    include/armajitto/core/ir/defs/memory_access.hpp
+    include/armajitto/core/ir/defs/opcode_types.hpp
+    include/armajitto/core/ir/ops/ir_alu_ops.hpp
+    include/armajitto/core/ir/ops/ir_branch_ops.hpp
+    include/armajitto/core/ir/ops/ir_cop_ops.hpp
+    include/armajitto/core/ir/ops/ir_cycle_ops.hpp
+    include/armajitto/core/ir/ops/ir_flag_ops.hpp
+    include/armajitto/core/ir/ops/ir_mem_ops.hpp
+    include/armajitto/core/ir/ops/ir_ops.hpp
+    include/armajitto/core/ir/ops/ir_ops_base.hpp
+    include/armajitto/core/ir/ops/ir_reg_ops.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
     include/armajitto/util/bit_ops.hpp
+    src/test.cpp
     src/abi/x86_64/cpuid.cpp
     src/abi/x86_64/cpuid.hpp
     src/allocator/arena.hpp
     src/core/context.hpp
     src/core/recompiler.cpp
     src/core/ir/emitter.cpp
+    src/core/ir/defs/arg_refs.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
@@ -63,6 +76,8 @@ target_precompile_headers(armajitto
         <concepts>
         <cstdint>
         <memory>
+        <optional>
+        <string>
         <type_traits>
 )
 
