@@ -1,8 +1,8 @@
 #pragma once
 
-#include "arm/decoder.hpp"
 #include "armajitto/arm/state.hpp"
 #include "armajitto/core/system_interface.hpp"
+#include "armajitto/defs/cpu_arch.hpp"
 
 namespace armajitto {
 

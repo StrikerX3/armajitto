@@ -484,7 +484,7 @@ Action DecodeThumb(TClient &client, uint32_t address) {
         case 0b1111: return client.Process(SoftwareInterrupt(opcode));
         default: return client.Process(ConditionalBranch(opcode));
         }
-    case 0b1110: {
+    case 0b1110:
         if (arch == CPUArch::ARMv5TE) {
             const bool blx = bit::test<11>(opcode);
             if (blx) {
@@ -496,14 +496,12 @@ Action DecodeThumb(TClient &client, uint32_t address) {
             }
         }
         return client.Process(UnconditionalBranch(opcode));
-    }
-    case 0b1111: {
+    case 0b1111:
         if (bit::test<11>(opcode)) {
             return client.Process(LongBranchSuffix(opcode, false));
         } else {
             return client.Process(LongBranchPrefix(opcode));
         }
-    }
     }
 
     return Action::UnmappedInstruction;
