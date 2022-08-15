@@ -7,4 +7,4 @@ enum class CPUArch {
     ARMv5TE,
 };
 
-}
+} // namespace armajitto

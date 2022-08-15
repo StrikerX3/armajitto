@@ -2,9 +2,7 @@
 
 #include "armajitto/core/context.hpp"
 #include "armajitto/defs/arm/instructions.hpp"
-#include "armajitto/util/bit_ops.hpp"
 #include "defs/basic_block.hpp"
-#include "emitter.hpp"
 
 namespace armajitto::ir {
 

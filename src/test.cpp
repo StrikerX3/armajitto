@@ -1,4 +1,5 @@
 #include <armajitto/armajitto.hpp>
+#include <armajitto/backend/x86_64/cpuid.hpp>
 #include <armajitto/ir/translator.hpp>
 
 #include <array>
@@ -123,6 +124,18 @@ void testBasic() {
     */
 }
 
+void testCPUID() {
+    auto &cpuid = armajitto::x86_64::CPUID::Instance();
+    if (cpuid.HasBMI2()) {
+        printf("BMI2 available\n");
+    }
+    if (cpuid.HasLZCNT()) {
+        printf("LZCNT available\n");
+    }
+    if (cpuid.HasFastPDEPAndPEXT()) {
+        printf("Fast PDEP/PEXT available\n");
+    }
+}
 void testTranslator() {
     System sys{};
 
@@ -131,7 +144,7 @@ void testTranslator() {
     sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
-    armajitto::BasicBlock block{};
+    armajitto::ir::BasicBlock block{};
 
     armajitto::ir::Translator translator{context};
     translator.TranslateARM(0x0100, block);
@@ -141,6 +154,7 @@ int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
     // testBasic();
+    // testCPUID();
     testTranslator();
 
     return EXIT_SUCCESS;

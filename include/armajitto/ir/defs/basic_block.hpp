@@ -1,10 +1,12 @@
 #pragma once
 
-namespace armajitto {
+#include "armajitto/ir/emitter.hpp"
+
+namespace armajitto::ir {
 
 class BasicBlock {
 public:
 private:
 };
 
-} // namespace armajitto
+} // namespace armajitto::ir
