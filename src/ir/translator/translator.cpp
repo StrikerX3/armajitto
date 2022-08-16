@@ -366,6 +366,8 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     auto argVar = emitter.Var("arg");
     auto dstVar = emitter.Var("dst");
 
+    // TODO: (maybe) make instructions that store values in varaibles return the variables so that we can do this:
+    // emitter.StoreGPR(instr.dstReg, emitter.CountLeadingZeros(emitter.LoadGPR(instr.argReg)));
     emitter.LoadGPR(argVar, instr.argReg);
     emitter.CountLeadingZeros(dstVar, argVar);
     emitter.StoreGPR(instr.dstReg, dstVar);
