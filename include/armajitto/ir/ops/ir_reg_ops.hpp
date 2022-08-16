@@ -46,8 +46,8 @@ struct IRLoadPSROp : public IROpBase {
         return kOpcodeType;
     }
 
-    PSRArg src;
     VariableArg dst;
+    PSRArg src;
 };
 
 // Store PSR
@@ -61,8 +61,8 @@ struct IRStorePSROp : public IROpBase {
         return kOpcodeType;
     }
 
-    VarOrImmArg src;
     PSRArg dst;
+    VarOrImmArg src;
 };
 
 } // namespace armajitto::ir

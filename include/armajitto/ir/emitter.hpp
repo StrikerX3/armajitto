@@ -14,6 +14,11 @@ public:
 
     void LoadGPR(VariableArg dst, GPRArg src);
     void StoreGPR(GPRArg dst, VarOrImmArg src);
+    void LoadPSR(VariableArg dst, PSRArg src);
+    void StorePSR(PSRArg dst, VarOrImmArg src);
+
+    void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
+    void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
 
     void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
 
