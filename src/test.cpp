@@ -157,7 +157,7 @@ int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
     // testBasic();
-    // testCPUID();
+    testCPUID();
     testTranslator();
 
     return EXIT_SUCCESS;

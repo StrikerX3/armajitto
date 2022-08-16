@@ -7,8 +7,7 @@ namespace armajitto::x86_64 {
 class CPUID {
 public:
     static CPUID &Instance() {
-        static CPUID instance;
-        return instance;
+        return s_instance;
     }
 
     [[nodiscard]] bool HasBMI2() const {
@@ -32,6 +31,8 @@ public:
 
 private:
     CPUID();
+
+    static CPUID s_instance;
 
     uint8_t family;
 

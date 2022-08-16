@@ -8,6 +8,8 @@
 
 namespace armajitto::x86_64 {
 
+CPUID CPUID::s_instance;
+
 CPUID::CPUID() {
     uint32_t eax, ebx, ecx, edx;
 
