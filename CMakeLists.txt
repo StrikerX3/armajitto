@@ -21,7 +21,6 @@ endif ()
 add_library(armajitto
     include/armajitto/armajitto.hpp
     include/armajitto/version.hpp
-    include/armajitto/backend/x86_64/cpuid.hpp
     include/armajitto/core/context.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
@@ -32,6 +31,7 @@ add_library(armajitto
     include/armajitto/defs/arm/mode.hpp
     include/armajitto/defs/arm/psr.hpp
     include/armajitto/defs/arm/state.hpp
+    include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
     include/armajitto/ir/optimizer.hpp
@@ -51,8 +51,8 @@ add_library(armajitto
     include/armajitto/ir/ops/ir_reg_ops.hpp
     include/armajitto/util/bit_ops.hpp
     src/allocator/arena.hpp
-    src/backend/x86_64/cpuid.cpp
     src/core/recompiler.cpp
+    src/host/x86_64/cpuid.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
     src/ir/defs/arg_refs.cpp

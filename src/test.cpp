@@ -1,5 +1,5 @@
 #include <armajitto/armajitto.hpp>
-#include <armajitto/backend/x86_64/cpuid.hpp>
+#include <armajitto/host/x86_64/cpuid.hpp>
 #include <armajitto/ir/translator.hpp>
 
 #include <array>

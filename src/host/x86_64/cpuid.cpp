@@ -1,4 +1,4 @@
-#include "armajitto/backend/x86_64/cpuid.hpp"
+#include "armajitto/host/x86_64/cpuid.hpp"
 
 #ifdef _WIN32
     #include <intrin.h>
