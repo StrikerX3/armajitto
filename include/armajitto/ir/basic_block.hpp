@@ -14,7 +14,7 @@ public:
     BasicBlock(LocationRef location)
         : m_location(location) {}
 
-    const LocationRef &Location() const {
+    LocationRef Location() const {
         return m_location;
     }
 
@@ -28,7 +28,7 @@ private:
 
     std::vector<IROp *> m_ops; // TODO: avoid raw pointers
     std::vector<Variable> m_vars;
-    size_t m_instrCount = 0; // ARM/Thumb instructions
+    uint32_t m_instrCount = 0; // ARM/Thumb instructions
 
     friend class Emitter;
 };
