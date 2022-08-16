@@ -363,7 +363,7 @@ void Translator::Translate(const DataProcessing &instr, State::Handle state) {
 
 void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
-    const arm::Mode mode = state.GetBlock().ARMMode();
+    const arm::Mode mode = state.GetBlock().Mode();
     auto argVar = emitter.CreateVariable("arg");
     auto dstVar = emitter.CreateVariable("dst");
 

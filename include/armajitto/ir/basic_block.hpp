@@ -23,7 +23,7 @@ public:
         return m_baseAddress;
     }
 
-    arm::Mode ARMMode() const {
+    arm::Mode Mode() const {
         return m_mode;
     }
 
@@ -35,6 +35,7 @@ private:
     uint32_t m_baseAddress;
     arm::Mode m_mode;
     bool m_thumb;
+
     std::vector<IRCodeFragment> m_codeFragments;
 };
 
