@@ -34,6 +34,7 @@ add_library(armajitto
     include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
+    include/armajitto/ir/location_ref.hpp
     include/armajitto/ir/optimizer.hpp
     include/armajitto/ir/translator.hpp
     include/armajitto/ir/defs/arg_refs.hpp

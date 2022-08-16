@@ -309,7 +309,7 @@ inline auto PushPop(uint16_t opcode) {
     const bool load = bit::test<11>(opcode);
     instr.preindexed = !load;
     instr.positiveOffset = load;
-    instr.userMode = false;
+    instr.userModeOrPSRTransfer = false;
     instr.writeback = true;
     instr.load = load;
     instr.baseReg = 13;
@@ -336,7 +336,7 @@ inline auto LoadStoreMultiple(uint16_t opcode) {
     const uint8_t rn = bit::extract<8, 3>(opcode);
     instr.preindexed = false;
     instr.positiveOffset = true;
-    instr.userMode = false;
+    instr.userModeOrPSRTransfer = false;
     instr.writeback = !load || !bit::test(rn, regList);
     instr.load = load;
     instr.baseReg = 13;

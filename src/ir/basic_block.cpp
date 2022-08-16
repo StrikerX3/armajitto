@@ -2,8 +2,6 @@
 
 namespace armajitto::ir {
 
-IRCodeFragment *BasicBlock::CreateCodeFragment() {
-    return &m_codeFragments.emplace_back();
-}
+//
 
 } // namespace armajitto::ir

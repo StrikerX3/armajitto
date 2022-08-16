@@ -12,8 +12,8 @@ namespace armajitto::ir {
 void Translator::Translate(BasicBlock &block, Parameters params) {
     State state{block};
 
-    const uint32_t baseAddress = block.BaseAddress();
-    const uint32_t opcodeSize = block.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+    const bool thumb = block.Location().IsThumbMode();
+    const uint32_t opcodeSize = thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     const CPUArch arch = m_context.GetCPUArch();
 
     auto parseARMCond = [](uint32_t opcode, CPUArch arch) {
@@ -32,11 +32,10 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
             // Thumb conditional branch instruction
             auto cond = static_cast<arm::Condition>(bit::extract<8, 4>(opcode));
             if (cond == Condition::NV) {
-                // 0b1111 (Condition::NV) is a software interrupt instruction
+                // 0b1111 (Condition::NV) is an unconditional software interrupt instruction
                 return Condition::AL;
             } else {
-                // 0b1110 (Condition::AL) is an undefined instruction
-                // All other combinations are valid conditions
+                // 0b1110 (Condition::AL) is an unconditional undefined instruction
                 return cond;
             }
         } else {
@@ -44,9 +43,9 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
         }
     };
 
-    uint32_t address = baseAddress;
+    uint32_t address = block.Location().BaseAddress();
     for (uint32_t i = 0; i < params.maxBlockSize; i++) {
-        if (block.IsThumbMode()) {
+        if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);
             state.UpdateCondition(cond);
@@ -58,10 +57,11 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
             TranslateARM(opcode, state);
         }
 
+        state.NextIteration();
         if (state.IsEndBlock()) {
             break;
         }
-        state.NextIteration();
+
         address += opcodeSize;
     }
 }
@@ -363,9 +363,8 @@ void Translator::Translate(const DataProcessing &instr, State::Handle state) {
 
 void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
-    const arm::Mode mode = state.GetBlock().Mode();
-    auto argVar = emitter.CreateVariable("arg");
-    auto dstVar = emitter.CreateVariable("dst");
+    auto argVar = emitter.Var("arg");
+    auto dstVar = emitter.Var("dst");
 
     emitter.LoadGPR(argVar, instr.argReg);
     emitter.CountLeadingZeros(dstVar, argVar);

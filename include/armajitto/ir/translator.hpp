@@ -2,7 +2,7 @@
 
 #include "armajitto/core/context.hpp"
 #include "armajitto/defs/arm/instructions.hpp"
-#include "basic_block.hpp"
+#include "emitter.hpp"
 
 namespace armajitto::ir {
 
@@ -25,12 +25,8 @@ private:
             Handle(State &state)
                 : state(state) {}
 
-            const BasicBlock &GetBlock() const {
-                return state.block;
-            }
-
             Emitter &GetEmitter() {
-                return state.codeFrag->emitter;
+                return state.emitter;
             }
 
             void EndBlock() {
@@ -46,31 +42,28 @@ private:
         };
 
         State(BasicBlock &block)
-            : block(block)
-            , codeFrag(nullptr)
+            : emitter(block)
             , flagsUpdated(false)
             , endBlock(false) {}
 
         void UpdateCondition(arm::Condition cond) {
-            currCond = cond;
-            if (codeFrag == nullptr || cond != codeFrag->cond) {
-                NewCodeFragment();
+            if (!condKnown) {
+                emitter.SetCondition(cond);
+                condKnown = true;
+            } else if (cond != emitter.GetBlock().Condition()) {
+                endBlock = true;
             }
+        }
+
+        void NextIteration() {
+            if (flagsUpdated && emitter.GetBlock().Condition() != arm::Condition::AL) {
+                endBlock = true;
+            }
+            flagsUpdated = false;
         }
 
         bool IsEndBlock() const {
             return endBlock;
-        }
-
-        bool IsFlagsUpdated() const {
-            return flagsUpdated;
-        }
-
-        void NextIteration() {
-            if (flagsUpdated && currCond != arm::Condition::AL) {
-                NewCodeFragment();
-            }
-            flagsUpdated = false;
         }
 
         Handle GetHandle() {
@@ -78,16 +71,10 @@ private:
         }
 
     private:
-        BasicBlock &block;
-        IRCodeFragment *codeFrag;
-        arm::Condition currCond;
+        Emitter emitter;
+        bool condKnown = false;
         bool flagsUpdated;
         bool endBlock;
-
-        void NewCodeFragment() {
-            codeFrag = block.CreateCodeFragment();
-            codeFrag->cond = currCond;
-        }
     };
 
     void TranslateARM(uint32_t opcode, State &state);

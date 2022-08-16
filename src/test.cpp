@@ -143,7 +143,7 @@ void testTranslator() {
     sys.ROMWriteWord(0x0104, 0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
-    armajitto::ir::BasicBlock block{0x0100, armajitto::arm::Mode::User, false};
+    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, false}};
 
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,

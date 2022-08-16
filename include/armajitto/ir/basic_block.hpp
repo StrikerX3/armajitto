@@ -1,42 +1,35 @@
 #pragma once
 
 #include "armajitto/defs/arm/instructions.hpp"
-#include "armajitto/ir/emitter.hpp"
+#include "armajitto/ir/ops/ir_ops_base.hpp"
+#include "defs/variable.hpp"
+#include "location_ref.hpp"
+
+#include <vector>
 
 namespace armajitto::ir {
 
-struct IRCodeFragment {
-    Emitter emitter;
-    arm::Condition cond;
-};
-
 class BasicBlock {
 public:
-    BasicBlock(uint32_t baseAddress, arm::Mode mode, bool thumb)
-        : m_baseAddress(baseAddress)
-        , m_mode(mode)
-        , m_thumb(thumb) {}
+    BasicBlock(LocationRef location)
+        : m_location(location) {}
 
-    IRCodeFragment *CreateCodeFragment();
-
-    uint32_t BaseAddress() const {
-        return m_baseAddress;
+    const LocationRef &Location() const {
+        return m_location;
     }
 
-    arm::Mode Mode() const {
-        return m_mode;
-    }
-
-    bool IsThumbMode() const {
-        return m_thumb;
+    arm::Condition Condition() const {
+        return m_cond;
     }
 
 private:
-    uint32_t m_baseAddress;
-    arm::Mode m_mode;
-    bool m_thumb;
+    LocationRef m_location;
+    arm::Condition m_cond;
 
-    std::vector<IRCodeFragment> m_codeFragments;
+    std::vector<IROp *> m_ops; // TODO: avoid raw pointers
+    std::vector<Variable> m_vars;
+
+    friend class Emitter;
 };
 
 } // namespace armajitto::ir

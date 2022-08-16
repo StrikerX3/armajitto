@@ -238,12 +238,12 @@ namespace instrs {
     //   +   LDM
     struct BlockTransfer {
         Condition cond;
-        bool preindexed;     // P bit
-        bool positiveOffset; // U bit
-        bool userMode;       // S bit
-        bool writeback;      // W bit
-        bool load;           // L bit
-        uint8_t baseReg;     // Rn
+        bool preindexed;            // P bit
+        bool positiveOffset;        // U bit
+        bool userModeOrPSRTransfer; // S bit
+        bool writeback;             // W bit
+        bool load;                  // L bit
+        uint8_t baseReg;            // Rn
         uint16_t regList;
     };
 

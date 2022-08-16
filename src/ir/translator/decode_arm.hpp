@@ -245,7 +245,7 @@ inline auto BlockTransfer(uint32_t opcode, arm::Condition cond) {
 
     instr.preindexed = bit::test<24>(opcode);
     instr.positiveOffset = bit::test<23>(opcode);
-    instr.userMode = bit::test<22>(opcode);
+    instr.userModeOrPSRTransfer = bit::test<22>(opcode);
     instr.writeback = bit::test<21>(opcode);
     instr.load = bit::test<20>(opcode);
     instr.baseReg = bit::extract<16, 4>(opcode);
