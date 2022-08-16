@@ -189,7 +189,7 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
 // Subtract with carry
 //   sbc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
-// Computes <lhs> - <rhs> - (carry) and stores the result in <dst>.
+// Computes <lhs> - <rhs> - (1 - carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractCarry> {
     IRSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
@@ -199,7 +199,7 @@ struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractC
 // Reverse subtract with carry
 //   rsc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
-// Computes <rhs> - <lhs> - (carry) and stores the result in <dst>.
+// Computes <rhs> - <lhs> - (1 - carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
 struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtractCarry> {
     IRReverseSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
