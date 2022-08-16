@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/defs/arm/mode.hpp"
 #include "armajitto/ir/defs/variable.hpp"
 
 #include <cstdint>
@@ -32,7 +33,7 @@ struct GPRArg {
 
 struct PSRArg {
     bool spsr;
-    uint8_t mode; // when spsr == true
+    arm::Mode mode; // when spsr == true
 };
 
 struct VariableArg {
@@ -84,18 +85,12 @@ struct VarOrImmArg {
     VariableArg var;
     ImmediateArg imm;
 
-    VarOrImmArg()
-        : immediate(true) {
-        imm = 0;
+    VarOrImmArg() {
+        operator=(0);
     }
 
-    VarOrImmArg(const VarOrImmArg &rhs) {
-        operator=(rhs);
-    }
-
-    VarOrImmArg(VarOrImmArg &&rhs) {
-        operator=(rhs);
-    }
+    VarOrImmArg(const VarOrImmArg &) = default;
+    VarOrImmArg(VarOrImmArg &&) = default;
 
     VarOrImmArg(Variable &var) {
         operator=(var);
@@ -105,25 +100,8 @@ struct VarOrImmArg {
         operator=(imm);
     }
 
-    VarOrImmArg &operator=(const VarOrImmArg &rhs) {
-        immediate = rhs.immediate;
-        if (immediate) {
-            imm = rhs.imm;
-        } else {
-            var = rhs.var;
-        }
-        return *this;
-    }
-
-    VarOrImmArg &operator=(VarOrImmArg &&rhs) {
-        std::swap(immediate, rhs.immediate);
-        if (immediate) {
-            std::swap(imm, rhs.imm);
-        } else {
-            std::swap(var, rhs.var);
-        }
-        return *this;
-    }
+    VarOrImmArg &operator=(const VarOrImmArg &) = default;
+    VarOrImmArg &operator=(VarOrImmArg &&) = default;
 
     VarOrImmArg &operator=(const Variable &var) {
         immediate = false;
