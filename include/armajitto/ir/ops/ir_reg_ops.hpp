@@ -12,6 +12,10 @@ namespace armajitto::ir {
 struct IRLoadGPROp : public IROpBase<IROpcodeType::LoadGPR> {
     VariableArg dst;
     GPRArg src;
+
+    IRLoadGPROp(VariableArg dst, GPRArg src)
+        : dst(dst)
+        , src(src) {}
 };
 
 // Store GPR
@@ -21,6 +25,10 @@ struct IRLoadGPROp : public IROpBase<IROpcodeType::LoadGPR> {
 struct IRStoreGPROp : public IROpBase<IROpcodeType::StoreGPR> {
     GPRArg dst;
     VarOrImmArg src;
+
+    IRStoreGPROp(GPRArg dst, VarOrImmArg src)
+        : dst(dst)
+        , src(src) {}
 };
 
 // Load CPSR
@@ -29,6 +37,9 @@ struct IRStoreGPROp : public IROpBase<IROpcodeType::StoreGPR> {
 // Copies the value of CPSR into <dst>.
 struct IRLoadCPSROp : public IROpBase<IROpcodeType::LoadCPSR> {
     VariableArg dst;
+
+    IRLoadCPSROp(VariableArg dst)
+        : dst(dst) {}
 };
 
 // Store CPSR
@@ -37,6 +48,9 @@ struct IRLoadCPSROp : public IROpBase<IROpcodeType::LoadCPSR> {
 // Copies the value of <src> into CPSR.
 struct IRStoreCPSROp : public IROpBase<IROpcodeType::StoreCPSR> {
     VarOrImmArg src;
+
+    IRStoreCPSROp(VarOrImmArg src)
+        : src(src) {}
 };
 
 // Load SPSR
@@ -46,6 +60,10 @@ struct IRStoreCPSROp : public IROpBase<IROpcodeType::StoreCPSR> {
 struct IRLoadSPSROp : public IROpBase<IROpcodeType::LoadSPSR> {
     arm::Mode mode;
     VariableArg dst;
+
+    IRLoadSPSROp(arm::Mode mode, VariableArg dst)
+        : mode(mode)
+        , dst(dst) {}
 };
 
 // Store SPSR
@@ -55,6 +73,10 @@ struct IRLoadSPSROp : public IROpBase<IROpcodeType::LoadSPSR> {
 struct IRStoreSPSROp : public IROpBase<IROpcodeType::StoreSPSR> {
     arm::Mode mode;
     VarOrImmArg src;
+
+    IRStoreSPSROp(arm::Mode mode, VarOrImmArg src)
+        : mode(mode)
+        , src(src) {}
 };
 
 } // namespace armajitto::ir

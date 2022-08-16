@@ -13,6 +13,11 @@ struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
     VariableArg dstPC;
     VarOrImmArg srcCPSR;
     VarOrImmArg address;
+
+    IRBranchOp(VariableArg dstPC, VarOrImmArg srcCPSR, VarOrImmArg address)
+        : dstPC(dstPC)
+        , srcCPSR(srcCPSR)
+        , address(address) {}
 };
 
 // Branch with exchange
@@ -25,6 +30,12 @@ struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
     VariableArg dstCPSR;
     VarOrImmArg srcCPSR;
     VarOrImmArg address;
+
+    IRBranchExchangeOp(VariableArg dstPC, VariableArg dstCPSR, VarOrImmArg srcCPSR, VarOrImmArg address)
+        : dstPC(dstPC)
+        , dstCPSR(dstCPSR)
+        , srcCPSR(srcCPSR)
+        , address(address) {}
 };
 
 } // namespace armajitto::ir

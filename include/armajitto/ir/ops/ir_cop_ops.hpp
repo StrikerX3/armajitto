@@ -18,6 +18,15 @@ struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
     uint8_t crm;
     uint8_t opcode2;
     bool ext;
+    IRLoadCopRegisterOp(VariableArg dstValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2,
+                        bool ext)
+        : dstValue(dstValue)
+        , cpnum(cpnum)
+        , opcode1(opcode1)
+        , crn(crn)
+        , crm(crm)
+        , opcode2(opcode2)
+        , ext(ext) {}
 };
 
 // Store coprocessor register
@@ -32,6 +41,16 @@ struct IRStoreCopRegisterOp : public IROpBase<IROpcodeType::StoreCopRegister> {
     uint8_t crm;
     uint8_t opcode2;
     bool ext;
+
+    IRStoreCopRegisterOp(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
+                         uint8_t opcode2, bool ext)
+        : srcValue(srcValue)
+        , cpnum(cpnum)
+        , opcode1(opcode1)
+        , crn(crn)
+        , crm(crm)
+        , opcode2(opcode2)
+        , ext(ext) {}
 };
 
 // TODO: CDP, CDP2

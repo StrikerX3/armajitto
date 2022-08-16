@@ -16,26 +16,29 @@ namespace detail {
         VarOrImmArg value;
         VarOrImmArg amount;
         bool setFlags;
+
+        IRShiftOpBase(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+            : dst(dst)
+            , value(value)
+            , amount(amount)
+            , setFlags(setFlags) {}
     };
 
-    // Base type of binary ALU operations with optional result, which is used for comparison instructions.
-    //   [op][s] <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
-    template <IROpcodeType opcodeType>
-    struct IRComparisonOpBase : public IROpBase<opcodeType> {
-        VariableArg dst;
-        VarOrImmArg lhs;
-        VarOrImmArg rhs;
-        bool setFlags;
-    };
-
-    // Base type of binary ALU operations.
+    // Base type of binary ALU operations, including comparison instructions.
     //   [op][s] <var:dst>, <var/imm:lhs>, <var/imm:rhs>
+    //   [op][s] <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
     template <IROpcodeType opcodeType>
     struct IRBinaryOpBase : public IROpBase<opcodeType> {
         VariableArg dst;
         VarOrImmArg lhs;
         VarOrImmArg rhs;
         bool setFlags;
+
+        IRBinaryOpBase(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+            : dst(dst)
+            , lhs(lhs)
+            , rhs(rhs)
+            , setFlags(setFlags) {}
     };
 
     // Base type of saturating binary ALU operations.
@@ -45,6 +48,11 @@ namespace detail {
         VariableArg dst;
         VarOrImmArg lhs;
         VarOrImmArg rhs;
+
+        IRSaturatingBinaryOpBase(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs)
+            : dst(dst)
+            , lhs(lhs)
+            , rhs(rhs) {}
     };
 
     // Base type of unary ALU operations.
@@ -54,6 +62,11 @@ namespace detail {
         VariableArg dst;
         VarOrImmArg value;
         bool setFlags;
+
+        IRUnaryOpBase(VariableArg dst, VarOrImmArg value, bool setFlags)
+            : dst(dst)
+            , value(value)
+            , setFlags(setFlags) {}
     };
 } // namespace detail
 
@@ -64,35 +77,50 @@ namespace detail {
 //
 // Shifts bits in <value> left by <amount>, shifting in zeros, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase<IROpcodeType::LogicalShiftLeft> {};
+struct IRLogicalShiftLeftOp : public detail::IRShiftOpBase<IROpcodeType::LogicalShiftLeft> {
+    IRLogicalShiftLeftOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+        : IRShiftOpBase(dst, value, amount, setFlags) {}
+};
 
 // Logical shift right
 //   lsr[s]   <var:dst>, <var/imm:value>, <var/imm:amount>
 //
 // Shifts bits in value <right> by <amount>, shifting in zeros, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRLogicalShiftRightOp : public detail::IRShiftOpBase<IROpcodeType::LogicalShiftRight> {};
+struct IRLogicalShiftRightOp : public detail::IRShiftOpBase<IROpcodeType::LogicalShiftRight> {
+    IRLogicalShiftRightOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+        : IRShiftOpBase(dst, value, amount, setFlags) {}
+};
 
 // Arithmetic shift right
 //   asr[s]   <var:dst>, <var/imm:value>, <var/imm:amount>
 //
 // Shifts bits in <value> right by <amount>, shifting in the sign bit of <value>, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase<IROpcodeType::ArithmeticShiftRight> {};
+struct IRArithmeticShiftRightOp : public detail::IRShiftOpBase<IROpcodeType::ArithmeticShiftRight> {
+    IRArithmeticShiftRightOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+        : IRShiftOpBase(dst, value, amount, setFlags) {}
+};
 
 // Rotate right
 //   ror[s]   <var:dst>, <var/imm:value>, <var/imm:amount>
 //
 // Rotates bits in <value> right by <amount> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRRotateRightOp : public detail::IRShiftOpBase<IROpcodeType::RotateRight> {};
+struct IRRotateRightOp : public detail::IRShiftOpBase<IROpcodeType::RotateRight> {
+    IRRotateRightOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+        : IRShiftOpBase(dst, value, amount, setFlags) {}
+};
 
 // Rotate right extend
 //   rrx[s]   <var:dst>, <var/imm:value>
 //
 // Rotates bits in <value> right by one, shifting in the carry flag, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRRotateRightExtendOp : public detail::IRShiftOpBase<IROpcodeType::RotateRightExtend> {};
+struct IRRotateRightExtendOp : public detail::IRShiftOpBase<IROpcodeType::RotateRightExtend> {
+    IRRotateRightExtendOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
+        : IRShiftOpBase(dst, value, amount, setFlags) {}
+};
 
 // Bitwise AND
 //   and[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
@@ -100,7 +128,10 @@ struct IRRotateRightExtendOp : public detail::IRShiftOpBase<IROpcodeType::Rotate
 // Computes <lhs> AND <rhs> and stores the result in <dst> if present.
 // The TST operation omits <dst>.
 // Updates host flags if [s] is specified.
-struct IRBitwiseAndOp : public detail::IRComparisonOpBase<IROpcodeType::BitwiseAnd> {};
+struct IRBitwiseAndOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseAnd> {
+    IRBitwiseAndOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Bitwise XOR
 //   eor[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
@@ -108,7 +139,10 @@ struct IRBitwiseAndOp : public detail::IRComparisonOpBase<IROpcodeType::BitwiseA
 // Computes <lhs> XOR <rhs> and stores the result in <dst> if present.
 // The TEQ operation omits <dst>.
 // Updates host flags if [s] is specified.
-struct IRBitwiseXorOp : public detail::IRComparisonOpBase<IROpcodeType::BitwiseXor> {};
+struct IRBitwiseXorOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseXor> {
+    IRBitwiseXorOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Subtract
 //   sub[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
@@ -116,14 +150,20 @@ struct IRBitwiseXorOp : public detail::IRComparisonOpBase<IROpcodeType::BitwiseX
 // Computes <lhs> - <rhs> and stores the result in <dst> if present.
 // The CMP operation omits <dst>.
 // Updates host flags if [s] is specified.
-struct IRSubtractOp : public detail::IRComparisonOpBase<IROpcodeType::Subtract> {};
+struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
+    IRSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Reverse subtract
 //   rsb[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <rhs> - <lhs> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRReverseSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtract> {};
+struct IRReverseSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtract> {
+    IRReverseSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Add
 //   add[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
@@ -131,56 +171,80 @@ struct IRReverseSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Reverse
 // Computes <lhs> + <rhs> and stores the result in <dst> if present.
 // The CMN operation omits <dst>.
 // Updates host flags if [s] is specified.
-struct IRAddOp : public detail::IRComparisonOpBase<IROpcodeType::Add> {};
+struct IRAddOp : public detail::IRBinaryOpBase<IROpcodeType::Add> {
+    IRAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Add with carry
 //   adc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <lhs> + <rhs> + (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {};
+struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
+    IRAddCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Subtract with carry
 //   sbc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <lhs> - <rhs> - (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractCarry> {};
+struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractCarry> {
+    IRSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Reverse subtract with carry
 //   rsc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <rhs> - <lhs> - (carry) and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtractCarry> {};
+struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtractCarry> {
+    IRReverseSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Bitwise OR
 //   orr[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <lhs> OR <rhs> and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {};
+struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
+    IRBitwiseOrOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Move
 //   mov[s]   <var:dst>, <var/imm:value>
 //
 // Copies <value> into <dst>.
 // Updates host flags if [s] is specified.
-struct IRMoveOp : public detail::IRUnaryOpBase<IROpcodeType::Move> {};
+struct IRMoveOp : public detail::IRUnaryOpBase<IROpcodeType::Move> {
+    IRMoveOp(VariableArg dst, VarOrImmArg value, bool setFlags)
+        : IRUnaryOpBase(dst, value, setFlags) {}
+};
 
 // Bit clear
 //   bic[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Clears the bits set in <rhs> from <lhs> and stores the result into <dst>.
 // Updates host flags if [s] is specified.
-struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {};
+struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {
+    IRBitClearOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
 
 // Move negated
 //   mvn[s]   <var:dst>, <var/imm:value>
 //
 // Copies <value> negated into <dst>.
 // Updates host flags if [s] is specified.
-struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated> {};
+struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated> {
+    IRMoveNegatedOp(VariableArg dst, VarOrImmArg value, bool setFlags)
+        : IRUnaryOpBase(dst, value, setFlags) {}
+};
 
 // Count leading zeros
 //   clz   <var:dst>, <var/imm:value>
@@ -190,6 +254,10 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated>
 struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> {
     VariableArg dst;
     VarOrImmArg value;
+
+    IRCountLeadingZerosOp(VariableArg dst, VarOrImmArg value)
+        : dst(dst)
+        , value(value) {}
 };
 
 // Saturating add
@@ -198,7 +266,10 @@ struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> 
 // Computes <lhs> + <rhs> (signed) with saturation and stores the result in <dst>.
 // <rhs> is doubled before the addition if [d] is specified.
 // Updates the Q host flag if the doubling operation or the addition saturates.
-struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase<IROpcodeType::SaturatingAdd> {};
+struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase<IROpcodeType::SaturatingAdd> {
+    IRSaturatingAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRSaturatingBinaryOpBase(dst, lhs, rhs) {}
+};
 
 // Saturating subtract
 //   q[d]sub  <var:dst>, <var/imm:lhs>, <var/imm:rhs>
@@ -206,7 +277,10 @@ struct IRSaturatingAddOp : public detail::IRSaturatingBinaryOpBase<IROpcodeType:
 // Computes <lhs> - <rhs> (signed) with saturation and stores the result in <dst>.
 // <rhs> is doubled before the subtraction if [d] is specified.
 // Updates the Q host flag if the doubling operation or the subtraction saturates.
-struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase<IROpcodeType::SaturatingSubtract> {};
+struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase<IROpcodeType::SaturatingSubtract> {
+    IRSaturatingSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRSaturatingBinaryOpBase(dst, lhs, rhs) {}
+};
 
 // Multiply
 //   mul[s]   <var:dstLo>, <var?:dstHi>, <var/imm:lhs>, <var/imm:rhs>
@@ -220,6 +294,13 @@ struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
     VarOrImmArg lhs;
     VarOrImmArg rhs;
     bool setFlags;
+
+    IRMultiplyOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : dstLo(dstLo)
+        , dstHi(dstHi)
+        , lhs(lhs)
+        , rhs(rhs)
+        , setFlags(setFlags) {}
 };
 
 // Add long
@@ -235,6 +316,16 @@ struct IRAddLongOp : public IROpBase<IROpcodeType::AddLong> {
     VarOrImmArg rhsLo;
     VarOrImmArg rhsHi;
     bool setFlags;
+
+    IRAddLongOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo,
+                VarOrImmArg rhsHi, bool setFlags)
+        : dstLo(dstLo)
+        , dstHi(dstHi)
+        , lhsLo(lhsLo)
+        , lhsHi(lhsHi)
+        , rhsLo(rhsLo)
+        , rhsHi(rhsHi)
+        , setFlags(setFlags) {}
 };
 
 } // namespace armajitto::ir

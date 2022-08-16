@@ -15,6 +15,11 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
+
+    IRStoreFlagsOp(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR)
+        : mask(mask)
+        , dstCPSR(dstCPSR)
+        , srcCPSR(srcCPSR) {}
 };
 
 // Update flags
@@ -25,7 +30,13 @@ struct IRUpdateFlagsOp : public IROpBase<IROpcodeType::UpdateFlags> {
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
+
+    IRUpdateFlagsOp(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR)
+        : mask(mask)
+        , dstCPSR(dstCPSR)
+        , srcCPSR(srcCPSR) {}
 };
+
 // UpdateStickyOverflow
 //   uflg.q      <var:dst_cpsr>, <var:src_cpsr>
 //
@@ -33,6 +44,10 @@ struct IRUpdateFlagsOp : public IROpBase<IROpcodeType::UpdateFlags> {
 struct IRUpdateStickyOverflowOp : public IROpBase<IROpcodeType::UpdateStickyOverflow> {
     VariableArg dstCPSR;
     VariableArg srcCPSR;
+
+    IRUpdateStickyOverflowOp(VariableArg dstCPSR, VariableArg srcCPSR)
+        : dstCPSR(dstCPSR)
+        , srcCPSR(srcCPSR) {}
 };
 
 } // namespace armajitto::ir

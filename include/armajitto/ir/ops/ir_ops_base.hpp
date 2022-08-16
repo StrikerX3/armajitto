@@ -4,13 +4,15 @@
 
 namespace armajitto::ir {
 
-struct IROp {};
+struct IROp {
+    virtual IROpcodeType GetType() const = 0;
+};
 
 // Base type for all IR opcodes.
 template <IROpcodeType opcodeType>
 struct IROpBase : public IROp {
-    IROpcodeType GetType() const {
-        return opcodeType
+    IROpcodeType GetType() const final {
+        return opcodeType;
     }
 };
 

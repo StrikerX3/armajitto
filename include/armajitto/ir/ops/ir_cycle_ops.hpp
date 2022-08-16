@@ -19,6 +19,12 @@ struct IRAddSingleBusMemCyclesOp : public IROpBase<IROpcodeType::AddSingleBusMem
     MemAccessBus bus;
     MemAccessSize size;
     VarOrImmArg address;
+
+    IRAddSingleBusMemCyclesOp(MemAccessType type, MemAccessBus bus, MemAccessSize size, VarOrImmArg address)
+        : type(type)
+        , bus(bus)
+        , size(size)
+        , address(address) {}
 };
 
 // Add multiplication internal cycles
@@ -29,6 +35,10 @@ struct IRAddSingleBusMemCyclesOp : public IROpBase<IROpcodeType::AddSingleBusMem
 struct IRAddMulCyclesOp : public IROpBase<IROpcodeType::AddMulCycles> {
     bool sign;
     VarOrImmArg address;
+
+    IRAddMulCyclesOp(bool sign, VarOrImmArg address)
+        : sign(sign)
+        , address(address) {}
 };
 
 // Parallel code/data bus cycle counting (e.g. ARM946E-S)
@@ -57,12 +67,27 @@ struct IRAddDualBusCyclesOp : public IROpBase<IROpcodeType::AddDualBusCycles> {
         MemAccessType type;         // when fixed == false
         MemAccessSize size;         // when fixed == false
         VarOrImmArg addressOrCount; // address when fixed == false, count when fixed == true
+
+        Params(MemAccessType type, MemAccessSize size, VarOrImmArg address)
+            : fixed(false)
+            , type(type)
+            , size(size)
+            , addressOrCount(address) {}
+
+        Params(VarOrImmArg count)
+            : fixed(true)
+            , addressOrCount(count) {}
     };
     enum class Parallelism { Unknown, Sequential, Parallel };
 
     Params code;
     Params data;
     Parallelism parallelism;
+
+    IRAddDualBusCyclesOp(Params code, Params data, Parallelism parallelism)
+        : code(code)
+        , data(data)
+        , parallelism(parallelism) {}
 };
 
 } // namespace armajitto::ir

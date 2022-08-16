@@ -24,6 +24,12 @@ struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
     MemAccessSize size;
     VariableArg dst;
     VarOrImmArg address;
+
+    IRMemReadOp(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address)
+        : mode(mode)
+        , size(size)
+        , dst(dst)
+        , address(address) {}
 };
 
 // Memory write
@@ -34,6 +40,11 @@ struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
     MemAccessSize size;
     VarOrImmArg src;
     VarOrImmArg address;
+
+    IRMemWriteOp(MemAccessSize size, VarOrImmArg src, VarOrImmArg address)
+        : size(size)
+        , src(src)
+        , address(address) {}
 };
 
 } // namespace armajitto::ir
