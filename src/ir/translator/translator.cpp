@@ -48,12 +48,12 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
         if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);
-            state.UpdateCondition(cond);
+            state.NextInstruction(cond);
             TranslateThumb(opcode, state);
         } else {
             const uint32_t opcode = m_context.CodeReadWord(address);
             const Condition cond = parseARMCond(opcode, arch);
-            state.UpdateCondition(cond);
+            state.NextInstruction(cond);
             TranslateARM(opcode, state);
         }
 
@@ -370,9 +370,7 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     emitter.CountLeadingZeros(dstVar, argVar);
     emitter.StoreGPR(instr.dstReg, dstVar);
 
-    // TODO: emit fetch -- need to know if we're decoding ARM or Thumb (from BasicBlock)
-    // EmitInstructionFetch(state);
-    //   state.GetBlock().IsThumbMode()
+    emitter.InstructionFetch();
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, State::Handle state) {

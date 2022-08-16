@@ -7,7 +7,8 @@ Variable Emitter::Var(const char *name) {
     return m_block.m_vars.emplace_back(m_block.m_vars.size(), name);
 }
 
-void Emitter::SetCondition(arm::Condition cond) {
+void Emitter::NextInstruction(arm::Condition cond) {
+    ++m_block.m_instrCount;
     m_block.m_cond = cond;
 }
 
@@ -45,6 +46,16 @@ void Emitter::MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address)
 
 void Emitter::CountLeadingZeros(VariableArg dst, VarOrImmArg value) {
     AppendOp<IRCountLeadingZerosOp>(dst, value);
+}
+
+void Emitter::InstructionFetch() {
+    const auto &loc = m_block.Location();
+    const bool thumb = loc.IsThumbMode();
+    const uint32_t fetchAddress =
+        loc.BaseAddress() + (2 + m_block.m_instrCount) * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+
+    StoreGPR(15, fetchAddress);
+    // TODO cycle counting
 }
 
 } // namespace armajitto::ir

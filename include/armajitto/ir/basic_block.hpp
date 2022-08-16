@@ -28,6 +28,7 @@ private:
 
     std::vector<IROp *> m_ops; // TODO: avoid raw pointers
     std::vector<Variable> m_vars;
+    size_t m_instrCount = 0; // ARM/Thumb instructions
 
     friend class Emitter;
 };

@@ -20,7 +20,7 @@ public:
         return m_block;
     }
 
-    void SetCondition(arm::Condition cond);
+    void NextInstruction(arm::Condition cond);
 
     void LoadGPR(VariableArg dst, GPRArg src);
     void StoreGPR(GPRArg dst, VarOrImmArg src);
@@ -33,6 +33,8 @@ public:
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
 
     void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
+
+    void InstructionFetch();
 
 private:
     BasicBlock &m_block;

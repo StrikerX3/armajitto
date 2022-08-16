@@ -46,9 +46,13 @@ private:
             , flagsUpdated(false)
             , endBlock(false) {}
 
-        void UpdateCondition(arm::Condition cond) {
+        Emitter &GetEmitter() {
+            return emitter;
+        }
+
+        void NextInstruction(arm::Condition cond) {
             if (!condKnown) {
-                emitter.SetCondition(cond);
+                emitter.NextInstruction(cond);
                 condKnown = true;
             } else if (cond != emitter.GetBlock().Condition()) {
                 endBlock = true;
