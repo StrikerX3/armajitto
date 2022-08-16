@@ -10,14 +10,18 @@ namespace armajitto::ir {
 
 struct GPRArg {
     uint8_t gpr;
-    arm::Mode mode;
+    bool userMode;
 
     GPRArg()
         : gpr(0) {}
 
-    GPRArg(uint8_t gpr, arm::Mode mode)
+    GPRArg(uint8_t gpr)
         : gpr(gpr)
-        , mode(mode) {}
+        , userMode(false) {}
+
+    GPRArg(uint8_t gpr, bool userMode)
+        : gpr(gpr)
+        , userMode(userMode) {}
 };
 
 struct VariableArg {

@@ -367,9 +367,9 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     auto argVar = emitter.CreateVariable("arg");
     auto dstVar = emitter.CreateVariable("dst");
 
-    emitter.LoadGPR(argVar, {instr.argReg, mode});
+    emitter.LoadGPR(argVar, instr.argReg);
     emitter.CountLeadingZeros(dstVar, argVar);
-    emitter.StoreGPR({instr.dstReg, mode}, dstVar);
+    emitter.StoreGPR(instr.dstReg, dstVar);
 
     // TODO: emit fetch -- need to know if we're decoding ARM or Thumb (from BasicBlock)
     // EmitInstructionFetch(state);
