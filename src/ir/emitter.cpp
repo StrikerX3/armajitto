@@ -8,7 +8,7 @@ Variable Emitter::CreateVariable(const char *name) {
 
 // TODO: avoid new; use allocator
 // TODO: feels like these things should be constructors in the op classes themselves
-// TODO: how will the optimizer work?
+// TODO: how will the optimizer work if we can only insert instructions at the end of a fragment?
 
 void Emitter::LoadGPR(VariableArg dst, GPRArg src) {
     auto *op = new IRLoadGPROp();

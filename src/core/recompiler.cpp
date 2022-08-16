@@ -5,13 +5,9 @@ namespace armajitto {
 uint64_t Recompiler::Run(uint64_t minCycles) {
     uint64_t cyclesExecuted = 0;
     while (cyclesExecuted < minCycles) {
-        // TODO: implement IR emitter as the client for the decoder
-        // - block should contain an emitter
-
         // TODO: do the JIT magic here
-        // - find cached block
-        // - if found, execute
-        // - otherwise, generate block
+        // - check for cached block; if not found, translate/optimize/compile block
+        // - execute cached block
 
         ++cyclesExecuted;
     }

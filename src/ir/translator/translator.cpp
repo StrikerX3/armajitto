@@ -10,12 +10,12 @@ using namespace armajitto::arm::instrs;
 namespace armajitto::ir {
 
 template <typename FetchDecodeFn>
-inline void Translator::TranslateCommon(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize,
+inline void Translator::TranslateCommon(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize,
                                         FetchDecodeFn &&fetchDecodeFn) {
     State state{block};
 
     for (uint32_t i = 0; i < maxBlockSize; i++) {
-        fetchDecodeFn(startAddress, i, state);
+        fetchDecodeFn(baseAddress, i, state);
 
         if (state.IsEndBlock()) {
             break;
@@ -24,16 +24,16 @@ inline void Translator::TranslateCommon(BasicBlock &block, uint32_t startAddress
     }
 }
 
-void Translator::TranslateARM(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize) {
-    TranslateCommon(block, startAddress, maxBlockSize, [this](uint32_t startAddress, uint32_t i, State &state) {
-        uint32_t opcode = m_context.CodeReadWord(startAddress + i * sizeof(opcode));
+void Translator::TranslateARM(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize) {
+    TranslateCommon(block, baseAddress, maxBlockSize, [this](uint32_t baseAddress, uint32_t i, State &state) {
+        uint32_t opcode = m_context.CodeReadWord(baseAddress + i * sizeof(opcode));
         DecodeARM(opcode, state);
     });
 }
 
-void Translator::TranslateThumb(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize) {
-    TranslateCommon(block, startAddress, maxBlockSize, [this](uint32_t startAddress, uint32_t i, State &state) {
-        uint16_t opcode = m_context.CodeReadHalf(startAddress + i * sizeof(opcode));
+void Translator::TranslateThumb(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize) {
+    TranslateCommon(block, baseAddress, maxBlockSize, [this](uint32_t baseAddress, uint32_t i, State &state) {
+        uint16_t opcode = m_context.CodeReadHalf(baseAddress + i * sizeof(opcode));
         DecodeThumb(opcode, state);
     });
 }
@@ -361,9 +361,13 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     auto argVar = emitter.CreateVariable("arg");
     auto dstVar = emitter.CreateVariable("dst");
 
+    // TODO: GPR references should include mode
+    // TODO: load/store GPRs from current BasicBlock mode
     emitter.LoadGPR(argVar, instr.argReg);
     emitter.CountLeadingZeros(dstVar, argVar);
     emitter.StoreGPR(instr.dstReg, dstVar);
+
+    // TODO: emit fetch -- need to know if we're decoding ARM or Thumb (from BasicBlock)
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, State::Handle state) {

@@ -11,15 +11,19 @@ public:
     Translator(Context &context)
         : m_context(context) {}
 
-    void TranslateARM(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize);
-    void TranslateThumb(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize);
+    // TODO: move baseAddress into BasicBlock and include arm::Mode and ARM/Thumb state
+    // TODO: these methods should be private and selected based on BasicBlock's ARM/Thumb state
+    //   add this to the public interface instead:
+    //     void Translate(BasicBlock &block, uint32_t maxBlockSize);
+    //   if more parameters are needed, use a struct (Translator::Parameters)
+    void TranslateARM(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize);
+    void TranslateThumb(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize);
 
 private:
     Context &m_context;
 
     template <typename FetchDecodeFn>
-    void TranslateCommon(BasicBlock &block, uint32_t startAddress, uint32_t maxBlockSize,
-                         FetchDecodeFn &&fetchDecodeFn);
+    void TranslateCommon(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize, FetchDecodeFn &&fetchDecodeFn);
 
     struct State {
         struct Handle {
