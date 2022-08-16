@@ -8,6 +8,10 @@ struct Variable {
     const size_t index;
     const char *name;
 
+    Variable()
+        : index(kInvalidIndex)
+        , name("") {}
+
     Variable(size_t index, const char *name)
         : index(index)
         , name(name) {}
