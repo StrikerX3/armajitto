@@ -6,7 +6,7 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
     uint64_t cyclesExecuted = 0;
     while (cyclesExecuted < minCycles) {
         // TODO: do the JIT magic here
-        // - check for cached block; if not found, translate/optimize/compile block
+        // - check for cached block; if not found, translate/optimize/compile/cache block
         // - execute cached block
 
         ++cyclesExecuted;

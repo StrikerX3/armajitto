@@ -9,13 +9,16 @@ using namespace armajitto::arm::instrs;
 
 namespace armajitto::ir {
 
-template <typename FetchDecodeFn>
-inline void Translator::TranslateCommon(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize,
-                                        FetchDecodeFn &&fetchDecodeFn) {
+void Translator::Translate(BasicBlock &block, Parameters params) {
     State state{block};
 
-    for (uint32_t i = 0; i < maxBlockSize; i++) {
-        fetchDecodeFn(baseAddress, i, state);
+    const uint32_t baseAddress = block.BaseAddress();
+    const auto decodeAndDispatchFn =
+        block.IsThumbMode() ? &Translator::DecodeAndDispatchThumb : &Translator::DecodeAndDispatchARM;
+    const uint32_t opcodeSize = block.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+
+    for (uint32_t i = 0; i < params.maxBlockSize; i++) {
+        (this->*decodeAndDispatchFn)(baseAddress + i * opcodeSize, state);
 
         if (state.IsEndBlock()) {
             break;
@@ -24,22 +27,9 @@ inline void Translator::TranslateCommon(BasicBlock &block, uint32_t baseAddress,
     }
 }
 
-void Translator::TranslateARM(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize) {
-    TranslateCommon(block, baseAddress, maxBlockSize, [this](uint32_t baseAddress, uint32_t i, State &state) {
-        uint32_t opcode = m_context.CodeReadWord(baseAddress + i * sizeof(opcode));
-        DecodeARM(opcode, state);
-    });
-}
-
-void Translator::TranslateThumb(BasicBlock &block, uint32_t baseAddress, uint32_t maxBlockSize) {
-    TranslateCommon(block, baseAddress, maxBlockSize, [this](uint32_t baseAddress, uint32_t i, State &state) {
-        uint16_t opcode = m_context.CodeReadHalf(baseAddress + i * sizeof(opcode));
-        DecodeThumb(opcode, state);
-    });
-}
-
-void Translator::DecodeARM(uint32_t opcode, State &state) {
+void Translator::DecodeAndDispatchARM(uint32_t address, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
+    const uint32_t opcode = m_context.CodeReadWord(address);
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
     auto handle = state.GetHandle();
 
@@ -211,10 +201,11 @@ void Translator::DecodeARM(uint32_t opcode, State &state) {
     }
 }
 
-void Translator::DecodeThumb(uint16_t opcode, State &state) {
+void Translator::DecodeAndDispatchThumb(uint32_t address, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
     auto handle = state.GetHandle();
 
+    const uint16_t opcode = m_context.CodeReadHalf(address);
     const uint8_t group = bit::extract<12, 4>(opcode);
 
     if (group == 0b1101) {
