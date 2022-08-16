@@ -117,9 +117,15 @@ struct IRRotateRightOp : public detail::IRShiftOpBase<IROpcodeType::RotateRight>
 //
 // Rotates bits in <value> right by one, shifting in the carry flag, and stores the result in <dst>.
 // Updates host flags if [s] is specified.
-struct IRRotateRightExtendOp : public detail::IRShiftOpBase<IROpcodeType::RotateRightExtend> {
-    IRRotateRightExtendOp(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags)
-        : IRShiftOpBase(dst, value, amount, setFlags) {}
+struct IRRotateRightExtendOp : public IROpBase<IROpcodeType::RotateRightExtend> {
+    VariableArg dst;
+    VarOrImmArg value;
+    bool setFlags;
+
+    IRRotateRightExtendOp(VariableArg dst, VarOrImmArg value, bool setFlags)
+        : dst(dst)
+        , value(value)
+        , setFlags(setFlags) {}
 };
 
 // Bitwise AND
