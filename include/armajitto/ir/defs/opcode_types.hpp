@@ -54,11 +54,6 @@ enum class IROpcodeType {
     // TODO: CDP, CDP2
     // TODO: LDC/STC, LDC2/STC2
     // TODO: MCRR/MRRC
-
-    // Cycle counting operations
-    AddSingleBusMemCycles, // Single bus memory access
-    AddMulCycles,          // ARM7TDMI multiplication cycles
-    AddDualBusCycles,      // Parallel code/data bus cycle counting (e.g. ARM946E-S)
 };
 
 } // namespace armajitto::ir

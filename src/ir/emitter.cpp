@@ -55,7 +55,7 @@ void Emitter::InstructionFetch() {
         loc.BaseAddress() + (2 + m_block.m_instrCount) * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
 
     StoreGPR(15, fetchAddress);
-    // TODO cycle counting
+    // TODO: cycle counting
 }
 
 } // namespace armajitto::ir

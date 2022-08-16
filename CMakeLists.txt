@@ -44,7 +44,6 @@ add_library(armajitto
     include/armajitto/ir/ops/ir_alu_ops.hpp
     include/armajitto/ir/ops/ir_branch_ops.hpp
     include/armajitto/ir/ops/ir_cop_ops.hpp
-    include/armajitto/ir/ops/ir_cycle_ops.hpp
     include/armajitto/ir/ops/ir_flag_ops.hpp
     include/armajitto/ir/ops/ir_mem_ops.hpp
     include/armajitto/ir/ops/ir_ops.hpp
@@ -60,7 +59,6 @@ add_library(armajitto
     src/ir/ops/ir_alu_ops.cpp
     src/ir/ops/ir_branch_ops.cpp
     src/ir/ops/ir_cop_ops.cpp
-    src/ir/ops/ir_cycle_ops.cpp
     src/ir/ops/ir_flag_ops.cpp
     src/ir/ops/ir_mem_ops.cpp
     src/ir/ops/ir_reg_ops.cpp
