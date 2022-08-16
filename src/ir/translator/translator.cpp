@@ -13,31 +13,63 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
     State state{block};
 
     const uint32_t baseAddress = block.BaseAddress();
-    const auto translateFn = block.IsThumbMode() ? &Translator::TranslateThumb : &Translator::TranslateARM;
     const uint32_t opcodeSize = block.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+    const CPUArch arch = m_context.GetCPUArch();
 
+    auto parseARMCond = [&](uint32_t opcode) {
+        const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
+        if (arch == CPUArch::ARMv5TE && cond == Condition::NV) {
+            // The NV condition encodes special unconditional instructions on ARMv5
+            return Condition::AL;
+        } else {
+            return cond;
+        }
+    };
+
+    auto parseThumbCond = [&](uint16_t opcode) {
+        const uint8_t group = bit::extract<12, 4>(opcode);
+        if (group == 0b1101) {
+            // Thumb conditional branch instruction
+            auto cond = static_cast<arm::Condition>(bit::extract<8, 4>(opcode));
+            if (cond == Condition::NV) {
+                // 0b1111 (Condition::NV) is a software interrupt instruction
+                return Condition::AL;
+            } else {
+                // 0b1110 (Condition::AL) is an undefined instruction
+                // All other combinations are valid conditions
+                return cond;
+            }
+        } else {
+            return Condition::AL;
+        }
+    };
+
+    uint32_t address = baseAddress;
     for (uint32_t i = 0; i < params.maxBlockSize; i++) {
-        (this->*translateFn)(baseAddress + i * opcodeSize, state);
+        if (block.IsThumbMode()) {
+            const uint16_t opcode = m_context.CodeReadHalf(address);
+            const Condition cond = parseThumbCond(opcode);
+            state.UpdateCondition(cond);
+            TranslateThumb(opcode, state);
+        } else {
+            const uint32_t opcode = m_context.CodeReadWord(address);
+            const Condition cond = parseARMCond(opcode);
+            state.UpdateCondition(cond);
+            TranslateARM(opcode, state);
+        }
 
         if (state.IsEndBlock()) {
             break;
         }
         state.NextIteration();
+        address += opcodeSize;
     }
 }
 
-void Translator::TranslateARM(uint32_t address, State &state) {
+void Translator::TranslateARM(uint32_t opcode, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
-    const uint32_t opcode = m_context.CodeReadWord(address);
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
     auto handle = state.GetHandle();
-
-    if (arch == CPUArch::ARMv5TE && cond == Condition::NV) {
-        // The NV condition encodes special unconditional instructions on ARMv5
-        state.UpdateCondition(Condition::AL);
-    } else {
-        state.UpdateCondition(cond);
-    }
 
     const uint32_t op = bit::extract<25, 3>(opcode);
     const uint32_t bits24to20 = bit::extract<20, 5>(opcode);
@@ -200,28 +232,11 @@ void Translator::TranslateARM(uint32_t address, State &state) {
     }
 }
 
-void Translator::TranslateThumb(uint32_t address, State &state) {
+void Translator::TranslateThumb(uint16_t opcode, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
     auto handle = state.GetHandle();
 
-    const uint16_t opcode = m_context.CodeReadHalf(address);
     const uint8_t group = bit::extract<12, 4>(opcode);
-
-    if (group == 0b1101) {
-        // Parse Thumb conditional branch
-        auto cond = static_cast<arm::Condition>(bit::extract<8, 4>(opcode));
-        if (cond == Condition::NV) {
-            // 0b1111 (Condition::NV) is a software interrupt instruction
-            state.UpdateCondition(Condition::AL);
-        } else {
-            // 0b1110 (Condition::AL) is an undefined instruction
-            // All other combinations are valid conditions
-            state.UpdateCondition(cond);
-        }
-    } else {
-        state.UpdateCondition(Condition::AL);
-    }
-
     switch (group) {
     case 0b0000: // fallthrough
     case 0b0001:

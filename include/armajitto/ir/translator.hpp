@@ -86,8 +86,8 @@ private:
         }
     };
 
-    void TranslateARM(uint32_t address, State &state);
-    void TranslateThumb(uint32_t address, State &state);
+    void TranslateARM(uint32_t opcode, State &state);
+    void TranslateThumb(uint16_t opcode, State &state);
 
     void Translate(const arm::instrs::Branch &instr, State::Handle state);
     void Translate(const arm::instrs::BranchAndExchange &instr, State::Handle state);
