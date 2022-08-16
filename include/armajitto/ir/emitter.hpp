@@ -14,8 +14,10 @@ public:
 
     void LoadGPR(VariableArg dst, GPRArg src);
     void StoreGPR(GPRArg dst, VarOrImmArg src);
-    void LoadPSR(VariableArg dst, PSRArg src);
-    void StorePSR(PSRArg dst, VarOrImmArg src);
+    void LoadCPSR(VariableArg dst);
+    void StoreCPSR(VarOrImmArg src);
+    void LoadSPSR(arm::Mode mode, VariableArg dst);
+    void StoreSPSR(arm::Mode mode, VarOrImmArg src);
 
     void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
@@ -23,7 +25,7 @@ public:
     void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
 
 private:
-    std::vector<IROpBase *> ops; // TODO: avoid raw pointers
+    std::vector<IROp *> ops; // TODO: avoid raw pointers
     std::vector<Variable> vars;
 };
 

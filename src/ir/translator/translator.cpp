@@ -363,14 +363,13 @@ void Translator::Translate(const DataProcessing &instr, State::Handle state) {
 
 void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
+    const arm::Mode mode = state.GetBlock().ARMMode();
     auto argVar = emitter.CreateVariable("arg");
     auto dstVar = emitter.CreateVariable("dst");
 
-    // TODO: GPR references should include mode
-    // TODO: load/store GPRs from current BasicBlock mode
-    emitter.LoadGPR(argVar, instr.argReg);
+    emitter.LoadGPR(argVar, {instr.argReg, mode});
     emitter.CountLeadingZeros(dstVar, argVar);
-    emitter.StoreGPR(instr.dstReg, dstVar);
+    emitter.StoreGPR({instr.dstReg, mode}, dstVar);
 
     // TODO: emit fetch -- need to know if we're decoding ARM or Thumb (from BasicBlock)
     // EmitInstructionFetch(state);

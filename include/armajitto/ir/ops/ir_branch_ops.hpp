@@ -9,13 +9,7 @@ namespace armajitto::ir {
 //   b  <var:dst_pc>, <var/imm:src_cpsr>, <var/imm:address>
 //
 // Branches to <address> using the current ARM/Thumb mode in <src_cpsr> and stores the resulting PC in <dst_pc>.
-struct IRBranchOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::Branch;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
     VariableArg dstPC;
     VarOrImmArg srcCPSR;
     VarOrImmArg address;
@@ -26,13 +20,7 @@ struct IRBranchOp : public IROpBase {
 //
 // Branches to <address>, switching to ARM/Thumb mode based on bit 0 of <address>, and stores the resulting PC in
 // <dst_pc>. The CPSR T flag is updated from <src_cpsr> to <dst_cpsr>.
-struct IRBranchExchangeOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::BranchExchange;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
     VariableArg dstPC;
     VariableArg dstCPSR;
     VarOrImmArg srcCPSR;

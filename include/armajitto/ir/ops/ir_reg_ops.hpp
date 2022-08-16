@@ -9,13 +9,7 @@ namespace armajitto::ir {
 //   ld <gpr:src>, <var:dst>
 //
 // Copies the value of the <src> GPR into <dst>.
-struct IRLoadGPROp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::LoadGPR;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRLoadGPROp : public IROpBase<IROpcodeType::LoadGPR> {
     VariableArg dst;
     GPRArg src;
 };
@@ -24,44 +18,42 @@ struct IRLoadGPROp : public IROpBase {
 //   st <gpr:dst>, <var/imm:src>
 //
 // Copies the value of <src> into the <dst> GPR.
-struct IRStoreGPROp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::StoreGPR;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRStoreGPROp : public IROpBase<IROpcodeType::StoreGPR> {
     GPRArg dst;
     VarOrImmArg src;
 };
 
-// Load PSR
-//   ld <psr:src>, <var:dst>
+// Load CPSR
+//   ld cpsr, <var:dst>
 //
-// Copies the value of the <src> PSR into <dst>.
-struct IRLoadPSROp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::LoadPSR;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+// Copies the value of CPSR into <dst>.
+struct IRLoadCPSROp : public IROpBase<IROpcodeType::LoadCPSR> {
     VariableArg dst;
-    PSRArg src;
 };
 
-// Store PSR
-//   st <psr:dst>, <var/imm:src>
+// Store CPSR
+//   st cpsr, <var/imm:src>
 //
-// Copies the value of <src> into the <dst> PSR.
-struct IRStorePSROp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::StorePSR;
+// Copies the value of <src> into CPSR.
+struct IRStoreCPSROp : public IROpBase<IROpcodeType::StoreCPSR> {
+    VarOrImmArg src;
+};
 
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
+// Load SPSR
+//   ld spsr_<mode>, <var:dst>
+//
+// Copies the value of the specified <mode>'s SPSR into <dst>.
+struct IRLoadSPSROp : public IROpBase<IROpcodeType::LoadSPSR> {
+    arm::Mode mode;
+    VariableArg dst;
+};
 
-    PSRArg dst;
+// Store SPSR
+//   st spsr_<mode>, <var/imm:src>
+//
+// Copies the value of <src> into the specified <mode>'s SPSR.
+struct IRStoreSPSROp : public IROpBase<IROpcodeType::StoreSPSR> {
+    arm::Mode mode;
     VarOrImmArg src;
 };
 

@@ -6,8 +6,10 @@ enum class IROpcodeType {
     // Register access
     LoadGPR,
     StoreGPR,
-    LoadPSR,
-    StorePSR,
+    LoadCPSR,
+    StoreCPSR,
+    LoadSPSR,
+    StoreSPSR,
 
     // Memory access
     MemRead,

@@ -11,13 +11,7 @@ namespace armajitto::ir {
 // Sets the flags specified in the mask [n][z][c][v][q] in <src_cpsr> to the corresponding bits in <values> and stores
 // the result in <dst_cpsr>.
 // The flag bit locations in <values> match those in CPSR.
-struct IRStoreFlagsOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::StoreFlags;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
@@ -27,13 +21,7 @@ struct IRStoreFlagsOp : public IROpBase {
 //   uflg.[n][z][c][v]    <var:dst_cpsr>, <var:src_cpsr>
 //
 // Updates the specified [n][z][c][v] flags in <src_cpsr> using the host's flags and stores the result in <dst_cpsr>.
-struct IRUpdateFlagsOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::UpdateFlags;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRUpdateFlagsOp : public IROpBase<IROpcodeType::UpdateFlags> {
     uint8_t mask;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
@@ -42,13 +30,7 @@ struct IRUpdateFlagsOp : public IROpBase {
 //   uflg.q      <var:dst_cpsr>, <var:src_cpsr>
 //
 // Sets the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
-struct IRUpdateStickyOverflowOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::UpdateStickyOverflow;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRUpdateStickyOverflowOp : public IROpBase<IROpcodeType::UpdateStickyOverflow> {
     VariableArg dstCPSR;
     VariableArg srcCPSR;
 };

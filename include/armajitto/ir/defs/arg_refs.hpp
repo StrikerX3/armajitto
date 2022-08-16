@@ -9,31 +9,15 @@
 namespace armajitto::ir {
 
 struct GPRArg {
-    uint8_t gpr : 4;
-    bool userMode;
+    uint8_t gpr;
+    arm::Mode mode;
 
     GPRArg()
         : gpr(0) {}
 
-    GPRArg(const GPRArg &) = default;
-    GPRArg(GPRArg &&) = default;
-
-    GPRArg(uint8_t gpr) {
-        operator=(gpr);
-    }
-
-    GPRArg &operator=(const GPRArg &) = default;
-    GPRArg &operator=(GPRArg &&) = default;
-
-    GPRArg &operator=(uint8_t gpr) {
-        this->gpr = gpr;
-        return *this;
-    }
-};
-
-struct PSRArg {
-    bool spsr;
-    arm::Mode mode; // when spsr == true
+    GPRArg(uint8_t gpr, arm::Mode mode)
+        : gpr(gpr)
+        , mode(mode) {}
 };
 
 struct VariableArg {
@@ -42,15 +26,9 @@ struct VariableArg {
     VariableArg()
         : varIndex(Variable::kInvalidIndex) {}
 
-    VariableArg(const VariableArg &) = default;
-    VariableArg(VariableArg &&) = default;
-
     VariableArg(const Variable &var) {
         operator=(var);
     }
-
-    VariableArg &operator=(const VariableArg &) = default;
-    VariableArg &operator=(VariableArg &&) = default;
 
     VariableArg &operator=(const Variable &var) {
         varIndex = var.index;
@@ -64,15 +42,9 @@ struct ImmediateArg {
     ImmediateArg()
         : value(0) {}
 
-    ImmediateArg(const ImmediateArg &) = default;
-    ImmediateArg(ImmediateArg &&) = default;
-
     ImmediateArg(uint32_t imm) {
         operator=(imm);
     }
-
-    ImmediateArg &operator=(const ImmediateArg &) = default;
-    ImmediateArg &operator=(ImmediateArg &&) = default;
 
     ImmediateArg &operator=(uint32_t imm) {
         value = imm;
@@ -82,15 +54,12 @@ struct ImmediateArg {
 
 struct VarOrImmArg {
     bool immediate;
-    VariableArg var;
-    ImmediateArg imm;
+    VariableArg var;  // when immediate == false
+    ImmediateArg imm; // when immediate == true
 
     VarOrImmArg() {
         operator=(0);
     }
-
-    VarOrImmArg(const VarOrImmArg &) = default;
-    VarOrImmArg(VarOrImmArg &&) = default;
 
     VarOrImmArg(Variable &var) {
         operator=(var);
@@ -99,9 +68,6 @@ struct VarOrImmArg {
     VarOrImmArg(uint32_t imm) {
         operator=(imm);
     }
-
-    VarOrImmArg &operator=(const VarOrImmArg &) = default;
-    VarOrImmArg &operator=(VarOrImmArg &&) = default;
 
     VarOrImmArg &operator=(const Variable &var) {
         immediate = false;

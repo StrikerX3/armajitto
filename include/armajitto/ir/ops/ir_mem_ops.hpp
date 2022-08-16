@@ -19,13 +19,7 @@ namespace armajitto::ir {
 // Byte and halfword reads extend values to 32 bits.
 // Signed reads use sign-extension. Other reads use zero-extension.
 // Unaligned halfword and word reads may force-align or rotate the word, depending on the CPU architecture.
-struct IRMemReadOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::MemRead;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
     MemAccessMode mode;
     MemAccessSize size;
     VariableArg dst;
@@ -36,13 +30,7 @@ struct IRMemReadOp : public IROpBase {
 //   st.[b/h/w]        <any:src>, [<any:address>]
 //
 // Writes a byte, halfword or word from src into memory at address.
-struct IRMemWriteOp : public IROpBase {
-    static constexpr auto kOpcodeType = IROpcodeType::MemWrite;
-
-    IROpcodeType GetOpcodeType() const final {
-        return kOpcodeType;
-    }
-
+struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
     MemAccessSize size;
     VarOrImmArg src;
     VarOrImmArg address;

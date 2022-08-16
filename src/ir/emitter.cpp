@@ -24,16 +24,28 @@ void Emitter::StoreGPR(GPRArg dst, VarOrImmArg src) {
     ops.push_back(op);
 }
 
-void Emitter::LoadPSR(VariableArg dst, PSRArg src) {
-    auto *op = new IRLoadPSROp();
+void Emitter::LoadCPSR(VariableArg dst) {
+    auto *op = new IRLoadCPSROp();
     op->dst = dst;
+    ops.push_back(op);
+}
+
+void Emitter::StoreCPSR(VarOrImmArg src) {
+    auto *op = new IRStoreCPSROp();
     op->src = src;
     ops.push_back(op);
 }
 
-void Emitter::StorePSR(PSRArg dst, VarOrImmArg src) {
-    auto *op = new IRStorePSROp();
+void Emitter::LoadSPSR(arm::Mode mode, VariableArg dst) {
+    auto *op = new IRLoadSPSROp();
+    op->mode = mode;
     op->dst = dst;
+    ops.push_back(op);
+}
+
+void Emitter::StoreSPSR(arm::Mode mode, VarOrImmArg src) {
+    auto *op = new IRStoreSPSROp();
+    op->mode = mode;
     op->src = src;
     ops.push_back(op);
 }
