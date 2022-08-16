@@ -13,12 +13,11 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
     State state{block};
 
     const uint32_t baseAddress = block.BaseAddress();
-    const auto decodeAndDispatchFn =
-        block.IsThumbMode() ? &Translator::DecodeAndDispatchThumb : &Translator::DecodeAndDispatchARM;
+    const auto translateFn = block.IsThumbMode() ? &Translator::TranslateThumb : &Translator::TranslateARM;
     const uint32_t opcodeSize = block.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
 
     for (uint32_t i = 0; i < params.maxBlockSize; i++) {
-        (this->*decodeAndDispatchFn)(baseAddress + i * opcodeSize, state);
+        (this->*translateFn)(baseAddress + i * opcodeSize, state);
 
         if (state.IsEndBlock()) {
             break;
@@ -27,7 +26,7 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
     }
 }
 
-void Translator::DecodeAndDispatchARM(uint32_t address, State &state) {
+void Translator::TranslateARM(uint32_t address, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
     const uint32_t opcode = m_context.CodeReadWord(address);
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
@@ -201,7 +200,7 @@ void Translator::DecodeAndDispatchARM(uint32_t address, State &state) {
     }
 }
 
-void Translator::DecodeAndDispatchThumb(uint32_t address, State &state) {
+void Translator::TranslateThumb(uint32_t address, State &state) {
     const CPUArch arch = m_context.GetCPUArch();
     auto handle = state.GetHandle();
 

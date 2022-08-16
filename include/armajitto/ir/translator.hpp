@@ -86,8 +86,8 @@ private:
         }
     };
 
-    void DecodeAndDispatchARM(uint32_t address, State &state);
-    void DecodeAndDispatchThumb(uint32_t address, State &state);
+    void TranslateARM(uint32_t address, State &state);
+    void TranslateThumb(uint32_t address, State &state);
 
     void Translate(const arm::instrs::Branch &instr, State::Handle state);
     void Translate(const arm::instrs::BranchAndExchange &instr, State::Handle state);
