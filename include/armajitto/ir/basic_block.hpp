@@ -1,11 +1,13 @@
 #pragma once
 
+#include "armajitto/defs/arm/instructions.hpp"
 #include "armajitto/ir/emitter.hpp"
 
 namespace armajitto::ir {
 
 struct IRCodeFragment {
     Emitter emitter;
+    arm::Condition cond;
 };
 
 class BasicBlock {

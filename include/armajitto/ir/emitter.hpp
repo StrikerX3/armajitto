@@ -12,10 +12,10 @@ class Emitter {
 public:
     Variable CreateVariable(const char *name);
 
-    void EmitLoadGPR(VariableArg dst, GPRArg src);
-    void EmitStoreGPR(GPRArg dst, VarOrImmArg src);
+    void LoadGPR(VariableArg dst, GPRArg src);
+    void StoreGPR(GPRArg dst, VarOrImmArg src);
 
-    void EmitCountLeadingZeros(VariableArg dst, VarOrImmArg value);
+    void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
 
 private:
     std::vector<IROpBase *> ops; // TODO: avoid raw pointers

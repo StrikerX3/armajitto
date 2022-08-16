@@ -6,21 +6,21 @@ Variable Emitter::CreateVariable(const char *name) {
     return vars.emplace_back(vars.size(), name);
 }
 
-void Emitter::EmitLoadGPR(VariableArg dst, GPRArg src) {
+void Emitter::LoadGPR(VariableArg dst, GPRArg src) {
     auto *op = new IRLoadGPROp();
     op->dst = dst;
     op->src = src;
     ops.push_back(op);
 }
 
-void Emitter::EmitStoreGPR(GPRArg dst, VarOrImmArg src) {
+void Emitter::StoreGPR(GPRArg dst, VarOrImmArg src) {
     auto *op = new IRStoreGPROp();
     op->dst = dst;
     op->src = src;
     ops.push_back(op);
 }
 
-void Emitter::EmitCountLeadingZeros(VariableArg dst, VarOrImmArg value) {
+void Emitter::CountLeadingZeros(VariableArg dst, VarOrImmArg value) {
     auto *op = new IRCountLeadingZerosOp();
     op->dst = dst;
     op->value = value;
