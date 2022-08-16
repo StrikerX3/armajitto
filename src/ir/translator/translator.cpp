@@ -80,7 +80,7 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
         case 0b000: Translate(arm_decoder::Undefined(Condition::AL), handle); break;
         case 0b001: Translate(arm_decoder::Undefined(Condition::AL), handle); break;
         case 0b100: Translate(arm_decoder::Undefined(Condition::AL), handle); break;
-        case 0b010: // fallthrough
+        case 0b010: [[fallthrough]];
         case 0b011:
             if ((bits24to20 & 0b1'0111) == 0b1'0101) {
                 Translate(arm_decoder::Preload(opcode), handle);
@@ -136,7 +136,7 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
             if (arch == CPUArch::ARMv5TE) {
                 const uint8_t op = bit::extract<21, 2>(opcode);
                 switch (op) {
-                case 0b00: // fallthrough
+                case 0b00: [[fallthrough]];
                 case 0b11: Translate(arm_decoder::SignedMultiplyAccumulate(opcode, cond), handle); break;
                 case 0b01: Translate(arm_decoder::SignedMultiplyAccumulateWord(opcode, cond), handle); break;
                 case 0b10: Translate(arm_decoder::SignedMultiplyAccumulateLong(opcode, cond), handle); break;
@@ -238,7 +238,7 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
 
     const uint8_t group = bit::extract<12, 4>(opcode);
     switch (group) {
-    case 0b0000: // fallthrough
+    case 0b0000: [[fallthrough]];
     case 0b0001:
         if (bit::extract<11, 2>(opcode) == 0b11) {
             Translate(thumb_decoder::AddSubRegImm(opcode), handle);
@@ -246,7 +246,7 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
             Translate(thumb_decoder::ShiftByImm(opcode), handle);
         }
         break;
-    case 0b0010: // fallthrough
+    case 0b0010: [[fallthrough]];
     case 0b0011: Translate(thumb_decoder::MovCmpAddSubImm(opcode), handle); break;
     case 0b0100:
         switch (bit::extract<10, 2>(opcode)) {
@@ -292,7 +292,7 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
             Translate(thumb_decoder::LoadStoreByteWordRegOffset(opcode), handle);
         }
         break;
-    case 0b0110: // fallthrough
+    case 0b0110: [[fallthrough]];
     case 0b0111: Translate(thumb_decoder::LoadStoreByteWordImmOffset(opcode), handle); break;
     case 0b1000: Translate(thumb_decoder::LoadStoreHalfImmOffset(opcode), handle); break;
     case 0b1001: Translate(thumb_decoder::SPRelativeLoadStore(opcode), handle); break;
@@ -307,9 +307,9 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
                 Translate(thumb_decoder::Undefined(), handle);
             }
             break;
-        case 0b0100: // fallthrough
-        case 0b0101: // fallthrough
-        case 0b1100: // fallthrough
+        case 0b0100: [[fallthrough]];
+        case 0b0101: [[fallthrough]];
+        case 0b1100: [[fallthrough]];
         case 0b1101: Translate(thumb_decoder::PushPop(opcode), handle); break;
         default: Translate(thumb_decoder::Undefined(), handle); break;
         }
