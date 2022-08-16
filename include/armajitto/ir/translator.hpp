@@ -25,6 +25,10 @@ private:
             Handle(State &state)
                 : state(state) {}
 
+            const BasicBlock &GetBlock() const {
+                return state.block;
+            }
+
             Emitter &GetEmitter() {
                 return state.codeFrag->emitter;
             }

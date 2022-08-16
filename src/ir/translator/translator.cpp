@@ -16,7 +16,7 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
     const uint32_t opcodeSize = block.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
     const CPUArch arch = m_context.GetCPUArch();
 
-    auto parseARMCond = [&](uint32_t opcode) {
+    auto parseARMCond = [](uint32_t opcode, CPUArch arch) {
         const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
         if (arch == CPUArch::ARMv5TE && cond == Condition::NV) {
             // The NV condition encodes special unconditional instructions on ARMv5
@@ -26,7 +26,7 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
         }
     };
 
-    auto parseThumbCond = [&](uint16_t opcode) {
+    auto parseThumbCond = [](uint16_t opcode) {
         const uint8_t group = bit::extract<12, 4>(opcode);
         if (group == 0b1101) {
             // Thumb conditional branch instruction
@@ -53,7 +53,7 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
             TranslateThumb(opcode, state);
         } else {
             const uint32_t opcode = m_context.CodeReadWord(address);
-            const Condition cond = parseARMCond(opcode);
+            const Condition cond = parseARMCond(opcode, arch);
             state.UpdateCondition(cond);
             TranslateARM(opcode, state);
         }
@@ -373,6 +373,8 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     emitter.StoreGPR(instr.dstReg, dstVar);
 
     // TODO: emit fetch -- need to know if we're decoding ARM or Thumb (from BasicBlock)
+    // EmitInstructionFetch(state);
+    //   state.GetBlock().IsThumbMode()
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, State::Handle state) {
