@@ -34,7 +34,6 @@ namespace instrs {
     //   -   B
     //   +   BL
     struct Branch {
-        Condition cond;
         int32_t offset;
         bool link;
         bool switchToThumb;
@@ -45,7 +44,6 @@ namespace instrs {
     //   -   BX
     //   +   BLX
     struct BranchAndExchange {
-        Condition cond;
         uint8_t reg;
         bool link;
     };
@@ -63,7 +61,6 @@ namespace instrs {
     struct DataProcessing {
         enum class Opcode : uint8_t { AND, EOR, SUB, RSB, ADD, ADC, SBC, RSC, TST, TEQ, CMP, CMN, ORR, MOV, BIC, MVN };
 
-        Condition cond;
         Opcode opcode;
         bool immediate;
         bool setFlags;
@@ -77,7 +74,6 @@ namespace instrs {
 
     // CLZ
     struct CountLeadingZeros {
-        Condition cond;
         uint8_t dstReg; // Rd
         uint8_t argReg; // Rm
     };
@@ -89,7 +85,6 @@ namespace instrs {
     //  +   -   QSUB
     //  +   +   QDSUB
     struct SaturatingAddSub {
-        Condition cond;
         uint8_t dstReg; // Rd
         uint8_t lhsReg; // Rm
         uint8_t rhsReg; // Rn
@@ -102,7 +97,6 @@ namespace instrs {
     //      -      MUL
     //      +      MLA
     struct MultiplyAccumulate {
-        Condition cond;
         uint8_t dstReg; // Rd
         uint8_t lhsReg; // Rm
         uint8_t rhsReg; // Rs
@@ -118,7 +112,6 @@ namespace instrs {
     //     +          -      SMULL
     //     +          +      SMLAL
     struct MultiplyAccumulateLong {
-        Condition cond;
         uint8_t dstAccLoReg; // RdHi (also accumulator when accumulate == true)
         uint8_t dstAccHiReg; // RdLo (also accumulator when accumulate == true)
         uint8_t lhsReg;      // Rm
@@ -133,7 +126,6 @@ namespace instrs {
     //      -      SMUL<x><y>
     //      +      SMLA<x><y>
     struct SignedMultiplyAccumulate {
-        Condition cond;
         uint8_t dstReg; // Rd
         uint8_t lhsReg; // Rm
         uint8_t rhsReg; // Rs
@@ -148,7 +140,6 @@ namespace instrs {
     //      -      SMULW<y>
     //      +      SMLAW<y>
     struct SignedMultiplyAccumulateWord {
-        Condition cond;
         uint8_t dstReg; // Rd
         uint8_t lhsReg; // Rm
         uint8_t rhsReg; // Rs
@@ -159,7 +150,6 @@ namespace instrs {
 
     // SMLAL<x><y>
     struct SignedMultiplyAccumulateLong {
-        Condition cond;
         uint8_t dstAccLoReg; // RdLo
         uint8_t dstAccHiReg; // RdHi
         uint8_t lhsReg;      // Rm
@@ -170,14 +160,12 @@ namespace instrs {
 
     // MRS
     struct PSRRead {
-        Condition cond;
         bool spsr;
         uint8_t dstReg; // Rd
     };
 
     // MSR
     struct PSRWrite {
-        Condition cond;
         bool immediate;
         bool spsr;
         bool f;
@@ -197,7 +185,6 @@ namespace instrs {
     //   +    -   STRB
     //   +    +   LDRB
     struct SingleDataTransfer {
-        Condition cond;
         bool preindexed; // P bit
         bool byte;       // B bit
         bool writeback;  // W bit
@@ -216,7 +203,6 @@ namespace instrs {
     //   +    +    -   LDRSB
     //   +    +    +   LDRSH
     struct HalfwordAndSignedTransfer {
-        Condition cond;
         bool preindexed;     // P bit
         bool positiveOffset; // U bit
         bool immediate;      // I bit
@@ -237,7 +223,6 @@ namespace instrs {
     //   -   STM
     //   +   LDM
     struct BlockTransfer {
-        Condition cond;
         bool preindexed;            // P bit
         bool positiveOffset;        // U bit
         bool userModeOrPSRTransfer; // S bit
@@ -252,7 +237,6 @@ namespace instrs {
     //   -   SWP
     //   +   SWPB
     struct SingleDataSwap {
-        Condition cond;
         bool byte;          // B bit
         uint8_t dstReg;     // Rd
         uint8_t valueReg;   // Rm
@@ -261,14 +245,11 @@ namespace instrs {
 
     // SWI
     struct SoftwareInterrupt {
-        Condition cond;
         uint32_t comment;
     };
 
     // BKPT
-    struct SoftwareBreakpoint {
-        Condition cond;
-    };
+    struct SoftwareBreakpoint {};
 
     // PLD
     struct Preload {
@@ -280,7 +261,6 @@ namespace instrs {
     //  -   CDP
     //  +   CDP2
     struct CopDataOperations {
-        Condition cond;
         uint8_t opcode1;
         uint8_t crn;
         uint8_t crd;
@@ -297,7 +277,6 @@ namespace instrs {
     //   +   -   LDC
     //   +   +   LDC2
     struct CopDataTransfer {
-        Condition cond;
         bool preindexed;     // P bit
         bool positiveOffset; // U bit
         bool n;              // N bit
@@ -317,7 +296,6 @@ namespace instrs {
     //   +    -   MRC
     //   +    +   MRC2
     struct CopRegTransfer {
-        Condition cond;
         bool store;
         uint8_t opcode1;
         uint16_t crn;
@@ -333,7 +311,6 @@ namespace instrs {
     //   -    MCRR
     //   +    MRRC
     struct CopDualRegTransfer {
-        Condition cond;
         bool store;
         uint8_t rn;
         uint8_t rd;
@@ -343,9 +320,7 @@ namespace instrs {
     };
 
     // UDF and other undefined instructions
-    struct Undefined {
-        Condition cond;
-    };
+    struct Undefined {};
 
 } // namespace instrs
 

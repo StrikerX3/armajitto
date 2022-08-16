@@ -19,7 +19,7 @@ namespace detail {
 } // namespace detail
 
 inline auto ShiftByImm(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
     instr.immediate = false;
@@ -42,7 +42,7 @@ inline auto ShiftByImm(uint16_t opcode) {
 }
 
 inline auto AddSubRegImm(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     if (bit::test<9>(opcode)) {
         instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
@@ -63,7 +63,7 @@ inline auto AddSubRegImm(uint16_t opcode) {
 }
 
 inline auto MovCmpAddSubImm(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     switch (bit::extract<11, 2>(opcode)) {
     case 0b00: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
@@ -81,7 +81,7 @@ inline auto MovCmpAddSubImm(uint16_t opcode) {
 }
 
 inline auto DataProcessingStandard(uint16_t opcode, arm::instrs::DataProcessing::Opcode dpOpcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = dpOpcode;
     instr.immediate = false;
@@ -94,7 +94,7 @@ inline auto DataProcessingStandard(uint16_t opcode, arm::instrs::DataProcessing:
 }
 
 inline auto DataProcessingShift(uint16_t opcode, arm::ShiftType shiftType) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
     instr.immediate = false;
@@ -110,7 +110,7 @@ inline auto DataProcessingShift(uint16_t opcode, arm::ShiftType shiftType) {
 }
 
 inline auto DataProcessingNegate(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = arm::instrs::DataProcessing::Opcode::RSB;
     instr.immediate = true;
@@ -123,7 +123,7 @@ inline auto DataProcessingNegate(uint16_t opcode) {
 }
 
 inline auto DataProcessingMultiply(uint16_t opcode) {
-    arm::instrs::MultiplyAccumulate instr{.cond = arm::Condition::AL};
+    arm::instrs::MultiplyAccumulate instr{};
 
     instr.dstReg = bit::extract<0, 3>(opcode);
     instr.lhsReg = instr.dstReg;
@@ -136,7 +136,7 @@ inline auto DataProcessingMultiply(uint16_t opcode) {
 }
 
 inline auto HiRegOps(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     const uint8_t h1 = bit::extract<7>(opcode);
     const uint8_t h2 = bit::extract<6>(opcode);
@@ -155,7 +155,7 @@ inline auto HiRegOps(uint16_t opcode) {
 }
 
 inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
-    arm::instrs::BranchAndExchange instr{.cond = arm::Condition::AL};
+    arm::instrs::BranchAndExchange instr{};
 
     const uint8_t h2 = bit::extract<6>(opcode);
     instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
@@ -165,7 +165,7 @@ inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
 }
 
 inline auto PCRelativeLoad(uint16_t opcode) {
-    arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::SingleDataTransfer instr{};
 
     instr.preindexed = true;
     instr.byte = false;
@@ -181,7 +181,7 @@ inline auto PCRelativeLoad(uint16_t opcode) {
 }
 
 inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
-    arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::SingleDataTransfer instr{};
 
     instr.preindexed = true;
     instr.byte = bit::test<10>(opcode);
@@ -197,7 +197,7 @@ inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
 }
 
 inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
-    arm::instrs::HalfwordAndSignedTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::HalfwordAndSignedTransfer instr{};
 
     instr.preindexed = true;
     instr.positiveOffset = true;
@@ -222,7 +222,7 @@ inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
 }
 
 inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
-    arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::SingleDataTransfer instr{};
 
     instr.preindexed = true;
     instr.byte = bit::test<12>(opcode);
@@ -238,7 +238,7 @@ inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
 }
 
 inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
-    arm::instrs::HalfwordAndSignedTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::HalfwordAndSignedTransfer instr{};
 
     instr.preindexed = true;
     instr.positiveOffset = true;
@@ -255,7 +255,7 @@ inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
 }
 
 inline auto SPRelativeLoadStore(uint16_t opcode) {
-    arm::instrs::SingleDataTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::SingleDataTransfer instr{};
 
     instr.preindexed = true;
     instr.byte = false;
@@ -271,7 +271,7 @@ inline auto SPRelativeLoadStore(uint16_t opcode) {
 }
 
 inline auto AddToSPOrPC(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
     instr.immediate = true;
@@ -284,7 +284,7 @@ inline auto AddToSPOrPC(uint16_t opcode) {
 }
 
 inline auto AdjustSP(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     if (bit::test<7>(opcode)) {
         instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
@@ -301,7 +301,7 @@ inline auto AdjustSP(uint16_t opcode) {
 }
 
 inline auto PushPop(uint16_t opcode) {
-    arm::instrs::BlockTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::BlockTransfer instr{};
 
     //                   P U S W L   reg included by R bit
     // PUSH = STMDB sp!  + - - + -   LR
@@ -326,7 +326,7 @@ inline auto PushPop(uint16_t opcode) {
 }
 
 inline auto LoadStoreMultiple(uint16_t opcode) {
-    arm::instrs::BlockTransfer instr{.cond = arm::Condition::AL};
+    arm::instrs::BlockTransfer instr{};
 
     // load  P U S W L
     //   -   - + - + -
@@ -346,15 +346,15 @@ inline auto LoadStoreMultiple(uint16_t opcode) {
 }
 
 inline auto SoftwareInterrupt(uint16_t opcode) {
-    return arm::instrs::SoftwareInterrupt{.cond = arm::Condition::AL, .comment = bit::extract<0, 8>(opcode)};
+    return arm::instrs::SoftwareInterrupt{.comment = bit::extract<0, 8>(opcode)};
 }
 
 inline auto SoftwareBreakpoint() {
-    return arm::instrs::SoftwareBreakpoint{.cond = arm::Condition::AL};
+    return arm::instrs::SoftwareBreakpoint{};
 }
 
 inline auto ConditionalBranch(uint16_t opcode) {
-    arm::instrs::Branch instr{.cond = static_cast<arm::Condition>(bit::extract<8, 4>(opcode))};
+    arm::instrs::Branch instr{};
 
     instr.offset = bit::sign_extend<8, int32_t>(bit::extract<0, 8>(opcode)) * 2;
     instr.link = false;
@@ -364,7 +364,7 @@ inline auto ConditionalBranch(uint16_t opcode) {
 }
 
 inline auto UnconditionalBranch(uint16_t opcode) {
-    arm::instrs::Branch instr{.cond = arm::Condition::AL};
+    arm::instrs::Branch instr{};
 
     instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
     instr.link = false;
@@ -374,7 +374,7 @@ inline auto UnconditionalBranch(uint16_t opcode) {
 }
 
 inline auto LongBranchPrefix(uint16_t opcode) {
-    arm::instrs::DataProcessing instr{.cond = arm::Condition::AL};
+    arm::instrs::DataProcessing instr{};
 
     // LR = PC + (SignExtend(offset_11) << 12)
     instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
@@ -397,7 +397,7 @@ inline auto LongBranchSuffix(uint16_t opcode, bool blx) {
 }
 
 inline auto Undefined() {
-    return arm::instrs::Undefined{.cond = arm::Condition::AL};
+    return arm::instrs::Undefined{};
 }
 
 } // namespace armajitto::arm::thumb_decoder

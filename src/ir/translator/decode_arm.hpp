@@ -41,8 +41,8 @@ namespace detail {
 } // namespace detail
 
 // B,BL
-inline auto Branch(uint32_t opcode, arm::Condition cond, bool switchToThumb) {
-    arm::instrs::Branch instr{.cond = cond};
+inline auto Branch(uint32_t opcode, bool switchToThumb) {
+    arm::instrs::Branch instr{};
 
     instr.offset = bit::sign_extend<24>(bit::extract<0, 24>(opcode)) << 2;
     instr.link = bit::test<24>(opcode);
@@ -52,8 +52,8 @@ inline auto Branch(uint32_t opcode, arm::Condition cond, bool switchToThumb) {
 }
 
 // BX,BLX
-inline auto BranchAndExchange(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::BranchAndExchange instr{.cond = cond};
+inline auto BranchAndExchange(uint32_t opcode) {
+    arm::instrs::BranchAndExchange instr{};
 
     instr.reg = bit::extract<0, 4>(opcode);
     instr.link = bit::test<5>(opcode);
@@ -62,8 +62,8 @@ inline auto BranchAndExchange(uint32_t opcode, arm::Condition cond) {
 }
 
 // AND,EOR,SUB,RSB,ADD,ADC,SBC,RSC,TST,TEQ,CMP,CMN,ORR,MOV,BIC,MVN
-inline auto DataProcessing(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::DataProcessing instr{.cond = cond};
+inline auto DataProcessing(uint32_t opcode) {
+    arm::instrs::DataProcessing instr{};
 
     instr.opcode = static_cast<arm::instrs::DataProcessing::Opcode>(bit::extract<21, 4>(opcode));
     instr.immediate = bit::test<25>(opcode);
@@ -80,8 +80,8 @@ inline auto DataProcessing(uint32_t opcode, arm::Condition cond) {
 }
 
 // CLZ
-inline auto CountLeadingZeros(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::CountLeadingZeros instr{.cond = cond};
+inline auto CountLeadingZeros(uint32_t opcode) {
+    arm::instrs::CountLeadingZeros instr{};
 
     instr.dstReg = bit::extract<12, 4>(opcode);
     instr.argReg = bit::extract<0, 4>(opcode);
@@ -90,8 +90,8 @@ inline auto CountLeadingZeros(uint32_t opcode, arm::Condition cond) {
 }
 
 // QADD,QSUB,QDADD,QDSUB
-inline auto SaturatingAddSub(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SaturatingAddSub instr{.cond = cond};
+inline auto SaturatingAddSub(uint32_t opcode) {
+    arm::instrs::SaturatingAddSub instr{};
 
     instr.dstReg = bit::extract<12, 4>(opcode);
     instr.lhsReg = bit::extract<0, 4>(opcode);
@@ -103,8 +103,8 @@ inline auto SaturatingAddSub(uint32_t opcode, arm::Condition cond) {
 }
 
 // MUL,MLA
-inline auto MultiplyAccumulate(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::MultiplyAccumulate instr{.cond = cond};
+inline auto MultiplyAccumulate(uint32_t opcode) {
+    arm::instrs::MultiplyAccumulate instr{};
 
     instr.dstReg = bit::extract<16, 4>(opcode);
     instr.lhsReg = bit::extract<0, 4>(opcode);
@@ -117,8 +117,8 @@ inline auto MultiplyAccumulate(uint32_t opcode, arm::Condition cond) {
 }
 
 // SMULL,UMULL,SMLAL,UMLAL
-inline auto MultiplyAccumulateLong(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::MultiplyAccumulateLong instr{.cond = cond};
+inline auto MultiplyAccumulateLong(uint32_t opcode) {
+    arm::instrs::MultiplyAccumulateLong instr{};
 
     instr.dstAccLoReg = bit::extract<12, 4>(opcode);
     instr.dstAccHiReg = bit::extract<16, 4>(opcode);
@@ -132,8 +132,8 @@ inline auto MultiplyAccumulateLong(uint32_t opcode, arm::Condition cond) {
 }
 
 // SMUL<x><y>,SMLA<x><y>
-inline auto SignedMultiplyAccumulate(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SignedMultiplyAccumulate instr{.cond = cond};
+inline auto SignedMultiplyAccumulate(uint32_t opcode) {
+    arm::instrs::SignedMultiplyAccumulate instr{};
 
     instr.dstReg = bit::extract<16, 4>(opcode);
     instr.lhsReg = bit::extract<0, 4>(opcode);
@@ -147,8 +147,8 @@ inline auto SignedMultiplyAccumulate(uint32_t opcode, arm::Condition cond) {
 }
 
 // SMULW<y>,SMLAW<y>
-inline auto SignedMultiplyAccumulateWord(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SignedMultiplyAccumulateWord instr{.cond = cond};
+inline auto SignedMultiplyAccumulateWord(uint32_t opcode) {
+    arm::instrs::SignedMultiplyAccumulateWord instr{};
 
     instr.dstReg = bit::extract<16, 4>(opcode);
     instr.lhsReg = bit::extract<0, 4>(opcode);
@@ -161,8 +161,8 @@ inline auto SignedMultiplyAccumulateWord(uint32_t opcode, arm::Condition cond) {
 }
 
 // SMLAL<x><y>
-inline auto SignedMultiplyAccumulateLong(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SignedMultiplyAccumulateLong instr{.cond = cond};
+inline auto SignedMultiplyAccumulateLong(uint32_t opcode) {
+    arm::instrs::SignedMultiplyAccumulateLong instr{};
 
     instr.dstAccLoReg = bit::extract<12, 4>(opcode);
     instr.dstAccHiReg = bit::extract<16, 4>(opcode);
@@ -175,8 +175,8 @@ inline auto SignedMultiplyAccumulateLong(uint32_t opcode, arm::Condition cond) {
 }
 
 // MRS
-inline auto PSRRead(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::PSRRead instr{.cond = cond};
+inline auto PSRRead(uint32_t opcode) {
+    arm::instrs::PSRRead instr{};
 
     instr.dstReg = bit::extract<12, 4>(opcode);
     instr.spsr = bit::test<22>(opcode);
@@ -185,8 +185,8 @@ inline auto PSRRead(uint32_t opcode, arm::Condition cond) {
 }
 
 // MSR
-inline auto PSRWrite(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::PSRWrite instr{.cond = cond};
+inline auto PSRWrite(uint32_t opcode) {
+    arm::instrs::PSRWrite instr{};
 
     instr.immediate = bit::test<25>(opcode);
     instr.spsr = bit::test<22>(opcode);
@@ -204,8 +204,8 @@ inline auto PSRWrite(uint32_t opcode, arm::Condition cond) {
 }
 
 // LDR,STR,LDRB,STRB
-inline auto SingleDataTransfer(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SingleDataTransfer instr{.cond = cond};
+inline auto SingleDataTransfer(uint32_t opcode) {
+    arm::instrs::SingleDataTransfer instr{};
 
     instr.preindexed = bit::test<24>(opcode);
     instr.byte = bit::test<22>(opcode);
@@ -218,8 +218,8 @@ inline auto SingleDataTransfer(uint32_t opcode, arm::Condition cond) {
 }
 
 // LDRH,STRH,LDRSH,LDRSB,LDRD,STRD
-inline auto HalfwordAndSignedTransfer(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::HalfwordAndSignedTransfer instr{.cond = cond};
+inline auto HalfwordAndSignedTransfer(uint32_t opcode) {
+    arm::instrs::HalfwordAndSignedTransfer instr{};
 
     instr.preindexed = bit::test<24>(opcode);
     instr.positiveOffset = bit::test<23>(opcode);
@@ -240,8 +240,8 @@ inline auto HalfwordAndSignedTransfer(uint32_t opcode, arm::Condition cond) {
 }
 
 // LDM,STM
-inline auto BlockTransfer(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::BlockTransfer instr{.cond = cond};
+inline auto BlockTransfer(uint32_t opcode) {
+    arm::instrs::BlockTransfer instr{};
 
     instr.preindexed = bit::test<24>(opcode);
     instr.positiveOffset = bit::test<23>(opcode);
@@ -255,8 +255,8 @@ inline auto BlockTransfer(uint32_t opcode, arm::Condition cond) {
 }
 
 // SWP,SWPB
-inline auto SingleDataSwap(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::SingleDataSwap instr{.cond = cond};
+inline auto SingleDataSwap(uint32_t opcode) {
+    arm::instrs::SingleDataSwap instr{};
 
     instr.byte = bit::test<22>(opcode);
     instr.dstReg = bit::extract<12, 4>(opcode);
@@ -267,13 +267,17 @@ inline auto SingleDataSwap(uint32_t opcode, arm::Condition cond) {
 }
 
 // SWI
-inline auto SoftwareInterrupt(uint32_t opcode, arm::Condition cond) {
-    return arm::instrs::SoftwareInterrupt{.cond = cond, .comment = bit::extract<0, 24>(opcode)};
+inline auto SoftwareInterrupt(uint32_t opcode) {
+    arm::instrs::SoftwareInterrupt instr{};
+
+    instr.comment = bit::extract<0, 24>(opcode);
+
+    return instr;
 }
 
 // BKPT
-inline auto SoftwareBreakpoint(uint32_t opcode, arm::Condition cond) {
-    return arm::instrs::SoftwareBreakpoint{.cond = cond};
+inline auto SoftwareBreakpoint(uint32_t opcode) {
+    return arm::instrs::SoftwareBreakpoint{};
 }
 
 // PLD
@@ -286,8 +290,8 @@ inline auto Preload(uint32_t opcode) {
 }
 
 // CDP,CDP2
-inline auto CopDataOperations(uint32_t opcode, arm::Condition cond, bool ext) {
-    arm::instrs::CopDataOperations instr{.cond = cond};
+inline auto CopDataOperations(uint32_t opcode, bool ext) {
+    arm::instrs::CopDataOperations instr{};
 
     instr.opcode1 = bit::extract<20, 4>(opcode);
     instr.crn = bit::extract<16, 4>(opcode);
@@ -301,8 +305,8 @@ inline auto CopDataOperations(uint32_t opcode, arm::Condition cond, bool ext) {
 }
 
 // STC,STC2,LDC,LDC2
-inline auto CopDataTransfer(uint32_t opcode, arm::Condition cond, bool ext) {
-    arm::instrs::CopDataTransfer instr{.cond = cond};
+inline auto CopDataTransfer(uint32_t opcode, bool ext) {
+    arm::instrs::CopDataTransfer instr{};
 
     instr.preindexed = bit::test<24>(opcode);
     instr.positiveOffset = bit::test<23>(opcode);
@@ -319,8 +323,8 @@ inline auto CopDataTransfer(uint32_t opcode, arm::Condition cond, bool ext) {
 }
 
 // MCR,MCR2,MRC,MRC2
-inline auto CopRegTransfer(uint32_t opcode, arm::Condition cond, bool ext) {
-    arm::instrs::CopRegTransfer instr{.cond = cond};
+inline auto CopRegTransfer(uint32_t opcode, bool ext) {
+    arm::instrs::CopRegTransfer instr{};
 
     instr.store = bit::test<20>(opcode);
     instr.opcode1 = bit::extract<21, 3>(opcode);
@@ -335,8 +339,8 @@ inline auto CopRegTransfer(uint32_t opcode, arm::Condition cond, bool ext) {
 }
 
 // MCRR,MRRC
-inline auto CopDualRegTransfer(uint32_t opcode, arm::Condition cond) {
-    arm::instrs::CopDualRegTransfer instr{.cond = cond};
+inline auto CopDualRegTransfer(uint32_t opcode) {
+    arm::instrs::CopDualRegTransfer instr{};
 
     instr.store = bit::test<20>(opcode);
     instr.rn = bit::extract<16, 4>(opcode);
@@ -349,8 +353,8 @@ inline auto CopDualRegTransfer(uint32_t opcode, arm::Condition cond) {
 }
 
 // UDF and other undefined instructions
-inline auto Undefined(arm::Condition cond) {
-    return arm::instrs::Undefined{.cond = cond};
+inline auto Undefined() {
+    return arm::instrs::Undefined{};
 }
 
 } // namespace armajitto::arm::arm_decoder
