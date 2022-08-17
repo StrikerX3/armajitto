@@ -34,6 +34,11 @@ namespace detail {
         VarOrImmArg rhs;
         bool setFlags;
 
+        IRBinaryOpBase(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+            : lhs(lhs)
+            , rhs(rhs)
+            , setFlags(setFlags) {}
+
         IRBinaryOpBase(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
             : dst(dst)
             , lhs(lhs)
@@ -135,6 +140,11 @@ struct IRRotateRightExtendOp : public IROpBase<IROpcodeType::RotateRightExtend> 
 // The TST operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitwiseAndOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseAnd> {
+    // Constructor for the TST operation.
+    IRBitwiseAndOp(VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRBinaryOpBase(lhs, rhs, true) {}
+
+    // Constructor for the AND operation.
     IRBitwiseAndOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
@@ -156,6 +166,11 @@ struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
 // The TEQ operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRBitwiseXorOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseXor> {
+    // Constructor for the TEQ operation.
+    IRBitwiseXorOp(VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRBinaryOpBase(lhs, rhs, true) {}
+
+    // Constructor for the EOR operation.
     IRBitwiseXorOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
@@ -191,6 +206,11 @@ struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> 
 // The CMN operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRAddOp : public detail::IRBinaryOpBase<IROpcodeType::Add> {
+    // Constructor for the CMN operation.
+    IRAddOp(VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRBinaryOpBase(lhs, rhs, true) {}
+
+    // Constructor for the ADD operation.
     IRAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
@@ -212,6 +232,11 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
 // The CMP operation omits <dst>.
 // Updates host flags if [s] is specified.
 struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
+    // Constructor for the CMP operation.
+    IRSubtractOp(VarOrImmArg lhs, VarOrImmArg rhs)
+        : IRBinaryOpBase(lhs, rhs, true) {}
+
+    // Constructor for the SUB operation.
     IRSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
@@ -280,6 +305,12 @@ struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
     VarOrImmArg lhs;
     VarOrImmArg rhs;
     bool setFlags;
+
+    IRMultiplyOp(VariableArg dstLo, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : dstLo(dstLo)
+        , lhs(lhs)
+        , rhs(rhs)
+        , setFlags(setFlags) {}
 
     IRMultiplyOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : dstLo(dstLo)

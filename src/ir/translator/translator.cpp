@@ -437,10 +437,10 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     case Opcode::ADC: result = emitter.AddCarry(lhs, rhs, instr.setFlags); break;
     case Opcode::SBC: result = emitter.SubtractCarry(lhs, rhs, instr.setFlags); break;
     case Opcode::RSC: result = emitter.SubtractCarry(rhs, lhs, instr.setFlags); break; // note: swapped rhs/lhs
-    case Opcode::TST: result = emitter.BitwiseAnd(lhs, rhs, true); break;
-    case Opcode::TEQ: result = emitter.BitwiseXor(lhs, rhs, true); break;
-    case Opcode::CMP: result = emitter.Subtract(lhs, rhs, true); break;
-    case Opcode::CMN: result = emitter.Add(lhs, rhs, true); break;
+    case Opcode::TST: emitter.Test(lhs, rhs); break;
+    case Opcode::TEQ: emitter.TestEquivalence(lhs, rhs); break;
+    case Opcode::CMP: emitter.Compare(lhs, rhs); break;
+    case Opcode::CMN: emitter.CompareNegated(lhs, rhs); break;
     case Opcode::ORR: result = emitter.BitwiseOr(lhs, rhs, instr.setFlags); break;
     case Opcode::MOV: result = emitter.Move(rhs, instr.setFlags); break;
     case Opcode::BIC: result = emitter.BitClear(lhs, rhs, instr.setFlags); break;
@@ -448,7 +448,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     // Store result (except for comparison operators)
-    if ((static_cast<uint32_t>(instr.opcode) & 0b1100) != 0b1000) {
+    if (result.IsPresent()) {
         emitter.SetRegister(instr.dstReg, result);
     }
 

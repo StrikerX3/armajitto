@@ -86,15 +86,16 @@ public:
     Variable Move(VarOrImmArg value, bool setFlags);
     Variable MoveNegated(VarOrImmArg value, bool setFlags);
 
-    Variable Test(VarOrImmArg lhs, VarOrImmArg rhs);
-    Variable TestEquivalence(VarOrImmArg lhs, VarOrImmArg rhs);
-    Variable Compare(VarOrImmArg lhs, VarOrImmArg rhs);
-    Variable CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs);
+    void Test(VarOrImmArg lhs, VarOrImmArg rhs);
+    void TestEquivalence(VarOrImmArg lhs, VarOrImmArg rhs);
+    void Compare(VarOrImmArg lhs, VarOrImmArg rhs);
+    void CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs);
 
     Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs);
     Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs);
 
-    ALUVarPair Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
     void StoreFlags(Flags flags);

@@ -181,6 +181,22 @@ Variable Emitter::MoveNegated(VarOrImmArg value, bool setFlags) {
     return dst;
 }
 
+void Emitter::Test(VarOrImmArg lhs, VarOrImmArg rhs) {
+    AppendOp<IRBitwiseAndOp>(lhs, rhs);
+}
+
+void Emitter::TestEquivalence(VarOrImmArg lhs, VarOrImmArg rhs) {
+    AppendOp<IRBitwiseXorOp>(lhs, rhs);
+}
+
+void Emitter::Compare(VarOrImmArg lhs, VarOrImmArg rhs) {
+    AppendOp<IRSubtractOp>(lhs, rhs);
+}
+
+void Emitter::CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs) {
+    AppendOp<IRAddOp>(lhs, rhs);
+}
+
 Variable Emitter::SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs) {
     auto dst = Var();
     AppendOp<IRSaturatingAddOp>(dst, lhs, rhs);
@@ -193,7 +209,13 @@ Variable Emitter::SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs) {
     return dst;
 }
 
-ALUVarPair Emitter::Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dstLo = Var();
+    AppendOp<IRMultiplyOp>(dstLo, lhs, rhs, setFlags);
+    return dstLo;
+}
+
+ALUVarPair Emitter::MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     auto dstLo = Var();
     auto dstHi = Var();
     AppendOp<IRMultiplyOp>(dstLo, dstHi, lhs, rhs, setFlags);

@@ -12,6 +12,10 @@ struct Variable {
         return index;
     }
 
+    bool IsPresent() const {
+        return index != kInvalidIndex;
+    }
+
 private:
     explicit Variable(size_t index)
         : index(index) {}

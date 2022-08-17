@@ -168,13 +168,25 @@ void testTranslator() {
     // sys.ROMWriteWord(0x013C, 0xE1E01003); // mvn r1, r3
     // sys.ROMWriteWord(0x0140, 0xEAFFFFFE); // b $
 
-    // QADD, QSUB, QDADD, QDSUB
+    // ARM ALU comparisons
     bool thumb = false;
-    sys.ROMWriteWord(0x0100, 0xE1031052); // qadd r1, r2, r3
-    sys.ROMWriteWord(0x0104, 0xE1231052); // qsub r1, r2, r3
-    sys.ROMWriteWord(0x0108, 0xE1431052); // qdadd r1, r2, r3
-    sys.ROMWriteWord(0x010C, 0xE1631052); // qdsub r1, r2, r3
-    sys.ROMWriteWord(0x0110, 0xEAFFFFFE); // b $
+    // sys.ROMWriteWord(0x0100, 0xE0021003); // and r1, r2, r3
+    // sys.ROMWriteWord(0x0104, 0xE1120003); // tst r2, r3
+    // sys.ROMWriteWord(0x0100, 0xE0221003); // eor r1, r2, r3
+    // sys.ROMWriteWord(0x0104, 0xE1320003); // teq r2, r3
+    // sys.ROMWriteWord(0x0100, 0xE0421003); // sub r1, r2, r3
+    // sys.ROMWriteWord(0x0104, 0xE1520003); // cmp r2, r3
+    sys.ROMWriteWord(0x0100, 0xE0821003); // add r1, r2, r3
+    sys.ROMWriteWord(0x0104, 0xE1720003); // cmn r2, r3
+    sys.ROMWriteWord(0x0108, 0xEAFFFFFE); // b $
+
+    // QADD, QSUB, QDADD, QDSUB
+    // bool thumb = false;
+    // sys.ROMWriteWord(0x0100, 0xE1031052); // qadd r1, r2, r3
+    // sys.ROMWriteWord(0x0104, 0xE1231052); // qsub r1, r2, r3
+    // sys.ROMWriteWord(0x0108, 0xE1431052); // qdadd r1, r2, r3
+    // sys.ROMWriteWord(0x010C, 0xE1631052); // qdsub r1, r2, r3
+    // sys.ROMWriteWord(0x0110, 0xEAFFFFFE); // b $
 
     // Thumb branches
     // bool thumb = true;
