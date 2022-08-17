@@ -52,6 +52,39 @@ void Emitter::MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address)
     AppendOp<IRMemWriteOp>(size, src, address);
 }
 
+Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift) {
+    auto value = GetRegister(shift.srcReg);
+
+    VarOrImmArg amount;
+    if (shift.immediate) {
+        amount = shift.amount.imm;
+    } else {
+        amount = GetRegister(shift.amount.reg);
+        // TODO: add one I cycle
+    }
+
+    Variable result{};
+    switch (shift.type) {
+    case arm::ShiftType::LSL:
+        if (shift.immediate && shift.amount.imm == 0) {
+            result = value;
+        } else {
+            result = LogicalShiftLeft(value, amount, true);
+        }
+        break;
+    case arm::ShiftType::LSR: result = LogicalShiftRight(value, amount, true); break;
+    case arm::ShiftType::ASR: result = ArithmeticShiftRight(value, amount, true); break;
+    case arm::ShiftType::ROR:
+        if (shift.immediate && shift.amount.imm == 0) {
+            result = RotateRightExtend(value, true);
+        } else {
+            result = RotateRight(value, amount, true);
+        }
+        break;
+    }
+    return result;
+}
+
 Variable Emitter::LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
     auto dst = Var();
     AppendOp<IRLogicalShiftLeftOp>(dst, value, amount, setFlags);
@@ -88,21 +121,27 @@ Variable Emitter::BitwiseAnd(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     return dst;
 }
 
+Variable Emitter::BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
+    AppendOp<IRBitwiseOrOp>(dst, lhs, rhs, setFlags);
+    return dst;
+}
+
 Variable Emitter::BitwiseXor(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     auto dst = Var();
     AppendOp<IRBitwiseXorOp>(dst, lhs, rhs, setFlags);
     return dst;
 }
 
-Variable Emitter::Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     auto dst = Var();
-    AppendOp<IRSubtractOp>(dst, lhs, rhs, setFlags);
+    AppendOp<IRBitClearOp>(dst, lhs, rhs, setFlags);
     return dst;
 }
 
-Variable Emitter::ReverseSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::CountLeadingZeros(VarOrImmArg value) {
     auto dst = Var();
-    AppendOp<IRReverseSubtractOp>(dst, lhs, rhs, setFlags);
+    AppendOp<IRCountLeadingZerosOp>(dst, value);
     return dst;
 }
 
@@ -118,21 +157,15 @@ Variable Emitter::AddCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     return dst;
 }
 
+Variable Emitter::Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
+    AppendOp<IRSubtractOp>(dst, lhs, rhs, setFlags);
+    return dst;
+}
+
 Variable Emitter::SubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
     auto dst = Var();
     AppendOp<IRSubtractCarryOp>(dst, lhs, rhs, setFlags);
-    return dst;
-}
-
-Variable Emitter::ReverseSubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
-    auto dst = Var();
-    AppendOp<IRReverseSubtractCarryOp>(dst, lhs, rhs, setFlags);
-    return dst;
-}
-
-Variable Emitter::BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
-    auto dst = Var();
-    AppendOp<IRBitwiseOrOp>(dst, lhs, rhs, setFlags);
     return dst;
 }
 
@@ -142,21 +175,9 @@ Variable Emitter::Move(VarOrImmArg value, bool setFlags) {
     return dst;
 }
 
-Variable Emitter::BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
-    auto dst = Var();
-    AppendOp<IRBitClearOp>(dst, lhs, rhs, setFlags);
-    return dst;
-}
-
 Variable Emitter::MoveNegated(VarOrImmArg value, bool setFlags) {
     auto dst = Var();
     AppendOp<IRMoveNegatedOp>(dst, value, setFlags);
-    return dst;
-}
-
-Variable Emitter::CountLeadingZeros(VarOrImmArg value) {
-    auto dst = Var();
-    AppendOp<IRCountLeadingZerosOp>(dst, value);
     return dst;
 }
 
@@ -186,22 +207,25 @@ ALUVarPair Emitter::AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rh
     return {dstLo, dstHi};
 }
 
-Variable Emitter::StoreFlags(uint8_t mask, VariableArg srcCPSR) {
+void Emitter::StoreFlags(Flags flags) {
+    auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
-    AppendOp<IRStoreFlagsOp>(mask, dstCPSR, srcCPSR);
-    return dstCPSR;
+    AppendOp<IRStoreFlagsOp>(flags, dstCPSR, srcCPSR);
+    SetCPSR(dstCPSR);
 }
 
-Variable Emitter::UpdateFlags(uint8_t mask, VariableArg srcCPSR) {
+void Emitter::UpdateFlags(Flags flags) {
+    auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
-    AppendOp<IRUpdateFlagsOp>(mask, dstCPSR, srcCPSR);
-    return dstCPSR;
+    AppendOp<IRUpdateFlagsOp>(flags, dstCPSR, srcCPSR);
+    SetCPSR(dstCPSR);
 }
 
-Variable Emitter::UpdateStickyOverflow(VariableArg srcCPSR) {
+void Emitter::UpdateStickyOverflow() {
+    auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
     AppendOp<IRUpdateStickyOverflowOp>(dstCPSR, srcCPSR);
-    return dstCPSR;
+    SetCPSR(dstCPSR);
 }
 
 Variable Emitter::Branch(VarOrImmArg srcCPSR, VarOrImmArg address) {
@@ -215,6 +239,14 @@ BranchExchangeVars Emitter::BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg addr
     auto dstCPSR = Var();
     AppendOp<IRBranchExchangeOp>(dstPC, dstCPSR, srcCPSR, address);
     return {dstPC, dstCPSR};
+}
+
+void Emitter::LinkBeforeBranch() {
+    uint32_t linkAddress = m_currInstrAddr + m_instrSize;
+    if (m_thumb) {
+        linkAddress |= 1;
+    }
+    SetRegister(GPR::LR, linkAddress);
 }
 
 Variable Emitter::LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext) {

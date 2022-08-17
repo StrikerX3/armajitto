@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/defs/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
@@ -63,35 +64,46 @@ public:
     Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
 
+    Variable BarrelShifter(const arm::RegisterSpecifiedShift &shift);
+
     Variable LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable ArithmeticShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable RotateRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable RotateRightExtend(VarOrImmArg value, bool setFlags);
+
     Variable BitwiseAnd(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     Variable BitwiseXor(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    Variable Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    Variable ReverseSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable CountLeadingZeros(VarOrImmArg value);
+
     Variable Add(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     Variable AddCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     Variable SubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    Variable ReverseSubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    Variable BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+
     Variable Move(VarOrImmArg value, bool setFlags);
-    Variable BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     Variable MoveNegated(VarOrImmArg value, bool setFlags);
-    Variable CountLeadingZeros(VarOrImmArg value);
+
+    Variable Test(VarOrImmArg lhs, VarOrImmArg rhs);
+    Variable TestEquivalence(VarOrImmArg lhs, VarOrImmArg rhs);
+    Variable Compare(VarOrImmArg lhs, VarOrImmArg rhs);
+    Variable CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs);
+
     Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs);
     Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs);
+
     ALUVarPair Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
-    Variable StoreFlags(uint8_t mask, VariableArg srcCPSR);
-    Variable UpdateFlags(uint8_t mask, VariableArg srcCPSR);
-    Variable UpdateStickyOverflow(VariableArg srcCPSR);
+    void StoreFlags(Flags flags);
+    void UpdateFlags(Flags flags);
+    void UpdateStickyOverflow();
 
     Variable Branch(VarOrImmArg srcCPSR, VarOrImmArg address);
     BranchExchangeVars BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg address);
+    void LinkBeforeBranch();
 
     Variable LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext);
     void StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,

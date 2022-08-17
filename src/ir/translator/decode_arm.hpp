@@ -16,7 +16,7 @@ namespace detail {
         arm::RegisterSpecifiedShift shift{};
         const uint8_t shiftParam = bit::extract<4, 8>(opcode);
         shift.type = static_cast<arm::ShiftType>(bit::extract<1, 2>(shiftParam));
-        shift.immediate = bit::test<0>(shiftParam);
+        shift.immediate = !bit::test<0>(shiftParam); // Note the inverted bit!
         shift.srcReg = static_cast<GPR>(bit::extract<0, 4>(opcode));
         if (shift.immediate) {
             shift.amount.imm = bit::extract<3, 5>(shiftParam);

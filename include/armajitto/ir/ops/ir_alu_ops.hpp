@@ -139,6 +139,16 @@ struct IRBitwiseAndOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseAnd> 
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
 
+// Bitwise OR
+//   orr[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
+//
+// Computes <lhs> OR <rhs> and stores the result in <dst>.
+// Updates host flags if [s] is specified.
+struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
+    IRBitwiseOrOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
+
 // Bitwise XOR
 //   eor[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
@@ -150,25 +160,28 @@ struct IRBitwiseXorOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseXor> 
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
 
-// Subtract
-//   sub[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
+// Bit clear
+//   bic[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
-// Computes <lhs> - <rhs> and stores the result in <dst> if present.
-// The CMP operation omits <dst>.
+// Clears the bits set in <rhs> from <lhs> and stores the result into <dst>.
 // Updates host flags if [s] is specified.
-struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
-    IRSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {
+    IRBitClearOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
 
-// Reverse subtract
-//   rsb[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
+// Count leading zeros
+//   clz   <var:dst>, <var/imm:value>
 //
-// Computes <rhs> - <lhs> and stores the result in <dst>.
-// Updates host flags if [s] is specified.
-struct IRReverseSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtract> {
-    IRReverseSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+// Counts 0 bits from the least significant bit until the first 1 in <value> and stores the result in <dst>.
+// Stores 32 if <value> is zero.
+struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> {
+    VariableArg dst;
+    VarOrImmArg value;
+
+    IRCountLeadingZerosOp(VariableArg dst, VarOrImmArg value)
+        : dst(dst)
+        , value(value) {}
 };
 
 // Add
@@ -192,6 +205,17 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
 
+// Subtract
+//   sub[s]   <var?:dst>, <var/imm:lhs>, <var/imm:rhs>
+//
+// Computes <lhs> - <rhs> and stores the result in <dst> if present.
+// The CMP operation omits <dst>.
+// Updates host flags if [s] is specified.
+struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
+    IRSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
+};
+
 // Subtract with carry
 //   sbc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //
@@ -199,26 +223,6 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
 // Updates host flags if [s] is specified.
 struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractCarry> {
     IRSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
-};
-
-// Reverse subtract with carry
-//   rsc[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
-//
-// Computes <rhs> - <lhs> - (1 - carry) and stores the result in <dst>.
-// Updates host flags if [s] is specified.
-struct IRReverseSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::ReverseSubtractCarry> {
-    IRReverseSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
-};
-
-// Bitwise OR
-//   orr[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
-//
-// Computes <lhs> OR <rhs> and stores the result in <dst>.
-// Updates host flags if [s] is specified.
-struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
-    IRBitwiseOrOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
 };
 
@@ -232,16 +236,6 @@ struct IRMoveOp : public detail::IRUnaryOpBase<IROpcodeType::Move> {
         : IRUnaryOpBase(dst, value, setFlags) {}
 };
 
-// Bit clear
-//   bic[s]   <var:dst>, <var/imm:lhs>, <var/imm:rhs>
-//
-// Clears the bits set in <rhs> from <lhs> and stores the result into <dst>.
-// Updates host flags if [s] is specified.
-struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {
-    IRBitClearOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, setFlags) {}
-};
-
 // Move negated
 //   mvn[s]   <var:dst>, <var/imm:value>
 //
@@ -250,20 +244,6 @@ struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {
 struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated> {
     IRMoveNegatedOp(VariableArg dst, VarOrImmArg value, bool setFlags)
         : IRUnaryOpBase(dst, value, setFlags) {}
-};
-
-// Count leading zeros
-//   clz   <var:dst>, <var/imm:value>
-//
-// Counts 0 bits from the least significant bit until the first 1 in <value> and stores the result in <dst>.
-// Stores 32 if <value> is zero.
-struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> {
-    VariableArg dst;
-    VarOrImmArg value;
-
-    IRCountLeadingZerosOp(VariableArg dst, VarOrImmArg value)
-        : dst(dst)
-        , value(value) {}
 };
 
 // Saturating add

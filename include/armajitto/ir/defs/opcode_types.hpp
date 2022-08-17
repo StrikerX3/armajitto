@@ -21,21 +21,24 @@ enum class IROpcodeType {
     ArithmeticShiftRight,
     RotateRight,
     RotateRightExtend,
+
     BitwiseAnd,
+    BitwiseOr,
     BitwiseXor,
-    Subtract,
-    ReverseSubtract,
+    BitClear,
+    CountLeadingZeros,
+
     Add,
     AddCarry,
+    Subtract,
     SubtractCarry,
-    ReverseSubtractCarry,
-    BitwiseOr,
+
     Move,
-    BitClear,
     MoveNegated,
-    CountLeadingZeros,
+
     SaturatingAdd,
     SaturatingSubtract,
+
     Multiply,
     AddLong,
 

@@ -27,6 +27,7 @@ add_library(armajitto
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/defs/arm/flags.hpp
     include/armajitto/defs/arm/gpr.hpp
     include/armajitto/defs/arm/instructions.hpp
     include/armajitto/defs/arm/mode.hpp
@@ -51,6 +52,7 @@ add_library(armajitto
     include/armajitto/ir/ops/ir_ops_base.hpp
     include/armajitto/ir/ops/ir_reg_ops.hpp
     include/armajitto/util/bit_ops.hpp
+    include/armajitto/util/bitmask_enum.hpp
     src/allocator/arena.hpp
     src/core/recompiler.cpp
     src/host/x86_64/cpuid.cpp

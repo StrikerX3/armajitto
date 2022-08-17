@@ -388,7 +388,7 @@ inline auto LongBranchPrefix(uint16_t opcode) {
 inline auto LongBranchSuffix(uint16_t opcode, bool blx) {
     arm::instrs::ThumbLongBranchSuffix instr{};
 
-    instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
+    instr.offset = bit::extract<0, 11>(opcode) * 2;
     instr.blx = blx;
 
     return instr;

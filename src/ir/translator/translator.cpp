@@ -350,18 +350,12 @@ void Translator::TranslateThumb(uint16_t opcode, Emitter &emitter) {
 }
 
 void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
-    const bool thumb = emitter.IsThumbMode();
-    uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
-
     if (instr.IsLink()) {
-        uint32_t linkAddress = emitter.CurrentInstructionAddress() + emitter.InstructionSize();
-        if (thumb) {
-            linkAddress |= 1;
-        }
-        emitter.SetRegister(GPR::LR, linkAddress);
+        emitter.LinkBeforeBranch();
     }
 
     auto currCPSR = emitter.GetCPSR();
+    const uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
     if (instr.IsExchange()) {
         auto [targetPC, newCPSR] = emitter.BranchExchange(currCPSR, targetAddress);
         emitter.SetCPSR(newCPSR);
@@ -376,14 +370,8 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter) {
-    const bool thumb = emitter.IsThumbMode();
-
     if (instr.link) {
-        uint32_t linkAddress = emitter.CurrentInstructionAddress() + emitter.InstructionSize();
-        if (thumb) {
-            linkAddress |= 1;
-        }
-        emitter.SetRegister(GPR::LR, linkAddress);
+        emitter.LinkBeforeBranch();
     }
 
     auto addr = emitter.GetRegister(instr.reg);
@@ -400,8 +388,7 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
     auto lr = emitter.GetRegister(GPR::LR);
     auto targetAddrBase = emitter.Add(lr, instr.offset, false);
 
-    uint32_t linkAddress = (emitter.CurrentInstructionAddress() + emitter.InstructionSize()) | 1;
-    emitter.SetRegister(GPR::LR, linkAddress);
+    emitter.LinkBeforeBranch();
 
     auto currCPSR = emitter.GetCPSR();
     Variable targetAddr{};
@@ -419,7 +406,72 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
 }
 
 void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
-    // TODO: implement
+    auto lhs = emitter.GetRegister(instr.lhsReg);
+    VarOrImmArg rhs;
+    if (instr.immediate) {
+        rhs = instr.rhs.imm;
+    } else {
+        rhs = emitter.BarrelShifter(instr.rhs.shift);
+    }
+
+    // When the S flag is set with Rd = 15, copy SPSR to CPSR
+    if (instr.setFlags && instr.dstReg == GPR::PC) {
+        auto spsr = emitter.GetSPSR(emitter.GetBlock().Location().Mode());
+        emitter.SetCPSR(spsr);
+    }
+
+    // Perform the selected ALU operation
+    using Opcode = DataProcessing::Opcode;
+    Variable result;
+    switch (instr.opcode) {
+    case Opcode::AND: result = emitter.BitwiseAnd(lhs, rhs, instr.setFlags); break;
+    case Opcode::EOR: result = emitter.BitwiseXor(lhs, rhs, instr.setFlags); break;
+    case Opcode::SUB: result = emitter.Subtract(lhs, rhs, instr.setFlags); break;
+    case Opcode::RSB: result = emitter.Subtract(rhs, lhs, instr.setFlags); break; // note: swapped rhs/lhs
+    case Opcode::ADD: result = emitter.Add(lhs, rhs, instr.setFlags); break;
+    case Opcode::ADC: result = emitter.AddCarry(lhs, rhs, instr.setFlags); break;
+    case Opcode::SBC: result = emitter.SubtractCarry(lhs, rhs, instr.setFlags); break;
+    case Opcode::RSC: result = emitter.SubtractCarry(rhs, lhs, instr.setFlags); break; // note: swapped rhs/lhs
+    case Opcode::TST: result = emitter.BitwiseAnd(lhs, rhs, true); break;
+    case Opcode::TEQ: result = emitter.BitwiseXor(lhs, rhs, true); break;
+    case Opcode::CMP: result = emitter.Subtract(lhs, rhs, true); break;
+    case Opcode::CMN: result = emitter.Add(lhs, rhs, true); break;
+    case Opcode::ORR: result = emitter.BitwiseOr(lhs, rhs, instr.setFlags); break;
+    case Opcode::MOV: result = emitter.Move(rhs, instr.setFlags); break;
+    case Opcode::BIC: result = emitter.BitClear(lhs, rhs, instr.setFlags); break;
+    case Opcode::MVN: result = emitter.MoveNegated(rhs, instr.setFlags); break;
+    }
+
+    // Store result (except for comparison operators)
+    if ((static_cast<uint32_t>(instr.opcode) & 0b1100) != 0b1000) {
+        emitter.SetRegister(instr.dstReg, result);
+    }
+
+    // Update flags if requested (unless Rd = 15)
+    if (instr.setFlags && instr.dstReg != GPR::PC) {
+        static constexpr auto flagsNZ = Flags::N | Flags::Z;
+        static constexpr auto flagsNZCV = flagsNZ | Flags::C | Flags::V;
+        static constexpr Flags flagsByOpcode[] = {
+            /*AND*/ flagsNZ,   /*EOR*/ flagsNZ,   /*SUB*/ flagsNZCV, /*RSB*/ flagsNZCV,
+            /*ADD*/ flagsNZCV, /*ADC*/ flagsNZCV, /*SBC*/ flagsNZCV, /*RSC*/ flagsNZCV,
+            /*TST*/ flagsNZ,   /*TEQ*/ flagsNZ,   /*CMP*/ flagsNZCV, /*CMN*/ flagsNZCV,
+            /*ORR*/ flagsNZ,   /*MOV*/ flagsNZ,   /*BIC*/ flagsNZ,   /*MVN*/ flagsNZ};
+
+        emitter.UpdateFlags(flagsByOpcode[static_cast<size_t>(instr.opcode)]);
+    }
+
+    // Branch or fetch next instruction
+    if (instr.dstReg == GPR::PC) {
+        // TODO: reload pipeline
+        if (instr.setFlags) {
+            // May also switch to thumb depending on CPSR.T
+        } else {
+            // Branch without switching modes; CPSR was not changed
+        }
+        m_endBlock = true;
+    } else {
+        emitter.FetchInstruction();
+    }
 }
 
 void Translator::Translate(const CountLeadingZeros &instr, Emitter &emitter) {

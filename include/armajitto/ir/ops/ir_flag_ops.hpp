@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/defs/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "ir_ops_base.hpp"
 
@@ -12,12 +13,12 @@ namespace armajitto::ir {
 // the result in <dst_cpsr>.
 // The flag bit locations in <values> match those in CPSR.
 struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
-    uint8_t mask;
+    Flags flags;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
 
-    IRStoreFlagsOp(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR)
-        : mask(mask)
+    IRStoreFlagsOp(Flags flags, VariableArg dstCPSR, VariableArg srcCPSR)
+        : flags(flags)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 };
@@ -27,12 +28,12 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
 //
 // Updates the specified [n][z][c][v] flags in <src_cpsr> using the host's flags and stores the result in <dst_cpsr>.
 struct IRUpdateFlagsOp : public IROpBase<IROpcodeType::UpdateFlags> {
-    uint8_t mask;
+    Flags flags;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
 
-    IRUpdateFlagsOp(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR)
-        : mask(mask)
+    IRUpdateFlagsOp(Flags flags, VariableArg dstCPSR, VariableArg srcCPSR)
+        : flags(flags)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 };
