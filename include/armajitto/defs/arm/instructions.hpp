@@ -29,21 +29,26 @@ struct AddressingOffset {
 
 namespace instrs {
 
-    // B,BL
-    // link  opcode
-    //   -   B
-    //   +   BL
-    struct Branch {
+    // B,BL,BLX (offset)
+    struct BranchOffset {
+        enum class Type { B, BL, BLX };
+        Type type;
         int32_t offset;
-        bool link;
-        bool switchToThumb;
+
+        bool IsLink() const {
+            return type != Type::B;
+        }
+
+        bool IsExchange() const {
+            return type == Type::BLX;
+        }
     };
 
-    // BX,BLX
+    // BX,BLX (register)
     // link  opcode
     //   -   BX
     //   +   BLX
-    struct BranchAndExchange {
+    struct BranchRegister {
         uint8_t reg;
         bool link;
     };

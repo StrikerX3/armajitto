@@ -107,10 +107,10 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
     switch (op) {
     case 0b000:
         if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
-            Translate(arm_decoder::BranchAndExchange(opcode), handle);
+            Translate(arm_decoder::BranchRegister(opcode), handle);
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::BranchAndExchange(opcode), handle);
+                Translate(arm_decoder::BranchRegister(opcode), handle);
             } else {
                 Translate(arm_decoder::Undefined(), handle);
             }
@@ -206,7 +206,7 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
     case 0b100: Translate(arm_decoder::BlockTransfer(opcode), handle); break;
     case 0b101: {
         const bool switchToThumb = (arch == CPUArch::ARMv5TE) && (cond == Condition::NV);
-        Translate(arm_decoder::Branch(opcode, switchToThumb), handle);
+        Translate(arm_decoder::BranchOffset(opcode, switchToThumb), handle);
         break;
     }
     case 0b110:
@@ -345,11 +345,36 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
     }
 }
 
-void Translator::Translate(const Branch &instr, State::Handle state) {
-    // TODO: implement
+void Translator::Translate(const BranchOffset &instr, State::Handle state) {
+    auto &emitter = state.GetEmitter();
+
+    const bool thumb = emitter.GetBlock().Location().IsThumbMode();
+
+    if (instr.IsLink()) {
+        // TODO: write address of next instruction to LR
+        // Also set bit 0 if Thumb
+    }
+    if (instr.IsExchange()) {
+        auto srcCPSR = emitter.Var("src_cpsr");
+        auto dstCPSR = emitter.Var("dst_cpsr");
+
+        emitter.LoadCPSR(srcCPSR);
+        if (thumb) {
+            emitter.BitClear(dstCPSR, srcCPSR, 1 << 5, false); // Clear T bit
+        } else {
+            emitter.BitwiseOr(dstCPSR, srcCPSR, 1 << 5, false); // Set T bit
+        }
+        emitter.StoreCPSR(srcCPSR);
+
+        //emitter.BranchExchange();
+    } else {
+        //emitter.Branch();
+    }
+
+    state.EndBlock();
 }
 
-void Translator::Translate(const BranchAndExchange &instr, State::Handle state) {
+void Translator::Translate(const BranchRegister &instr, State::Handle state) {
     // TODO: implement
 }
 

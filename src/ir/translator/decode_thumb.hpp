@@ -155,7 +155,7 @@ inline auto HiRegOps(uint16_t opcode) {
 }
 
 inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
-    arm::instrs::BranchAndExchange instr{};
+    arm::instrs::BranchRegister instr{};
 
     const uint8_t h2 = bit::extract<6>(opcode);
     instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
@@ -354,21 +354,19 @@ inline auto SoftwareBreakpoint() {
 }
 
 inline auto ConditionalBranch(uint16_t opcode) {
-    arm::instrs::Branch instr{};
+    arm::instrs::BranchOffset instr{};
 
     instr.offset = bit::sign_extend<8, int32_t>(bit::extract<0, 8>(opcode)) * 2;
-    instr.link = false;
-    instr.switchToThumb = false;
+    instr.type = arm::instrs::BranchOffset::Type::B;
 
     return instr;
 }
 
 inline auto UnconditionalBranch(uint16_t opcode) {
-    arm::instrs::Branch instr{};
+    arm::instrs::BranchOffset instr{};
 
     instr.offset = bit::sign_extend<11, int32_t>(bit::extract<0, 11>(opcode)) * 2;
-    instr.link = false;
-    instr.switchToThumb = false;
+    instr.type = arm::instrs::BranchOffset::Type::B;
 
     return instr;
 }

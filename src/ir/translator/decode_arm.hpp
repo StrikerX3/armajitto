@@ -40,20 +40,27 @@ namespace detail {
     }
 } // namespace detail
 
-// B,BL
-inline auto Branch(uint32_t opcode, bool switchToThumb) {
-    arm::instrs::Branch instr{};
+// B,BL,BLX (offset)
+inline auto BranchOffset(uint32_t opcode, bool switchToThumb) {
+    arm::instrs::BranchOffset instr{};
 
+    using Type = arm::instrs::BranchOffset::Type;
+
+    const bool bit24 = bit::test<24>(opcode);
     instr.offset = bit::sign_extend<24>(bit::extract<0, 24>(opcode)) << 2;
-    instr.link = bit::test<24>(opcode);
-    instr.switchToThumb = switchToThumb;
+    if (switchToThumb) {
+        instr.type = Type::BLX;
+        instr.offset |= static_cast<int32_t>(bit24) << 1;
+    } else {
+        instr.type = bit24 ? Type::BL : Type::B; // L bit
+    }
 
     return instr;
 }
 
-// BX,BLX
-inline auto BranchAndExchange(uint32_t opcode) {
-    arm::instrs::BranchAndExchange instr{};
+// BX,BLX (register)
+inline auto BranchRegister(uint32_t opcode) {
+    arm::instrs::BranchRegister instr{};
 
     instr.reg = bit::extract<0, 4>(opcode);
     instr.link = bit::test<5>(opcode);
