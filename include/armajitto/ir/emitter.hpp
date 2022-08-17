@@ -8,6 +8,16 @@
 
 namespace armajitto::ir {
 
+struct ALUVarPair {
+    Variable lo;
+    Variable hi;
+};
+
+struct BranchExchangeVars {
+    Variable pc;
+    Variable cpsr;
+};
+
 class Emitter {
 public:
     Emitter(BasicBlock &block)
@@ -19,8 +29,6 @@ public:
         m_currInstrAddr = loc.BaseAddress();
         m_instrSize = m_thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     }
-
-    Variable Var(const char *name);
 
     BasicBlock &GetBlock() {
         return m_block;
@@ -45,51 +53,49 @@ public:
     void NextInstruction();
     void SetCondition(arm::Condition cond);
 
-    void GetRegister(VariableArg dst, GPR src);
+    Variable GetRegister(GPR src);
     void SetRegister(GPR dst, VarOrImmArg src);
-    void GetCPSR(VariableArg dst);
+    Variable GetCPSR();
     void SetCPSR(VarOrImmArg src);
-    void GetSPSR(arm::Mode mode, VariableArg dst);
+    Variable GetSPSR(arm::Mode mode);
     void SetSPSR(arm::Mode mode, VarOrImmArg src);
 
-    void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
+    Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
 
-    void LogicalShiftLeft(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
-    void LogicalShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
-    void ArithmeticShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
-    void RotateRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
-    void RotateRightExtend(VariableArg dst, VarOrImmArg value, bool setFlags);
-    void BitwiseAnd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void BitwiseXor(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void Subtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void ReverseSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void Add(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void AddCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void SubtractCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void ReverseSubtractCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void BitwiseOr(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void Move(VariableArg dst, VarOrImmArg value, bool setFlags);
-    void BitClear(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void MoveNegated(VariableArg dst, VarOrImmArg value, bool setFlags);
-    void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
-    void SaturatingAdd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs);
-    void SaturatingSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs);
-    void Multiply(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    void AddLong(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo,
-                 VarOrImmArg rhsHi, bool setFlags);
+    Variable LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    Variable LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    Variable ArithmeticShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    Variable RotateRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    Variable RotateRightExtend(VarOrImmArg value, bool setFlags);
+    Variable BitwiseAnd(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable BitwiseXor(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable ReverseSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Add(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable AddCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable SubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable ReverseSubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Move(VarOrImmArg value, bool setFlags);
+    Variable BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable MoveNegated(VarOrImmArg value, bool setFlags);
+    Variable CountLeadingZeros(VarOrImmArg value);
+    Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs);
+    Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs);
+    ALUVarPair Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
-    void StoreFlags(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR);
-    void UpdateFlags(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR);
-    void UpdateStickyOverflow(VariableArg dstCPSR, VariableArg srcCPSR);
+    Variable StoreFlags(uint8_t mask, VariableArg srcCPSR);
+    Variable UpdateFlags(uint8_t mask, VariableArg srcCPSR);
+    Variable UpdateStickyOverflow(VariableArg srcCPSR);
 
-    void Branch(VariableArg dstPC, VarOrImmArg srcCPSR, VarOrImmArg address);
-    void BranchExchange(VariableArg dstPC, VariableArg dstCPSR, VarOrImmArg srcCPSR, VarOrImmArg address);
+    Variable Branch(VarOrImmArg srcCPSR, VarOrImmArg address);
+    BranchExchangeVars BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg address);
 
-    void LoadCopRegister(VariableArg dstValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
-                         uint8_t opcode2, bool ext);
-    void StoreCopRegister(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
-                          uint8_t opcode2, bool ext);
+    Variable LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext);
+    void StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,
+                          VarOrImmArg srcValue);
 
     void FetchInstruction();
 
@@ -100,8 +106,9 @@ private:
     uint32_t m_currInstrAddr;
     uint32_t m_instrSize;
 
-    using OpIterator = std::vector<IROp *>::iterator;
+    // --- Operation manipulators ----------------------------------------------
 
+    using OpIterator = std::vector<IROp *>::iterator;
     OpIterator m_insertionPoint;
 
     template <typename T, typename... Args>
@@ -118,6 +125,11 @@ private:
     void AppendOp(Args &&...args) {
         m_insertionPoint = std::next(InsertOp<T, Args...>(m_insertionPoint, std::forward<Args>(args)...));
     }
+
+    // --- Helpers -------------------------------------------------------------
+
+    uint32_t m_nextVarID = 0;
+    Variable Var();
 };
 
 } // namespace armajitto::ir

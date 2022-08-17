@@ -10,17 +10,16 @@
 namespace armajitto::ir {
 
 struct VariableArg {
-    size_t varIndex;
+    Variable var;
 
-    VariableArg()
-        : varIndex(Variable::kInvalidIndex) {}
+    VariableArg() = default;
 
     VariableArg(const Variable &var) {
         operator=(var);
     }
 
     VariableArg &operator=(const Variable &var) {
-        varIndex = var.index;
+        this->var = var;
         return *this;
     }
 };

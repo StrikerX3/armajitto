@@ -5,16 +5,20 @@ namespace armajitto::ir {
 struct Variable {
     static constexpr size_t kInvalidIndex = ~0;
 
-    const size_t index;
-    const char *name;
-
     Variable()
-        : index(kInvalidIndex)
-        , name("") {}
+        : index(kInvalidIndex) {}
 
-    Variable(size_t index, const char *name)
-        : index(index)
-        , name(name) {}
+    size_t Index() const {
+        return index;
+    }
+
+private:
+    explicit Variable(size_t index)
+        : index(index) {}
+
+    size_t index;
+
+    friend class Emitter;
 };
 
 } // namespace armajitto::ir

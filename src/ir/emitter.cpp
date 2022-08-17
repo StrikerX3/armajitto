@@ -3,10 +3,6 @@
 
 namespace armajitto::ir {
 
-Variable Emitter::Var(const char *name) {
-    return m_block.m_vars.emplace_back(m_block.m_vars.size(), name);
-}
-
 void Emitter::NextInstruction() {
     ++m_block.m_instrCount;
     m_currInstrAddr += m_instrSize;
@@ -16,160 +12,229 @@ void Emitter::SetCondition(arm::Condition cond) {
     m_block.m_cond = cond;
 }
 
-void Emitter::GetRegister(VariableArg dst, GPR src) {
+Variable Emitter::GetRegister(GPR src) {
+    auto dst = Var();
     AppendOp<IRGetRegisterOp>(dst, src);
+    return dst;
 }
 
 void Emitter::SetRegister(GPR dst, VarOrImmArg src) {
     AppendOp<IRSetRegisterOp>(dst, src);
 }
 
-void Emitter::GetCPSR(VariableArg dst) {
+Variable Emitter::GetCPSR() {
+    auto dst = Var();
     AppendOp<IRGetCPSROp>(dst);
+    return dst;
 }
 
 void Emitter::SetCPSR(VarOrImmArg src) {
     AppendOp<IRSetCPSROp>(src);
 }
 
-void Emitter::GetSPSR(arm::Mode mode, VariableArg dst) {
+Variable Emitter::GetSPSR(arm::Mode mode) {
+    auto dst = Var();
     AppendOp<IRGetSPSROp>(mode, dst);
+    return dst;
 }
 
 void Emitter::SetSPSR(arm::Mode mode, VarOrImmArg src) {
     AppendOp<IRSetSPSROp>(mode, src);
 }
 
-void Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address) {
+Variable Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
+    auto dst = Var();
     AppendOp<IRMemReadOp>(mode, size, dst, address);
+    return dst;
 }
 
 void Emitter::MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address) {
     AppendOp<IRMemWriteOp>(size, src, address);
 }
 
-void Emitter::LogicalShiftLeft(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+Variable Emitter::LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRLogicalShiftLeftOp>(dst, value, amount, setFlags);
+    return dst;
 }
 
-void Emitter::LogicalShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+Variable Emitter::LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRLogicalShiftRightOp>(dst, value, amount, setFlags);
+    return dst;
 }
 
-void Emitter::ArithmeticShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+Variable Emitter::ArithmeticShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRArithmeticShiftRightOp>(dst, value, amount, setFlags);
+    return dst;
 }
 
-void Emitter::RotateRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+Variable Emitter::RotateRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRRotateRightOp>(dst, value, amount, setFlags);
+    return dst;
 }
 
-void Emitter::RotateRightExtend(VariableArg dst, VarOrImmArg value, bool setFlags) {
+Variable Emitter::RotateRightExtend(VarOrImmArg value, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRRotateRightExtendOp>(dst, value, setFlags);
+    return dst;
 }
 
-void Emitter::BitwiseAnd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::BitwiseAnd(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRBitwiseAndOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::BitwiseXor(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::BitwiseXor(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRBitwiseXorOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::Subtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::Subtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRSubtractOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::ReverseSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::ReverseSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRReverseSubtractOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::Add(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::Add(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRAddOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::AddCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::AddCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRAddCarryOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::SubtractCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::SubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRSubtractCarryOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::ReverseSubtractCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::ReverseSubtractCarry(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRReverseSubtractCarryOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::BitwiseOr(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRBitwiseOrOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::Move(VariableArg dst, VarOrImmArg value, bool setFlags) {
+Variable Emitter::Move(VarOrImmArg value, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRMoveOp>(dst, value, setFlags);
+    return dst;
 }
 
-void Emitter::BitClear(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::BitClear(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRBitClearOp>(dst, lhs, rhs, setFlags);
+    return dst;
 }
 
-void Emitter::MoveNegated(VariableArg dst, VarOrImmArg value, bool setFlags) {
+Variable Emitter::MoveNegated(VarOrImmArg value, bool setFlags) {
+    auto dst = Var();
     AppendOp<IRMoveNegatedOp>(dst, value, setFlags);
+    return dst;
 }
 
-void Emitter::CountLeadingZeros(VariableArg dst, VarOrImmArg value) {
+Variable Emitter::CountLeadingZeros(VarOrImmArg value) {
+    auto dst = Var();
     AppendOp<IRCountLeadingZerosOp>(dst, value);
+    return dst;
 }
 
-void Emitter::SaturatingAdd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs) {
+Variable Emitter::SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs) {
+    auto dst = Var();
     AppendOp<IRSaturatingAddOp>(dst, lhs, rhs);
+    return dst;
 }
 
-void Emitter::SaturatingSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs) {
+Variable Emitter::SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs) {
+    auto dst = Var();
     AppendOp<IRSaturatingSubtractOp>(dst, lhs, rhs);
+    return dst;
 }
 
-void Emitter::Multiply(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+ALUVarPair Emitter::Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+    auto dstLo = Var();
+    auto dstHi = Var();
     AppendOp<IRMultiplyOp>(dstLo, dstHi, lhs, rhs, setFlags);
+    return {dstLo, dstHi};
 }
 
-void Emitter::AddLong(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo,
-                      VarOrImmArg rhsHi, bool setFlags) {
+ALUVarPair Emitter::AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags) {
+    auto dstLo = Var();
+    auto dstHi = Var();
     AppendOp<IRAddLongOp>(dstLo, dstHi, lhsLo, lhsHi, rhsLo, rhsHi, setFlags);
+    return {dstLo, dstHi};
 }
 
-void Emitter::StoreFlags(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR) {
+Variable Emitter::StoreFlags(uint8_t mask, VariableArg srcCPSR) {
+    auto dstCPSR = Var();
     AppendOp<IRStoreFlagsOp>(mask, dstCPSR, srcCPSR);
+    return dstCPSR;
 }
 
-void Emitter::UpdateFlags(uint8_t mask, VariableArg dstCPSR, VariableArg srcCPSR) {
+Variable Emitter::UpdateFlags(uint8_t mask, VariableArg srcCPSR) {
+    auto dstCPSR = Var();
     AppendOp<IRUpdateFlagsOp>(mask, dstCPSR, srcCPSR);
+    return dstCPSR;
 }
 
-void Emitter::UpdateStickyOverflow(VariableArg dstCPSR, VariableArg srcCPSR) {
+Variable Emitter::UpdateStickyOverflow(VariableArg srcCPSR) {
+    auto dstCPSR = Var();
     AppendOp<IRUpdateStickyOverflowOp>(dstCPSR, srcCPSR);
+    return dstCPSR;
 }
 
-void Emitter::Branch(VariableArg dstPC, VarOrImmArg srcCPSR, VarOrImmArg address) {
+Variable Emitter::Branch(VarOrImmArg srcCPSR, VarOrImmArg address) {
+    auto dstPC = Var();
     AppendOp<IRBranchOp>(dstPC, srcCPSR, address);
+    return dstPC;
 }
 
-void Emitter::BranchExchange(VariableArg dstPC, VariableArg dstCPSR, VarOrImmArg srcCPSR, VarOrImmArg address) {
+BranchExchangeVars Emitter::BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg address) {
+    auto dstPC = Var();
+    auto dstCPSR = Var();
     AppendOp<IRBranchExchangeOp>(dstPC, dstCPSR, srcCPSR, address);
+    return {dstPC, dstCPSR};
 }
 
-void Emitter::LoadCopRegister(VariableArg dstValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
-                              uint8_t opcode2, bool ext) {
+Variable Emitter::LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext) {
+    auto dstValue = Var();
     AppendOp<IRLoadCopRegisterOp>(dstValue, cpnum, opcode1, crn, crm, opcode2, ext);
+    return dstValue;
 }
 
-void Emitter::StoreCopRegister(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
-                               uint8_t opcode2, bool ext) {
+void Emitter::StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,
+                               VarOrImmArg srcValue) {
     AppendOp<IRStoreCopRegisterOp>(srcValue, cpnum, opcode1, crn, crm, opcode2, ext);
 }
 
 void Emitter::FetchInstruction() {
     SetRegister(GPR::PC, CurrentPC() + m_instrSize);
     // TODO: cycle counting
+}
+
+Variable Emitter::Var() {
+    return Variable{m_nextVarID++};
 }
 
 } // namespace armajitto::ir

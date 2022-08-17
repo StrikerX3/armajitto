@@ -96,8 +96,7 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
                 } else {
                     Translate(arm_decoder::CopDataOperations(opcode, true), handle);
                 }
-            }
-            if (bit::test<8>(opcode)) {
+            } else if (bit::test<8>(opcode)) {
                 Translate(arm_decoder::Undefined(), handle);
             }
             break;
@@ -157,26 +156,20 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
             const bool h = bit::test<5>(opcode);
             if (l) {
                 Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
-            } else {
-                if (s && h) {
-                    if (arch == CPUArch::ARMv5TE) {
-                        if (bit12) {
-                            Translate(arm_decoder::Undefined(), handle);
-                        } else {
-                            Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
-                        }
-                    }
-                } else if (s) {
-                    if (arch == CPUArch::ARMv5TE) {
-                        if (bit12) {
-                            Translate(arm_decoder::Undefined(), handle);
-                        } else {
-                            Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
-                        }
-                    }
-                } else if (h) {
+            } else if (s && h) {
+                if (arch == CPUArch::ARMv5TE && bit12) {
+                    Translate(arm_decoder::Undefined(), handle);
+                } else {
                     Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
                 }
+            } else if (s) {
+                if (arch == CPUArch::ARMv5TE && bit12) {
+                    Translate(arm_decoder::Undefined(), handle);
+                } else {
+                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
+                }
+            } else if (h) {
+                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
             }
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0000) {
             Translate(arm_decoder::PSRRead(opcode), handle);
@@ -210,22 +203,19 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
         break;
     }
     case 0b110:
-        if (arch == CPUArch::ARMv5TE) {
-            if ((bits24to20 & 0b1'1110) == 0b0'0100) {
-                Translate(arm_decoder::CopDualRegTransfer(opcode), handle);
-            }
+        if (arch == CPUArch::ARMv5TE && (bits24to20 & 0b1'1110) == 0b0'0100) {
+            Translate(arm_decoder::CopDualRegTransfer(opcode), handle);
+        } else {
+            Translate(arm_decoder::CopDataTransfer(opcode, false), handle);
         }
-        Translate(arm_decoder::CopDataTransfer(opcode, false), handle);
         break;
     case 0b111: {
         if (bit::test<24>(opcode)) {
             Translate(arm_decoder::SoftwareInterrupt(opcode), handle);
+        } else if (bit::test<4>(opcode)) {
+            Translate(arm_decoder::CopRegTransfer(opcode, false), handle);
         } else {
-            if (bit::test<4>(opcode)) {
-                Translate(arm_decoder::CopRegTransfer(opcode, false), handle);
-            } else {
-                Translate(arm_decoder::CopDataOperations(opcode, false), handle);
-            }
+            Translate(arm_decoder::CopDataOperations(opcode, false), handle);
         }
         break;
     }
@@ -332,8 +322,9 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
                     Translate(thumb_decoder::LongBranchSuffix(opcode, true), handle);
                 }
             }
+        } else {
+            Translate(thumb_decoder::UnconditionalBranch(opcode), handle);
         }
-        Translate(thumb_decoder::UnconditionalBranch(opcode), handle);
         break;
     case 0b1111:
         if (bit::test<11>(opcode)) {
@@ -359,22 +350,14 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
         emitter.SetRegister(GPR::LR, linkAddress);
     }
 
+    auto currCPSR = emitter.GetCPSR();
     if (instr.IsExchange()) {
-        auto srcCPSR = emitter.Var("src_cpsr");
-        auto dstCPSR = emitter.Var("dst_cpsr");
-        auto dstPC = emitter.Var("dst_pc");
-
-        emitter.GetCPSR(srcCPSR);
-        emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, targetAddress);
-        emitter.SetCPSR(dstCPSR);
-        emitter.SetRegister(GPR::PC, dstPC);
+        auto [targetPC, newCPSR] = emitter.BranchExchange(currCPSR, targetAddress);
+        emitter.SetCPSR(newCPSR);
+        emitter.SetRegister(GPR::PC, targetPC);
     } else {
-        auto srcCPSR = emitter.Var("src_cpsr");
-        auto dstPC = emitter.Var("dst_pc");
-
-        emitter.GetCPSR(srcCPSR);
-        emitter.Branch(dstPC, srcCPSR, targetAddress);
-        emitter.SetRegister(GPR::PC, dstPC);
+        auto targetPC = emitter.Branch(currCPSR, targetAddress);
+        emitter.SetRegister(GPR::PC, targetPC);
     }
 
     // TODO: set block branch target
@@ -394,15 +377,11 @@ void Translator::Translate(const BranchExchangeRegister &instr, State::Handle st
         emitter.SetRegister(GPR::LR, linkAddress);
     }
 
-    auto addrVar = emitter.Var("addr");
-    auto dstPC = emitter.Var("dst_pc");
-    auto dstCPSR = emitter.Var("dst_cpsr");
-    auto srcCPSR = emitter.Var("src_cpsr");
-    emitter.GetRegister(addrVar, instr.reg);
-    emitter.GetCPSR(srcCPSR);
-    emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, addrVar);
-    emitter.SetCPSR(dstCPSR);
-    emitter.SetRegister(GPR::PC, dstPC);
+    auto addr = emitter.GetRegister(instr.reg);
+    auto currCPSR = emitter.GetCPSR();
+    auto [targetPC, newCPSR] = emitter.BranchExchange(currCPSR, addr);
+    emitter.SetCPSR(newCPSR);
+    emitter.SetRegister(GPR::PC, targetPC);
 
     // TODO: set block branch target
     state.EndBlock();
@@ -411,25 +390,22 @@ void Translator::Translate(const BranchExchangeRegister &instr, State::Handle st
 void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
 
-    auto lrVar = emitter.Var("lr");
-    auto partialAddrVar = emitter.Var("partial_addr");
-    auto finalAddrVar = emitter.Var("final_addr");
-    auto srcCPSR = emitter.Var("src_cpsr");
-
-    emitter.GetCPSR(srcCPSR);
-    emitter.GetRegister(lrVar, GPR::LR);
-    emitter.Add(partialAddrVar, lrVar, instr.offset, false);
-    if (instr.blx) {
-        auto dstCPSR = emitter.Var("dst_cpsr");
-        emitter.BranchExchange(finalAddrVar, dstCPSR, srcCPSR, partialAddrVar);
-        emitter.SetCPSR(dstCPSR);
-    } else {
-        emitter.Branch(finalAddrVar, srcCPSR, partialAddrVar);
-    }
+    auto lr = emitter.GetRegister(GPR::LR);
+    auto targetAddrBase = emitter.Add(lr, instr.offset, false);
 
     uint32_t linkAddress = (emitter.CurrentInstructionAddress() + emitter.InstructionSize()) | 1;
     emitter.SetRegister(GPR::LR, linkAddress);
-    emitter.SetRegister(GPR::PC, finalAddrVar);
+
+    auto currCPSR = emitter.GetCPSR();
+    Variable targetAddr{};
+    if (instr.blx) {
+        auto branchTarget = emitter.BranchExchange(currCPSR, targetAddrBase);
+        emitter.SetCPSR(branchTarget.cpsr);
+        targetAddr = branchTarget.pc;
+    } else {
+        targetAddr = emitter.Branch(currCPSR, targetAddrBase);
+    }
+    emitter.SetRegister(GPR::PC, targetAddr);
 
     // TODO: set block branch target
     state.EndBlock();
@@ -441,12 +417,10 @@ void Translator::Translate(const DataProcessing &instr, State::Handle state) {
 
 void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
-    auto argVar = emitter.Var("arg");
-    auto dstVar = emitter.Var("dst");
 
-    emitter.GetRegister(argVar, instr.argReg);
-    emitter.CountLeadingZeros(dstVar, argVar);
-    emitter.SetRegister(instr.dstReg, dstVar);
+    auto arg = emitter.GetRegister(instr.argReg);
+    auto result = emitter.CountLeadingZeros(arg);
+    emitter.SetRegister(instr.dstReg, result);
 
     emitter.FetchInstruction();
 }
