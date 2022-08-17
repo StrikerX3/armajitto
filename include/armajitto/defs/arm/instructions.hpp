@@ -202,13 +202,13 @@ namespace instrs {
 
     // LDRH,STRH,LDRSH,LDRSB,LDRD,STRD
     // load sign half  opcode
-    //  any   -    -   SWP/SWPB
     //   -    -    +   STRH
-    //   -    +    -   LDRD (or UDF if bit 12 is set)  (ARMv5TE only)
-    //   -    +    +   STRD (or UDF if bit 12 is set)  (ARMv5TE only)
+    //   -    +    -   LDRD (ARMv5TE only -- Undefined otherwise)
+    //   -    +    +   STRD (ARMv5TE only -- Undefined otherwise)
     //   +    -    +   LDRH
     //   +    +    -   LDRSB
     //   +    +    +   LDRSH
+    //  any   -    -   (SWP/SWPB -- SingleDataSwap)
     struct HalfwordAndSignedTransfer {
         bool preindexed;     // P bit
         bool positiveOffset; // U bit
@@ -217,7 +217,7 @@ namespace instrs {
         bool load;           // L bit
         bool sign;           // S bit
         bool half;           // H bit
-        GPR dstReg;          // Rd
+        GPR reg;             // Rd
         GPR baseReg;         // Rn
         union {
             uint16_t imm; // (when immediate == true)

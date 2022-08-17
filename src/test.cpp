@@ -267,6 +267,26 @@ void testTranslator() {
     // writeARM(0xE4A1F000); // strt r15, [r1]
     // writeARM(0xEAFFFFFE); // b $
 
+    // LDRH, STRH, LDRSB, LDRSH, LDRD, STRD
+    // writeARM(0xE1D010B0); // ldrh r1, [r0]
+    // writeARM(0xE1C010BA); // strh r1, [r0, #10]
+    // writeARM(0xE1D020D1); // ldrsb r2, [r0, #1]
+    // writeARM(0xE1D030F2); // ldrsh r3, [r0, #2]
+    // writeARM(0xE1C040D0); // ldrd r4, r5, [r0]
+    writeARM(0xE1C041F0); // strd r4, r5, [r0, #16]
+    // writeARM(0xE1D060B2); // ldrh r6, [r0, #2]
+    // writeARM(0xE19070B5); // ldrh r7, [r0, r5]
+    // writeARM(0xE1F080B2); // ldrh r8, [r0, #2]!
+    // writeARM(0xE1B090B5); // ldrh r9, [r0, r5]!
+    // writeARM(0xE0D0A0B2); // ldrh r10, [r0], #2
+    // writeARM(0xE090B0B5); // ldrh r11, [r0], r5
+    // writeARM(0xE19F10B3); // ldrh r1, [r15, r3]
+    // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
+    // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
+    // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
+    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    writeARM(0xEAFFFFFE); // b $
+
     // Thumb branches
     // writeThumb(0xF7FF); // bl $ (prefix)
     // writeThumb(0xFFFE); // bl $ (suffix)

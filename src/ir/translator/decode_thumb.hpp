@@ -214,7 +214,7 @@ inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
     instr.sign = bit::test<0>(op);
     instr.half = (op != 0b01);
 
-    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.reg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.offset.reg = static_cast<GPR>(bit::extract<6, 3>(opcode));
 
@@ -247,7 +247,7 @@ inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
     instr.load = bit::test<11>(opcode);
     instr.sign = false;
     instr.half = true;
-    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.reg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.offset.imm = bit::extract<6, 5>(opcode);
 

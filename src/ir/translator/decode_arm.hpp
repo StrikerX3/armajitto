@@ -235,10 +235,10 @@ inline auto HalfwordAndSignedTransfer(uint32_t opcode) {
     instr.load = bit::test<20>(opcode);
     instr.sign = bit::test<6>(opcode);
     instr.half = bit::test<5>(opcode);
-    instr.dstReg = static_cast<GPR>(bit::extract<12, 4>(opcode));
+    instr.reg = static_cast<GPR>(bit::extract<12, 4>(opcode));
     instr.baseReg = static_cast<GPR>(bit::extract<16, 4>(opcode));
     if (instr.immediate) {
-        instr.offset.imm = bit::extract<0, 8>(opcode);
+        instr.offset.imm = bit::extract<0, 4>(opcode) | (bit::extract<8, 4>(opcode) << 4);
     } else {
         instr.offset.reg = static_cast<GPR>(bit::extract<0, 4>(opcode));
     }

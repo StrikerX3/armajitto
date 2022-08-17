@@ -171,16 +171,24 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
             if (l) {
                 Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
             } else if (s && h) {
-                if (arch == CPUArch::ARMv5TE && bit12) {
-                    Translate(arm_decoder::Undefined(), emitter);
+                if (arch == CPUArch::ARMv5TE) {
+                    if (bit12) {
+                        Translate(arm_decoder::Undefined(), emitter);
+                    } else {
+                        Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                    }
                 } else {
-                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                    Translate(arm_decoder::Undefined(), emitter);
                 }
             } else if (s) {
-                if (arch == CPUArch::ARMv5TE && bit12) {
-                    Translate(arm_decoder::Undefined(), emitter);
+                if (arch == CPUArch::ARMv5TE) {
+                    if (bit12) {
+                        Translate(arm_decoder::Undefined(), emitter);
+                    } else {
+                        Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                    }
                 } else {
-                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                    Translate(arm_decoder::Undefined(), emitter);
                 }
             } else if (h) {
                 Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
@@ -752,7 +760,113 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emitter) {
-    // TODO: implement
+    Variable offset{};
+    if (instr.immediate) {
+        if (instr.offset.imm != 0) {
+            offset = emitter.Constant(instr.offset.imm);
+        }
+    } else {
+        offset = emitter.GetRegister(instr.offset.reg);
+    }
+
+    auto address = emitter.GetRegister(instr.baseReg);
+    if (offset.IsPresent() && instr.preindexed) {
+        if (instr.positiveOffset) {
+            address = emitter.Add(address, offset, false);
+        } else {
+            address = emitter.Subtract(address, offset, false);
+        }
+    }
+
+    Variable pcValue{};
+    bool writeback = false;
+    if (instr.load) {
+        Variable value;
+        if (instr.sign && instr.half) {
+            // LDRSH
+            value = emitter.MemRead(MemAccessMode::Signed, MemAccessSize::Half, address);
+        } else if (instr.sign) {
+            // LDRSB
+            value = emitter.MemRead(MemAccessMode::Signed, MemAccessSize::Byte, address);
+        } else if (instr.half) {
+            // LDRH
+            value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Half, address);
+        } else {
+            // SWP/SWPB, not handled here
+            // TODO: unreachable
+        }
+        emitter.SetRegister(instr.reg, value);
+        if (instr.reg == GPR::PC) {
+            pcValue = value;
+        }
+        writeback = (instr.baseReg != instr.reg);
+    } else {
+        if (instr.sign && instr.half) {
+            // STRD
+            const GPR nextReg = static_cast<GPR>(static_cast<uint8_t>(instr.reg) + 1);
+            auto value1 = emitter.GetRegister(instr.reg);
+            auto value2 = emitter.GetRegister(nextReg);
+            auto address2 = emitter.Add(address, 4, false);
+            emitter.MemWrite(MemAccessSize::Word, value1, address);
+            emitter.MemWrite(MemAccessSize::Word, value2, address2);
+            writeback = true;
+        } else if (instr.sign) {
+            // LDRD
+            const GPR nextReg = static_cast<GPR>(static_cast<uint8_t>(instr.reg) + 1);
+            auto address2 = emitter.Add(address, 4, false);
+            auto value1 = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
+            auto value2 = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address2);
+            emitter.SetRegister(instr.reg, value1);
+            emitter.SetRegister(nextReg, value2);
+            if (nextReg == GPR::PC) {
+                pcValue = value2;
+            }
+            writeback = (instr.baseReg != nextReg);
+        } else if (instr.half) {
+            // STRH
+            Variable value;
+            if (instr.reg == GPR::PC) {
+                value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
+            } else {
+                value = emitter.GetRegister(instr.reg);
+            }
+            emitter.MemWrite(MemAccessSize::Half, value, address);
+            writeback = true;
+        } else {
+            // SWP/SWPB, not handled here
+            // TODO: unreachable
+        }
+    }
+
+    // Write back address if requested
+    if (writeback) {
+        if (!instr.preindexed) {
+            auto value = emitter.GetRegister(instr.baseReg);
+            if (offset.IsPresent()) {
+                if (instr.positiveOffset) {
+                    value = emitter.Add(value, offset, false);
+                } else {
+                    value = emitter.Subtract(value, offset, false);
+                }
+            }
+            emitter.SetRegister(instr.baseReg, address);
+            if (instr.baseReg == GPR::PC) {
+                pcValue = address;
+            }
+        } else if (instr.writeback) {
+            emitter.SetRegister(instr.baseReg, address);
+            if (instr.baseReg == GPR::PC) {
+                pcValue = address;
+            }
+        }
+    }
+
+    if (pcValue.IsPresent()) {
+        emitter.Branch(pcValue);
+        m_endBlock = true;
+    } else {
+        emitter.FetchInstruction();
+    }
 }
 
 void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
