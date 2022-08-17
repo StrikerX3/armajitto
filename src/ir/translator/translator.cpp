@@ -880,7 +880,23 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
-    // TODO: implement
+    auto address = emitter.GetRegister(instr.addressReg);
+    auto src = emitter.GetRegister(instr.valueReg);
+
+    // Perform the swap
+    Variable value{};
+    if (instr.byte) {
+        value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Byte, address);
+        emitter.MemWrite(MemAccessSize::Byte, src, address);
+    } else {
+        value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
+        emitter.MemWrite(MemAccessSize::Word, src, address);
+    }
+    if (instr.dstReg != GPR::PC) {
+        emitter.SetRegister(instr.dstReg, value);
+    }
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const SoftwareInterrupt &instr, Emitter &emitter) {
