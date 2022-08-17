@@ -139,7 +139,8 @@ void testCPUID() {
 void testTranslator() {
     System sys{};
 
-    bool thumb = false;
+    // ARM branches
+    // bool thumb = false;
     // sys.ROMWriteWord(0x0100, 0xE16F2F13); // clz r2, r3
     // sys.ROMWriteWord(0x0100, 0xEAFFFFFE); // b $
     // sys.ROMWriteWord(0x0100, 0xEBFFFFFE); // bl $
@@ -147,24 +148,35 @@ void testTranslator() {
     // sys.ROMWriteWord(0x0100, 0xE12FFF11); // bx r1
     // sys.ROMWriteWord(0x0100, 0xE12FFF31); // blx r1
 
-    sys.ROMWriteWord(0x0100, 0xE0121003); // ands r1, r2, r3
-    sys.ROMWriteWord(0x0104, 0xE0321383); // eors r1, r2, r3, lsl #7
-    sys.ROMWriteWord(0x0108, 0xE0521413); // subs r1, r2, r3, lsl r4
-    sys.ROMWriteWord(0x010C, 0xE07213A3); // rsbs r1, r2, r3, lsr #7
-    sys.ROMWriteWord(0x0110, 0xE0921433); // adds r1, r2, r3, lsr r4
-    sys.ROMWriteWord(0x0114, 0xE0B213C3); // adcs r1, r2, r3, asr #7
-    sys.ROMWriteWord(0x0118, 0xE0D21453); // sbcs r1, r2, r3, asr r4
-    sys.ROMWriteWord(0x011C, 0xE0F213E3); // rscs r1, r2, r3, ror #7
-    sys.ROMWriteWord(0x0120, 0xE1120003); // tst r2, r3
-    sys.ROMWriteWord(0x0124, 0xE1320003); // teq r2, r3
-    sys.ROMWriteWord(0x0128, 0xE1520003); // cmp r2, r3
-    sys.ROMWriteWord(0x012C, 0xE1720003); // cmn r2, r3
-    sys.ROMWriteWord(0x0130, 0xE1921473); // orrs r1, r2, r3, ror r4
-    sys.ROMWriteWord(0x0134, 0xE1B01002); // movs r1, r2
-    sys.ROMWriteWord(0x0138, 0xE1D21063); // bics r1, r2, r3, rrx
-    sys.ROMWriteWord(0x013C, 0xE1E01003); // mvn r1, r3
-    sys.ROMWriteWord(0x0140, 0xEAFFFFFE); // b $
+    // ARM ALU operations
+    // bool thumb = false;
+    // sys.ROMWriteWord(0x0100, 0xE0121003); // ands r1, r2, r3
+    // sys.ROMWriteWord(0x0104, 0xE0321383); // eors r1, r2, r3, lsl #7
+    // sys.ROMWriteWord(0x0108, 0xE0521413); // subs r1, r2, r3, lsl r4
+    // sys.ROMWriteWord(0x010C, 0xE07213A3); // rsbs r1, r2, r3, lsr #7
+    // sys.ROMWriteWord(0x0110, 0xE0921433); // adds r1, r2, r3, lsr r4
+    // sys.ROMWriteWord(0x0114, 0xE0B213C3); // adcs r1, r2, r3, asr #7
+    // sys.ROMWriteWord(0x0118, 0xE0D21453); // sbcs r1, r2, r3, asr r4
+    // sys.ROMWriteWord(0x011C, 0xE0F213E3); // rscs r1, r2, r3, ror #7
+    // sys.ROMWriteWord(0x0120, 0xE1120003); // tst r2, r3
+    // sys.ROMWriteWord(0x0124, 0xE1320003); // teq r2, r3
+    // sys.ROMWriteWord(0x0128, 0xE1520003); // cmp r2, r3
+    // sys.ROMWriteWord(0x012C, 0xE1720003); // cmn r2, r3
+    // sys.ROMWriteWord(0x0130, 0xE1921473); // orrs r1, r2, r3, ror r4
+    // sys.ROMWriteWord(0x0134, 0xE1B01002); // movs r1, r2
+    // sys.ROMWriteWord(0x0138, 0xE1D21063); // bics r1, r2, r3, rrx
+    // sys.ROMWriteWord(0x013C, 0xE1E01003); // mvn r1, r3
+    // sys.ROMWriteWord(0x0140, 0xEAFFFFFE); // b $
 
+    // QADD, QSUB, QDADD, QDSUB
+    bool thumb = false;
+    sys.ROMWriteWord(0x0100, 0xE1031052); // qadd r1, r2, r3
+    sys.ROMWriteWord(0x0104, 0xE1231052); // qsub r1, r2, r3
+    sys.ROMWriteWord(0x0108, 0xE1431052); // qdadd r1, r2, r3
+    sys.ROMWriteWord(0x010C, 0xE1631052); // qdsub r1, r2, r3
+    sys.ROMWriteWord(0x0110, 0xEAFFFFFE); // b $
+
+    // Thumb branches
     // bool thumb = true;
     // sys.ROMWriteHalf(0x0100, 0xF7FF); // bl $ (prefix)
     // sys.ROMWriteHalf(0x0102, 0xFFFE); // bl $ (suffix)

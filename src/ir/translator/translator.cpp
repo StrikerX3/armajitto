@@ -488,7 +488,23 @@ void Translator::Translate(const CountLeadingZeros &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
-    // TODO: implement
+    auto lhs = emitter.GetRegister(instr.lhsReg);
+    auto rhs = emitter.GetRegister(instr.rhsReg);
+    if (instr.dbl) {
+        rhs = emitter.SaturatingAdd(rhs, rhs);
+        emitter.UpdateStickyOverflow();
+    }
+
+    Variable result;
+    if (instr.sub) {
+        result = emitter.SaturatingSubtract(lhs, rhs);
+    } else {
+        result = emitter.SaturatingAdd(lhs, rhs);
+    }
+    emitter.UpdateStickyOverflow();
+    emitter.SetRegister(instr.dstReg, result);
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
