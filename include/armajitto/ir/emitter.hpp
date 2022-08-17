@@ -14,11 +14,6 @@ struct ALUVarPair {
     Variable hi;
 };
 
-struct BranchExchangeVars {
-    Variable pc;
-    Variable cpsr;
-};
-
 class Emitter {
 public:
     Emitter(BasicBlock &block)
@@ -54,6 +49,9 @@ public:
     void NextInstruction();
     void SetCondition(arm::Condition cond);
 
+    // -----------------------------------------------------------------------------------------------------------------
+    // Basic IR instruction emitters
+
     Variable GetRegister(GPR src);
     void SetRegister(GPR dst, VarOrImmArg src);
     Variable GetCPSR();
@@ -63,8 +61,6 @@ public:
 
     Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
-
-    Variable BarrelShifter(const arm::RegisterSpecifiedShift &shift);
 
     Variable LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
@@ -102,15 +98,22 @@ public:
     void UpdateFlags(Flags flags);
     void UpdateStickyOverflow();
 
-    Variable Branch(VarOrImmArg srcCPSR, VarOrImmArg address);
-    BranchExchangeVars BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg address);
-    void LinkBeforeBranch();
+    void Branch(VarOrImmArg address);
+    void BranchExchange(VarOrImmArg address);
 
     Variable LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext);
     void StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,
                           VarOrImmArg srcValue);
 
     Variable Constant(uint32_t value);
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Complex IR instruction sequence emitters
+
+    Variable ComputeAddress(const arm::Addressing &addr);
+    Variable BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool setFlags);
+
+    void LinkBeforeBranch();
 
     void FetchInstruction();
 

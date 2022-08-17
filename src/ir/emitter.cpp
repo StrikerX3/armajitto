@@ -52,39 +52,6 @@ void Emitter::MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address)
     AppendOp<IRMemWriteOp>(size, src, address);
 }
 
-Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift) {
-    auto value = GetRegister(shift.srcReg);
-
-    VarOrImmArg amount;
-    if (shift.immediate) {
-        amount = shift.amount.imm;
-    } else {
-        amount = GetRegister(shift.amount.reg);
-        // TODO: add one I cycle
-    }
-
-    Variable result{};
-    switch (shift.type) {
-    case arm::ShiftType::LSL:
-        if (shift.immediate && shift.amount.imm == 0) {
-            result = value;
-        } else {
-            result = LogicalShiftLeft(value, amount, true);
-        }
-        break;
-    case arm::ShiftType::LSR: result = LogicalShiftRight(value, amount, true); break;
-    case arm::ShiftType::ASR: result = ArithmeticShiftRight(value, amount, true); break;
-    case arm::ShiftType::ROR:
-        if (shift.immediate && shift.amount.imm == 0) {
-            result = RotateRightExtend(value, true);
-        } else {
-            result = RotateRight(value, amount, true);
-        }
-        break;
-    }
-    return result;
-}
-
 Variable Emitter::LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
     auto dst = Var();
     AppendOp<IRLogicalShiftLeftOp>(dst, value, amount, setFlags);
@@ -250,25 +217,20 @@ void Emitter::UpdateStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
-Variable Emitter::Branch(VarOrImmArg srcCPSR, VarOrImmArg address) {
+void Emitter::Branch(VarOrImmArg address) {
     auto dstPC = Var();
+    auto srcCPSR = GetCPSR();
     AppendOp<IRBranchOp>(dstPC, srcCPSR, address);
-    return dstPC;
+    SetRegister(GPR::PC, dstPC);
 }
 
-BranchExchangeVars Emitter::BranchExchange(VarOrImmArg srcCPSR, VarOrImmArg address) {
+void Emitter::BranchExchange(VarOrImmArg address) {
     auto dstPC = Var();
     auto dstCPSR = Var();
+    auto srcCPSR = GetCPSR();
     AppendOp<IRBranchExchangeOp>(dstPC, dstCPSR, srcCPSR, address);
-    return {dstPC, dstCPSR};
-}
-
-void Emitter::LinkBeforeBranch() {
-    uint32_t linkAddress = m_currInstrAddr + m_instrSize;
-    if (m_thumb) {
-        linkAddress |= 1;
-    }
-    SetRegister(GPR::LR, linkAddress);
+    SetCPSR(dstCPSR);
+    SetRegister(GPR::PC, dstPC);
 }
 
 Variable Emitter::LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext) {
@@ -286,6 +248,69 @@ Variable Emitter::Constant(uint32_t value) {
     auto dst = Var();
     AppendOp<IRConstantOp>(dst, value);
     return dst;
+}
+
+Variable Emitter::ComputeAddress(const arm::Addressing &addr) {
+    auto baseReg = GetRegister(addr.baseReg);
+    if (addr.immediate) {
+        if (addr.immValue == 0) {
+            return baseReg;
+        } else {
+            if (addr.positiveOffset) {
+                return Add(baseReg, addr.immValue, false);
+            } else {
+                return Subtract(baseReg, addr.immValue, false);
+            }
+        }
+    } else {
+        auto shiftValue = BarrelShifter(addr.shift, false);
+        if (addr.positiveOffset) {
+            return Add(baseReg, shiftValue, false);
+        } else {
+            return Subtract(baseReg, shiftValue, false);
+        }
+    }
+}
+
+Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool setFlags) {
+    auto value = GetRegister(shift.srcReg);
+
+    VarOrImmArg amount;
+    if (shift.immediate) {
+        amount = shift.amount.imm;
+    } else {
+        amount = GetRegister(shift.amount.reg);
+        // TODO: add one I cycle
+    }
+
+    Variable result{};
+    switch (shift.type) {
+    case arm::ShiftType::LSL:
+        if (shift.immediate && shift.amount.imm == 0) {
+            result = value;
+        } else {
+            result = LogicalShiftLeft(value, amount, setFlags);
+        }
+        break;
+    case arm::ShiftType::LSR: result = LogicalShiftRight(value, amount, setFlags); break;
+    case arm::ShiftType::ASR: result = ArithmeticShiftRight(value, amount, setFlags); break;
+    case arm::ShiftType::ROR:
+        if (shift.immediate && shift.amount.imm == 0) {
+            result = RotateRightExtend(value, setFlags);
+        } else {
+            result = RotateRight(value, amount, setFlags);
+        }
+        break;
+    }
+    return result;
+}
+
+void Emitter::LinkBeforeBranch() {
+    uint32_t linkAddress = m_currInstrAddr + m_instrSize;
+    if (m_thumb) {
+        linkAddress |= 1;
+    }
+    SetRegister(GPR::LR, linkAddress);
 }
 
 void Emitter::FetchInstruction() {

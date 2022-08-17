@@ -48,4 +48,13 @@ enum class GPR : uint8_t {
     PC_usr = R15_usr,
 };
 
+inline constexpr GPR GetUserModeGPR(GPR gpr) {
+    auto index = static_cast<uint8_t>(gpr);
+    if (index <= 15) {
+        return static_cast<GPR>(index + 16);
+    } else {
+        return gpr;
+    }
+}
+
 } // namespace armajitto

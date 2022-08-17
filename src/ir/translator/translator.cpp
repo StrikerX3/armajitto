@@ -354,15 +354,11 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
         emitter.LinkBeforeBranch();
     }
 
-    auto currCPSR = emitter.GetCPSR();
     const uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
     if (instr.IsExchange()) {
-        auto [targetPC, newCPSR] = emitter.BranchExchange(currCPSR, targetAddress);
-        emitter.SetCPSR(newCPSR);
-        emitter.SetRegister(GPR::PC, targetPC);
+        emitter.BranchExchange(targetAddress);
     } else {
-        auto targetPC = emitter.Branch(currCPSR, targetAddress);
-        emitter.SetRegister(GPR::PC, targetPC);
+        emitter.Branch(targetAddress);
     }
 
     // TODO: set block branch target
@@ -375,10 +371,7 @@ void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter
     }
 
     auto addr = emitter.GetRegister(instr.reg);
-    auto currCPSR = emitter.GetCPSR();
-    auto [targetPC, newCPSR] = emitter.BranchExchange(currCPSR, addr);
-    emitter.SetCPSR(newCPSR);
-    emitter.SetRegister(GPR::PC, targetPC);
+    emitter.BranchExchange(addr);
 
     // TODO: set block branch target
     m_endBlock = true;
@@ -390,16 +383,11 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
 
     emitter.LinkBeforeBranch();
 
-    auto currCPSR = emitter.GetCPSR();
-    Variable targetAddr{};
     if (instr.blx) {
-        auto branchTarget = emitter.BranchExchange(currCPSR, targetAddrBase);
-        emitter.SetCPSR(branchTarget.cpsr);
-        targetAddr = branchTarget.pc;
+        emitter.BranchExchange(targetAddrBase);
     } else {
-        targetAddr = emitter.Branch(currCPSR, targetAddrBase);
+        emitter.Branch(targetAddrBase);
     }
-    emitter.SetRegister(GPR::PC, targetAddr);
 
     // TODO: set block branch target
     m_endBlock = true;
@@ -417,7 +405,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     if (instr.immediate) {
         rhs = instr.rhs.imm;
     } else {
-        rhs = emitter.BarrelShifter(instr.rhs.shift);
+        rhs = emitter.BarrelShifter(instr.rhs.shift, true);
     }
 
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
@@ -684,7 +672,82 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
-    // TODO: implement
+    // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
+    const bool userModeTransfer = (instr.writeback && !instr.preindexed);
+
+    Variable address;
+    if (instr.preindexed) {
+        address = emitter.ComputeAddress(instr.address);
+    } else {
+        address = emitter.GetRegister(instr.address.baseReg);
+    }
+
+    GPR gpr = instr.reg;
+    const bool isPC = (gpr == GPR::PC);
+    Variable pcValue{};
+    if (userModeTransfer) {
+        gpr = GetUserModeGPR(gpr);
+    }
+
+    Variable value{};
+    if (instr.load) {
+        if (instr.byte) {
+            value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Byte, address);
+        } else if (isPC) {
+            value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Word, address);
+        } else {
+            value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
+        }
+
+        emitter.SetRegister(gpr, value);
+        if (isPC) {
+            pcValue = value;
+        }
+    } else {
+        if (isPC) {
+            value = emitter.Constant(emitter.CurrentInstructionAddress() + emitter.InstructionSize());
+        } else {
+            value = emitter.GetRegister(gpr);
+        }
+
+        if (instr.byte) {
+            emitter.MemWrite(MemAccessSize::Byte, value, address);
+        } else {
+            emitter.MemWrite(MemAccessSize::Word, value, address);
+        }
+    }
+
+    // Write back address if requested
+    if (!instr.load || instr.reg != instr.address.baseReg) {
+        if (!instr.preindexed) {
+            address = emitter.ComputeAddress(instr.address);
+            emitter.SetRegister(instr.address.baseReg, address);
+            if (instr.address.baseReg == GPR::PC) {
+                pcValue = address;
+            }
+        } else if (instr.writeback) {
+            emitter.SetRegister(instr.address.baseReg, address);
+            if (instr.address.baseReg == GPR::PC) {
+                pcValue = address;
+            }
+        }
+    }
+
+    if (pcValue.IsPresent()) {
+        if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
+            // TODO: honor CP15 pre-ARMv5 branching feature
+            // if (!m_cp15.ctl.preARMv5) {
+            // Switch to THUMB mode if bit 0 is set (ARMv5 CP15 feature)
+            emitter.BranchExchange(pcValue);
+            // } else {
+            //     emitter.Branch(pcValue);
+            // }
+        } else {
+            emitter.Branch(pcValue);
+        }
+    } else {
+        emitter.FetchInstruction();
+    }
 }
 
 void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emitter) {

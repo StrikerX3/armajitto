@@ -27,7 +27,7 @@ namespace detail {
     }
 
     inline auto DecodeAddressing(uint32_t opcode) {
-        arm::AddressingOffset offset{};
+        arm::Addressing offset{};
         offset.immediate = !bit::test<25>(opcode); // Note the inverted bit!
         offset.positiveOffset = bit::test<23>(opcode);
         offset.baseReg = static_cast<GPR>(bit::extract<16, 4>(opcode));
@@ -218,8 +218,8 @@ inline auto SingleDataTransfer(uint32_t opcode) {
     instr.byte = bit::test<22>(opcode);
     instr.writeback = bit::test<21>(opcode);
     instr.load = bit::test<20>(opcode);
-    instr.dstReg = static_cast<GPR>(bit::extract<12, 4>(opcode));
-    instr.offset = detail::DecodeAddressing(opcode);
+    instr.reg = static_cast<GPR>(bit::extract<12, 4>(opcode));
+    instr.address = detail::DecodeAddressing(opcode);
 
     return instr;
 }
@@ -291,7 +291,7 @@ inline auto SoftwareBreakpoint(uint32_t opcode) {
 inline auto Preload(uint32_t opcode) {
     arm::instrs::Preload instr{};
 
-    instr.offset = detail::DecodeAddressing(opcode);
+    instr.address = detail::DecodeAddressing(opcode);
 
     return instr;
 }

@@ -171,11 +171,11 @@ inline auto PCRelativeLoad(uint16_t opcode) {
     instr.byte = false;
     instr.writeback = false;
     instr.load = true;
-    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
-    instr.offset.immediate = true;
-    instr.offset.positiveOffset = true;
-    instr.offset.baseReg = GPR::PC;
-    instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
+    instr.reg = static_cast<GPR>(bit::extract<8, 3>(opcode));
+    instr.address.immediate = true;
+    instr.address.positiveOffset = true;
+    instr.address.baseReg = GPR::PC;
+    instr.address.immValue = bit::extract<0, 8>(opcode) * 4;
 
     return instr;
 }
@@ -187,11 +187,11 @@ inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
     instr.byte = bit::test<10>(opcode);
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
-    instr.offset.immediate = false;
-    instr.offset.positiveOffset = true;
-    instr.offset.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.offset.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<6, 3>(opcode)));
+    instr.reg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.address.immediate = false;
+    instr.address.positiveOffset = true;
+    instr.address.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
+    instr.address.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<6, 3>(opcode)));
 
     return instr;
 }
@@ -228,11 +228,11 @@ inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
     instr.byte = bit::test<12>(opcode);
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
-    instr.offset.immediate = true;
-    instr.offset.positiveOffset = true;
-    instr.offset.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.offset.immValue = bit::extract<6, 5>(opcode);
+    instr.reg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.address.immediate = true;
+    instr.address.positiveOffset = true;
+    instr.address.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
+    instr.address.immValue = bit::extract<6, 5>(opcode);
 
     return instr;
 }
@@ -261,11 +261,11 @@ inline auto SPRelativeLoadStore(uint16_t opcode) {
     instr.byte = false;
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
-    instr.offset.immediate = true;
-    instr.offset.positiveOffset = true;
-    instr.offset.baseReg = GPR::SP;
-    instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
+    instr.reg = static_cast<GPR>(bit::extract<8, 3>(opcode));
+    instr.address.immediate = true;
+    instr.address.positiveOffset = true;
+    instr.address.baseReg = GPR::SP;
+    instr.address.immValue = bit::extract<0, 8>(opcode) * 4;
 
     return instr;
 }

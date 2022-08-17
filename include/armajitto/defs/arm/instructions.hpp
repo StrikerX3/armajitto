@@ -19,7 +19,7 @@ struct RegisterSpecifiedShift {
     } amount;
 };
 
-struct AddressingOffset {
+struct Addressing {
     bool immediate;      // *inverted* I bit
     bool positiveOffset; // U bit
     GPR baseReg;
@@ -196,8 +196,8 @@ namespace instrs {
         bool byte;       // B bit
         bool writeback;  // W bit
         bool load;       // L bit
-        GPR dstReg;      // Rd
-        AddressingOffset offset;
+        GPR reg;         // Rd
+        Addressing address;
     };
 
     // LDRH,STRH,LDRSH,LDRSB,LDRD,STRD
@@ -260,7 +260,7 @@ namespace instrs {
 
     // PLD
     struct Preload {
-        AddressingOffset offset;
+        Addressing address;
     };
 
     // CDP,CDP2
