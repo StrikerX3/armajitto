@@ -508,7 +508,21 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
-    // TODO: implement
+    auto lhs = emitter.GetRegister(instr.lhsReg);
+    auto rhs = emitter.GetRegister(instr.rhsReg);
+
+    auto result = emitter.Multiply(lhs, rhs, instr.setFlags);
+    if (instr.accumulate) {
+        auto acc = emitter.GetRegister(instr.accReg);
+        result = emitter.Add(result, acc, instr.setFlags);
+    }
+    emitter.SetRegister(instr.dstReg, result);
+
+    if (instr.setFlags) {
+        emitter.UpdateFlags(Flags::N | Flags::Z);
+    }
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter) {
