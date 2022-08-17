@@ -475,6 +475,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         }
         m_endBlock = true;
     } else {
+        m_flagsUpdated = instr.setFlags;
+
         emitter.FetchInstruction();
     }
 }
@@ -520,6 +522,7 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
 
     if (instr.setFlags) {
         emitter.UpdateFlags(Flags::N | Flags::Z);
+        m_flagsUpdated = true;
     }
 
     emitter.FetchInstruction();
@@ -540,6 +543,7 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
 
     if (instr.setFlags) {
         emitter.UpdateFlags(Flags::N | Flags::Z);
+        m_flagsUpdated = true;
     }
 
     emitter.FetchInstruction();
@@ -627,7 +631,56 @@ void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
-    // TODO: implement
+    uint32_t mask = 0;
+    if (instr.f) {
+        mask |= 0xFF000000; // (f)
+    }
+    if (instr.s) {
+        mask |= 0x00FF0000; // (s)
+    }
+    if (instr.x) {
+        mask |= 0x0000FF00; // (x)
+    }
+    if (instr.c) {
+        mask |= 0x000000FF; // (c)
+    }
+
+    Variable psr;
+    if (mask == 0xFFFFFFFF) {
+        if (instr.immediate) {
+            psr = emitter.Constant(instr.value.imm);
+        } else {
+            psr = emitter.GetRegister(instr.value.reg);
+        }
+    } else {
+        if (instr.spsr) {
+            psr = emitter.GetSPSR();
+        } else {
+            psr = emitter.GetCPSR();
+        }
+        psr = emitter.BitClear(psr, mask, false);
+
+        if (instr.immediate) {
+            auto value = instr.value.imm & mask;
+            psr = emitter.BitwiseOr(psr, value, false);
+        } else {
+            auto value = emitter.GetRegister(instr.value.reg);
+            value = emitter.BitwiseAnd(value, mask, false);
+            psr = emitter.BitwiseOr(psr, value, false);
+        }
+    }
+
+    if (instr.spsr) {
+        emitter.SetSPSR(psr);
+    } else {
+        emitter.SetCPSR(psr);
+    }
+
+    emitter.FetchInstruction();
+
+    if (instr.f || instr.c) {
+        m_flagsUpdated = true;
+    }
 }
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {

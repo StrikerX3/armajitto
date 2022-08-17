@@ -234,8 +234,15 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // MRS
-    writeARM(0xE10F1000); // mrs r1, cpsr
-    writeARM(0xE14F1000); // mrs r1, spsr
+    // writeARM(0xE10F1000); // mrs r1, cpsr
+    // writeARM(0xE14F1000); // mrs r1, spsr
+    // writeARM(0xEAFFFFFE); // b $
+
+    // MSR
+    writeARM(0xE12FF002); // msr cpsr_fxsc, r2
+    writeARM(0xE126F001); // msr cpsr_xs, r1
+    writeARM(0xE368F4A5); // msr spsr_f, 0xA5
+    writeARM(0xE361F01F); // msr spsr_c, 0x1F
     writeARM(0xEAFFFFFE); // b $
 
     // Thumb branches

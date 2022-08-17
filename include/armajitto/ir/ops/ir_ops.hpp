@@ -5,4 +5,5 @@
 #include "ir_cop_ops.hpp"
 #include "ir_flag_ops.hpp"
 #include "ir_mem_ops.hpp"
+#include "ir_misc_ops.hpp"
 #include "ir_reg_ops.hpp"

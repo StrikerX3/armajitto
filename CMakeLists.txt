@@ -48,6 +48,7 @@ add_library(armajitto
     include/armajitto/ir/ops/ir_cop_ops.hpp
     include/armajitto/ir/ops/ir_flag_ops.hpp
     include/armajitto/ir/ops/ir_mem_ops.hpp
+    include/armajitto/ir/ops/ir_misc_ops.hpp
     include/armajitto/ir/ops/ir_ops.hpp
     include/armajitto/ir/ops/ir_ops_base.hpp
     include/armajitto/ir/ops/ir_reg_ops.hpp

@@ -282,6 +282,12 @@ void Emitter::StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint
     AppendOp<IRStoreCopRegisterOp>(srcValue, cpnum, opcode1, crn, crm, opcode2, ext);
 }
 
+Variable Emitter::Constant(uint32_t value) {
+    auto dst = Var();
+    AppendOp<IRConstantOp>(dst, value);
+    return dst;
+}
+
 void Emitter::FetchInstruction() {
     SetRegister(GPR::PC, CurrentPC() + m_instrSize);
     // TODO: cycle counting

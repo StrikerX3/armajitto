@@ -25,7 +25,11 @@ private:
     Context &m_context;
     const Parameters m_params;
 
+    // Indicates if the flags have been potentially changed, which might change the result of the current block's
+    // condition check.
     bool m_flagsUpdated = false;
+
+    // Marks the end of a basic block.
     bool m_endBlock = false;
 
     void TranslateARM(uint32_t opcode, Emitter &emitter);

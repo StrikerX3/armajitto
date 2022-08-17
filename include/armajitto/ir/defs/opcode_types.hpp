@@ -58,6 +58,9 @@ enum class IROpcodeType {
     // TODO: CDP, CDP2
     // TODO: LDC/STC, LDC2/STC2
     // TODO: MCRR/MRRC
+
+    // Miscellaneous operations
+    Constant,
 };
 
 } // namespace armajitto::ir
