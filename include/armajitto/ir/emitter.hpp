@@ -12,12 +12,34 @@ class Emitter {
 public:
     Emitter(BasicBlock &block)
         : m_block(block)
-        , m_insertionPoint(block.m_ops.end()) {}
+        , m_insertionPoint(block.m_ops.end()) {
+
+        auto loc = m_block.Location();
+        m_thumb = loc.IsThumbMode();
+        m_currInstrAddr = loc.BaseAddress();
+        m_instrSize = m_thumb ? sizeof(uint16_t) : sizeof(uint32_t);
+    }
 
     Variable Var(const char *name);
 
     BasicBlock &GetBlock() {
         return m_block;
+    }
+
+    uint32_t InstructionSize() const {
+        return m_instrSize;
+    }
+
+    bool IsThumbMode() const {
+        return m_thumb;
+    }
+
+    uint32_t CurrentInstructionAddress() const {
+        return m_currInstrAddr;
+    }
+
+    uint32_t CurrentPC() const {
+        return m_currInstrAddr + 2 * m_instrSize;
     }
 
     void NextInstruction();
@@ -69,10 +91,14 @@ public:
     void StoreCopRegister(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
                           uint8_t opcode2, bool ext);
 
-    void InstructionFetch();
+    void FetchInstruction();
 
 private:
     BasicBlock &m_block;
+
+    bool m_thumb;
+    uint32_t m_currInstrAddr;
+    uint32_t m_instrSize;
 
     using OpIterator = std::vector<IROp *>::iterator;
 

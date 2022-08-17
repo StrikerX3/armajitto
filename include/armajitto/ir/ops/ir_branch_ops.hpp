@@ -8,7 +8,7 @@ namespace armajitto::ir {
 // Branch
 //   b  <var:dst_pc>, <var/imm:src_cpsr>, <var/imm:address>
 //
-// Computes the PC to branch to <address> using the current CPSR in <src_cpsr> and stores the result in <dst_pc>.
+// Computes a branch to <address> using the current CPSR in <src_cpsr> and stores the result in <dst_pc>.
 struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
     VariableArg dstPC;
     VarOrImmArg srcCPSR;
@@ -23,8 +23,8 @@ struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
 // Branch and exchange
 //   bx <var:dst_pc>, <var:dst_cpsr>, <var/imm:src_cpsr>, <var/imm:address>
 //
-// Computes the PC to branch and exchange to <address> using the current CPSR in <src_cpsr> and stores the resulting PC
-// in <dst_pc> and CPSR in <dst_cpsr>.
+// Computes a branch and exchange to <address> using the current CPSR in <src_cpsr> and stores the resulting PC in
+// <dst_pc> and CPSR in <dst_cpsr>.
 struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
     VariableArg dstPC;
     VariableArg dstCPSR;

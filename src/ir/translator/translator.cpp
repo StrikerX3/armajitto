@@ -48,12 +48,12 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
         if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);
-            state.NextInstruction(cond);
+            state.SetCondition(cond);
             TranslateThumb(opcode, state);
         } else {
             const uint32_t opcode = m_context.CodeReadWord(address);
             const Condition cond = parseARMCond(opcode, arch);
-            state.NextInstruction(cond);
+            state.SetCondition(cond);
             TranslateARM(opcode, state);
         }
 
@@ -348,11 +348,12 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
 void Translator::Translate(const BranchOffset &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
 
-    const bool thumb = emitter.GetBlock().Location().IsThumbMode();
-    uint32_t targetAddress = /* TODO: current PC */ +instr.offset;
+    const bool thumb = emitter.IsThumbMode();
+    uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
 
     if (instr.IsLink()) {
-        uint32_t linkAddress = /* TODO: curr instr addr */ +sizeof(uint32_t); // works with the Thumb long branch too
+        // This is always an ARM instruction
+        uint32_t linkAddress = emitter.CurrentInstructionAddress() + sizeof(uint32_t);
         if (thumb) {
             linkAddress |= 1;
         }
@@ -377,6 +378,7 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
         emitter.SetRegister(15, dstPC);
     }
 
+    // TODO: set block branch target
     state.EndBlock();
 }
 
@@ -401,7 +403,7 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     emitter.CountLeadingZeros(dstVar, argVar);
     emitter.SetRegister(instr.dstReg, dstVar);
 
-    emitter.InstructionFetch();
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, State::Handle state) {

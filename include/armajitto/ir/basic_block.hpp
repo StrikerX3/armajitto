@@ -22,6 +22,10 @@ public:
         return m_cond;
     }
 
+    uint32_t InstructionCount() const {
+        return m_instrCount;
+    }
+
 private:
     LocationRef m_location;
     arm::Condition m_cond;

@@ -9,6 +9,7 @@ Variable Emitter::Var(const char *name) {
 
 void Emitter::NextInstruction() {
     ++m_block.m_instrCount;
+    m_currInstrAddr += m_instrSize;
 }
 
 void Emitter::SetCondition(arm::Condition cond) {
@@ -166,13 +167,8 @@ void Emitter::StoreCopRegister(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opco
     AppendOp<IRStoreCopRegisterOp>(srcValue, cpnum, opcode1, crn, crm, opcode2, ext);
 }
 
-void Emitter::InstructionFetch() {
-    const auto &loc = m_block.Location();
-    const bool thumb = loc.IsThumbMode();
-    const uint32_t fetchAddress =
-        loc.BaseAddress() + (2 + m_block.m_instrCount) * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-
-    SetRegister(15, fetchAddress);
+void Emitter::FetchInstruction() {
+    SetRegister(15, CurrentPC() + m_instrSize);
     // TODO: cycle counting
 }
 

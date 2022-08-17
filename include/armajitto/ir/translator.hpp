@@ -50,8 +50,7 @@ private:
             return emitter;
         }
 
-        void NextInstruction(arm::Condition cond) {
-            emitter.NextInstruction();
+        void SetCondition(arm::Condition cond) {
             if (!condKnown) {
                 emitter.SetCondition(cond);
                 condKnown = true;
@@ -61,6 +60,7 @@ private:
         }
 
         void NextIteration() {
+            emitter.NextInstruction();
             if (flagsUpdated && emitter.GetBlock().Condition() != arm::Condition::AL) {
                 endBlock = true;
             }

@@ -139,11 +139,17 @@ void testCPUID() {
 void testTranslator() {
     System sys{};
 
-    sys.ROMWriteWord(0x0100, 0xE16F2F13); // clz r2, r3
-    sys.ROMWriteWord(0x0104, 0xEAFFFFFE); // b $
+    // sys.ROMWriteWord(0x0100, 0xE16F2F13); // clz r2, r3
+    // sys.ROMWriteWord(0x0100, 0xEAFFFFFE); // b $
+    // sys.ROMWriteWord(0x0100, 0xEBFFFFFE); // bl $
+    // sys.ROMWriteWord(0x0100, 0xFAFFFFFE); // blx $
+    // sys.ROMWriteHalf(0x0100, 0xF7FF); // blx $ (prefix)
+    // sys.ROMWriteHalf(0x0102, 0xFEEF); // blx $ (suffix)
+    // sys.ROMWriteHalf(0x0100, 0xD0FE); // beq $
+    sys.ROMWriteHalf(0x0100, 0xE7FE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
-    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, false}};
+    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, true}};
 
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
