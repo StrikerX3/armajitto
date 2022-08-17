@@ -349,28 +349,32 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
     auto &emitter = state.GetEmitter();
 
     const bool thumb = emitter.GetBlock().Location().IsThumbMode();
+    uint32_t targetAddress = /* TODO: current PC */ +instr.offset;
 
     if (instr.IsLink()) {
-        // TODO: write address of next instruction to LR
-        // Also set bit 0 if Thumb
+        uint32_t linkAddress = /* TODO: curr instr addr */ +sizeof(uint32_t); // works with the Thumb long branch too
+        if (thumb) {
+            linkAddress |= 1;
+        }
+        emitter.SetRegister(14, linkAddress);
     }
+
     if (instr.IsExchange()) {
         auto srcCPSR = emitter.Var("src_cpsr");
         auto dstCPSR = emitter.Var("dst_cpsr");
+        auto dstPC = emitter.Var("dst_pc");
 
-        emitter.LoadCPSR(srcCPSR);
-        if (thumb) {
-            // Clear T bit
-            emitter.BitClear(dstCPSR, srcCPSR, 1 << 5, false);
-        } else {
-            // Set T bit
-            emitter.BitwiseOr(dstCPSR, srcCPSR, 1 << 5, false);
-        }
-        emitter.StoreCPSR(srcCPSR);
-
-        // emitter.BranchExchange();
+        emitter.GetCPSR(srcCPSR);
+        emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, targetAddress);
+        emitter.SetCPSR(dstCPSR);
+        emitter.SetRegister(15, dstPC);
     } else {
-        // emitter.Branch();
+        auto srcCPSR = emitter.Var("src_cpsr");
+        auto dstPC = emitter.Var("dst_pc");
+
+        emitter.GetCPSR(srcCPSR);
+        emitter.Branch(dstPC, srcCPSR, targetAddress);
+        emitter.SetRegister(15, dstPC);
     }
 
     state.EndBlock();
@@ -393,11 +397,9 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     auto argVar = emitter.Var("arg");
     auto dstVar = emitter.Var("dst");
 
-    // TODO: (maybe) make instructions that store values in varaibles return the variables so that we can do this:
-    // emitter.StoreGPR(instr.dstReg, emitter.CountLeadingZeros(emitter.LoadGPR(instr.argReg)));
-    emitter.LoadGPR(argVar, instr.argReg);
+    emitter.GetRegister(argVar, instr.argReg);
     emitter.CountLeadingZeros(dstVar, argVar);
-    emitter.StoreGPR(instr.dstReg, dstVar);
+    emitter.SetRegister(instr.dstReg, dstVar);
 
     emitter.InstructionFetch();
 }

@@ -7,33 +7,36 @@ Variable Emitter::Var(const char *name) {
     return m_block.m_vars.emplace_back(m_block.m_vars.size(), name);
 }
 
-void Emitter::NextInstruction(arm::Condition cond) {
+void Emitter::NextInstruction() {
     ++m_block.m_instrCount;
+}
+
+void Emitter::SetCondition(arm::Condition cond) {
     m_block.m_cond = cond;
 }
 
-void Emitter::LoadGPR(VariableArg dst, GPRArg src) {
-    AppendOp<IRLoadGPROp>(dst, src);
+void Emitter::GetRegister(VariableArg dst, GPRArg src) {
+    AppendOp<IRGetRegisterOp>(dst, src);
 }
 
-void Emitter::StoreGPR(GPRArg dst, VarOrImmArg src) {
-    AppendOp<IRStoreGPROp>(dst, src);
+void Emitter::SetRegister(GPRArg dst, VarOrImmArg src) {
+    AppendOp<IRSetRegisterOp>(dst, src);
 }
 
-void Emitter::LoadCPSR(VariableArg dst) {
-    AppendOp<IRLoadCPSROp>(dst);
+void Emitter::GetCPSR(VariableArg dst) {
+    AppendOp<IRGetCPSROp>(dst);
 }
 
-void Emitter::StoreCPSR(VarOrImmArg src) {
-    AppendOp<IRStoreCPSROp>(src);
+void Emitter::SetCPSR(VarOrImmArg src) {
+    AppendOp<IRSetCPSROp>(src);
 }
 
-void Emitter::LoadSPSR(arm::Mode mode, VariableArg dst) {
-    AppendOp<IRLoadSPSROp>(mode, dst);
+void Emitter::GetSPSR(arm::Mode mode, VariableArg dst) {
+    AppendOp<IRGetSPSROp>(mode, dst);
 }
 
-void Emitter::StoreSPSR(arm::Mode mode, VarOrImmArg src) {
-    AppendOp<IRStoreSPSROp>(mode, src);
+void Emitter::SetSPSR(arm::Mode mode, VarOrImmArg src) {
+    AppendOp<IRSetSPSROp>(mode, src);
 }
 
 void Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address) {
@@ -169,7 +172,7 @@ void Emitter::InstructionFetch() {
     const uint32_t fetchAddress =
         loc.BaseAddress() + (2 + m_block.m_instrCount) * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
 
-    StoreGPR(15, fetchAddress);
+    SetRegister(15, fetchAddress);
     // TODO: cycle counting
 }
 

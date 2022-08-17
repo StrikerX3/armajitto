@@ -51,8 +51,9 @@ private:
         }
 
         void NextInstruction(arm::Condition cond) {
+            emitter.NextInstruction();
             if (!condKnown) {
-                emitter.NextInstruction(cond);
+                emitter.SetCondition(cond);
                 condKnown = true;
             } else if (cond != emitter.GetBlock().Condition()) {
                 endBlock = true;

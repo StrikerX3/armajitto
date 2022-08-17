@@ -5,76 +5,76 @@
 
 namespace armajitto::ir {
 
-// Load GPR
+// Get general purpose register value
 //   ld <gpr:src>, <var:dst>
 //
 // Copies the value of the <src> GPR into <dst>.
-struct IRLoadGPROp : public IROpBase<IROpcodeType::LoadGPR> {
+struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
     VariableArg dst;
     GPRArg src;
 
-    IRLoadGPROp(VariableArg dst, GPRArg src)
+    IRGetRegisterOp(VariableArg dst, GPRArg src)
         : dst(dst)
         , src(src) {}
 };
 
-// Store GPR
+// Set general purpose register value
 //   st <gpr:dst>, <var/imm:src>
 //
 // Copies the value of <src> into the <dst> GPR.
-struct IRStoreGPROp : public IROpBase<IROpcodeType::StoreGPR> {
+struct IRSetRegisterOp : public IROpBase<IROpcodeType::SetRegister> {
     GPRArg dst;
     VarOrImmArg src;
 
-    IRStoreGPROp(GPRArg dst, VarOrImmArg src)
+    IRSetRegisterOp(GPRArg dst, VarOrImmArg src)
         : dst(dst)
         , src(src) {}
 };
 
-// Load CPSR
+// Get CPSR value
 //   ld cpsr, <var:dst>
 //
 // Copies the value of CPSR into <dst>.
-struct IRLoadCPSROp : public IROpBase<IROpcodeType::LoadCPSR> {
+struct IRGetCPSROp : public IROpBase<IROpcodeType::GetCPSR> {
     VariableArg dst;
 
-    IRLoadCPSROp(VariableArg dst)
+    IRGetCPSROp(VariableArg dst)
         : dst(dst) {}
 };
 
-// Store CPSR
+// Set CPSR value
 //   st cpsr, <var/imm:src>
 //
 // Copies the value of <src> into CPSR.
-struct IRStoreCPSROp : public IROpBase<IROpcodeType::StoreCPSR> {
+struct IRSetCPSROp : public IROpBase<IROpcodeType::SetCPSR> {
     VarOrImmArg src;
 
-    IRStoreCPSROp(VarOrImmArg src)
+    IRSetCPSROp(VarOrImmArg src)
         : src(src) {}
 };
 
-// Load SPSR
+// Get SPSR value
 //   ld spsr_<mode>, <var:dst>
 //
 // Copies the value of the specified <mode>'s SPSR into <dst>.
-struct IRLoadSPSROp : public IROpBase<IROpcodeType::LoadSPSR> {
+struct IRGetSPSROp : public IROpBase<IROpcodeType::GetSPSR> {
     arm::Mode mode;
     VariableArg dst;
 
-    IRLoadSPSROp(arm::Mode mode, VariableArg dst)
+    IRGetSPSROp(arm::Mode mode, VariableArg dst)
         : mode(mode)
         , dst(dst) {}
 };
 
-// Store SPSR
+// Set SPSR value
 //   st spsr_<mode>, <var/imm:src>
 //
 // Copies the value of <src> into the specified <mode>'s SPSR.
-struct IRStoreSPSROp : public IROpBase<IROpcodeType::StoreSPSR> {
+struct IRSetSPSROp : public IROpBase<IROpcodeType::SetSPSR> {
     arm::Mode mode;
     VarOrImmArg src;
 
-    IRStoreSPSROp(arm::Mode mode, VarOrImmArg src)
+    IRSetSPSROp(arm::Mode mode, VarOrImmArg src)
         : mode(mode)
         , src(src) {}
 };

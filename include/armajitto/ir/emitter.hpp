@@ -20,14 +20,15 @@ public:
         return m_block;
     }
 
-    void NextInstruction(arm::Condition cond);
+    void NextInstruction();
+    void SetCondition(arm::Condition cond);
 
-    void LoadGPR(VariableArg dst, GPRArg src);
-    void StoreGPR(GPRArg dst, VarOrImmArg src);
-    void LoadCPSR(VariableArg dst);
-    void StoreCPSR(VarOrImmArg src);
-    void LoadSPSR(arm::Mode mode, VariableArg dst);
-    void StoreSPSR(arm::Mode mode, VarOrImmArg src);
+    void GetRegister(VariableArg dst, GPRArg src);
+    void SetRegister(GPRArg dst, VarOrImmArg src);
+    void GetCPSR(VariableArg dst);
+    void SetCPSR(VarOrImmArg src);
+    void GetSPSR(arm::Mode mode, VariableArg dst);
+    void SetSPSR(arm::Mode mode, VarOrImmArg src);
 
     void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);

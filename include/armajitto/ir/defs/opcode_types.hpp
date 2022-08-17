@@ -4,12 +4,12 @@ namespace armajitto::ir {
 
 enum class IROpcodeType {
     // Register access
-    LoadGPR,
-    StoreGPR,
-    LoadCPSR,
-    StoreCPSR,
-    LoadSPSR,
-    StoreSPSR,
+    GetRegister,
+    SetRegister,
+    GetCPSR,
+    SetCPSR,
+    GetSPSR,
+    SetSPSR,
 
     // Memory access
     MemRead,
