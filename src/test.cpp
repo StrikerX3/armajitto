@@ -220,8 +220,13 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // SMUL<x><y>, SMLA<x><y>
-    writeARM(0xE1610382); // smulbb r1, r2, r3
-    writeARM(0xE10143E2); // smlatt r1, r2, r3, r4
+    // writeARM(0xE1610382); // smulbb r1, r2, r3
+    // writeARM(0xE10143E2); // smlatt r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // SMULW<y>, SMLAW<y>
+    writeARM(0xE12103A2); // smulwb r1, r2, r3
+    writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
     writeARM(0xEAFFFFFE); // b $
 
     // Thumb branches

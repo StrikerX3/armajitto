@@ -40,6 +40,7 @@ enum class IROpcodeType {
     SaturatingSubtract,
 
     Multiply,
+    MultiplyLong,
     AddLong,
 
     // Flag manipulation

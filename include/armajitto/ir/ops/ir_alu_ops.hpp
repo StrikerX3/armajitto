@@ -301,26 +301,45 @@ struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase<IROpcode
 // [u/s] specifies if the multiplication is [u]nsigned or [s]igned.
 // Updates host flags is [s] is specified.
 struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
-    VariableArg dstLo;
-    VariableArg dstHi;
+    VariableArg dst;
     VarOrImmArg lhs;
     VarOrImmArg rhs;
     bool signedMul;
     bool setFlags;
 
-    IRMultiplyOp(VariableArg dstLo, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags)
-        : dstLo(dstLo)
+    IRMultiplyOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags)
+        : dst(dst)
         , lhs(lhs)
         , rhs(rhs)
         , signedMul(signedMul)
         , setFlags(setFlags) {}
+};
 
-    IRMultiplyOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags)
+// Multiply long
+//   [u/s]mull[s][h]   <var:dstLo>, <var:dstHi>, <var/imm:lhs>, <var/imm:rhs>
+//
+// Computes <lhs> * <rhs> and stores the least significant word of the result in <dstLo> and the most significant word
+// in <dstHi>.
+// The result is shifted right by 16 bits (a halfword) if [h] is specified.
+// [u/s] specifies if the multiplication is [u]nsigned or [s]igned.
+// Updates host flags is [s] is specified.
+struct IRMultiplyLongOp : public IROpBase<IROpcodeType::MultiplyLong> {
+    VariableArg dstLo;
+    VariableArg dstHi;
+    VarOrImmArg lhs;
+    VarOrImmArg rhs;
+    bool signedMul;
+    bool shiftDownHalf;
+    bool setFlags;
+
+    IRMultiplyLongOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul,
+                     bool shiftDownHalf, bool setFlags)
         : dstLo(dstLo)
         , dstHi(dstHi)
         , lhs(lhs)
         , rhs(rhs)
         , signedMul(signedMul)
+        , shiftDownHalf(shiftDownHalf)
         , setFlags(setFlags) {}
 };
 

@@ -529,7 +529,7 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
     auto lhs = emitter.GetRegister(instr.lhsReg);
     auto rhs = emitter.GetRegister(instr.rhsReg);
 
-    auto result = emitter.MultiplyLong(lhs, rhs, instr.signedMul, instr.setFlags);
+    auto result = emitter.MultiplyLong(lhs, rhs, instr.signedMul, false, instr.setFlags);
     if (instr.accumulate) {
         auto accLo = emitter.GetRegister(instr.dstAccLoReg);
         auto accHi = emitter.GetRegister(instr.dstAccHiReg);
@@ -569,7 +569,27 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
 }
 
 void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &emitter) {
-    // TODO: implement
+    auto selectHalf = [&](GPR gpr, bool top) {
+        auto value = emitter.GetRegister(gpr);
+        if (!top) {
+            value = emitter.LogicalShiftLeft(value, 16, false);
+        }
+        return emitter.ArithmeticShiftRight(value, 16, false);
+    };
+
+    auto lhs = emitter.GetRegister(instr.lhsReg);
+    auto rhs = selectHalf(instr.rhsReg, instr.y);
+
+    auto mulResult = emitter.MultiplyLong(lhs, rhs, true, true, false);
+    auto result = mulResult.lo;
+    if (instr.accumulate) {
+        auto acc = emitter.GetRegister(instr.accReg);
+        result = emitter.Add(result, acc, true);
+        emitter.UpdateStickyOverflow();
+    }
+    emitter.SetRegister(instr.dstReg, result);
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &emitter) {
