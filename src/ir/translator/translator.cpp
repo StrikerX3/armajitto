@@ -360,15 +360,17 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
 
         emitter.LoadCPSR(srcCPSR);
         if (thumb) {
-            emitter.BitClear(dstCPSR, srcCPSR, 1 << 5, false); // Clear T bit
+            // Clear T bit
+            emitter.BitClear(dstCPSR, srcCPSR, 1 << 5, false);
         } else {
-            emitter.BitwiseOr(dstCPSR, srcCPSR, 1 << 5, false); // Set T bit
+            // Set T bit
+            emitter.BitwiseOr(dstCPSR, srcCPSR, 1 << 5, false);
         }
         emitter.StoreCPSR(srcCPSR);
 
-        //emitter.BranchExchange();
+        // emitter.BranchExchange();
     } else {
-        //emitter.Branch();
+        // emitter.Branch();
     }
 
     state.EndBlock();
