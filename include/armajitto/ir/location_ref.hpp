@@ -25,7 +25,7 @@ struct LocationRef {
     }
 
     bool IsThumbMode() const {
-        return bit::test<6>(m_cpsr);
+        return bit::test<5>(m_cpsr);
     }
 
 private:
