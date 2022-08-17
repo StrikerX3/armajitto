@@ -56,6 +56,10 @@ void Emitter::MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address)
     AppendOp<IRMemWriteOp>(size, src, address);
 }
 
+void Emitter::Preload(VarOrImmArg address) {
+    AppendOp<IRPreloadOp>(address);
+}
+
 Variable Emitter::LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags) {
     auto dst = Var();
     AppendOp<IRLogicalShiftLeftOp>(dst, value, amount, setFlags);

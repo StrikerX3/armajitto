@@ -14,6 +14,7 @@ enum class IROpcodeType {
     // Memory access
     MemRead,
     MemWrite,
+    Preload,
 
     // ALU operations
     LogicalShiftLeft,

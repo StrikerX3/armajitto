@@ -61,6 +61,7 @@ public:
 
     Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
+    void Preload(VarOrImmArg address);
 
     Variable LogicalShiftLeft(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);

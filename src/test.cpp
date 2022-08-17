@@ -294,7 +294,11 @@ void testTranslator() {
     // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
     // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
     // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
-    writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    // writeARM(0xEAFFFFFE); // b $
+
+    // PLD
+    writeARM(0xF5D3F000); // pld [r3]
     writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};

@@ -47,4 +47,15 @@ struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
         , address(address) {}
 };
 
+// Preload
+//   pld.[b/h/w]        [<any:address>]
+//
+// Sends a hint to preload the specified address.
+struct IRPreloadOp : public IROpBase<IROpcodeType::Preload> {
+    VarOrImmArg address;
+
+    IRPreloadOp(VarOrImmArg address)
+        : address(address) {}
+};
+
 } // namespace armajitto::ir

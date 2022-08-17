@@ -89,37 +89,13 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
     const uint32_t bits24to20 = bit::extract<20, 5>(opcode);
     const uint32_t bits7to4 = bit::extract<4, 4>(opcode);
 
-    if (arch == CPUArch::ARMv5TE && cond == Condition::NV) {
-        switch (op) {
-        case 0b000: Translate(arm_decoder::Undefined(), emitter); break;
-        case 0b001: Translate(arm_decoder::Undefined(), emitter); break;
-        case 0b100: Translate(arm_decoder::Undefined(), emitter); break;
-        case 0b010: [[fallthrough]];
-        case 0b011:
-            if ((bits24to20 & 0b1'0111) == 0b1'0101) {
-                Translate(arm_decoder::Preload(opcode), emitter);
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-            break;
-        case 0b110: Translate(arm_decoder::CopDataTransfer(opcode, true), emitter); break;
-        case 0b111:
-            if (!bit::test<24>(opcode)) {
-                if (bit::test<4>(opcode)) {
-                    Translate(arm_decoder::CopRegTransfer(opcode, true), emitter);
-                } else {
-                    Translate(arm_decoder::CopDataOperations(opcode, true), emitter);
-                }
-            } else if (bit::test<8>(opcode)) {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-            break;
-        }
-    }
+    const bool extendedARMv5TEInstr = (arch == CPUArch::ARMv5TE && cond == Condition::NV);
 
     switch (op) {
     case 0b000:
-        if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
+        if (extendedARMv5TEInstr) {
+            Translate(arm_decoder::Undefined(), emitter);
+        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
             Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
             if (arch == CPUArch::ARMv5TE) {
@@ -202,7 +178,9 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
         }
         break;
     case 0b001:
-        if ((bits24to20 & 0b1'1011) == 0b1'0010) {
+        if (extendedARMv5TEInstr) {
+            Translate(arm_decoder::Undefined(), emitter);
+        } else if ((bits24to20 & 0b1'1011) == 0b1'0010) {
             Translate(arm_decoder::PSRWrite(opcode), emitter);
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000) {
             Translate(arm_decoder::Undefined(), emitter);
@@ -212,27 +190,49 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
         break;
     case 0b010:
     case 0b011:
-        if (bit::test<0>(op) && bit::test<0>(bits7to4)) {
+        if (extendedARMv5TEInstr) {
+            if ((bits24to20 & 0b1'0111) == 0b1'0101) {
+                Translate(arm_decoder::Preload(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if (bit::test<0>(op) && bit::test<0>(bits7to4)) {
             Translate(arm_decoder::Undefined(), emitter);
         } else {
             Translate(arm_decoder::SingleDataTransfer(opcode), emitter);
         }
         break;
-    case 0b100: Translate(arm_decoder::BlockTransfer(opcode), emitter); break;
+    case 0b100:
+        if (extendedARMv5TEInstr) {
+            Translate(arm_decoder::Undefined(), emitter);
+        } else {
+            Translate(arm_decoder::BlockTransfer(opcode), emitter);
+        }
+        break;
     case 0b101: {
         const bool switchToThumb = (arch == CPUArch::ARMv5TE) && (cond == Condition::NV);
         Translate(arm_decoder::BranchOffset(opcode, switchToThumb), emitter);
         break;
     }
     case 0b110:
-        if (arch == CPUArch::ARMv5TE && (bits24to20 & 0b1'1110) == 0b0'0100) {
+        if (extendedARMv5TEInstr) {
+            Translate(arm_decoder::CopDataTransfer(opcode, true), emitter);
+        } else if (arch == CPUArch::ARMv5TE && (bits24to20 & 0b1'1110) == 0b0'0100) {
             Translate(arm_decoder::CopDualRegTransfer(opcode), emitter);
         } else {
             Translate(arm_decoder::CopDataTransfer(opcode, false), emitter);
         }
         break;
     case 0b111: {
-        if (bit::test<24>(opcode)) {
+        if (extendedARMv5TEInstr && !bit::test<24>(opcode)) {
+            if (bit::test<4>(opcode)) {
+                Translate(arm_decoder::CopRegTransfer(opcode, true), emitter);
+            } else {
+                Translate(arm_decoder::CopDataOperations(opcode, true), emitter);
+            }
+        } else if (extendedARMv5TEInstr && bit::test<8>(opcode)) {
+            Translate(arm_decoder::Undefined(), emitter);
+        } else if (bit::test<24>(opcode)) {
             Translate(arm_decoder::SoftwareInterrupt(opcode), emitter);
         } else if (bit::test<4>(opcode)) {
             Translate(arm_decoder::CopRegTransfer(opcode, false), emitter);
@@ -892,7 +892,10 @@ void Translator::Translate(const SoftwareBreakpoint &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const Preload &instr, Emitter &emitter) {
-    // TODO: implement
+    auto address = emitter.ComputeAddress(instr.address);
+    emitter.Preload(address);
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const CopDataOperations &instr, Emitter &emitter) {
