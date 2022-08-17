@@ -58,8 +58,8 @@ public:
     void SetRegister(GPR dst, VarOrImmArg src);
     Variable GetCPSR();
     void SetCPSR(VarOrImmArg src);
-    Variable GetSPSR(arm::Mode mode);
-    void SetSPSR(arm::Mode mode, VarOrImmArg src);
+    Variable GetSPSR();
+    void SetSPSR(VarOrImmArg src);
 
     Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);

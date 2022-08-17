@@ -422,7 +422,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
     if (instr.setFlags && instr.dstReg == GPR::PC) {
-        auto spsr = emitter.GetSPSR(emitter.GetBlock().Location().Mode());
+        auto spsr = emitter.GetSPSR();
         emitter.SetCPSR(spsr);
     }
 
@@ -615,7 +615,15 @@ void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &e
 }
 
 void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
-    // TODO: implement
+    Variable psr;
+    if (instr.spsr) {
+        psr = emitter.GetSPSR();
+    } else {
+        psr = emitter.GetCPSR();
+    }
+    emitter.SetRegister(instr.dstReg, psr);
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {

@@ -32,14 +32,14 @@ void Emitter::SetCPSR(VarOrImmArg src) {
     AppendOp<IRSetCPSROp>(src);
 }
 
-Variable Emitter::GetSPSR(arm::Mode mode) {
+Variable Emitter::GetSPSR() {
     auto dst = Var();
-    AppendOp<IRGetSPSROp>(mode, dst);
+    AppendOp<IRGetSPSROp>(m_block.Location().Mode(), dst);
     return dst;
 }
 
-void Emitter::SetSPSR(arm::Mode mode, VarOrImmArg src) {
-    AppendOp<IRSetSPSROp>(mode, src);
+void Emitter::SetSPSR(VarOrImmArg src) {
+    AppendOp<IRSetSPSROp>(m_block.Location().Mode(), src);
 }
 
 Variable Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
