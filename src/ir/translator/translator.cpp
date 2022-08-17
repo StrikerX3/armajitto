@@ -9,7 +9,7 @@ using namespace armajitto::arm::instrs;
 
 namespace armajitto::ir {
 
-void Translator::Translate(BasicBlock &block, Parameters params) {
+void Translator::Translate(BasicBlock &block) {
     State state{block};
 
     const bool thumb = block.Location().IsThumbMode();
@@ -44,7 +44,7 @@ void Translator::Translate(BasicBlock &block, Parameters params) {
     };
 
     uint32_t address = block.Location().BaseAddress();
-    for (uint32_t i = 0; i < params.maxBlockSize; i++) {
+    for (uint32_t i = 0; i < m_params.maxBlockSize; i++) {
         if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);

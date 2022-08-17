@@ -12,13 +12,15 @@ public:
         uint32_t maxBlockSize;
     };
 
-    Translator(Context &context)
-        : m_context(context) {}
+    Translator(Context &context, Parameters params)
+        : m_context(context)
+        , m_params(params) {}
 
-    void Translate(BasicBlock &block, Parameters params);
+    void Translate(BasicBlock &block);
 
 private:
     Context &m_context;
+    const Parameters m_params;
 
     struct State {
         struct Handle {

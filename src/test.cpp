@@ -164,8 +164,8 @@ void testTranslator() {
         .maxBlockSize = 32,
     };
 
-    armajitto::ir::Translator translator{context};
-    translator.Translate(block, params);
+    armajitto::ir::Translator translator{context, params};
+    translator.Translate(block);
 }
 
 int main() {
