@@ -511,7 +511,7 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
     auto lhs = emitter.GetRegister(instr.lhsReg);
     auto rhs = emitter.GetRegister(instr.rhsReg);
 
-    auto result = emitter.Multiply(lhs, rhs, instr.setFlags);
+    auto result = emitter.Multiply(lhs, rhs, false, instr.setFlags);
     if (instr.accumulate) {
         auto acc = emitter.GetRegister(instr.accReg);
         result = emitter.Add(result, acc, instr.setFlags);
@@ -526,7 +526,23 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter) {
-    // TODO: implement
+    auto lhs = emitter.GetRegister(instr.lhsReg);
+    auto rhs = emitter.GetRegister(instr.rhsReg);
+
+    auto result = emitter.MultiplyLong(lhs, rhs, instr.signedMul, instr.setFlags);
+    if (instr.accumulate) {
+        auto accLo = emitter.GetRegister(instr.dstAccLoReg);
+        auto accHi = emitter.GetRegister(instr.dstAccHiReg);
+        result = emitter.AddLong(result.lo, result.hi, accLo, accHi, instr.setFlags);
+    }
+    emitter.SetRegister(instr.dstAccLoReg, result.lo);
+    emitter.SetRegister(instr.dstAccHiReg, result.hi);
+
+    if (instr.setFlags) {
+        emitter.UpdateFlags(Flags::N | Flags::Z);
+    }
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitter) {

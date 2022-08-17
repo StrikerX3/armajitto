@@ -209,16 +209,16 @@ Variable Emitter::SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs) {
     return dst;
 }
 
-Variable Emitter::Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+Variable Emitter::Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags) {
     auto dstLo = Var();
-    AppendOp<IRMultiplyOp>(dstLo, lhs, rhs, setFlags);
+    AppendOp<IRMultiplyOp>(dstLo, lhs, rhs, signedMul, setFlags);
     return dstLo;
 }
 
-ALUVarPair Emitter::MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags) {
+ALUVarPair Emitter::MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags) {
     auto dstLo = Var();
     auto dstHi = Var();
-    AppendOp<IRMultiplyOp>(dstLo, dstHi, lhs, rhs, setFlags);
+    AppendOp<IRMultiplyOp>(dstLo, dstHi, lhs, rhs, signedMul, setFlags);
     return {dstLo, dstHi};
 }
 

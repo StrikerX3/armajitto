@@ -294,36 +294,40 @@ struct IRSaturatingSubtractOp : public detail::IRSaturatingBinaryOpBase<IROpcode
 };
 
 // Multiply
-//   mul[s]   <var:dstLo>, <var?:dstHi>, <var/imm:lhs>, <var/imm:rhs>
+//   [u/s]mul[s]   <var:dstLo>, <var?:dstHi>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <lhs> * <rhs> and stores the least significant word of the result in <dstLo>.
 // Stores the most significant word of the result in <dstHi> if present.
+// [u/s] specifies if the multiplication is [u]nsigned or [s]igned.
 // Updates host flags is [s] is specified.
 struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
     VariableArg dstLo;
     VariableArg dstHi;
     VarOrImmArg lhs;
     VarOrImmArg rhs;
+    bool signedMul;
     bool setFlags;
 
-    IRMultiplyOp(VariableArg dstLo, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+    IRMultiplyOp(VariableArg dstLo, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags)
         : dstLo(dstLo)
         , lhs(lhs)
         , rhs(rhs)
+        , signedMul(signedMul)
         , setFlags(setFlags) {}
 
-    IRMultiplyOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
+    IRMultiplyOp(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags)
         : dstLo(dstLo)
         , dstHi(dstHi)
         , lhs(lhs)
         , rhs(rhs)
+        , signedMul(signedMul)
         , setFlags(setFlags) {}
 };
 
 // Add long
 //   addl[s] <var:dstLo>, <var:dstHi>, <var/imm:lhsLo>, <var/imm:lhsHi>, <var/imm:rhsLo>, <var/imm:rhsHi>
 //
-// Adds the 64 bit values <lhsLo>:<lhsHi> + <rhsLo>:<rhsHi> and stores the result in <dstLo>:<dstHi>.
+// Adds the 64-bit values <lhsLo>:<lhsHi> + <rhsLo>:<rhsHi> and stores the result in <dstLo>:<dstHi>.
 // Updates host flags if [s] is specified.
 struct IRAddLongOp : public IROpBase<IROpcodeType::AddLong> {
     VariableArg dstLo;

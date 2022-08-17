@@ -94,8 +94,8 @@ public:
     Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs);
     Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs);
 
-    Variable Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
-    ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    Variable Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags);
+    ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags);
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
     void StoreFlags(Flags flags);

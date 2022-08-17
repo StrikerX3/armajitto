@@ -204,8 +204,19 @@ void testTranslator() {
     // MUL, MLA
     // writeARM(0xE0110392); // muls r1, r2, r3
     // writeARM(0xE0314392); // mlas r1, r2, r3, r4
-    writeARM(0xE0010392); // mul r1, r2, r3
-    writeARM(0xE0214392); // mla r1, r2, r3, r4
+    // writeARM(0xE0010392); // mul r1, r2, r3
+    // writeARM(0xE0214392); // mla r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // UMULL, UMLAL, SMULL, SMLAL
+    writeARM(0xE0821493); // umull r1, r2, r3, r4
+    writeARM(0xE0C21493); // smull r1, r2, r3, r4
+    writeARM(0xE0A21493); // umlal r1, r2, r3, r4
+    writeARM(0xE0E21493); // smlal r1, r2, r3, r4
+    writeARM(0xE0921493); // umulls r1, r2, r3, r4
+    writeARM(0xE0D21493); // smulls r1, r2, r3, r4
+    writeARM(0xE0B21493); // umlals r1, r2, r3, r4
+    writeARM(0xE0F21493); // smlals r1, r2, r3, r4
     writeARM(0xEAFFFFFE); // b $
 
     // Thumb branches
