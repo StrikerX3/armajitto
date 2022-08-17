@@ -6,6 +6,9 @@
 
 namespace armajitto::ir {
 
+// Decodes and translates ARM or Thumb instructions to armajitto's intermediate representation into a basic block.
+//
+// A Translator instance is not safe for concurrent accesses. Use one instance per thread instead.
 class Translator {
 public:
     struct Parameters {
@@ -22,96 +25,37 @@ private:
     Context &m_context;
     const Parameters m_params;
 
-    struct State {
-        struct Handle {
-            Handle(State &state)
-                : state(state) {}
+    bool m_flagsUpdated = false;
+    bool m_endBlock = false;
 
-            Emitter &GetEmitter() {
-                return state.emitter;
-            }
+    void TranslateARM(uint32_t opcode, Emitter &emitter);
+    void TranslateThumb(uint16_t opcode, Emitter &emitter);
 
-            void EndBlock() {
-                state.endBlock = true;
-            }
-
-            void MarkFlagsUpdated() {
-                state.flagsUpdated = true;
-            }
-
-        private:
-            State &state;
-        };
-
-        State(BasicBlock &block)
-            : emitter(block)
-            , flagsUpdated(false)
-            , endBlock(false) {}
-
-        Emitter &GetEmitter() {
-            return emitter;
-        }
-
-        void SetCondition(arm::Condition cond) {
-            if (!condKnown) {
-                emitter.SetCondition(cond);
-                condKnown = true;
-            } else if (cond != emitter.GetBlock().Condition()) {
-                endBlock = true;
-            }
-        }
-
-        void NextIteration() {
-            emitter.NextInstruction();
-            if (flagsUpdated && emitter.GetBlock().Condition() != arm::Condition::AL) {
-                endBlock = true;
-            }
-            flagsUpdated = false;
-        }
-
-        bool IsEndBlock() const {
-            return endBlock;
-        }
-
-        Handle GetHandle() {
-            return Handle{*this};
-        }
-
-    private:
-        Emitter emitter;
-        bool condKnown = false;
-        bool flagsUpdated;
-        bool endBlock;
-    };
-
-    void TranslateARM(uint32_t opcode, State &state);
-    void TranslateThumb(uint16_t opcode, State &state);
-
-    void Translate(const arm::instrs::BranchOffset &instr, State::Handle state);
-    void Translate(const arm::instrs::BranchExchangeRegister &instr, State::Handle state);
-    void Translate(const arm::instrs::ThumbLongBranchSuffix &instr, State::Handle state);
-    void Translate(const arm::instrs::DataProcessing &instr, State::Handle state);
-    void Translate(const arm::instrs::CountLeadingZeros &instr, State::Handle state);
-    void Translate(const arm::instrs::SaturatingAddSub &instr, State::Handle state);
-    void Translate(const arm::instrs::MultiplyAccumulate &instr, State::Handle state);
-    void Translate(const arm::instrs::MultiplyAccumulateLong &instr, State::Handle state);
-    void Translate(const arm::instrs::SignedMultiplyAccumulate &instr, State::Handle state);
-    void Translate(const arm::instrs::SignedMultiplyAccumulateWord &instr, State::Handle state);
-    void Translate(const arm::instrs::SignedMultiplyAccumulateLong &instr, State::Handle state);
-    void Translate(const arm::instrs::PSRRead &instr, State::Handle state);
-    void Translate(const arm::instrs::PSRWrite &instr, State::Handle state);
-    void Translate(const arm::instrs::SingleDataTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::HalfwordAndSignedTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::BlockTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::SingleDataSwap &instr, State::Handle state);
-    void Translate(const arm::instrs::SoftwareInterrupt &instr, State::Handle state);
-    void Translate(const arm::instrs::SoftwareBreakpoint &instr, State::Handle state);
-    void Translate(const arm::instrs::Preload &instr, State::Handle state);
-    void Translate(const arm::instrs::CopDataOperations &instr, State::Handle state);
-    void Translate(const arm::instrs::CopDataTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::CopRegTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::CopDualRegTransfer &instr, State::Handle state);
-    void Translate(const arm::instrs::Undefined &instr, State::Handle state);
+    void Translate(const arm::instrs::BranchOffset &instr, Emitter &emitter);
+    void Translate(const arm::instrs::BranchExchangeRegister &instr, Emitter &emitter);
+    void Translate(const arm::instrs::ThumbLongBranchSuffix &instr, Emitter &emitter);
+    void Translate(const arm::instrs::DataProcessing &instr, Emitter &emitter);
+    void Translate(const arm::instrs::CountLeadingZeros &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SaturatingAddSub &instr, Emitter &emitter);
+    void Translate(const arm::instrs::MultiplyAccumulate &instr, Emitter &emitter);
+    void Translate(const arm::instrs::MultiplyAccumulateLong &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SignedMultiplyAccumulate &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SignedMultiplyAccumulateWord &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SignedMultiplyAccumulateLong &instr, Emitter &emitter);
+    void Translate(const arm::instrs::PSRRead &instr, Emitter &emitter);
+    void Translate(const arm::instrs::PSRWrite &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SingleDataTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::HalfwordAndSignedTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::BlockTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SingleDataSwap &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SoftwareInterrupt &instr, Emitter &emitter);
+    void Translate(const arm::instrs::SoftwareBreakpoint &instr, Emitter &emitter);
+    void Translate(const arm::instrs::Preload &instr, Emitter &emitter);
+    void Translate(const arm::instrs::CopDataOperations &instr, Emitter &emitter);
+    void Translate(const arm::instrs::CopDataTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::CopRegTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::CopDualRegTransfer &instr, Emitter &emitter);
+    void Translate(const arm::instrs::Undefined &instr, Emitter &emitter);
 };
 
 } // namespace armajitto::ir

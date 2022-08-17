@@ -10,7 +10,10 @@ using namespace armajitto::arm::instrs;
 namespace armajitto::ir {
 
 void Translator::Translate(BasicBlock &block) {
-    State state{block};
+    Emitter emitter{block};
+
+    m_flagsUpdated = false;
+    m_endBlock = false;
 
     const bool thumb = block.Location().IsThumbMode();
     const uint32_t opcodeSize = thumb ? sizeof(uint16_t) : sizeof(uint32_t);
@@ -48,28 +51,39 @@ void Translator::Translate(BasicBlock &block) {
         if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);
-            state.SetCondition(cond);
-            TranslateThumb(opcode, state);
+            if (i == 0) {
+                emitter.SetCondition(cond);
+            } else if (cond != block.Condition()) {
+                break;
+            }
+            TranslateThumb(opcode, emitter);
         } else {
             const uint32_t opcode = m_context.CodeReadWord(address);
             const Condition cond = parseARMCond(opcode, arch);
-            state.SetCondition(cond);
-            TranslateARM(opcode, state);
+            if (i == 0) {
+                emitter.SetCondition(cond);
+            } else if (cond != block.Condition()) {
+                break;
+            }
+            TranslateARM(opcode, emitter);
         }
 
-        state.NextIteration();
-        if (state.IsEndBlock()) {
+        emitter.NextInstruction();
+        if (m_flagsUpdated && block.Condition() != arm::Condition::AL) {
             break;
         }
+        if (m_endBlock) {
+            break;
+        }
+        m_flagsUpdated = false;
 
         address += opcodeSize;
     }
 }
 
-void Translator::TranslateARM(uint32_t opcode, State &state) {
+void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
     const CPUArch arch = m_context.GetCPUArch();
     const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
-    auto handle = state.GetHandle();
 
     const uint32_t op = bit::extract<25, 3>(opcode);
     const uint32_t bits24to20 = bit::extract<20, 5>(opcode);
@@ -77,27 +91,27 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
 
     if (arch == CPUArch::ARMv5TE && cond == Condition::NV) {
         switch (op) {
-        case 0b000: Translate(arm_decoder::Undefined(), handle); break;
-        case 0b001: Translate(arm_decoder::Undefined(), handle); break;
-        case 0b100: Translate(arm_decoder::Undefined(), handle); break;
+        case 0b000: Translate(arm_decoder::Undefined(), emitter); break;
+        case 0b001: Translate(arm_decoder::Undefined(), emitter); break;
+        case 0b100: Translate(arm_decoder::Undefined(), emitter); break;
         case 0b010: [[fallthrough]];
         case 0b011:
             if ((bits24to20 & 0b1'0111) == 0b1'0101) {
-                Translate(arm_decoder::Preload(opcode), handle);
+                Translate(arm_decoder::Preload(opcode), emitter);
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
             break;
-        case 0b110: Translate(arm_decoder::CopDataTransfer(opcode, true), handle); break;
+        case 0b110: Translate(arm_decoder::CopDataTransfer(opcode, true), emitter); break;
         case 0b111:
             if (!bit::test<24>(opcode)) {
                 if (bit::test<4>(opcode)) {
-                    Translate(arm_decoder::CopRegTransfer(opcode, true), handle);
+                    Translate(arm_decoder::CopRegTransfer(opcode, true), emitter);
                 } else {
-                    Translate(arm_decoder::CopDataOperations(opcode, true), handle);
+                    Translate(arm_decoder::CopDataOperations(opcode, true), emitter);
                 }
             } else if (bit::test<8>(opcode)) {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
             break;
         }
@@ -106,138 +120,137 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
     switch (op) {
     case 0b000:
         if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
-            Translate(arm_decoder::BranchExchangeRegister(opcode), handle);
+            Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::BranchExchangeRegister(opcode), handle);
+                Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1111) == 0b1'0110 && (bits7to4 & 0b1111) == 0b0001) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::CountLeadingZeros(opcode), handle);
+                Translate(arm_decoder::CountLeadingZeros(opcode), emitter);
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0111) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::SoftwareBreakpoint(opcode), handle);
+                Translate(arm_decoder::SoftwareBreakpoint(opcode), emitter);
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0101) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::SaturatingAddSub(opcode), handle);
+                Translate(arm_decoder::SaturatingAddSub(opcode), emitter);
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1001) == 0b1000) {
             if (arch == CPUArch::ARMv5TE) {
                 const uint8_t op = bit::extract<21, 2>(opcode);
                 switch (op) {
                 case 0b00: [[fallthrough]];
-                case 0b11: Translate(arm_decoder::SignedMultiplyAccumulate(opcode), handle); break;
-                case 0b01: Translate(arm_decoder::SignedMultiplyAccumulateWord(opcode), handle); break;
-                case 0b10: Translate(arm_decoder::SignedMultiplyAccumulateLong(opcode), handle); break;
+                case 0b11: Translate(arm_decoder::SignedMultiplyAccumulate(opcode), emitter); break;
+                case 0b01: Translate(arm_decoder::SignedMultiplyAccumulateWord(opcode), emitter); break;
+                case 0b10: Translate(arm_decoder::SignedMultiplyAccumulateLong(opcode), emitter); break;
                 }
             } else {
-                Translate(arm_decoder::Undefined(), handle);
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1100) == 0b0'0000 && (bits7to4 & 0b1111) == 0b1001) {
-            Translate(arm_decoder::MultiplyAccumulate(opcode), handle);
+            Translate(arm_decoder::MultiplyAccumulate(opcode), emitter);
         } else if ((bits24to20 & 0b1'1000) == 0b0'1000 && (bits7to4 & 0b1111) == 0b1001) {
-            Translate(arm_decoder::MultiplyAccumulateLong(opcode), handle);
+            Translate(arm_decoder::MultiplyAccumulateLong(opcode), emitter);
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000 && (bits7to4 & 0b1111) == 0b1001) {
-            Translate(arm_decoder::SingleDataSwap(opcode), handle);
+            Translate(arm_decoder::SingleDataSwap(opcode), emitter);
         } else if ((bits7to4 & 0b1001) == 0b1001) {
             const bool bit12 = bit::test<12>(opcode);
             const bool l = bit::test<20>(opcode);
             const bool s = bit::test<6>(opcode);
             const bool h = bit::test<5>(opcode);
             if (l) {
-                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
+                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
             } else if (s && h) {
                 if (arch == CPUArch::ARMv5TE && bit12) {
-                    Translate(arm_decoder::Undefined(), handle);
+                    Translate(arm_decoder::Undefined(), emitter);
                 } else {
-                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
+                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
                 }
             } else if (s) {
                 if (arch == CPUArch::ARMv5TE && bit12) {
-                    Translate(arm_decoder::Undefined(), handle);
+                    Translate(arm_decoder::Undefined(), emitter);
                 } else {
-                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
+                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
                 }
             } else if (h) {
-                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), handle);
+                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
             }
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0000) {
-            Translate(arm_decoder::PSRRead(opcode), handle);
+            Translate(arm_decoder::PSRRead(opcode), emitter);
         } else if ((bits24to20 & 0b1'1011) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0000) {
-            Translate(arm_decoder::PSRWrite(opcode), handle);
+            Translate(arm_decoder::PSRWrite(opcode), emitter);
         } else {
-            Translate(arm_decoder::DataProcessing(opcode), handle);
+            Translate(arm_decoder::DataProcessing(opcode), emitter);
         }
         break;
     case 0b001:
         if ((bits24to20 & 0b1'1011) == 0b1'0010) {
-            Translate(arm_decoder::PSRWrite(opcode), handle);
+            Translate(arm_decoder::PSRWrite(opcode), emitter);
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000) {
-            Translate(arm_decoder::Undefined(), handle);
+            Translate(arm_decoder::Undefined(), emitter);
         } else {
-            Translate(arm_decoder::DataProcessing(opcode), handle);
+            Translate(arm_decoder::DataProcessing(opcode), emitter);
         }
         break;
     case 0b010:
     case 0b011:
         if (bit::test<0>(op) && bit::test<0>(bits7to4)) {
-            Translate(arm_decoder::Undefined(), handle);
+            Translate(arm_decoder::Undefined(), emitter);
         } else {
-            Translate(arm_decoder::SingleDataTransfer(opcode), handle);
+            Translate(arm_decoder::SingleDataTransfer(opcode), emitter);
         }
         break;
-    case 0b100: Translate(arm_decoder::BlockTransfer(opcode), handle); break;
+    case 0b100: Translate(arm_decoder::BlockTransfer(opcode), emitter); break;
     case 0b101: {
         const bool switchToThumb = (arch == CPUArch::ARMv5TE) && (cond == Condition::NV);
-        Translate(arm_decoder::BranchOffset(opcode, switchToThumb), handle);
+        Translate(arm_decoder::BranchOffset(opcode, switchToThumb), emitter);
         break;
     }
     case 0b110:
         if (arch == CPUArch::ARMv5TE && (bits24to20 & 0b1'1110) == 0b0'0100) {
-            Translate(arm_decoder::CopDualRegTransfer(opcode), handle);
+            Translate(arm_decoder::CopDualRegTransfer(opcode), emitter);
         } else {
-            Translate(arm_decoder::CopDataTransfer(opcode, false), handle);
+            Translate(arm_decoder::CopDataTransfer(opcode, false), emitter);
         }
         break;
     case 0b111: {
         if (bit::test<24>(opcode)) {
-            Translate(arm_decoder::SoftwareInterrupt(opcode), handle);
+            Translate(arm_decoder::SoftwareInterrupt(opcode), emitter);
         } else if (bit::test<4>(opcode)) {
-            Translate(arm_decoder::CopRegTransfer(opcode, false), handle);
+            Translate(arm_decoder::CopRegTransfer(opcode, false), emitter);
         } else {
-            Translate(arm_decoder::CopDataOperations(opcode, false), handle);
+            Translate(arm_decoder::CopDataOperations(opcode, false), emitter);
         }
         break;
     }
     }
 }
 
-void Translator::TranslateThumb(uint16_t opcode, State &state) {
+void Translator::TranslateThumb(uint16_t opcode, Emitter &emitter) {
     const CPUArch arch = m_context.GetCPUArch();
-    auto handle = state.GetHandle();
 
     const uint8_t group = bit::extract<12, 4>(opcode);
     switch (group) {
     case 0b0000: [[fallthrough]];
     case 0b0001:
         if (bit::extract<11, 2>(opcode) == 0b11) {
-            Translate(thumb_decoder::AddSubRegImm(opcode), handle);
+            Translate(thumb_decoder::AddSubRegImm(opcode), emitter);
         } else {
-            Translate(thumb_decoder::ShiftByImm(opcode), handle);
+            Translate(thumb_decoder::ShiftByImm(opcode), emitter);
         }
         break;
     case 0b0010: [[fallthrough]];
-    case 0b0011: Translate(thumb_decoder::MovCmpAddSubImm(opcode), handle); break;
+    case 0b0011: Translate(thumb_decoder::MovCmpAddSubImm(opcode), emitter); break;
     case 0b0100:
         switch (bit::extract<10, 2>(opcode)) {
         case 0b00: {
@@ -245,71 +258,71 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
 
             const auto op = bit::extract<6, 4>(opcode);
             switch (op) {
-            case 0x0 /*AND*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::AND), handle); break;
-            case 0x1 /*EOR*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::EOR), handle); break;
-            case 0x2 /*LSL*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::LSL), handle); break;
-            case 0x3 /*LSR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::LSR), handle); break;
-            case 0x4 /*ASR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::ASR), handle); break;
-            case 0x5 /*ADC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::ADC), handle); break;
-            case 0x6 /*SBC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::SBC), handle); break;
-            case 0x7 /*ROR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::ROR), handle); break;
-            case 0x8 /*TST*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::TST), handle); break;
-            case 0x9 /*NEG*/: Translate(thumb_decoder::DataProcessingNegate(opcode), handle); break;
-            case 0xA /*CMP*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::CMP), handle); break;
-            case 0xB /*CMN*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::CMN), handle); break;
-            case 0xC /*ORR*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::ORR), handle); break;
-            case 0xD /*MUL*/: Translate(thumb_decoder::DataProcessingMultiply(opcode), handle); break;
-            case 0xE /*BIC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::BIC), handle); break;
-            case 0xF /*MVN*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::MVN), handle); break;
+            case 0x0 /*AND*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::AND), emitter); break;
+            case 0x1 /*EOR*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::EOR), emitter); break;
+            case 0x2 /*LSL*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::LSL), emitter); break;
+            case 0x3 /*LSR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::LSR), emitter); break;
+            case 0x4 /*ASR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::ASR), emitter); break;
+            case 0x5 /*ADC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::ADC), emitter); break;
+            case 0x6 /*SBC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::SBC), emitter); break;
+            case 0x7 /*ROR*/: Translate(thumb_decoder::DataProcessingShift(opcode, ShiftType::ROR), emitter); break;
+            case 0x8 /*TST*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::TST), emitter); break;
+            case 0x9 /*NEG*/: Translate(thumb_decoder::DataProcessingNegate(opcode), emitter); break;
+            case 0xA /*CMP*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::CMP), emitter); break;
+            case 0xB /*CMN*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::CMN), emitter); break;
+            case 0xC /*ORR*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::ORR), emitter); break;
+            case 0xD /*MUL*/: Translate(thumb_decoder::DataProcessingMultiply(opcode), emitter); break;
+            case 0xE /*BIC*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::BIC), emitter); break;
+            case 0xF /*MVN*/: Translate(thumb_decoder::DataProcessingStandard(opcode, DPOpcode::MVN), emitter); break;
             }
             break;
         }
         case 0b01:
             if (bit::extract<8, 2>(opcode) == 0b11) {
                 const bool link = (arch == CPUArch::ARMv5TE) && bit::test<7>(opcode);
-                Translate(thumb_decoder::HiRegBranchExchange(opcode, link), handle);
+                Translate(thumb_decoder::HiRegBranchExchange(opcode, link), emitter);
             } else {
-                Translate(thumb_decoder::HiRegOps(opcode), handle);
+                Translate(thumb_decoder::HiRegOps(opcode), emitter);
             }
             break;
-        default: Translate(thumb_decoder::PCRelativeLoad(opcode), handle); break;
+        default: Translate(thumb_decoder::PCRelativeLoad(opcode), emitter); break;
         }
         break;
     case 0b0101:
         if (bit::test<9>(opcode)) {
-            Translate(thumb_decoder::LoadStoreHalfRegOffset(opcode), handle);
+            Translate(thumb_decoder::LoadStoreHalfRegOffset(opcode), emitter);
         } else {
-            Translate(thumb_decoder::LoadStoreByteWordRegOffset(opcode), handle);
+            Translate(thumb_decoder::LoadStoreByteWordRegOffset(opcode), emitter);
         }
         break;
     case 0b0110: [[fallthrough]];
-    case 0b0111: Translate(thumb_decoder::LoadStoreByteWordImmOffset(opcode), handle); break;
-    case 0b1000: Translate(thumb_decoder::LoadStoreHalfImmOffset(opcode), handle); break;
-    case 0b1001: Translate(thumb_decoder::SPRelativeLoadStore(opcode), handle); break;
-    case 0b1010: Translate(thumb_decoder::AddToSPOrPC(opcode), handle); break;
+    case 0b0111: Translate(thumb_decoder::LoadStoreByteWordImmOffset(opcode), emitter); break;
+    case 0b1000: Translate(thumb_decoder::LoadStoreHalfImmOffset(opcode), emitter); break;
+    case 0b1001: Translate(thumb_decoder::SPRelativeLoadStore(opcode), emitter); break;
+    case 0b1010: Translate(thumb_decoder::AddToSPOrPC(opcode), emitter); break;
     case 0b1011:
         switch (bit::extract<8, 4>(opcode)) {
-        case 0b0000: Translate(thumb_decoder::AdjustSP(opcode), handle); break;
+        case 0b0000: Translate(thumb_decoder::AdjustSP(opcode), emitter); break;
         case 0b1110:
             if (arch == CPUArch::ARMv5TE) {
-                Translate(thumb_decoder::SoftwareBreakpoint(), handle);
+                Translate(thumb_decoder::SoftwareBreakpoint(), emitter);
             } else {
-                Translate(thumb_decoder::Undefined(), handle);
+                Translate(thumb_decoder::Undefined(), emitter);
             }
             break;
         case 0b0100: [[fallthrough]];
         case 0b0101: [[fallthrough]];
         case 0b1100: [[fallthrough]];
-        case 0b1101: Translate(thumb_decoder::PushPop(opcode), handle); break;
-        default: Translate(thumb_decoder::Undefined(), handle); break;
+        case 0b1101: Translate(thumb_decoder::PushPop(opcode), emitter); break;
+        default: Translate(thumb_decoder::Undefined(), emitter); break;
         }
         break;
-    case 0b1100: Translate(thumb_decoder::LoadStoreMultiple(opcode), handle); break;
+    case 0b1100: Translate(thumb_decoder::LoadStoreMultiple(opcode), emitter); break;
     case 0b1101:
         switch (bit::extract<8, 4>(opcode)) {
-        case 0b1110: Translate(thumb_decoder::Undefined(), handle); break;
-        case 0b1111: Translate(thumb_decoder::SoftwareInterrupt(opcode), handle); break;
-        default: Translate(thumb_decoder::ConditionalBranch(opcode), handle); break;
+        case 0b1110: Translate(thumb_decoder::Undefined(), emitter); break;
+        case 0b1111: Translate(thumb_decoder::SoftwareInterrupt(opcode), emitter); break;
+        default: Translate(thumb_decoder::ConditionalBranch(opcode), emitter); break;
         }
         break;
     case 0b1110:
@@ -317,28 +330,26 @@ void Translator::TranslateThumb(uint16_t opcode, State &state) {
             const bool blx = bit::test<11>(opcode);
             if (blx) {
                 if (bit::test<0>(opcode)) {
-                    Translate(thumb_decoder::Undefined(), handle);
+                    Translate(thumb_decoder::Undefined(), emitter);
                 } else {
-                    Translate(thumb_decoder::LongBranchSuffix(opcode, true), handle);
+                    Translate(thumb_decoder::LongBranchSuffix(opcode, true), emitter);
                 }
             }
         } else {
-            Translate(thumb_decoder::UnconditionalBranch(opcode), handle);
+            Translate(thumb_decoder::UnconditionalBranch(opcode), emitter);
         }
         break;
     case 0b1111:
         if (bit::test<11>(opcode)) {
-            Translate(thumb_decoder::LongBranchSuffix(opcode, false), handle);
+            Translate(thumb_decoder::LongBranchSuffix(opcode, false), emitter);
         } else {
-            Translate(thumb_decoder::LongBranchPrefix(opcode), handle);
+            Translate(thumb_decoder::LongBranchPrefix(opcode), emitter);
         }
         break;
     }
 }
 
-void Translator::Translate(const BranchOffset &instr, State::Handle state) {
-    auto &emitter = state.GetEmitter();
-
+void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
     const bool thumb = emitter.IsThumbMode();
     uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
 
@@ -361,12 +372,10 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
     }
 
     // TODO: set block branch target
-    state.EndBlock();
+    m_endBlock = true;
 }
 
-void Translator::Translate(const BranchExchangeRegister &instr, State::Handle state) {
-    auto &emitter = state.GetEmitter();
-
+void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter) {
     const bool thumb = emitter.IsThumbMode();
 
     if (instr.link) {
@@ -384,12 +393,10 @@ void Translator::Translate(const BranchExchangeRegister &instr, State::Handle st
     emitter.SetRegister(GPR::PC, targetPC);
 
     // TODO: set block branch target
-    state.EndBlock();
+    m_endBlock = true;
 }
 
-void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle state) {
-    auto &emitter = state.GetEmitter();
-
+void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter) {
     auto lr = emitter.GetRegister(GPR::LR);
     auto targetAddrBase = emitter.Add(lr, instr.offset, false);
 
@@ -408,16 +415,14 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle sta
     emitter.SetRegister(GPR::PC, targetAddr);
 
     // TODO: set block branch target
-    state.EndBlock();
+    m_endBlock = true;
 }
 
-void Translator::Translate(const DataProcessing &instr, State::Handle state) {
+void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) {
-    auto &emitter = state.GetEmitter();
-
+void Translator::Translate(const CountLeadingZeros &instr, Emitter &emitter) {
     auto arg = emitter.GetRegister(instr.argReg);
     auto result = emitter.CountLeadingZeros(arg);
     emitter.SetRegister(instr.dstReg, result);
@@ -425,83 +430,83 @@ void Translator::Translate(const CountLeadingZeros &instr, State::Handle state) 
     emitter.FetchInstruction();
 }
 
-void Translator::Translate(const SaturatingAddSub &instr, State::Handle state) {
+void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const MultiplyAccumulate &instr, State::Handle state) {
+void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const MultiplyAccumulateLong &instr, State::Handle state) {
+void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SignedMultiplyAccumulate &instr, State::Handle state) {
+void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SignedMultiplyAccumulateWord &instr, State::Handle state) {
+void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SignedMultiplyAccumulateLong &instr, State::Handle state) {
+void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const PSRRead &instr, State::Handle state) {
+void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const PSRWrite &instr, State::Handle state) {
+void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SingleDataTransfer &instr, State::Handle state) {
+void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const HalfwordAndSignedTransfer &instr, State::Handle state) {
+void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const BlockTransfer &instr, State::Handle state) {
+void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SingleDataSwap &instr, State::Handle state) {
+void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SoftwareInterrupt &instr, State::Handle state) {
+void Translator::Translate(const SoftwareInterrupt &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const SoftwareBreakpoint &instr, State::Handle state) {
+void Translator::Translate(const SoftwareBreakpoint &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const Preload &instr, State::Handle state) {
+void Translator::Translate(const Preload &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const CopDataOperations &instr, State::Handle state) {
+void Translator::Translate(const CopDataOperations &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const CopDataTransfer &instr, State::Handle state) {
+void Translator::Translate(const CopDataTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const CopRegTransfer &instr, State::Handle state) {
+void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const CopDualRegTransfer &instr, State::Handle state) {
+void Translator::Translate(const CopDualRegTransfer &instr, Emitter &emitter) {
     // TODO: implement
 }
 
-void Translator::Translate(const Undefined &instr, State::Handle state) {
+void Translator::Translate(const Undefined &instr, Emitter &emitter) {
     // TODO: implement
 }
 
