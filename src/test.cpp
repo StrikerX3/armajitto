@@ -139,17 +139,24 @@ void testCPUID() {
 void testTranslator() {
     System sys{};
 
+    // bool thumb = false;
     // sys.ROMWriteWord(0x0100, 0xE16F2F13); // clz r2, r3
     // sys.ROMWriteWord(0x0100, 0xEAFFFFFE); // b $
     // sys.ROMWriteWord(0x0100, 0xEBFFFFFE); // bl $
     // sys.ROMWriteWord(0x0100, 0xFAFFFFFE); // blx $
+    // sys.ROMWriteWord(0x0100, 0xE12FFF11); // bx r1
+    // sys.ROMWriteWord(0x0100, 0xE12FFF31); // blx r1
+
+    bool thumb = true;
     // sys.ROMWriteHalf(0x0100, 0xF7FF); // blx $ (prefix)
     // sys.ROMWriteHalf(0x0102, 0xFEEF); // blx $ (suffix)
     // sys.ROMWriteHalf(0x0100, 0xD0FE); // beq $
-    sys.ROMWriteHalf(0x0100, 0xE7FE); // b $
+    // sys.ROMWriteHalf(0x0100, 0xE7FE); // b $
+    // sys.ROMWriteHalf(0x0100, 0x4708); // bx r1
+    sys.ROMWriteHalf(0x0100, 0x4788); // blx r1
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
-    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, true}};
+    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};
 
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,

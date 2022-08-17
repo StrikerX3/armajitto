@@ -48,7 +48,7 @@ namespace instrs {
     // link  opcode
     //   -   BX
     //   +   BLX
-    struct BranchRegister {
+    struct BranchExchangeRegister {
         uint8_t reg;
         bool link;
     };

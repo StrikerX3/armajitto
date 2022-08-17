@@ -107,10 +107,10 @@ void Translator::TranslateARM(uint32_t opcode, State &state) {
     switch (op) {
     case 0b000:
         if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
-            Translate(arm_decoder::BranchRegister(opcode), handle);
+            Translate(arm_decoder::BranchExchangeRegister(opcode), handle);
         } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
             if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::BranchRegister(opcode), handle);
+                Translate(arm_decoder::BranchExchangeRegister(opcode), handle);
             } else {
                 Translate(arm_decoder::Undefined(), handle);
             }
@@ -352,8 +352,7 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
     uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
 
     if (instr.IsLink()) {
-        // This is always an ARM instruction
-        uint32_t linkAddress = emitter.CurrentInstructionAddress() + sizeof(uint32_t);
+        uint32_t linkAddress = emitter.CurrentInstructionAddress() + emitter.InstructionSize();
         if (thumb) {
             linkAddress |= 1;
         }
@@ -382,8 +381,31 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
     state.EndBlock();
 }
 
-void Translator::Translate(const BranchRegister &instr, State::Handle state) {
-    // TODO: implement
+void Translator::Translate(const BranchExchangeRegister &instr, State::Handle state) {
+    auto &emitter = state.GetEmitter();
+
+    const bool thumb = emitter.IsThumbMode();
+
+    if (instr.link) {
+        uint32_t linkAddress = emitter.CurrentInstructionAddress() + emitter.InstructionSize();
+        if (thumb) {
+            linkAddress |= 1;
+        }
+        emitter.SetRegister(14, linkAddress);
+    }
+
+    auto addrVar = emitter.Var("addr");
+    auto dstPC = emitter.Var("dst_pc");
+    auto dstCPSR = emitter.Var("dst_cpsr");
+    auto srcCPSR = emitter.Var("src_cpsr");
+    emitter.GetRegister(addrVar, instr.reg);
+    emitter.GetCPSR(srcCPSR);
+    emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, addrVar);
+    emitter.SetCPSR(dstCPSR);
+    emitter.SetRegister(15, dstPC);
+
+    // TODO: set block branch target
+    state.EndBlock();
 }
 
 void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle state) {

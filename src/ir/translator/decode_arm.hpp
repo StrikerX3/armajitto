@@ -59,8 +59,8 @@ inline auto BranchOffset(uint32_t opcode, bool switchToThumb) {
 }
 
 // BX,BLX (register)
-inline auto BranchRegister(uint32_t opcode) {
-    arm::instrs::BranchRegister instr{};
+inline auto BranchExchangeRegister(uint32_t opcode) {
+    arm::instrs::BranchExchangeRegister instr{};
 
     instr.reg = bit::extract<0, 4>(opcode);
     instr.link = bit::test<5>(opcode);

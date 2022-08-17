@@ -86,7 +86,7 @@ private:
     void TranslateThumb(uint16_t opcode, State &state);
 
     void Translate(const arm::instrs::BranchOffset &instr, State::Handle state);
-    void Translate(const arm::instrs::BranchRegister &instr, State::Handle state);
+    void Translate(const arm::instrs::BranchExchangeRegister &instr, State::Handle state);
     void Translate(const arm::instrs::ThumbLongBranchSuffix &instr, State::Handle state);
     void Translate(const arm::instrs::DataProcessing &instr, State::Handle state);
     void Translate(const arm::instrs::CountLeadingZeros &instr, State::Handle state);

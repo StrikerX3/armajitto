@@ -155,7 +155,7 @@ inline auto HiRegOps(uint16_t opcode) {
 }
 
 inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
-    arm::instrs::BranchRegister instr{};
+    arm::instrs::BranchExchangeRegister instr{};
 
     const uint8_t h2 = bit::extract<6>(opcode);
     instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
