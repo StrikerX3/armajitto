@@ -406,7 +406,13 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
 }
 
 void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
-    auto lhs = emitter.GetRegister(instr.lhsReg);
+    using Opcode = DataProcessing::Opcode;
+
+    Variable lhs;
+    if (instr.opcode != Opcode::MOV && instr.opcode != Opcode::MVN) {
+        lhs = emitter.GetRegister(instr.lhsReg);
+    }
+
     VarOrImmArg rhs;
     if (instr.immediate) {
         rhs = instr.rhs.imm;
@@ -421,7 +427,6 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     // Perform the selected ALU operation
-    using Opcode = DataProcessing::Opcode;
     Variable result;
     switch (instr.opcode) {
     case Opcode::AND: result = emitter.BitwiseAnd(lhs, rhs, instr.setFlags); break;
