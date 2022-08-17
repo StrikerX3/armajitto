@@ -546,7 +546,26 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
 }
 
 void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitter) {
-    // TODO: implement
+    auto selectHalf = [&](GPR gpr, bool top) {
+        auto value = emitter.GetRegister(gpr);
+        if (!top) {
+            value = emitter.LogicalShiftLeft(value, 16, false);
+        }
+        return emitter.ArithmeticShiftRight(value, 16, false);
+    };
+
+    auto lhs = selectHalf(instr.lhsReg, instr.x);
+    auto rhs = selectHalf(instr.rhsReg, instr.y);
+
+    auto result = emitter.Multiply(lhs, rhs, true, false);
+    if (instr.accumulate) {
+        auto acc = emitter.GetRegister(instr.accReg);
+        result = emitter.Add(result, acc, true);
+        emitter.UpdateStickyOverflow();
+    }
+    emitter.SetRegister(instr.dstReg, result);
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &emitter) {
