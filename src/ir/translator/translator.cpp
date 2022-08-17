@@ -707,9 +707,10 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
             value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
         }
 
-        emitter.SetRegister(gpr, value);
         if (isPC) {
             pcValue = value;
+        } else {
+            emitter.SetRegister(gpr, value);
         }
     } else {
         if (isPC) {
@@ -729,14 +730,16 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     if (!instr.load || instr.reg != instr.address.baseReg) {
         if (!instr.preindexed) {
             address = emitter.ApplyAddressOffset(address, instr.address);
-            emitter.SetRegister(instr.address.baseReg, address);
             if (instr.address.baseReg == GPR::PC) {
                 pcValue = address;
+            } else {
+                emitter.SetRegister(instr.address.baseReg, address);
             }
         } else if (instr.writeback) {
-            emitter.SetRegister(instr.address.baseReg, address);
             if (instr.address.baseReg == GPR::PC) {
                 pcValue = address;
+            } else {
+                emitter.SetRegister(instr.address.baseReg, address);
             }
         }
     }
@@ -795,9 +798,10 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             // SWP/SWPB, not handled here
             // TODO: unreachable
         }
-        emitter.SetRegister(instr.reg, value);
         if (instr.reg == GPR::PC) {
             pcValue = value;
+        } else {
+            emitter.SetRegister(instr.reg, value);
         }
         writeback = (instr.baseReg != instr.reg);
     } else {
@@ -817,9 +821,10 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             auto value1 = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
             auto value2 = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address2);
             emitter.SetRegister(instr.reg, value1);
-            emitter.SetRegister(nextReg, value2);
             if (nextReg == GPR::PC) {
                 pcValue = value2;
+            } else {
+                emitter.SetRegister(nextReg, value2);
             }
             writeback = (instr.baseReg != nextReg);
         } else if (instr.half) {
@@ -841,22 +846,23 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
     // Write back address if requested
     if (writeback) {
         if (!instr.preindexed) {
-            auto value = emitter.GetRegister(instr.baseReg);
             if (offset.IsPresent()) {
                 if (instr.positiveOffset) {
-                    value = emitter.Add(value, offset, false);
+                    address = emitter.Add(address, offset, false);
                 } else {
-                    value = emitter.Subtract(value, offset, false);
+                    address = emitter.Subtract(address, offset, false);
                 }
             }
-            emitter.SetRegister(instr.baseReg, address);
             if (instr.baseReg == GPR::PC) {
                 pcValue = address;
+            } else {
+                emitter.SetRegister(instr.baseReg, address);
             }
         } else if (instr.writeback) {
-            emitter.SetRegister(instr.baseReg, address);
             if (instr.baseReg == GPR::PC) {
                 pcValue = address;
+            } else {
+                emitter.SetRegister(instr.baseReg, address);
             }
         }
     }

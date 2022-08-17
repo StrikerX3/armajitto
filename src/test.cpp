@@ -164,6 +164,16 @@ void testTranslator() {
     // writeARM(0xE12FFF11); // bx r1
     // writeARM(0xE12FFF31); // blx r1
 
+    // Thumb branches
+    // writeThumb(0xF7FF); // bl $ (prefix)
+    // writeThumb(0xFFFE); // bl $ (suffix)
+    // writeThumb(0xF7FF); // blx $ (prefix)
+    // writeThumb(0xEFFE); // blx $ (suffix)
+    // writeThumb(0xD0FE); // beq $
+    // writeThumb(0xE7FE); // b $
+    // writeThumb(0x4708); // bx r1
+    // writeThumb(0x4788); // blx r1
+
     // ARM ALU operations
     // writeARM(0xE0121003); // ands r1, r2, r3
     // writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
@@ -273,7 +283,7 @@ void testTranslator() {
     // writeARM(0xE1D020D1); // ldrsb r2, [r0, #1]
     // writeARM(0xE1D030F2); // ldrsh r3, [r0, #2]
     // writeARM(0xE1C040D0); // ldrd r4, r5, [r0]
-    writeARM(0xE1C041F0); // strd r4, r5, [r0, #16]
+    // writeARM(0xE1C041F0); // strd r4, r5, [r0, #16]
     // writeARM(0xE1D060B2); // ldrh r6, [r0, #2]
     // writeARM(0xE19070B5); // ldrh r7, [r0, r5]
     // writeARM(0xE1F080B2); // ldrh r8, [r0, #2]!
@@ -284,18 +294,8 @@ void testTranslator() {
     // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
     // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
     // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
-    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
     writeARM(0xEAFFFFFE); // b $
-
-    // Thumb branches
-    // writeThumb(0xF7FF); // bl $ (prefix)
-    // writeThumb(0xFFFE); // bl $ (suffix)
-    // writeThumb(0xF7FF); // blx $ (prefix)
-    // writeThumb(0xEFFE); // blx $ (suffix)
-    // writeThumb(0xD0FE); // beq $
-    // writeThumb(0xE7FE); // b $
-    // writeThumb(0x4708); // bx r1
-    // writeThumb(0x4788); // blx r1
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};
