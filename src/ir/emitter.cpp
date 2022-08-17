@@ -13,9 +13,13 @@ void Emitter::SetCondition(arm::Condition cond) {
 }
 
 Variable Emitter::GetRegister(GPR src) {
-    auto dst = Var();
-    AppendOp<IRGetRegisterOp>(dst, src);
-    return dst;
+    if (src == GPR::PC) {
+        return Constant(CurrentPC());
+    } else {
+        auto dst = Var();
+        AppendOp<IRGetRegisterOp>(dst, src);
+        return dst;
+    }
 }
 
 void Emitter::SetRegister(GPR dst, VarOrImmArg src) {
@@ -250,24 +254,28 @@ Variable Emitter::Constant(uint32_t value) {
     return dst;
 }
 
-Variable Emitter::ComputeAddress(const arm::Addressing &addr) {
-    auto baseReg = GetRegister(addr.baseReg);
-    if (addr.immediate) {
-        if (addr.immValue == 0) {
-            return baseReg;
+Variable Emitter::ComputeAddress(const arm::Addressing &addressing) {
+    auto baseReg = GetRegister(addressing.baseReg);
+    return ApplyAddressOffset(baseReg, addressing);
+}
+
+Variable Emitter::ApplyAddressOffset(Variable baseAddress, const arm::Addressing &addressing) {
+    if (addressing.immediate) {
+        if (addressing.immValue == 0) {
+            return baseAddress;
         } else {
-            if (addr.positiveOffset) {
-                return Add(baseReg, addr.immValue, false);
+            if (addressing.positiveOffset) {
+                return Add(baseAddress, addressing.immValue, false);
             } else {
-                return Subtract(baseReg, addr.immValue, false);
+                return Subtract(baseAddress, addressing.immValue, false);
             }
         }
     } else {
-        auto shiftValue = BarrelShifter(addr.shift, false);
-        if (addr.positiveOffset) {
-            return Add(baseReg, shiftValue, false);
+        auto shiftValue = BarrelShifter(addressing.shift, false);
+        if (addressing.positiveOffset) {
+            return Add(baseAddress, shiftValue, false);
         } else {
-            return Subtract(baseReg, shiftValue, false);
+            return Subtract(baseAddress, shiftValue, false);
         }
     }
 }

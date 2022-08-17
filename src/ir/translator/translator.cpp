@@ -705,7 +705,7 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
         }
     } else {
         if (isPC) {
-            value = emitter.Constant(emitter.CurrentInstructionAddress() + emitter.InstructionSize());
+            value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
         } else {
             value = emitter.GetRegister(gpr);
         }
@@ -720,7 +720,7 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     // Write back address if requested
     if (!instr.load || instr.reg != instr.address.baseReg) {
         if (!instr.preindexed) {
-            address = emitter.ComputeAddress(instr.address);
+            address = emitter.ApplyAddressOffset(address, instr.address);
             emitter.SetRegister(instr.address.baseReg, address);
             if (instr.address.baseReg == GPR::PC) {
                 pcValue = address;
@@ -745,6 +745,7 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
         } else {
             emitter.Branch(pcValue);
         }
+        m_endBlock = true;
     } else {
         emitter.FetchInstruction();
     }
