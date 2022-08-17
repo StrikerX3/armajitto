@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/ir/defs/arg_refs.hpp"
+#include "armajitto/ir/defs/arguments.hpp"
 #include "ir_ops_base.hpp"
 
 namespace armajitto::ir {
@@ -11,9 +11,9 @@ namespace armajitto::ir {
 // Copies the value of the <src> GPR into <dst>.
 struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
     VariableArg dst;
-    GPRArg src;
+    GPR src;
 
-    IRGetRegisterOp(VariableArg dst, GPRArg src)
+    IRGetRegisterOp(VariableArg dst, GPR src)
         : dst(dst)
         , src(src) {}
 };
@@ -23,10 +23,10 @@ struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
 //
 // Copies the value of <src> into the <dst> GPR.
 struct IRSetRegisterOp : public IROpBase<IROpcodeType::SetRegister> {
-    GPRArg dst;
+    GPR dst;
     VarOrImmArg src;
 
-    IRSetRegisterOp(GPRArg dst, VarOrImmArg src)
+    IRSetRegisterOp(GPR dst, VarOrImmArg src)
         : dst(dst)
         , src(src) {}
 };

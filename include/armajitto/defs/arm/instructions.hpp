@@ -1,5 +1,7 @@
 #pragma once
 
+#include "gpr.hpp"
+
 #include <cstdint>
 
 namespace armajitto::arm {
@@ -10,17 +12,17 @@ enum class ShiftType : uint8_t { LSL, LSR, ASR, ROR };
 struct RegisterSpecifiedShift {
     ShiftType type;
     bool immediate;
-    uint8_t srcReg;
+    GPR srcReg;
     union {
         uint8_t imm; // when immediate == true
-        uint8_t reg; // when immediate == false
+        GPR reg;     // when immediate == false
     } amount;
 };
 
 struct AddressingOffset {
     bool immediate;      // *inverted* I bit
     bool positiveOffset; // U bit
-    uint8_t baseReg;
+    GPR baseReg;
     union {
         uint16_t immValue;            // when immediate == true
         RegisterSpecifiedShift shift; // when immediate == false
@@ -49,7 +51,7 @@ namespace instrs {
     //   -   BX
     //   +   BLX
     struct BranchExchangeRegister {
-        uint8_t reg;
+        GPR reg;
         bool link;
     };
 
@@ -69,8 +71,8 @@ namespace instrs {
         Opcode opcode;
         bool immediate;
         bool setFlags;
-        uint8_t dstReg; // Rd
-        uint8_t lhsReg; // Rn
+        GPR dstReg; // Rd
+        GPR lhsReg; // Rn
         union {
             uint32_t imm;                 // (when immediate == true)
             RegisterSpecifiedShift shift; // (when immediate == false)
@@ -79,8 +81,8 @@ namespace instrs {
 
     // CLZ
     struct CountLeadingZeros {
-        uint8_t dstReg; // Rd
-        uint8_t argReg; // Rm
+        GPR dstReg; // Rd
+        GPR argReg; // Rm
     };
 
     // QADD,QSUB,QDADD,QDSUB
@@ -90,9 +92,9 @@ namespace instrs {
     //  +   -   QSUB
     //  +   +   QDSUB
     struct SaturatingAddSub {
-        uint8_t dstReg; // Rd
-        uint8_t lhsReg; // Rm
-        uint8_t rhsReg; // Rn
+        GPR dstReg; // Rd
+        GPR lhsReg; // Rm
+        GPR rhsReg; // Rn
         bool sub;
         bool dbl;
     };
@@ -102,10 +104,10 @@ namespace instrs {
     //      -      MUL
     //      +      MLA
     struct MultiplyAccumulate {
-        uint8_t dstReg; // Rd
-        uint8_t lhsReg; // Rm
-        uint8_t rhsReg; // Rs
-        uint8_t accReg; // Rn (when accumulate == true)
+        GPR dstReg; // Rd
+        GPR lhsReg; // Rm
+        GPR rhsReg; // Rs
+        GPR accReg; // Rn (when accumulate == true)
         bool accumulate;
         bool setFlags; // S bit
     };
@@ -117,10 +119,10 @@ namespace instrs {
     //     +          -      SMULL
     //     +          +      SMLAL
     struct MultiplyAccumulateLong {
-        uint8_t dstAccLoReg; // RdHi (also accumulator when accumulate == true)
-        uint8_t dstAccHiReg; // RdLo (also accumulator when accumulate == true)
-        uint8_t lhsReg;      // Rm
-        uint8_t rhsReg;      // Rs
+        GPR dstAccLoReg; // RdHi (also accumulator when accumulate == true)
+        GPR dstAccHiReg; // RdLo (also accumulator when accumulate == true)
+        GPR lhsReg;      // Rm
+        GPR rhsReg;      // Rs
         bool signedMul;
         bool accumulate;
         bool setFlags; // S bit
@@ -131,10 +133,10 @@ namespace instrs {
     //      -      SMUL<x><y>
     //      +      SMLA<x><y>
     struct SignedMultiplyAccumulate {
-        uint8_t dstReg; // Rd
-        uint8_t lhsReg; // Rm
-        uint8_t rhsReg; // Rs
-        uint8_t accReg; // Rn (when accumulate == true)
+        GPR dstReg; // Rd
+        GPR lhsReg; // Rm
+        GPR rhsReg; // Rs
+        GPR accReg; // Rn (when accumulate == true)
         bool x;
         bool y;
         bool accumulate;
@@ -145,20 +147,20 @@ namespace instrs {
     //      -      SMULW<y>
     //      +      SMLAW<y>
     struct SignedMultiplyAccumulateWord {
-        uint8_t dstReg; // Rd
-        uint8_t lhsReg; // Rm
-        uint8_t rhsReg; // Rs
-        uint8_t accReg; // Rn (when accumulate == true)
+        GPR dstReg; // Rd
+        GPR lhsReg; // Rm
+        GPR rhsReg; // Rs
+        GPR accReg; // Rn (when accumulate == true)
         bool y;
         bool accumulate;
     };
 
     // SMLAL<x><y>
     struct SignedMultiplyAccumulateLong {
-        uint8_t dstAccLoReg; // RdLo
-        uint8_t dstAccHiReg; // RdHi
-        uint8_t lhsReg;      // Rm
-        uint8_t rhsReg;      // Rs
+        GPR dstAccLoReg; // RdLo
+        GPR dstAccHiReg; // RdHi
+        GPR lhsReg;      // Rm
+        GPR rhsReg;      // Rs
         bool x;
         bool y;
     };
@@ -166,7 +168,7 @@ namespace instrs {
     // MRS
     struct PSRRead {
         bool spsr;
-        uint8_t dstReg; // Rd
+        GPR dstReg; // Rd
     };
 
     // MSR
@@ -179,7 +181,7 @@ namespace instrs {
         bool c;
         union {
             uint32_t imm; // (when immediate == true)
-            uint8_t reg;  // Rm (when immediate == false)
+            GPR reg;      // Rm (when immediate == false)
         } value;
     };
 
@@ -194,7 +196,7 @@ namespace instrs {
         bool byte;       // B bit
         bool writeback;  // W bit
         bool load;       // L bit
-        uint8_t dstReg;  // Rd
+        GPR dstReg;      // Rd
         AddressingOffset offset;
     };
 
@@ -215,11 +217,11 @@ namespace instrs {
         bool load;           // L bit
         bool sign;           // S bit
         bool half;           // H bit
-        uint8_t dstReg;      // Rd
-        uint8_t baseReg;     // Rn
+        GPR dstReg;          // Rd
+        GPR baseReg;         // Rn
         union {
             uint16_t imm; // (when immediate == true)
-            uint8_t reg;  // Rm (when immediate == false)
+            GPR reg;      // Rm (when immediate == false)
         } offset;
     };
 
@@ -233,7 +235,7 @@ namespace instrs {
         bool userModeOrPSRTransfer; // S bit
         bool writeback;             // W bit
         bool load;                  // L bit
-        uint8_t baseReg;            // Rn
+        GPR baseReg;                // Rn
         uint16_t regList;
     };
 
@@ -242,10 +244,10 @@ namespace instrs {
     //   -   SWP
     //   +   SWPB
     struct SingleDataSwap {
-        bool byte;          // B bit
-        uint8_t dstReg;     // Rd
-        uint8_t valueReg;   // Rm
-        uint8_t addressReg; // Rn
+        bool byte;      // B bit
+        GPR dstReg;     // Rd
+        GPR valueReg;   // Rm
+        GPR addressReg; // Rn
     };
 
     // SWI
@@ -287,7 +289,7 @@ namespace instrs {
         bool n;              // N bit
         bool writeback;      // W bit
         bool load;           // L bit
-        uint8_t rn;
+        GPR rn;
         uint8_t crd;
         uint8_t cpnum;
         uint8_t offset;
@@ -304,7 +306,7 @@ namespace instrs {
         bool store;
         uint8_t opcode1;
         uint16_t crn;
-        uint8_t rd;
+        GPR rd;
         uint8_t cpnum;
         uint16_t opcode2;
         uint16_t crm;
@@ -317,8 +319,8 @@ namespace instrs {
     //   +    MRRC
     struct CopDualRegTransfer {
         bool store;
-        uint8_t rn;
-        uint8_t rd;
+        GPR rn;
+        GPR rd;
         uint8_t cpnum;
         uint8_t opcode;
         uint8_t crm;

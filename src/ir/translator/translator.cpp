@@ -356,7 +356,7 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
         if (thumb) {
             linkAddress |= 1;
         }
-        emitter.SetRegister(14, linkAddress);
+        emitter.SetRegister(GPR::LR, linkAddress);
     }
 
     if (instr.IsExchange()) {
@@ -367,14 +367,14 @@ void Translator::Translate(const BranchOffset &instr, State::Handle state) {
         emitter.GetCPSR(srcCPSR);
         emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, targetAddress);
         emitter.SetCPSR(dstCPSR);
-        emitter.SetRegister(15, dstPC);
+        emitter.SetRegister(GPR::PC, dstPC);
     } else {
         auto srcCPSR = emitter.Var("src_cpsr");
         auto dstPC = emitter.Var("dst_pc");
 
         emitter.GetCPSR(srcCPSR);
         emitter.Branch(dstPC, srcCPSR, targetAddress);
-        emitter.SetRegister(15, dstPC);
+        emitter.SetRegister(GPR::PC, dstPC);
     }
 
     // TODO: set block branch target
@@ -391,7 +391,7 @@ void Translator::Translate(const BranchExchangeRegister &instr, State::Handle st
         if (thumb) {
             linkAddress |= 1;
         }
-        emitter.SetRegister(14, linkAddress);
+        emitter.SetRegister(GPR::LR, linkAddress);
     }
 
     auto addrVar = emitter.Var("addr");
@@ -402,7 +402,7 @@ void Translator::Translate(const BranchExchangeRegister &instr, State::Handle st
     emitter.GetCPSR(srcCPSR);
     emitter.BranchExchange(dstPC, dstCPSR, srcCPSR, addrVar);
     emitter.SetCPSR(dstCPSR);
-    emitter.SetRegister(15, dstPC);
+    emitter.SetRegister(GPR::PC, dstPC);
 
     // TODO: set block branch target
     state.EndBlock();
@@ -417,7 +417,7 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle sta
     auto srcCPSR = emitter.Var("src_cpsr");
 
     emitter.GetCPSR(srcCPSR);
-    emitter.GetRegister(lrVar, 14);
+    emitter.GetRegister(lrVar, GPR::LR);
     emitter.Add(partialAddrVar, lrVar, instr.offset, false);
     if (instr.blx) {
         auto dstCPSR = emitter.Var("dst_cpsr");
@@ -428,8 +428,8 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, State::Handle sta
     }
 
     uint32_t linkAddress = (emitter.CurrentInstructionAddress() + emitter.InstructionSize()) | 1;
-    emitter.SetRegister(14, linkAddress);
-    emitter.SetRegister(15, finalAddrVar);
+    emitter.SetRegister(GPR::LR, linkAddress);
+    emitter.SetRegister(GPR::PC, finalAddrVar);
 
     // TODO: set block branch target
     state.EndBlock();

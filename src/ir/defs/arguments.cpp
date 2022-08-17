@@ -1,4 +1,4 @@
-#include "armajitto/ir/defs/arg_refs.hpp"
+#include "armajitto/ir/defs/arguments.hpp"
 
 namespace armajitto::ir {
 

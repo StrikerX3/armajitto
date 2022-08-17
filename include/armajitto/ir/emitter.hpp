@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/ir/defs/arg_refs.hpp"
+#include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
 
@@ -45,8 +45,8 @@ public:
     void NextInstruction();
     void SetCondition(arm::Condition cond);
 
-    void GetRegister(VariableArg dst, GPRArg src);
-    void SetRegister(GPRArg dst, VarOrImmArg src);
+    void GetRegister(VariableArg dst, GPR src);
+    void SetRegister(GPR dst, VarOrImmArg src);
     void GetCPSR(VariableArg dst);
     void SetCPSR(VarOrImmArg src);
     void GetSPSR(arm::Mode mode, VariableArg dst);

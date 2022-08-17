@@ -27,6 +27,7 @@ add_library(armajitto
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/defs/arm/gpr.hpp
     include/armajitto/defs/arm/instructions.hpp
     include/armajitto/defs/arm/mode.hpp
     include/armajitto/defs/arm/psr.hpp
@@ -37,7 +38,7 @@ add_library(armajitto
     include/armajitto/ir/location_ref.hpp
     include/armajitto/ir/optimizer.hpp
     include/armajitto/ir/translator.hpp
-    include/armajitto/ir/defs/arg_refs.hpp
+    include/armajitto/ir/defs/arguments.hpp
     include/armajitto/ir/defs/memory_access.hpp
     include/armajitto/ir/defs/opcode_types.hpp
     include/armajitto/ir/defs/variable.hpp
@@ -55,7 +56,7 @@ add_library(armajitto
     src/host/x86_64/cpuid.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
-    src/ir/defs/arg_refs.cpp
+    src/ir/defs/arguments.cpp
     src/ir/ops/ir_alu_ops.cpp
     src/ir/ops/ir_branch_ops.cpp
     src/ir/ops/ir_cop_ops.cpp

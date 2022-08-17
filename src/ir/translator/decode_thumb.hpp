@@ -7,7 +7,7 @@ namespace armajitto::arm::thumb_decoder {
 
 namespace detail {
 
-    inline auto SimpleRegShift(uint8_t reg) {
+    inline auto SimpleRegShift(GPR reg) {
         arm::RegisterSpecifiedShift shift{};
         shift.type = arm::ShiftType::LSL;
         shift.immediate = true;
@@ -24,7 +24,7 @@ inline auto ShiftByImm(uint16_t opcode) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
     instr.immediate = false;
     instr.setFlags = true;
-    instr.dstReg = bit::extract<0, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.lhsReg = instr.dstReg;
 
     const uint8_t op = bit::extract<11, 2>(opcode);
@@ -35,7 +35,7 @@ inline auto ShiftByImm(uint16_t opcode) {
     default: break; // TODO: unreachable
     }
     instr.rhs.shift.immediate = true;
-    instr.rhs.shift.srcReg = bit::extract<3, 3>(opcode);
+    instr.rhs.shift.srcReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.rhs.shift.amount.imm = bit::extract<6, 5>(opcode);
 
     return instr;
@@ -51,12 +51,12 @@ inline auto AddSubRegImm(uint16_t opcode) {
     }
     instr.immediate = bit::test<10>(opcode);
     instr.setFlags = true;
-    instr.dstReg = bit::extract<0, 3>(opcode);
-    instr.lhsReg = bit::extract<3, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.lhsReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     if (instr.immediate) {
         instr.rhs.imm = bit::extract<6, 3>(opcode);
     } else {
-        instr.rhs.shift = detail::SimpleRegShift(bit::extract<6, 3>(opcode));
+        instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<6, 3>(opcode)));
     }
 
     return instr;
@@ -73,7 +73,7 @@ inline auto MovCmpAddSubImm(uint16_t opcode) {
     }
     instr.immediate = true;
     instr.setFlags = true;
-    instr.dstReg = bit::extract<8, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.lhsReg = instr.dstReg;
     instr.rhs.imm = bit::extract<0, 8>(opcode);
 
@@ -86,9 +86,9 @@ inline auto DataProcessingStandard(uint16_t opcode, arm::instrs::DataProcessing:
     instr.opcode = dpOpcode;
     instr.immediate = false;
     instr.setFlags = true;
-    instr.dstReg = bit::extract<12, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<12, 3>(opcode));
     instr.lhsReg = instr.dstReg;
-    instr.rhs.shift = detail::SimpleRegShift(bit::extract<0, 3>(opcode));
+    instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<0, 3>(opcode)));
 
     return instr;
 }
@@ -99,12 +99,12 @@ inline auto DataProcessingShift(uint16_t opcode, arm::ShiftType shiftType) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
     instr.immediate = false;
     instr.setFlags = true;
-    instr.dstReg = bit::extract<0, 3>(opcode);
-    instr.lhsReg = 0;
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.lhsReg = GPR::R0;
     instr.rhs.shift.type = shiftType;
     instr.rhs.shift.immediate = false;
     instr.rhs.shift.srcReg = instr.dstReg;
-    instr.rhs.shift.amount.reg = bit::extract<3, 3>(opcode);
+    instr.rhs.shift.amount.reg = static_cast<GPR>(bit::extract<3, 3>(opcode));
 
     return instr;
 }
@@ -115,7 +115,7 @@ inline auto DataProcessingNegate(uint16_t opcode) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::RSB;
     instr.immediate = true;
     instr.setFlags = true;
-    instr.dstReg = bit::extract<12, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<12, 3>(opcode));
     instr.lhsReg = instr.dstReg;
     instr.rhs.imm = 0;
 
@@ -125,10 +125,10 @@ inline auto DataProcessingNegate(uint16_t opcode) {
 inline auto DataProcessingMultiply(uint16_t opcode) {
     arm::instrs::MultiplyAccumulate instr{};
 
-    instr.dstReg = bit::extract<0, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.lhsReg = instr.dstReg;
-    instr.rhsReg = bit::extract<3, 3>(opcode);
-    instr.accReg = 0;
+    instr.rhsReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
+    instr.accReg = GPR::R0;
     instr.accumulate = false;
     instr.setFlags = true;
 
@@ -147,9 +147,9 @@ inline auto HiRegOps(uint16_t opcode) {
     }
     instr.immediate = false;
     instr.setFlags = false;
-    instr.dstReg = bit::extract<0, 3>(opcode) + h1 * 8;
-    instr.lhsReg = 0;
-    instr.rhs.shift = detail::SimpleRegShift(bit::extract<3, 3>(opcode) + h2 * 8);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode) + h1 * 8);
+    instr.lhsReg = GPR::R0;
+    instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<3, 3>(opcode) + h2 * 8));
 
     return instr;
 }
@@ -158,7 +158,7 @@ inline auto HiRegBranchExchange(uint16_t opcode, bool link) {
     arm::instrs::BranchExchangeRegister instr{};
 
     const uint8_t h2 = bit::extract<6>(opcode);
-    instr.reg = bit::extract<3, 3>(opcode) + h2 * 8;
+    instr.reg = static_cast<GPR>(bit::extract<3, 3>(opcode) + h2 * 8);
     instr.link = link;
 
     return instr;
@@ -171,10 +171,10 @@ inline auto PCRelativeLoad(uint16_t opcode) {
     instr.byte = false;
     instr.writeback = false;
     instr.load = true;
-    instr.dstReg = bit::extract<8, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.offset.immediate = true;
     instr.offset.positiveOffset = true;
-    instr.offset.baseReg = 15;
+    instr.offset.baseReg = GPR::PC;
     instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
 
     return instr;
@@ -187,11 +187,11 @@ inline auto LoadStoreByteWordRegOffset(uint16_t opcode) {
     instr.byte = bit::test<10>(opcode);
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = bit::extract<0, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.offset.immediate = false;
     instr.offset.positiveOffset = true;
-    instr.offset.baseReg = bit::extract<3, 3>(opcode);
-    instr.offset.shift = detail::SimpleRegShift(bit::extract<6, 3>(opcode));
+    instr.offset.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
+    instr.offset.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<6, 3>(opcode)));
 
     return instr;
 }
@@ -214,9 +214,9 @@ inline auto LoadStoreHalfRegOffset(uint16_t opcode) {
     instr.sign = bit::test<0>(op);
     instr.half = (op != 0b01);
 
-    instr.dstReg = bit::extract<0, 3>(opcode);
-    instr.baseReg = bit::extract<3, 3>(opcode);
-    instr.offset.reg = bit::extract<6, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
+    instr.offset.reg = static_cast<GPR>(bit::extract<6, 3>(opcode));
 
     return instr;
 }
@@ -228,10 +228,10 @@ inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
     instr.byte = bit::test<12>(opcode);
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = bit::extract<0, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.offset.immediate = true;
     instr.offset.positiveOffset = true;
-    instr.offset.baseReg = bit::extract<3, 3>(opcode);
+    instr.offset.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.offset.immValue = bit::extract<6, 5>(opcode);
 
     return instr;
@@ -247,8 +247,8 @@ inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
     instr.load = bit::test<11>(opcode);
     instr.sign = false;
     instr.half = true;
-    instr.dstReg = bit::extract<0, 3>(opcode);
-    instr.baseReg = bit::extract<3, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.offset.imm = bit::extract<6, 5>(opcode);
 
     return instr;
@@ -261,10 +261,10 @@ inline auto SPRelativeLoadStore(uint16_t opcode) {
     instr.byte = false;
     instr.writeback = false;
     instr.load = bit::test<11>(opcode);
-    instr.dstReg = bit::extract<8, 3>(opcode);
+    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.offset.immediate = true;
     instr.offset.positiveOffset = true;
-    instr.offset.baseReg = 13;
+    instr.offset.baseReg = GPR::SP;
     instr.offset.immValue = bit::extract<0, 8>(opcode) * 4;
 
     return instr;
@@ -276,8 +276,8 @@ inline auto AddToSPOrPC(uint16_t opcode) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
     instr.immediate = true;
     instr.setFlags = false;
-    instr.dstReg = bit::extract<8, 3>(opcode);
-    instr.lhsReg = bit::test<11>(opcode) ? 13 : 15;
+    instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
+    instr.lhsReg = bit::test<11>(opcode) ? GPR::SP : GPR::PC;
     instr.rhs.imm = bit::extract<0, 8>(opcode) * 4;
 
     return instr;
@@ -293,8 +293,8 @@ inline auto AdjustSP(uint16_t opcode) {
     }
     instr.immediate = true;
     instr.setFlags = false;
-    instr.dstReg = 13;
-    instr.lhsReg = 13;
+    instr.dstReg = GPR::SP;
+    instr.lhsReg = GPR::SP;
     instr.rhs.imm = bit::extract<0, 7>(opcode) * 4;
 
     return instr;
@@ -312,7 +312,7 @@ inline auto PushPop(uint16_t opcode) {
     instr.userModeOrPSRTransfer = false;
     instr.writeback = true;
     instr.load = load;
-    instr.baseReg = 13;
+    instr.baseReg = GPR::SP;
     instr.regList = bit::extract<0, 8>(opcode);
     if (bit::test<8>(opcode)) {
         if (load) {
@@ -339,7 +339,7 @@ inline auto LoadStoreMultiple(uint16_t opcode) {
     instr.userModeOrPSRTransfer = false;
     instr.writeback = !load || !bit::test(rn, regList);
     instr.load = load;
-    instr.baseReg = 13;
+    instr.baseReg = GPR::SP;
     instr.regList = regList;
 
     return instr;
@@ -378,8 +378,8 @@ inline auto LongBranchPrefix(uint16_t opcode) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
     instr.immediate = true;
     instr.setFlags = false;
-    instr.dstReg = 14;
-    instr.lhsReg = 15;
+    instr.dstReg = GPR::LR;
+    instr.lhsReg = GPR::PC;
     instr.rhs.imm = bit::sign_extend<11>(bit::extract<0, 11>(opcode)) << 12;
 
     return instr;

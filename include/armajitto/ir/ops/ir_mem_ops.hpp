@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/ir/defs/arg_refs.hpp"
+#include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "ir_ops_base.hpp"
 

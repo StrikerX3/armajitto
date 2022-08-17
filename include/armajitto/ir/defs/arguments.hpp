@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/defs/arm/gpr.hpp"
 #include "armajitto/defs/arm/mode.hpp"
 #include "armajitto/ir/defs/variable.hpp"
 
@@ -7,22 +8,6 @@
 #include <utility>
 
 namespace armajitto::ir {
-
-struct GPRArg {
-    uint8_t gpr;
-    bool userMode;
-
-    GPRArg()
-        : gpr(0) {}
-
-    GPRArg(uint8_t gpr)
-        : gpr(gpr)
-        , userMode(false) {}
-
-    GPRArg(uint8_t gpr, bool userMode)
-        : gpr(gpr)
-        , userMode(userMode) {}
-};
 
 struct VariableArg {
     size_t varIndex;

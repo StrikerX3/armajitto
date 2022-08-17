@@ -16,11 +16,11 @@ void Emitter::SetCondition(arm::Condition cond) {
     m_block.m_cond = cond;
 }
 
-void Emitter::GetRegister(VariableArg dst, GPRArg src) {
+void Emitter::GetRegister(VariableArg dst, GPR src) {
     AppendOp<IRGetRegisterOp>(dst, src);
 }
 
-void Emitter::SetRegister(GPRArg dst, VarOrImmArg src) {
+void Emitter::SetRegister(GPR dst, VarOrImmArg src) {
     AppendOp<IRSetRegisterOp>(dst, src);
 }
 
@@ -168,7 +168,7 @@ void Emitter::StoreCopRegister(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opco
 }
 
 void Emitter::FetchInstruction() {
-    SetRegister(15, CurrentPC() + m_instrSize);
+    SetRegister(GPR::PC, CurrentPC() + m_instrSize);
     // TODO: cycle counting
 }
 
