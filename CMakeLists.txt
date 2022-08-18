@@ -91,6 +91,7 @@ target_precompile_headers(armajitto
         <cassert>
         <concepts>
         <cstdint>
+        <format>
         <memory>
         <optional>
         <string>

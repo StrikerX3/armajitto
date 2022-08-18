@@ -4,6 +4,8 @@
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "ir_ops_base.hpp"
 
+#include <format>
+
 namespace armajitto::ir {
 
 // [b/h/w] = byte/half/word
@@ -13,7 +15,7 @@ namespace armajitto::ir {
 // Valid combinations: (r)b, (r)h, (r)w, sb, sh, uh, uw
 
 // Memory read
-//   ld.[r/s/u][b/h/w] <var:dst>, [<any:address>]
+//   ld.[r/s/u][b/h/w] <var:dst>, [<var/imm:address>]
 //
 // Reads a byte, halfword or word from address into the dst variable.
 // Byte and halfword reads extend values to 32 bits.
@@ -30,10 +32,30 @@ struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
         , size(size)
         , dst(dst)
         , address(address) {}
+
+    std::string ToString() const final {
+        const char *modeStr;
+        switch (mode) {
+        case MemAccessMode::Raw: modeStr = ""; break;
+        case MemAccessMode::Signed: modeStr = "s"; break;
+        case MemAccessMode::Unaligned: modeStr = "u"; break;
+        default: modeStr = "?"; break;
+        }
+
+        char sizeStr;
+        switch (size) {
+        case MemAccessSize::Byte: sizeStr = 'b'; break;
+        case MemAccessSize::Half: sizeStr = 'h'; break;
+        case MemAccessSize::Word: sizeStr = 'w'; break;
+        default: sizeStr = '?'; break;
+        }
+
+        return std::format("ld.{}{}, {}, [{}]", modeStr, sizeStr, dst.ToString(), address.ToString());
+    }
 };
 
 // Memory write
-//   st.[b/h/w]        <any:src>, [<any:address>]
+//   st.[b/h/w] <var/imm:src>, [<var/imm:address>]
 //
 // Writes a byte, halfword or word from src into memory at address.
 struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
@@ -45,10 +67,22 @@ struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
         : size(size)
         , src(src)
         , address(address) {}
+
+    std::string ToString() const final {
+        char sizeStr;
+        switch (size) {
+        case MemAccessSize::Byte: sizeStr = 'b'; break;
+        case MemAccessSize::Half: sizeStr = 'h'; break;
+        case MemAccessSize::Word: sizeStr = 'w'; break;
+        default: sizeStr = '?'; break;
+        }
+
+        return std::format("st.{}, {}, [{}]", sizeStr, src.ToString(), address.ToString());
+    }
 };
 
 // Preload
-//   pld.[b/h/w]        [<any:address>]
+//   pld [<var/imm:address>]
 //
 // Sends a hint to preload the specified address.
 struct IRPreloadOp : public IROpBase<IROpcodeType::Preload> {
@@ -56,6 +90,10 @@ struct IRPreloadOp : public IROpBase<IROpcodeType::Preload> {
 
     IRPreloadOp(VarOrImmArg address)
         : address(address) {}
+
+    std::string ToString() const final {
+        return std::format("pld [{}]", address.ToString());
+    }
 };
 
 } // namespace armajitto::ir

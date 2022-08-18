@@ -3,6 +3,8 @@
 #include "armajitto/ir/defs/arguments.hpp"
 #include "ir_ops_base.hpp"
 
+#include <format>
+
 namespace armajitto::ir {
 
 // Load coprocessor register
@@ -27,10 +29,15 @@ struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
         , crm(crm)
         , opcode2(opcode2)
         , ext(ext) {}
+
+    std::string ToString() const final {
+        return std::format("mrc{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), dstValue.ToString(), cpnum, opcode1, crn,
+                           crm, opcode2);
+    }
 };
 
 // Store coprocessor register
-//   mcr[2] <any:src_value>, <int:cpnum>, <int:opcode1>, <int:crn>, <int:crm>, <int:opcode2>
+//   mcr[2] <var/imm:src_value>, <int:cpnum>, <int:opcode1>, <int:crn>, <int:crm>, <int:opcode2>
 //
 // Stores <src_value> into the coprocessor register specified by <cpnum>, <opcode1>, <crn>, <crm> and <opcode2>.
 struct IRStoreCopRegisterOp : public IROpBase<IROpcodeType::StoreCopRegister> {
@@ -51,6 +58,11 @@ struct IRStoreCopRegisterOp : public IROpBase<IROpcodeType::StoreCopRegister> {
         , crm(crm)
         , opcode2(opcode2)
         , ext(ext) {}
+
+    std::string ToString() const final {
+        return std::format("mcr{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), srcValue.ToString(), cpnum, opcode1, crn,
+                           crm, opcode2);
+    }
 };
 
 // TODO: CDP, CDP2

@@ -26,6 +26,10 @@ public:
         return m_instrCount;
     }
 
+    const std::vector<IROp *> &Ops() const {
+        return m_ops;
+    }
+
 private:
     LocationRef m_location;
     arm::Condition m_cond;

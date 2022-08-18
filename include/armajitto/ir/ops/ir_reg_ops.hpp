@@ -3,10 +3,12 @@
 #include "armajitto/ir/defs/arguments.hpp"
 #include "ir_ops_base.hpp"
 
+#include <format>
+
 namespace armajitto::ir {
 
 // Get general purpose register value
-//   ld <gpr:src>, <var:dst>
+//   ld <var:dst>, <gpr:src>
 //
 // Copies the value of the <src> GPR into <dst>.
 struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
@@ -16,6 +18,10 @@ struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
     IRGetRegisterOp(VariableArg dst, GPRArg src)
         : dst(dst)
         , src(src) {}
+
+    std::string ToString() const final {
+        return std::format("ld {}, {}", dst.ToString(), src.ToString());
+    }
 };
 
 // Set general purpose register value
@@ -29,10 +35,14 @@ struct IRSetRegisterOp : public IROpBase<IROpcodeType::SetRegister> {
     IRSetRegisterOp(GPRArg dst, VarOrImmArg src)
         : dst(dst)
         , src(src) {}
+
+    std::string ToString() const final {
+        return std::format("st {}, {}", dst.ToString(), src.ToString());
+    }
 };
 
 // Get CPSR value
-//   ld cpsr, <var:dst>
+//   ld <var:dst>, cpsr
 //
 // Copies the value of CPSR into <dst>.
 struct IRGetCPSROp : public IROpBase<IROpcodeType::GetCPSR> {
@@ -40,6 +50,10 @@ struct IRGetCPSROp : public IROpBase<IROpcodeType::GetCPSR> {
 
     IRGetCPSROp(VariableArg dst)
         : dst(dst) {}
+
+    std::string ToString() const final {
+        return std::format("ld {}, cpsr", dst.ToString());
+    }
 };
 
 // Set CPSR value
@@ -51,19 +65,27 @@ struct IRSetCPSROp : public IROpBase<IROpcodeType::SetCPSR> {
 
     IRSetCPSROp(VarOrImmArg src)
         : src(src) {}
+
+    std::string ToString() const final {
+        return std::format("st cpsr, {}", src.ToString());
+    }
 };
 
 // Get SPSR value
-//   ld spsr_<mode>, <var:dst>
+//   ld <var:dst>, spsr_<mode>
 //
 // Copies the value of the specified <mode>'s SPSR into <dst>.
 struct IRGetSPSROp : public IROpBase<IROpcodeType::GetSPSR> {
-    arm::Mode mode;
     VariableArg dst;
+    arm::Mode mode;
 
-    IRGetSPSROp(arm::Mode mode, VariableArg dst)
-        : mode(mode)
-        , dst(dst) {}
+    IRGetSPSROp(VariableArg dst, arm::Mode mode)
+        : dst(dst)
+        , mode(mode) {}
+
+    std::string ToString() const final {
+        return std::format("ld {}, spsr_{}", dst.ToString(), ::armajitto::arm::ToString(mode));
+    }
 };
 
 // Set SPSR value
@@ -77,6 +99,10 @@ struct IRSetSPSROp : public IROpBase<IROpcodeType::SetSPSR> {
     IRSetSPSROp(arm::Mode mode, VarOrImmArg src)
         : mode(mode)
         , src(src) {}
+
+    std::string ToString() const final {
+        return std::format("st spsr_{}, {}", ::armajitto::arm::ToString(mode), src.ToString());
+    }
 };
 
 } // namespace armajitto::ir

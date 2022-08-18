@@ -5,6 +5,8 @@
 #include "armajitto/ir/defs/variable.hpp"
 
 #include <cstdint>
+#include <format>
+#include <string>
 #include <utility>
 
 namespace armajitto::ir {
@@ -20,6 +22,14 @@ struct GPRArg {
     GPRArg(GPR gpr, bool userMode)
         : gpr(gpr)
         , userMode(userMode) {}
+
+    std::string ToString() const {
+        if (userMode) {
+            return ::armajitto::ToString(gpr) + "_usr";
+        } else {
+            return ::armajitto::ToString(gpr);
+        }
+    }
 };
 
 struct VariableArg {
@@ -34,6 +44,14 @@ struct VariableArg {
     VariableArg &operator=(Variable var) {
         this->var = var;
         return *this;
+    }
+
+    std::string ToString() const {
+        if (var.IsPresent()) {
+            return std::format("$v{}", var.Index());
+        } else {
+            return std::string("$v?");
+        }
     }
 };
 
@@ -50,6 +68,10 @@ struct ImmediateArg {
     ImmediateArg &operator=(uint32_t imm) {
         value = imm;
         return *this;
+    }
+
+    std::string ToString() const {
+        return std::format("#0x{:x}", value);
     }
 };
 
@@ -80,6 +102,14 @@ struct VarOrImmArg {
         immediate = true;
         this->imm = imm;
         return *this;
+    }
+
+    std::string ToString() const {
+        if (immediate) {
+            return imm.ToString();
+        } else {
+            return var.ToString();
+        }
     }
 };
 

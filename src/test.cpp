@@ -142,7 +142,7 @@ void testTranslator() {
     const uint32_t baseAddress = 0x0100;
 
     uint32_t address = baseAddress;
-    bool thumb;
+    bool thumb = false;
 
     [[maybe_unused]] auto writeThumb = [&](uint16_t opcode) {
         sys.ROMWriteHalf(address, opcode);
@@ -333,15 +333,28 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // MRC, MCR, MRC2, MCR2
-    writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
-    writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
-    writeARM(0xEE110E10); // mrc p14, 0, r0, c1, c0, 0
-    writeARM(0xEE010E10); // mcr p14, 0, r0, c1, c0, 0
-    writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
-    writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
-    writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
-    writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE110E10); // mrc p14, 0, r0, c1, c0, 0
+    // writeARM(0xEE010E10); // mcr p14, 0, r0, c1, c0, 0
+    // writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
+    // writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
+    // writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
+    // writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
+    // writeARM(0xEAFFFFFE); // b $
+
+    // Simple (useless) demo
+    writeARM(0xE3A004DE); // mov r0, #0xDE000000
+    writeARM(0xE38008AD); // orr r0, #0xAD0000
+    writeARM(0xE3800CBE); // orr r0, #0xBE00
+    writeARM(0xE38000EF); // orr r0, #0xEF
+    writeARM(0xE3A01A01); // mov r1, #0x1000
+    writeARM(0xE5A10004); // str r0, [r1, #4]!
+    writeARM(0xE2200475); // eor r0, #0x75000000
+    writeARM(0xE2200CA3); // eor r0, #0xA300
+    writeARM(0xE2200005); // eor r0, #0x05
+    writeARM(0xE5A10004); // str r0, [r1, #4]!
+    writeARM(0xEAFFFFF6); // b 0
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};
@@ -352,13 +365,17 @@ void testTranslator() {
 
     armajitto::ir::Translator translator{context, params};
     translator.Translate(block);
+    for (auto *op : block.Ops()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
 }
 
 int main() {
     printf("armajitto %s\n", armajitto::version::name);
 
     // testBasic();
-    testCPUID();
+    // testCPUID();
     testTranslator();
 
     return EXIT_SUCCESS;

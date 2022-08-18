@@ -98,7 +98,7 @@ public:
     ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool shiftDownHalf, bool setFlags);
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
-    void StoreFlags(Flags flags);
+    void StoreFlags(Flags flags, VarOrImmArg values);
     void UpdateFlags(Flags flags);
     void UpdateStickyOverflow();
 

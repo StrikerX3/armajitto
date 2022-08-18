@@ -44,7 +44,7 @@ void Emitter::SetCPSR(VarOrImmArg src) {
 
 Variable Emitter::GetSPSR() {
     auto dst = Var();
-    AppendOp<IRGetSPSROp>(m_block.Location().Mode(), dst);
+    AppendOp<IRGetSPSROp>(dst, m_block.Location().Mode());
     return dst;
 }
 
@@ -214,10 +214,10 @@ ALUVarPair Emitter::AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rh
     return {dstLo, dstHi};
 }
 
-void Emitter::StoreFlags(Flags flags) {
+void Emitter::StoreFlags(Flags flags, VarOrImmArg values) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
-    AppendOp<IRStoreFlagsOp>(flags, dstCPSR, srcCPSR);
+    AppendOp<IRStoreFlagsOp>(flags, dstCPSR, srcCPSR, values);
     SetCPSR(dstCPSR);
 }
 
