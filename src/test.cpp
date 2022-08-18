@@ -344,17 +344,24 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // Simple (useless) demo
-    writeARM(0xE3A004DE); // mov r0, #0xDE000000
-    writeARM(0xE38008AD); // orr r0, #0xAD0000
-    writeARM(0xE3800CBE); // orr r0, #0xBE00
-    writeARM(0xE38000EF); // orr r0, #0xEF
-    writeARM(0xE3A01A01); // mov r1, #0x1000
-    writeARM(0xE5A10004); // str r0, [r1, #4]!
-    writeARM(0xE2200475); // eor r0, #0x75000000
-    writeARM(0xE2200CA3); // eor r0, #0xA300
-    writeARM(0xE2200005); // eor r0, #0x05
-    writeARM(0xE5A10004); // str r0, [r1, #4]!
-    writeARM(0xEAFFFFF6); // b 0
+    // writeARM(0xE3A004DE); // mov r0, #0xDE000000
+    // writeARM(0xE38008AD); // orr r0, #0xAD0000
+    // writeARM(0xE3800CBE); // orr r0, #0xBE00
+    // writeARM(0xE38000EF); // orr r0, #0xEF
+    // writeARM(0xE3A01A01); // mov r1, #0x1000
+    // writeARM(0xE5A10004); // str r0, [r1, #4]!
+    // writeARM(0xE2200475); // eor r0, #0x75000000
+    // writeARM(0xE2200CA3); // eor r0, #0xA300
+    // writeARM(0xE2200005); // eor r0, #0x05
+    // writeARM(0xE5A10004); // str r0, [r1, #4]!
+    // writeARM(0xEAFFFFF6); // b 0
+
+    // Code excerpt from real software
+    writeARM(0xE1A00620); // mov r0, r0, lsr #0xC
+    writeARM(0xE1A00600); // mov r0, r0, lsl #0xC
+    writeARM(0xE2800C40); // add r0, r0, #0x4000
+    writeARM(0xE28FE000); // add lr, pc, #0x0
+    writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};
