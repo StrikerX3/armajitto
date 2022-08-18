@@ -336,9 +336,12 @@ void Emitter::LinkBeforeBranch() {
     SetRegister(GPR::LR, linkAddress);
 }
 
+void Emitter::EnterException(arm::Exception vector) {
+    // TODO: implement
+}
+
 void Emitter::FetchInstruction() {
     SetRegister(GPR::PC, CurrentPC() + m_instrSize);
-    // TODO: cycle counting
 }
 
 Variable Emitter::Var() {

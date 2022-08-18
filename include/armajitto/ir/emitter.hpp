@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/defs/arm/exceptions.hpp"
 #include "armajitto/defs/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
@@ -119,6 +120,8 @@ public:
     Variable BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool setFlags);
 
     void LinkBeforeBranch();
+
+    void EnterException(arm::Exception vector);
 
     void FetchInstruction();
 

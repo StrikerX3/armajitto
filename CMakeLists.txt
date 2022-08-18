@@ -27,6 +27,7 @@ add_library(armajitto
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/defs/arm/exceptions.hpp
     include/armajitto/defs/arm/flags.hpp
     include/armajitto/defs/arm/gpr.hpp
     include/armajitto/defs/arm/instructions.hpp

@@ -1010,11 +1010,11 @@ void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SoftwareInterrupt &instr, Emitter &emitter) {
-    // TODO: implement
+    emitter.EnterException(arm::Exception::SoftwareInterrupt);
 }
 
 void Translator::Translate(const SoftwareBreakpoint &instr, Emitter &emitter) {
-    // TODO: implement
+    emitter.EnterException(arm::Exception::PrefetchAbort);
 }
 
 void Translator::Translate(const Preload &instr, Emitter &emitter) {
@@ -1041,7 +1041,7 @@ void Translator::Translate(const CopDualRegTransfer &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const Undefined &instr, Emitter &emitter) {
-    // TODO: implement
+    emitter.EnterException(arm::Exception::UndefinedInstruction);
 }
 
 } // namespace armajitto::ir
