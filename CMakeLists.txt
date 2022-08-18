@@ -27,13 +27,15 @@ add_library(armajitto
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
-    include/armajitto/defs/arm/exceptions.hpp
-    include/armajitto/defs/arm/flags.hpp
-    include/armajitto/defs/arm/gpr.hpp
-    include/armajitto/defs/arm/instructions.hpp
-    include/armajitto/defs/arm/mode.hpp
-    include/armajitto/defs/arm/psr.hpp
-    include/armajitto/defs/arm/state.hpp
+    include/armajitto/guest/arm/coprocessor.hpp
+    include/armajitto/guest/arm/exceptions.hpp
+    include/armajitto/guest/arm/flags.hpp
+    include/armajitto/guest/arm/gpr.hpp
+    include/armajitto/guest/arm/instructions.hpp
+    include/armajitto/guest/arm/mode.hpp
+    include/armajitto/guest/arm/psr.hpp
+    include/armajitto/guest/arm/state.hpp
+    include/armajitto/guest/arm/coprocessors/coproc_null.hpp
     include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp

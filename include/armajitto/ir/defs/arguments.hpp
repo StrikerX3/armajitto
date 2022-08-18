@@ -1,7 +1,7 @@
 #pragma once
 
-#include "armajitto/defs/arm/gpr.hpp"
-#include "armajitto/defs/arm/mode.hpp"
+#include "armajitto/guest/arm/gpr.hpp"
+#include "armajitto/guest/arm/mode.hpp"
 #include "armajitto/ir/defs/variable.hpp"
 
 #include <cstdint>

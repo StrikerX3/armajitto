@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/defs/arm/state.hpp"
+#include "armajitto/guest/arm/state.hpp"
 #include "context.hpp"
 #include "specification.hpp"
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/defs/arm/mode.hpp"
+#include "armajitto/guest/arm/mode.hpp"
 #include "armajitto/util/bit_ops.hpp"
 
 #include <cstdint>

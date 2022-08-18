@@ -1,6 +1,6 @@
 #include "armajitto/ir/translator.hpp"
 
-#include "armajitto/defs/arm/instructions.hpp"
+#include "armajitto/guest/arm/instructions.hpp"
 #include "decode_arm.hpp"
 #include "decode_thumb.hpp"
 
@@ -1028,18 +1028,59 @@ void Translator::Translate(const Preload &instr, Emitter &emitter) {
 
 void Translator::Translate(const CopDataOperations &instr, Emitter &emitter) {
     // TODO: implement
+    emitter.EnterException(arm::Exception::UndefinedInstruction);
+    m_endBlock = true;
 }
 
 void Translator::Translate(const CopDataTransfer &instr, Emitter &emitter) {
     // TODO: implement
+    emitter.EnterException(arm::Exception::UndefinedInstruction);
+    m_endBlock = true;
 }
 
 void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
-    // TODO: implement
+    auto &cop = m_context.GetCoprocessor(instr.cpnum);
+    if (!cop.IsPresent()) {
+        emitter.EnterException(arm::Exception::UndefinedInstruction);
+        m_endBlock = true;
+        return;
+    }
+    if (instr.ext && !cop.SupportsExtendedRegTransfers()) {
+        emitter.EnterException(arm::Exception::UndefinedInstruction);
+        m_endBlock = true;
+        return;
+    }
+
+    if (instr.store) {
+        auto value = emitter.GetRegister(instr.rd);
+        emitter.StoreCopRegister(instr.cpnum, instr.opcode1, instr.crn, instr.crm, instr.opcode2, instr.ext, value);
+        if (cop.RegStoreHasSideEffects(instr.opcode1, instr.crn, instr.crm, instr.opcode2)) {
+            m_endBlock = true;
+        }
+    } else {
+        auto value =
+            emitter.LoadCopRegister(instr.cpnum, instr.opcode1, instr.crn, instr.crm, instr.opcode2, instr.ext);
+
+        if (instr.rd == GPR::PC) {
+            // Update NZCV flags instead
+            auto cpsr = emitter.GetCPSR();
+            cpsr = emitter.BitClear(cpsr, 0xF0000000, false);
+            value = emitter.BitwiseAnd(value, 0xF0000000, false);
+            value = emitter.BitwiseOr(value, cpsr, false);
+            emitter.SetCPSR(value);
+            m_flagsUpdated = true;
+        } else {
+            emitter.SetRegister(instr.rd, value);
+        }
+    }
+
+    emitter.FetchInstruction();
 }
 
 void Translator::Translate(const CopDualRegTransfer &instr, Emitter &emitter) {
     // TODO: implement
+    emitter.EnterException(arm::Exception::UndefinedInstruction);
+    m_endBlock = true;
 }
 
 void Translator::Translate(const Undefined &instr, Emitter &emitter) {

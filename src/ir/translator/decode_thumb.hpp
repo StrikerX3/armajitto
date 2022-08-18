@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/defs/arm/instructions.hpp"
+#include "armajitto/guest/arm/instructions.hpp"
 #include "armajitto/util/bit_ops.hpp"
 
 namespace armajitto::arm::thumb_decoder {

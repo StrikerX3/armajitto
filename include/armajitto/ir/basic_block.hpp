@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/defs/arm/instructions.hpp"
+#include "armajitto/guest/arm/instructions.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 #include "defs/variable.hpp"
 #include "location_ref.hpp"

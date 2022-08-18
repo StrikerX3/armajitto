@@ -1,8 +1,10 @@
 #pragma once
 
 #include "armajitto/core/system_interface.hpp"
-#include "armajitto/defs/arm/state.hpp"
 #include "armajitto/defs/cpu_arch.hpp"
+#include "armajitto/guest/arm/coprocessor.hpp"
+#include "armajitto/guest/arm/coprocessors/coproc_null.hpp"
+#include "armajitto/guest/arm/state.hpp"
 
 namespace armajitto {
 
@@ -40,6 +42,11 @@ public:
     uint32_t CodeReadWord(uint32_t address) {
         // TODO: handle TCM
         return m_system.MemReadWord(address);
+    }
+
+    arm::Coprocessor &GetCoprocessor(uint8_t cpnum) {
+        // TODO: implement
+        return arm::NullCoprocessor::Instance();
     }
 
 private:

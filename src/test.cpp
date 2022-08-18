@@ -329,7 +329,18 @@ void testTranslator() {
     // SWI, BKPT, UDF
     // writeARM(0xEF123456); // swi #0x123456
     // writeARM(0xE1200070); // bkpt
-    writeARM(0xF0000000); // udf
+    // writeARM(0xF0000000); // udf
+    // writeARM(0xEAFFFFFE); // b $
+
+    // MRC, MCR, MRC2, MCR2
+    writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
+    writeARM(0xEE110E10); // mrc p14, 0, r0, c1, c0, 0
+    writeARM(0xEE010E10); // mcr p14, 0, r0, c1, c0, 0
+    writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
+    writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
+    writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
+    writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
     writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};

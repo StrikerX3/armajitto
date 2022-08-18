@@ -305,11 +305,11 @@ namespace instrs {
     struct CopRegTransfer {
         bool store;
         uint8_t opcode1;
-        uint16_t crn;
+        uint8_t crn;
         GPR rd;
         uint8_t cpnum;
-        uint16_t opcode2;
-        uint16_t crm;
+        uint8_t opcode2;
+        uint8_t crm;
         bool ext; // false = MCR/MRC; true = MCR2/MRC2
     };
 

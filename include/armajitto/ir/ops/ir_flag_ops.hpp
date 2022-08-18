@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/defs/arm/flags.hpp"
+#include "armajitto/guest/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "ir_ops_base.hpp"
 

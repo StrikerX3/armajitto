@@ -1,7 +1,7 @@
 #pragma once
 
-#include "armajitto/defs/arm/exceptions.hpp"
-#include "armajitto/defs/arm/flags.hpp"
+#include "armajitto/guest/arm/exceptions.hpp"
+#include "armajitto/guest/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
