@@ -236,19 +236,11 @@ void Emitter::UpdateStickyOverflow() {
 }
 
 void Emitter::Branch(VarOrImmArg address) {
-    auto dstPC = Var();
-    auto srcCPSR = GetCPSR();
-    AppendOp<IRBranchOp>(dstPC, srcCPSR, address);
-    SetRegister(GPR::PC, dstPC);
+    AppendOp<IRBranchOp>(address);
 }
 
 void Emitter::BranchExchange(VarOrImmArg address) {
-    auto dstPC = Var();
-    auto dstCPSR = Var();
-    auto srcCPSR = GetCPSR();
-    AppendOp<IRBranchExchangeOp>(dstPC, dstCPSR, srcCPSR, address);
-    SetCPSR(dstCPSR);
-    SetRegister(GPR::PC, dstPC);
+    AppendOp<IRBranchExchangeOp>(address);
 }
 
 Variable Emitter::LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext) {
