@@ -20,7 +20,7 @@ struct IRConstantOp : public IROpBase<IROpcodeType::Constant> {
         , value(value) {}
 
     std::string ToString() const final {
-        return std::format("const {}, 0x{:x}", dst.ToString(), value);
+        return std::format("const {}, #0x{:x}", dst.ToString(), value);
     }
 };
 
