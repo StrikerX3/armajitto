@@ -60,6 +60,7 @@ public:
     void SetCPSR(VarOrImmArg src);
     Variable GetSPSR();
     void SetSPSR(VarOrImmArg src);
+    void SetSPSR(VarOrImmArg src, arm::Mode mode);
 
     Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
@@ -109,6 +110,7 @@ public:
                           VarOrImmArg srcValue);
 
     Variable Constant(uint32_t value);
+    Variable GetBaseVectorAddress();
 
     // -----------------------------------------------------------------------------------------------------------------
     // Complex IR instruction sequence emitters

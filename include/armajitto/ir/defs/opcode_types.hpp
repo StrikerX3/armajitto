@@ -62,6 +62,7 @@ enum class IROpcodeType {
 
     // Miscellaneous operations
     Constant,
+    GetBaseVectorAddress,
 };
 
 } // namespace armajitto::ir

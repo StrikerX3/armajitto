@@ -49,7 +49,11 @@ Variable Emitter::GetSPSR() {
 }
 
 void Emitter::SetSPSR(VarOrImmArg src) {
-    AppendOp<IRSetSPSROp>(m_block.Location().Mode(), src);
+    SetSPSR(src, m_block.Location().Mode());
+}
+
+void Emitter::SetSPSR(VarOrImmArg src, arm::Mode mode) {
+    AppendOp<IRSetSPSROp>(mode, src);
 }
 
 Variable Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
@@ -264,6 +268,12 @@ Variable Emitter::Constant(uint32_t value) {
     return dst;
 }
 
+Variable Emitter::GetBaseVectorAddress() {
+    auto dst = Var();
+    AppendOp<IRGetBaseVectorAddressOp>(dst);
+    return dst;
+}
+
 void Emitter::CopySPSRToCPSR() {
     auto spsr = GetSPSR();
     SetCPSR(spsr);
@@ -337,7 +347,23 @@ void Emitter::LinkBeforeBranch() {
 }
 
 void Emitter::EnterException(arm::Exception vector) {
-    // TODO: implement
+    const auto &vectorInfo = arm::kExceptionVectorInfos[static_cast<size_t>(vector)];
+    const auto nn = m_thumb ? vectorInfo.thumbOffset : vectorInfo.armOffset;
+
+    uint32_t setBits = static_cast<uint32_t>(vectorInfo.mode) | (1 << 7); // Set I and mode bits
+    if (vectorInfo.F) {
+        setBits |= (1 << 6); // Set F bit
+    }
+
+    auto cpsr = GetCPSR();
+    SetSPSR(cpsr, vectorInfo.mode);
+    cpsr = BitClear(cpsr, 0b11'1111, false); // Clear T and mode bits
+    cpsr = BitwiseOr(cpsr, setBits, false);  // Set I, F and mode bits
+    SetCPSR(cpsr);
+
+    auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);
+    SetRegister(GPR::LR, m_currInstrAddr + nn);
+    SetRegister(GPR::PC, pc);
 }
 
 void Emitter::FetchInstruction() {

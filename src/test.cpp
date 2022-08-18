@@ -323,7 +323,13 @@ void testTranslator() {
     // writeARM(0xE8A00000); // stmia r0!, {}
     // writeARM(0xE8AF0001); // stmia r15!, {r0}
     // writeARM(0xE8BF0000); // ldmia r15!, {}
-    writeARM(0xE9BF0000); // ldmib r15!, {}
+    // writeARM(0xE9BF0000); // ldmib r15!, {}
+    // writeARM(0xEAFFFFFE); // b $
+
+    // SWI, BKPT, UDF
+    // writeARM(0xEF123456); // swi #0x123456
+    // writeARM(0xE1200070); // bkpt
+    writeARM(0xF0000000); // udf
     writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};

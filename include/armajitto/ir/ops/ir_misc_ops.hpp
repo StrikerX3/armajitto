@@ -18,4 +18,15 @@ struct IRConstantOp : public IROpBase<IROpcodeType::Constant> {
         , value(value) {}
 };
 
+// Get base exception vector address
+//   ld.vecbase <var:dst>
+//
+// Sets <dst> to the base exception vector address, typically 0x00000000 or 0xFFFF0000.
+struct IRGetBaseVectorAddressOp : public IROpBase<IROpcodeType::GetBaseVectorAddress> {
+    VariableArg dst;
+
+    IRGetBaseVectorAddressOp(VariableArg dst)
+        : dst(dst) {}
+};
+
 } // namespace armajitto::ir

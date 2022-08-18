@@ -27,11 +27,11 @@ struct VariableArg {
 
     VariableArg() = default;
 
-    VariableArg(const Variable &var) {
+    VariableArg(Variable var) {
         operator=(var);
     }
 
-    VariableArg &operator=(const Variable &var) {
+    VariableArg &operator=(Variable var) {
         this->var = var;
         return *this;
     }
@@ -62,7 +62,7 @@ struct VarOrImmArg {
         operator=(0);
     }
 
-    VarOrImmArg(Variable &var) {
+    VarOrImmArg(Variable var) {
         operator=(var);
     }
 
@@ -70,7 +70,7 @@ struct VarOrImmArg {
         operator=(imm);
     }
 
-    VarOrImmArg &operator=(const Variable &var) {
+    VarOrImmArg &operator=(Variable var) {
         immediate = false;
         this->var = var;
         return *this;
