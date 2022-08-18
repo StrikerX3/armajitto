@@ -376,11 +376,10 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter) {
+    auto addr = emitter.GetRegister(instr.reg);
     if (instr.link) {
         emitter.LinkBeforeBranch();
     }
-
-    auto addr = emitter.GetRegister(instr.reg);
     emitter.BranchExchange(addr);
 
     // TODO: set block branch target
@@ -392,7 +391,6 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
     auto targetAddrBase = emitter.Add(lr, instr.offset, false);
 
     emitter.LinkBeforeBranch();
-
     if (instr.blx) {
         emitter.BranchExchange(targetAddrBase);
     } else {
