@@ -260,6 +260,12 @@ Variable Emitter::Constant(uint32_t value) {
     return dst;
 }
 
+Variable Emitter::CopyVar(VariableArg var) {
+    auto dst = Var();
+    AppendOp<IRCopyVarOp>(dst, var);
+    return dst;
+}
+
 Variable Emitter::GetBaseVectorAddress() {
     auto dst = Var();
     AppendOp<IRGetBaseVectorAddressOp>(dst);

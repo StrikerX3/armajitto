@@ -24,6 +24,23 @@ struct IRConstantOp : public IROpBase<IROpcodeType::Constant> {
     }
 };
 
+// Copy variable
+//   copy <var:dst>, <var:value>
+//
+// Sets <dst> to <value>.
+struct IRCopyVarOp : public IROpBase<IROpcodeType::CopyVar> {
+    VariableArg dst;
+    VariableArg var;
+
+    IRCopyVarOp(VariableArg dst, VariableArg var)
+        : dst(dst)
+        , var(var) {}
+
+    std::string ToString() const final {
+        return std::format("copy {}, {}", dst.ToString(), var.ToString());
+    }
+};
+
 // Get exception vector base address
 //   ld.xvb <var:dst>
 //

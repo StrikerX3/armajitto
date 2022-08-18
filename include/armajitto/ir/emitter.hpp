@@ -110,6 +110,7 @@ public:
                           VarOrImmArg srcValue);
 
     Variable Constant(uint32_t value);
+    Variable CopyVar(VariableArg var);
     Variable GetBaseVectorAddress();
 
     // -----------------------------------------------------------------------------------------------------------------
