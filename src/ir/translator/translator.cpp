@@ -415,7 +415,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     if (instr.immediate) {
         rhs = instr.rhs.imm;
     } else {
-        rhs = emitter.BarrelShifter(instr.rhs.shift, true);
+        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags);
     }
 
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
