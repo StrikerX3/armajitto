@@ -9,6 +9,19 @@
 
 namespace armajitto::ir {
 
+struct GPRArg {
+    GPR gpr;
+    bool userMode;
+
+    GPRArg(GPR gpr)
+        : gpr(gpr)
+        , userMode(false) {}
+
+    GPRArg(GPR gpr, bool userMode)
+        : gpr(gpr)
+        , userMode(userMode) {}
+};
+
 struct VariableArg {
     Variable var;
 

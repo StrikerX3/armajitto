@@ -11,9 +11,9 @@ namespace armajitto::ir {
 // Copies the value of the <src> GPR into <dst>.
 struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
     VariableArg dst;
-    GPR src;
+    GPRArg src;
 
-    IRGetRegisterOp(VariableArg dst, GPR src)
+    IRGetRegisterOp(VariableArg dst, GPRArg src)
         : dst(dst)
         , src(src) {}
 };
@@ -23,10 +23,10 @@ struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
 //
 // Copies the value of <src> into the <dst> GPR.
 struct IRSetRegisterOp : public IROpBase<IROpcodeType::SetRegister> {
-    GPR dst;
+    GPRArg dst;
     VarOrImmArg src;
 
-    IRSetRegisterOp(GPR dst, VarOrImmArg src)
+    IRSetRegisterOp(GPRArg dst, VarOrImmArg src)
         : dst(dst)
         , src(src) {}
 };

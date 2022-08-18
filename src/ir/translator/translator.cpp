@@ -480,7 +480,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 void Translator::Translate(const CountLeadingZeros &instr, Emitter &emitter) {
     auto arg = emitter.GetRegister(instr.argReg);
     auto result = emitter.CountLeadingZeros(arg);
-    emitter.SetRegister(instr.dstReg, result);
+    emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
 }
@@ -500,7 +500,7 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
         result = emitter.SaturatingAdd(lhs, rhs);
     }
     emitter.UpdateStickyOverflow();
-    emitter.SetRegister(instr.dstReg, result);
+    emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
 }
@@ -514,7 +514,7 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
         auto acc = emitter.GetRegister(instr.accReg);
         result = emitter.Add(result, acc, instr.setFlags);
     }
-    emitter.SetRegister(instr.dstReg, result);
+    emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     if (instr.setFlags) {
         emitter.UpdateFlags(Flags::N | Flags::Z);
@@ -534,8 +534,8 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
         auto accHi = emitter.GetRegister(instr.dstAccHiReg);
         result = emitter.AddLong(result.lo, result.hi, accLo, accHi, instr.setFlags);
     }
-    emitter.SetRegister(instr.dstAccLoReg, result.lo);
-    emitter.SetRegister(instr.dstAccHiReg, result.hi);
+    emitter.SetRegisterExceptPC(instr.dstAccLoReg, result.lo);
+    emitter.SetRegisterExceptPC(instr.dstAccHiReg, result.hi);
 
     if (instr.setFlags) {
         emitter.UpdateFlags(Flags::N | Flags::Z);
@@ -563,7 +563,7 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
         result = emitter.Add(result, acc, true);
         emitter.UpdateStickyOverflow();
     }
-    emitter.SetRegister(instr.dstReg, result);
+    emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
 }
@@ -587,7 +587,7 @@ void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &e
         result = emitter.Add(result, acc, true);
         emitter.UpdateStickyOverflow();
     }
-    emitter.SetRegister(instr.dstReg, result);
+    emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
 }
@@ -608,8 +608,8 @@ void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &e
 
     auto result = emitter.MultiplyLong(lhs, rhs, true, false, false);
     auto accResult = emitter.AddLong(result.lo, result.hi, accLo, accHi, false);
-    emitter.SetRegister(instr.dstAccLoReg, accResult.lo);
-    emitter.SetRegister(instr.dstAccHiReg, accResult.hi);
+    emitter.SetRegisterExceptPC(instr.dstAccLoReg, accResult.lo);
+    emitter.SetRegisterExceptPC(instr.dstAccHiReg, accResult.hi);
 
     emitter.FetchInstruction();
 }
@@ -621,7 +621,7 @@ void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
     } else {
         psr = emitter.GetCPSR();
     }
-    emitter.SetRegister(instr.dstReg, psr);
+    emitter.SetRegisterExceptPC(instr.dstReg, psr);
 
     emitter.FetchInstruction();
 }
@@ -680,9 +680,6 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
-    // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
-    const bool userModeTransfer = (instr.writeback && !instr.preindexed);
-
     Variable address;
     if (instr.preindexed) {
         address = emitter.ComputeAddress(instr.address);
@@ -690,12 +687,11 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
         address = emitter.GetRegister(instr.address.baseReg);
     }
 
-    GPR gpr = instr.reg;
-    const bool isPC = (gpr == GPR::PC);
+    // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
+    GPRArg gpr = instr.reg;
+    gpr.userMode = (instr.writeback && !instr.preindexed);
+    const bool isPC = (gpr.gpr == GPR::PC);
     Variable pcValue{};
-    if (userModeTransfer) {
-        gpr = GetUserModeGPR(gpr);
-    }
 
     Variable value{};
     if (instr.load) {
@@ -892,9 +888,7 @@ void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
         value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
         emitter.MemWrite(MemAccessSize::Word, src, address);
     }
-    if (instr.dstReg != GPR::PC) {
-        emitter.SetRegister(instr.dstReg, value);
-    }
+    emitter.SetRegisterExceptPC(instr.dstReg, value);
 
     emitter.FetchInstruction();
 }

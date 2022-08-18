@@ -52,8 +52,9 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
 
-    Variable GetRegister(GPR src);
-    void SetRegister(GPR dst, VarOrImmArg src);
+    Variable GetRegister(GPRArg src);
+    void SetRegister(GPRArg dst, VarOrImmArg src);
+    void SetRegisterExceptPC(GPRArg dst, VarOrImmArg src);
     Variable GetCPSR();
     void SetCPSR(VarOrImmArg src);
     Variable GetSPSR();

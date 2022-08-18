@@ -12,8 +12,8 @@ void Emitter::SetCondition(arm::Condition cond) {
     m_block.m_cond = cond;
 }
 
-Variable Emitter::GetRegister(GPR src) {
-    if (src == GPR::PC) {
+Variable Emitter::GetRegister(GPRArg src) {
+    if (src.gpr == GPR::PC) {
         return Constant(CurrentPC());
     } else {
         auto dst = Var();
@@ -22,8 +22,14 @@ Variable Emitter::GetRegister(GPR src) {
     }
 }
 
-void Emitter::SetRegister(GPR dst, VarOrImmArg src) {
+void Emitter::SetRegister(GPRArg dst, VarOrImmArg src) {
     AppendOp<IRSetRegisterOp>(dst, src);
+}
+
+void Emitter::SetRegisterExceptPC(GPRArg dst, VarOrImmArg src) {
+    if (dst.gpr != GPR::PC) {
+        SetRegister(dst, src);
+    }
 }
 
 Variable Emitter::GetCPSR() {
