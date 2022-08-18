@@ -1,5 +1,6 @@
 #include <armajitto/armajitto.hpp>
 #include <armajitto/host/x86_64/cpuid.hpp>
+#include <armajitto/ir/optimizer.hpp>
 #include <armajitto/ir/translator.hpp>
 
 #include <array>
@@ -372,6 +373,17 @@ void testTranslator() {
 
     armajitto::ir::Translator translator{context, params};
     translator.Translate(block);
+    printf("translated:\n\n");
+    for (auto *op : block.Ops()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimizer optimizer{};
+    optimizer.Optimize(block);
+    printf("optimized:\n\n");
     for (auto *op : block.Ops()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
@@ -379,7 +391,7 @@ void testTranslator() {
 }
 
 int main() {
-    printf("armajitto %s\n", armajitto::version::name);
+    printf("armajitto %s\n\n", armajitto::version::name);
 
     // testBasic();
     // testCPUID();

@@ -69,6 +69,7 @@ add_library(armajitto
     src/ir/ops/ir_flag_ops.cpp
     src/ir/ops/ir_mem_ops.cpp
     src/ir/ops/ir_reg_ops.cpp
+    src/ir/optimizer/optimizer.cpp
     src/ir/translator/decode_arm.hpp
     src/ir/translator/decode_thumb.hpp
     src/ir/translator/translator.cpp
