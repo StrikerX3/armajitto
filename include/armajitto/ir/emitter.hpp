@@ -112,6 +112,8 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // Complex IR instruction sequence emitters
 
+    void CopySPSRToCPSR();
+
     Variable ComputeAddress(const arm::Addressing &addressing);
     Variable ApplyAddressOffset(Variable baseAddress, const arm::Addressing &addressing);
     Variable BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool setFlags);

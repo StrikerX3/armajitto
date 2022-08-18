@@ -4,6 +4,8 @@
 #include "decode_arm.hpp"
 #include "decode_thumb.hpp"
 
+#include <bit>
+
 using namespace armajitto::arm;
 using namespace armajitto::arm::instrs;
 
@@ -418,8 +420,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
     if (instr.setFlags && instr.dstReg == GPR::PC) {
-        auto spsr = emitter.GetSPSR();
-        emitter.SetCPSR(spsr);
+        emitter.CopySPSRToCPSR();
+        m_flagsUpdated = true;
     }
 
     // Perform the selected ALU operation
@@ -872,7 +874,121 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
 }
 
 void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
-    // TODO: implement
+    // Compute total transfer size and bounds
+    uint32_t firstReg;
+    uint32_t lastReg;
+    uint32_t size;
+    if (instr.regList == 0) {
+        // An empty list results in transferring nothing but incrementing the address as if we had a full list
+        firstReg = 15;
+        lastReg = 0;
+        size = 16 * 4;
+    } else {
+        firstReg = std::countr_zero(instr.regList);
+        lastReg = 15 - std::countl_zero(instr.regList);
+        size = std::popcount(instr.regList) * 4;
+    }
+
+    const bool pcIncluded = instr.regList & (1 << 15);
+    const bool userModeTransfer = instr.userModeOrPSRTransfer && (!instr.load || !pcIncluded);
+
+    // Precompute addresses
+    auto address = emitter.GetRegister(instr.baseReg);
+    auto startAddress = address;
+    auto finalAddress = address;
+    if (instr.positiveOffset) {
+        finalAddress = emitter.Add(address, size, false);
+    } else {
+        finalAddress = emitter.Subtract(address, size, false);
+        address = finalAddress;
+    }
+
+    // Registers are loaded/stored in asceding order in memory, regardless of pre/post-indexing and direction flags.
+    // We can implement a loop that transfers registers without reversing the list by reversing the indexing flag
+    // when the direction flag is down (U=0), which can be achieved by comparing both for equality.
+    const bool preInc = (instr.preindexed == instr.positiveOffset);
+
+    // Execute transfer
+    Variable pcValue{};
+    for (uint32_t i = firstReg; i <= lastReg; i++) {
+        if (~instr.regList & (1 << i)) {
+            continue;
+        }
+
+        const auto gpr = static_cast<GPR>(i);
+
+        if (preInc) {
+            address = emitter.Add(address, 4, false);
+        }
+
+        // Transfer data
+        if (instr.load) {
+            auto value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Word, address);
+            if (gpr == GPR::PC) {
+                if (instr.userModeOrPSRTransfer) {
+                    emitter.CopySPSRToCPSR();
+                    m_flagsUpdated = true;
+                }
+                pcValue = value;
+            } else {
+                emitter.SetRegister({gpr, userModeTransfer}, value);
+            }
+        } else {
+            Variable value{};
+            if (!instr.userModeOrPSRTransfer && gpr == instr.baseReg) {
+                value = (i == firstReg) ? startAddress : finalAddress;
+            } else if (gpr == GPR::PC) {
+                value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
+            } else {
+                value = emitter.GetRegister({gpr, userModeTransfer});
+            }
+            emitter.MemWrite(MemAccessSize::Word, value, address);
+        }
+
+        if (!preInc) {
+            address = emitter.Add(address, 4, false);
+        }
+    }
+
+    if (instr.writeback) {
+        // STMs always writeback
+        // LDMs writeback depend on the CPU architecture:
+        // - ARMv4T: Rn is not in the list
+        // - ARMv5TE: Rn is not the last in the list, or if it's the only register in the list
+        bool writeback = !instr.load;
+        if (!writeback) {
+            auto rn = static_cast<uint32_t>(instr.baseReg);
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T: writeback = (~instr.regList & (1 << rn)); break;
+            case CPUArch::ARMv5TE: writeback = (lastReg != rn || instr.regList == (1 << rn)); break;
+            default: /* TODO: unreachable */ break;
+            }
+        }
+        if (writeback) {
+            if (instr.baseReg == GPR::PC) {
+                pcValue = finalAddress;
+            } else {
+                emitter.SetRegister(instr.baseReg, finalAddress);
+            }
+        }
+    }
+
+    if (pcValue.IsPresent()) {
+        if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
+            // TODO: honor CP15 pre-ARMv5 branching feature
+            // if (!m_cp15.ctl.preARMv5) {
+            // Switch to THUMB mode if bit 0 is set (ARMv5 CP15 feature)
+            emitter.BranchExchange(pcValue);
+            // } else {
+            //     emitter.Branch(pcValue);
+            // }
+        } else {
+            emitter.Branch(pcValue);
+        }
+        m_endBlock = true;
+    } else {
+        emitter.FetchInstruction();
+    }
 }
 
 void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {

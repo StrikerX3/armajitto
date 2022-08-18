@@ -264,6 +264,11 @@ Variable Emitter::Constant(uint32_t value) {
     return dst;
 }
 
+void Emitter::CopySPSRToCPSR() {
+    auto spsr = GetSPSR();
+    SetCPSR(spsr);
+}
+
 Variable Emitter::ComputeAddress(const arm::Addressing &addressing) {
     auto baseReg = GetRegister(addressing.baseReg);
     return ApplyAddressOffset(baseReg, addressing);

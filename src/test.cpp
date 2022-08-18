@@ -306,7 +306,24 @@ void testTranslator() {
     // writeARM(0xE1402091); // swpb r2, r1, [r0]
     // writeARM(0xE103109F); // swp r1, r15, [r3]
     // writeARM(0xE10F1092); // swp r1, r2, [r15]
-    writeARM(0xE103F092); // swp r15, r2, [r3]
+    // writeARM(0xE103F092); // swp r15, r2, [r3]
+    // writeARM(0xEAFFFFFE); // b $
+
+    // LDM, STM
+    // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
+    // writeARM(0xE8800018); // stmia r0, {r3-r4}
+    // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
+    // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
+    // writeARM(0xE9A00006); // stmib r0!, {r1-r2}
+    // writeARM(0xE9800018); // stmib r0, {r3-r4}
+    // writeARM(0xE8300600); // ldmda r0!, {r9-r10}
+    // writeARM(0xE8101800); // ldmda r0, {r11-r12}
+    // writeARM(0xE8FD4000); // ldmia r13!, {r14}^
+    // writeARM(0xE8ED4000); // stmia r13!, {r14}^
+    // writeARM(0xE8A00000); // stmia r0!, {}
+    // writeARM(0xE8AF0001); // stmia r15!, {r0}
+    // writeARM(0xE8BF0000); // ldmia r15!, {}
+    writeARM(0xE9BF0000); // ldmib r15!, {}
     writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
