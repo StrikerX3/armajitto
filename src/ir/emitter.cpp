@@ -235,6 +235,45 @@ void Emitter::UpdateStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
+void Emitter::SetNZ(uint32_t value) {
+    Flags flags = Flags::None;
+    if (value >> 31) {
+        flags |= Flags::N;
+    }
+    if (value == 0) {
+        flags |= Flags::Z;
+    }
+    StoreFlags(Flags::N | Flags::Z, static_cast<uint32_t>(flags));
+}
+
+void Emitter::SetNZ(uint64_t value) {
+    Flags flags = Flags::None;
+    if (value >> 63ull) {
+        flags |= Flags::N;
+    }
+    if (value == 0) {
+        flags |= Flags::Z;
+    }
+    StoreFlags(Flags::N | Flags::Z, static_cast<uint32_t>(flags));
+}
+
+void Emitter::SetNZCV(uint32_t value, bool carry, bool overflow) {
+    Flags flags = Flags::None;
+    if (value >> 31) {
+        flags |= Flags::N;
+    }
+    if (value == 0) {
+        flags |= Flags::Z;
+    }
+    if (carry) {
+        flags |= Flags::C;
+    }
+    if (overflow) {
+        flags |= Flags::V;
+    }
+    StoreFlags(Flags::N | Flags::Z | Flags::C | Flags::V, static_cast<uint32_t>(flags));
+}
+
 void Emitter::Branch(VarOrImmArg address) {
     m_blockWriter.InsertOp<IRBranchOp>(address);
 }

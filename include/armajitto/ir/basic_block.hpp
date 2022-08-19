@@ -108,8 +108,9 @@ public:
                 m_overwriteNext = false;
             } else {
                 m_insertionPoint =
-                    std::next(m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...)));
+                    m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...));
             }
+            ++m_insertionPoint;
         }
 
     private:

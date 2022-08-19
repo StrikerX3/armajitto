@@ -462,12 +462,13 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     // Branch or fetch next instruction
-    if (instr.dstReg == GPR::PC) {
-        // TODO: reload pipeline
+    if (instr.dstReg == GPR::PC && result.IsPresent()) {
         if (instr.setFlags) {
             // May also switch to thumb depending on CPSR.T
+            emitter.BranchExchange(result);
         } else {
             // Branch without switching modes; CPSR was not changed
+            emitter.Branch(result);
         }
         m_endBlock = true;
     } else {

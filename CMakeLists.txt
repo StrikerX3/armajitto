@@ -101,6 +101,7 @@ target_precompile_headers(armajitto
         <memory>
         <optional>
         <string>
+        <tuple>
         <type_traits>
         <utility>
         <vector>

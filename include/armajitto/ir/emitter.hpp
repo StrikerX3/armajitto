@@ -146,6 +146,10 @@ public:
     void UpdateFlags(Flags flags);
     void UpdateStickyOverflow();
 
+    void SetNZ(uint32_t value);
+    void SetNZ(uint64_t value);
+    void SetNZCV(uint32_t value, bool carry, bool overflow);
+
     void Branch(VarOrImmArg address);
     void BranchExchange(VarOrImmArg address);
 
