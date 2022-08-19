@@ -373,7 +373,7 @@ void testTranslator() {
 
     armajitto::ir::Translator translator{context, params};
     translator.Translate(block);
-    printf("translated:\n\n");
+    printf("translated %u instructions:\n\n", block.InstructionCount());
     for (auto &op : block.Ops()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());

@@ -4,6 +4,7 @@
 namespace armajitto::ir {
 
 void Emitter::NextInstruction() {
+    m_blockWriter.NextInstruction();
     m_currInstrAddr += m_instrSize;
 }
 
