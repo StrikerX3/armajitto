@@ -122,6 +122,7 @@ public:
             }
             ++m_insertionPoint;
             m_modifiedSinceLastCursorMove = true;
+            m_dirty = true;
         }
 
         uint32_t NextVarID() {
