@@ -346,7 +346,7 @@ void testTranslator() {
 
     // Simple (useless) demo
     // writeARM(0xE3A004DE); // mov r0, #0xDE000000
-    writeARM(0xE3B004DE); // movs r0, #0xDE000000
+    // writeARM(0xE3B004DE); // movs r0, #0xDE000000
     // writeARM(0xE38008AD); // orr r0, #0xAD0000
     // writeARM(0xE3800CBE); // orr r0, #0xBE00
     // writeARM(0xE38000EF); // orr r0, #0xEF

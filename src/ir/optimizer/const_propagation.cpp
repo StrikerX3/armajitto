@@ -358,6 +358,8 @@ void ConstPropagationOptimizerPass::Process(IRMoveOp *op) {
         if (setFlags) {
             m_emitter.SetNZ(value);
         }
+    } else if (!op->setFlags) {
+        m_emitter.Overwrite().CopyVar(op->dst, op->value.var);
     }
 }
 
