@@ -12,6 +12,9 @@ namespace armajitto::ir {
 bool ConstPropagationOptimizerPass::Optimize() {
     m_emitter.ClearDirtyFlag();
 
+    // PC is known at entry
+    Assign(GPR::PC, m_emitter.BasePC());
+
     m_emitter.SetCursorPos(0);
     while (!m_emitter.IsCursorAtEnd()) {
         auto *op = m_emitter.GetCurrentOp();
@@ -512,10 +515,12 @@ void ConstPropagationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRBranchOp *op) {
     Substitute(op->address);
+    Forget(GPR::PC);
 }
 
 void ConstPropagationOptimizerPass::Process(IRBranchExchangeOp *op) {
     Substitute(op->address);
+    Forget(GPR::PC);
 }
 
 void ConstPropagationOptimizerPass::Process(IRLoadCopRegisterOp *op) {
@@ -623,6 +628,10 @@ void ConstPropagationOptimizerPass::Assign(GPRArg gpr, VarOrImmArg value) {
     } else {
         subst = value.var.var;
     }
+}
+
+void ConstPropagationOptimizerPass::Forget(GPRArg gpr) {
+    GetGPRSubstitution(gpr) = {};
 }
 
 auto ConstPropagationOptimizerPass::GetGPRSubstitution(GPRArg gpr) -> Value & {

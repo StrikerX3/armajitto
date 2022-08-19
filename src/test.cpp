@@ -366,6 +366,7 @@ void testTranslator() {
     // writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
 
     // Add with carry test
+    // - Requires constant propagation and dead store elimination to fully optimize
     writeARM(0xE3E00000); // mvn r0, #0
     writeARM(0xE3A01001); // mov r1, #1
     writeARM(0xE0902001); // adds r2, r0, r1

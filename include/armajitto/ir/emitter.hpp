@@ -21,6 +21,7 @@ public:
         : m_blockWriter(block) {
 
         auto loc = block.Location();
+        m_baseAddress = loc.BaseAddress();
         m_thumb = loc.IsThumbMode();
         m_mode = loc.Mode();
         m_currInstrAddr = loc.BaseAddress();
@@ -29,6 +30,14 @@ public:
 
     BasicBlock &GetBlock() {
         return m_blockWriter.Block();
+    }
+
+    uint32_t BaseAddress() const {
+        return m_baseAddress;
+    }
+
+    uint32_t BasePC() const {
+        return m_baseAddress + m_instrSize * 2;
     }
 
     uint32_t InstructionSize() const {
@@ -197,6 +206,7 @@ public:
 private:
     BasicBlock::Writer m_blockWriter;
 
+    uint32_t m_baseAddress;
     bool m_thumb;
     arm::Mode m_mode;
     uint32_t m_instrSize;

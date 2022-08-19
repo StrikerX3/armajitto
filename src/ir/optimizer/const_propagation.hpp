@@ -160,6 +160,7 @@ private:
 
     // GPR substitutions
     void Assign(GPRArg gpr, VarOrImmArg value);
+    void Forget(GPRArg gpr);
     Value &GetGPRSubstitution(GPRArg gpr);
 
     // Flags substitutions
