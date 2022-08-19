@@ -94,6 +94,14 @@ public:
         m_blockWriter.EraseNext(count);
     }
 
+    bool IsModifiedSinceLastCursorMove() const {
+        return m_blockWriter.IsModifiedSinceLastCursorMove();
+    }
+
+    void ClearModifiedSinceLastCursorMove() {
+        m_blockWriter.ClearModifiedSinceLastCursorMove();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
 

@@ -10,8 +10,8 @@
 namespace armajitto::ir {
 
 void ConstPropagationOptimizerPass::Optimize() {
-    for (m_emitter.SetCursorPos(0); !m_emitter.IsCursorAtEnd(); m_emitter.MoveCursor(1)) {
-        // TODO: should not advance cursor if instructions were overwritten/inserted
+    m_emitter.SetCursorPos(0);
+    while (!m_emitter.IsCursorAtEnd()) {
         auto *op = m_emitter.GetCurrentOp();
         if (op == nullptr) {
             assert(false);
@@ -61,6 +61,12 @@ void ConstPropagationOptimizerPass::Optimize() {
         case IROpcodeType::CopyVar: Process(*Cast<IRCopyVarOp>(op)); break;
         case IROpcodeType::GetBaseVectorAddress: Process(*Cast<IRGetBaseVectorAddressOp>(op)); break;
         default: break;
+        }
+
+        if (!m_emitter.IsModifiedSinceLastCursorMove()) {
+            m_emitter.MoveCursor(1);
+        } else {
+            m_emitter.ClearModifiedSinceLastCursorMove();
         }
     }
 }

@@ -127,6 +127,8 @@ private:
     std::array<Value, 16> m_gprSubsts;
     std::array<Value, 16> m_userGPRSubsts;
 
+    // TODO: track NZCV flags
+
     void ResizeVarSubsts(size_t size);
 
     void Assign(VariableArg var, VariableArg value);

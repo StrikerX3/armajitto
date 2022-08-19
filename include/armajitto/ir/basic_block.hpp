@@ -65,11 +65,13 @@ public:
         void SetCursorPos(size_t index) {
             assert(index <= m_block.m_ops.size());
             m_insertionPoint = m_block.m_ops.begin() + index;
+            m_modifiedSinceLastCursorMove = false;
         }
 
         size_t MoveCursor(int64_t offset) {
             assert(static_cast<size_t>(GetCursorPos() + offset) <= m_block.m_ops.size());
             m_insertionPoint += offset;
+            m_modifiedSinceLastCursorMove = false;
             return GetCursorPos();
         }
 
@@ -101,6 +103,14 @@ public:
             m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
         }
 
+        bool IsModifiedSinceLastCursorMove() const {
+            return m_modifiedSinceLastCursorMove;
+        }
+
+        void ClearModifiedSinceLastCursorMove() {
+            m_modifiedSinceLastCursorMove = false;
+        }
+
         template <typename T, typename... Args>
         void InsertOp(Args &&...args) {
             if (m_overwriteNext) {
@@ -111,12 +121,14 @@ public:
                     m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...));
             }
             ++m_insertionPoint;
+            m_modifiedSinceLastCursorMove = true;
         }
 
     private:
         BasicBlock &m_block;
         std::vector<std::unique_ptr<IROp>>::iterator m_insertionPoint;
         bool m_overwriteNext = false;
+        bool m_modifiedSinceLastCursorMove = false;
     };
 
 private:
