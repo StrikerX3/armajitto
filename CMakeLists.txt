@@ -62,6 +62,8 @@ add_library(armajitto
     src/host/x86_64/cpuid.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
+    src/ir/optimizer.cpp
+    src/ir/translator.cpp
     src/ir/defs/arguments.cpp
     src/ir/ops/ir_alu_ops.cpp
     src/ir/ops/ir_branch_ops.cpp
@@ -69,10 +71,10 @@ add_library(armajitto
     src/ir/ops/ir_flag_ops.cpp
     src/ir/ops/ir_mem_ops.cpp
     src/ir/ops/ir_reg_ops.cpp
-    src/ir/optimizer/optimizer.cpp
+    src/ir/optimizer/const_propagation.cpp
+    src/ir/optimizer/const_propagation.hpp
     src/ir/translator/decode_arm.hpp
     src/ir/translator/decode_thumb.hpp
-    src/ir/translator/translator.cpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
@@ -97,6 +99,7 @@ target_precompile_headers(armajitto
         <optional>
         <string>
         <type_traits>
+        <vector>
 )
 
 ## Define version string and numbers as compiler macros

@@ -155,7 +155,7 @@ private:
         m_insertionPoint = std::next(InsertOp<T, Args...>(m_insertionPoint, std::forward<Args>(args)...));
     }
 
-    // --- Helpers -------------------------------------------------------------
+    // --- Variables -----------------------------------------------------------
 
     uint32_t m_nextVarID = 0;
     Variable Var();

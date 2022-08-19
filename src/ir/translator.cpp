@@ -1,8 +1,8 @@
 #include "armajitto/ir/translator.hpp"
 
 #include "armajitto/guest/arm/instructions.hpp"
-#include "decode_arm.hpp"
-#include "decode_thumb.hpp"
+#include "translator/decode_arm.hpp"
+#include "translator/decode_thumb.hpp"
 
 #include <bit>
 
