@@ -6,6 +6,7 @@
 #include "armajitto/ir/ops/ir_ops.hpp"
 
 #include <array>
+#include <optional>
 #include <vector>
 
 namespace armajitto::ir {
@@ -127,7 +128,7 @@ private:
     std::array<Value, 16> m_gprSubsts;
     std::array<Value, 16> m_userGPRSubsts;
 
-    // TODO: track NZCV flags
+    std::optional<bool> m_carryFlag = std::nullopt;
 
     void ResizeVarSubsts(size_t size);
 

@@ -180,16 +180,15 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     Substitute(op->value);
-    if (op->value.immediate /* TODO: && carryKnown */) {
-        // TODO: get carry input and:
-        // auto [result, carry] = arm::RRX(op->value.imm.value, carryIn);
-        // Assign(op->dst, result);
-        //
-        // const bool setFlags = op->setFlags;
-        // TODO: replace instruction somehow; watch out for flags
-        // if (setFlags) {
-        //     m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
-        // }
+    if (op->value.immediate && m_carryFlag.has_value()) {
+        auto [result, carry] = arm::RRX(op->value.imm.value, *m_carryFlag);
+        Assign(op->dst, result);
+
+        const bool setFlags = op->setFlags;
+        m_emitter.Overwrite().Constant(op->dst, result);
+        if (setFlags) {
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>(carry ? Flags::C : Flags::None));
+        }
     }
 }
 
@@ -292,20 +291,15 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
 void ConstPropagationOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
-    if (op->lhs.immediate && op->rhs.immediate /* TODO: && carryKnown */) {
-        // TODO: get carry input and:
-        // auto [result, carry, overflow] = arm::ADC(op->lhs.imm.value, op->rhs.imm.value, carryIn);
-        // Assign(op->dst, result);
-        //
-        // const bool setFlags = op->setFlags;
-        // if (op->dst.var.IsPresent()) {
-        //     m_emitter.Overwrite().Constant(op->dst, result);
-        // } else {
-        //     m_emitter.EraseNext();
-        // }
-        // if (setFlags) {
-        //     m_emitter.SetNZCV(result, carry, overflow);
-        // }
+    if (op->lhs.immediate && op->rhs.immediate && m_carryFlag.has_value()) {
+        auto [result, carry, overflow] = arm::ADC(op->lhs.imm.value, op->rhs.imm.value, *m_carryFlag);
+        Assign(op->dst, result);
+
+        const bool setFlags = op->setFlags;
+        m_emitter.Overwrite().Constant(op->dst, result);
+        if (setFlags) {
+            m_emitter.SetNZCV(result, carry, overflow);
+        }
     }
 }
 
@@ -328,23 +322,20 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
     }
 }
 
+// TODO: track carry flag everywhere
+
 void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
-    if (op->lhs.immediate && op->rhs.immediate /* TODO: && carryKnown */) {
-        // TODO: get carry input and:
-        // auto [result, carry, overflow] = arm::SBC(op->lhs.imm.value, op->rhs.imm.value, carryIn);
-        // Assign(op->dst, result);
-        //
-        // const bool setFlags = op->setFlags;
-        // if (op->dst.var.IsPresent()) {
-        //     m_emitter.Overwrite().Constant(op->dst, result);
-        // } else {
-        //     m_emitter.EraseNext();
-        // }
-        // if (setFlags) {
-        //     m_emitter.SetNZCV(result, carry, overflow);
-        // }
+    if (op->lhs.immediate && op->rhs.immediate && m_carryFlag.has_value()) {
+        auto [result, carry, overflow] = arm::SBC(op->lhs.imm.value, op->rhs.imm.value, *m_carryFlag);
+        Assign(op->dst, result);
+
+        const bool setFlags = op->setFlags;
+        m_emitter.Overwrite().Constant(op->dst, result);
+        if (setFlags) {
+            m_emitter.SetNZCV(result, carry, overflow);
+        }
     }
 }
 
