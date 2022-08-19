@@ -39,16 +39,15 @@ public:
         return m_thumb;
     }
 
-    uint32_t CurrentInstructionAddress() const {
-        return m_currInstrAddr;
-    }
+    // -----------------------------------------------------------------------------------------------------------------
+    // Translator helper functions
+
+    void NextInstruction();
+    void SetCondition(arm::Condition cond);
 
     uint32_t CurrentPC() const {
         return m_currInstrAddr + 2 * m_instrSize;
     }
-
-    void NextInstruction();
-    void SetCondition(arm::Condition cond);
 
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
@@ -141,18 +140,8 @@ private:
     OpIterator m_insertionPoint;
 
     template <typename T, typename... Args>
-    OpIterator InsertOp(OpIterator insertionPoint, Args &&...args) {
-        return m_block.m_ops.insert(insertionPoint, new T(std::forward<Args>(args)...));
-    }
-
-    template <typename T, typename... Args>
-    void PrependOp(Args &&...args) {
-        m_insertionPoint = InsertOp<T, Args...>(m_insertionPoint, std::forward<Args>(args)...);
-    }
-
-    template <typename T, typename... Args>
-    void AppendOp(Args &&...args) {
-        m_insertionPoint = std::next(InsertOp<T, Args...>(m_insertionPoint, std::forward<Args>(args)...));
+    void InsertOp(Args &&...args) {
+        m_insertionPoint = std::next(m_block.m_ops.insert(m_insertionPoint, new T(std::forward<Args>(args)...)));
     }
 
     // --- Variables -----------------------------------------------------------
