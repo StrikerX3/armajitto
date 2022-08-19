@@ -12,9 +12,13 @@ void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
     //     size_t GetCodeSize()
     //     size_t GetCursorPos()
     //     void SetCursorPos(size_t index)
+    //       Absolute cursor adjustment.
     //       index is clamped to size
     //       index == size means insert at the end
     //       (assert that index <= size)
+    //     size_t MoveCursor(int64_t offset)
+    //       Relative cursor adjustment.
+    //       index is clamped to 0..size
     //   Get writable pointer to instruction
     //     IROp *GetOp(size_t index)
     //       index >= size returns nullptr
@@ -48,7 +52,7 @@ void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
     //   emitter.Overwrite().Compare(...);      // overwrite
     //   emitter.BitClear(...);                 // insert
     //   emitter.Overwrite().UpdateFlags(...);  // overwrite first instruction, insert rest
-    // 
+    //
     //   emitter.Erase
     //
     //   for (size_t i = 0; i < emitter.GetCodeSize(); i++) {
