@@ -124,11 +124,24 @@ public:
             m_modifiedSinceLastCursorMove = true;
         }
 
+        uint32_t NextVarID() {
+            return m_block.m_nextVarID++;
+        }
+
+        bool IsDirty() const {
+            return m_dirty;
+        }
+
+        void ClearDirtyFlag() {
+            m_dirty = false;
+        }
+
     private:
         BasicBlock &m_block;
         std::vector<std::unique_ptr<IROp>>::iterator m_insertionPoint;
         bool m_overwriteNext = false;
         bool m_modifiedSinceLastCursorMove = false;
+        bool m_dirty = false;
     };
 
 private:
@@ -137,6 +150,7 @@ private:
 
     std::vector<std::unique_ptr<IROp>> m_ops;
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
+    uint32_t m_nextVarID = 0;
 };
 
 } // namespace armajitto::ir

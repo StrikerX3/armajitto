@@ -9,7 +9,9 @@
 
 namespace armajitto::ir {
 
-void ConstPropagationOptimizerPass::Optimize() {
+bool ConstPropagationOptimizerPass::Optimize() {
+    m_emitter.ClearDirtyFlag();
+
     m_emitter.SetCursorPos(0);
     while (!m_emitter.IsCursorAtEnd()) {
         auto *op = m_emitter.GetCurrentOp();
@@ -69,6 +71,8 @@ void ConstPropagationOptimizerPass::Optimize() {
             m_emitter.ClearModifiedSinceLastCursorMove();
         }
     }
+
+    return m_emitter.IsDirty();
 }
 
 void ConstPropagationOptimizerPass::Process(IRGetRegisterOp *op) {
@@ -95,6 +99,11 @@ void ConstPropagationOptimizerPass::Process(IRGetCPSROp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
     Substitute(op->src);
+    if (op->src.immediate) {
+        m_carryFlag = (static_cast<Flags>(op->src.imm.value) & Flags::C) == Flags::C;
+    } else {
+        m_carryFlag = std::nullopt;
+    }
 }
 
 void ConstPropagationOptimizerPass::Process(IRGetSPSROp *op) {
@@ -127,9 +136,14 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags && carry.has_value()) {
-            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+        if (setFlags) {
+            if (carry.has_value()) {
+                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+            }
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -142,9 +156,14 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags && carry.has_value()) {
-            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+        if (setFlags) {
+            if (carry.has_value()) {
+                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+            }
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -157,9 +176,14 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags && carry.has_value()) {
-            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+        if (setFlags) {
+            if (carry.has_value()) {
+                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+            }
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -172,9 +196,14 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags && carry.has_value()) {
-            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+        if (setFlags) {
+            if (carry.has_value()) {
+                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+            }
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -188,7 +217,10 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
         m_emitter.Overwrite().Constant(op->dst, result);
         if (setFlags) {
             m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>(carry ? Flags::C : Flags::None));
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -284,7 +316,10 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -299,7 +334,10 @@ void ConstPropagationOptimizerPass::Process(IRAddCarryOp *op) {
         m_emitter.Overwrite().Constant(op->dst, result);
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -318,11 +356,12 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
-
-// TODO: track carry flag everywhere
 
 void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->lhs);
@@ -335,7 +374,10 @@ void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
         m_emitter.Overwrite().Constant(op->dst, result);
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
+            m_carryFlag = carry;
         }
+    } else if (op->setFlags) {
+        m_carryFlag = std::nullopt;
     }
 }
 
@@ -477,10 +519,20 @@ void ConstPropagationOptimizerPass::Process(IRAddLongOp *op) {
 void ConstPropagationOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->srcCPSR);
     Substitute(op->values);
+    if (BitmaskEnum(op->flags).AnyOf(Flags::C)) {
+        if (op->values.immediate) {
+            m_carryFlag = (static_cast<Flags>(op->values.imm.value) & Flags::C) == Flags::C;
+        } else {
+            m_carryFlag = std::nullopt;
+        }
+    }
 }
 
 void ConstPropagationOptimizerPass::Process(IRUpdateFlagsOp *op) {
     Substitute(op->srcCPSR);
+    if (BitmaskEnum(op->flags).AnyOf(Flags::C)) {
+        m_carryFlag = std::nullopt;
+    }
 }
 
 void ConstPropagationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {

@@ -42,7 +42,7 @@ public:
     ConstPropagationOptimizerPass(Emitter &emitter)
         : m_emitter(emitter) {}
 
-    void Optimize();
+    bool Optimize();
 
 private:
     Emitter &m_emitter;

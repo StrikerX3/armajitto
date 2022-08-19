@@ -102,6 +102,14 @@ public:
         m_blockWriter.ClearModifiedSinceLastCursorMove();
     }
 
+    bool IsDirty() const {
+        return m_blockWriter.IsDirty();
+    }
+
+    void ClearDirtyFlag() {
+        m_blockWriter.ClearDirtyFlag();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
 
@@ -197,7 +205,6 @@ private:
 
     // --- Variables -----------------------------------------------------------
 
-    uint32_t m_nextVarID = 0;
     Variable Var();
 };
 

@@ -356,14 +356,21 @@ void testTranslator() {
     // writeARM(0xE2200CA3); // eor r0, #0xA300
     // writeARM(0xE2200005); // eor r0, #0x05
     // writeARM(0xE5A10004); // str r0, [r1, #4]!
-    // writeARM(0xEAFFFFF6); // b 0
+    // writeARM(0xEAFFFFFE); // b $
 
     // Code excerpt from real software
-    writeARM(0xE1A00620); // mov r0, r0, lsr #0xC
-    writeARM(0xE1A00600); // mov r0, r0, lsl #0xC
-    writeARM(0xE2800C40); // add r0, r0, #0x4000
-    writeARM(0xE28FE000); // add lr, pc, #0x0
-    writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
+    // writeARM(0xE1A00620); // mov r0, r0, lsr #0xC
+    // writeARM(0xE1A00600); // mov r0, r0, lsl #0xC
+    // writeARM(0xE2800C40); // add r0, r0, #0x4000
+    // writeARM(0xE28FE000); // add lr, pc, #0x0
+    // writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
+
+    // Add with carry test
+    writeARM(0xE3E00000); // mvn r0, #0
+    writeARM(0xE3A01001); // mov r1, #1
+    writeARM(0xE0902001); // adds r2, r0, r1
+    writeARM(0xE0A23001); // adc r3, r2, r1
+    writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};

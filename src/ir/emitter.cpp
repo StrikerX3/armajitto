@@ -416,7 +416,7 @@ void Emitter::FetchInstruction() {
 }
 
 Variable Emitter::Var() {
-    return Variable{m_nextVarID++};
+    return Variable{m_blockWriter.NextVarID()};
 }
 
 } // namespace armajitto::ir

@@ -7,7 +7,11 @@ namespace armajitto::ir {
 void Optimizer::Optimize(BasicBlock &block) {
     Emitter emitter{block};
 
-    ConstPropagationOptimizerPass{emitter}.Optimize();
+    bool dirty;
+    do {
+        dirty = false;
+        dirty |= ConstPropagationOptimizerPass{emitter}.Optimize();
+    } while (dirty);
 }
 
 } // namespace armajitto::ir
