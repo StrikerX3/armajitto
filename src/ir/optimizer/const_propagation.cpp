@@ -100,9 +100,13 @@ void ConstPropagationOptimizerPass::Process(IRGetCPSROp *op) {
 void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
     Substitute(op->src);
     if (op->src.immediate) {
-        m_carryFlag = (static_cast<Flags>(op->src.imm.value) & Flags::C) == Flags::C;
+        m_knownFlagsMask = Flags::N | Flags::Z | Flags::C | Flags::V | Flags::Q;
+        m_knownFlagsValues = static_cast<Flags>(op->src.imm.value);
+    } else if (auto subst = GetFlagsSubstitution(op->src.var)) {
+        m_knownFlagsMask = subst->knownMask;
+        m_knownFlagsValues = subst->flags;
     } else {
-        m_carryFlag = std::nullopt;
+        m_knownFlagsMask = Flags::None;
     }
 }
 
@@ -136,14 +140,9 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            if (carry.has_value()) {
-                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
-            }
-            m_carryFlag = carry;
+        if (setFlags && carry.has_value()) {
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -156,14 +155,9 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            if (carry.has_value()) {
-                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
-            }
-            m_carryFlag = carry;
+        if (setFlags && carry.has_value()) {
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -176,14 +170,9 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            if (carry.has_value()) {
-                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
-            }
-            m_carryFlag = carry;
+        if (setFlags && carry.has_value()) {
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -196,31 +185,26 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
 
         const bool setFlags = op->setFlags;
         m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            if (carry.has_value()) {
-                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
-            }
-            m_carryFlag = carry;
+        if (setFlags && carry.has_value()) {
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
 void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     Substitute(op->value);
-    if (op->value.immediate && m_carryFlag.has_value()) {
-        auto [result, carry] = arm::RRX(op->value.imm.value, *m_carryFlag);
-        Assign(op->dst, result);
+    if (op->value.immediate) {
+        auto carryFlag = GetCarryFlag();
+        if (carryFlag.has_value()) {
+            auto [result, carry] = arm::RRX(op->value.imm.value, *carryFlag);
+            Assign(op->dst, result);
 
-        const bool setFlags = op->setFlags;
-        m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>(carry ? Flags::C : Flags::None));
-            m_carryFlag = carry;
+            const bool setFlags = op->setFlags;
+            m_emitter.Overwrite().Constant(op->dst, result);
+            if (setFlags) {
+                m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>(carry ? Flags::C : Flags::None));
+            }
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -316,28 +300,25 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
-            m_carryFlag = carry;
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
 void ConstPropagationOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
-    if (op->lhs.immediate && op->rhs.immediate && m_carryFlag.has_value()) {
-        auto [result, carry, overflow] = arm::ADC(op->lhs.imm.value, op->rhs.imm.value, *m_carryFlag);
-        Assign(op->dst, result);
+    if (op->lhs.immediate && op->rhs.immediate) {
+        auto carryFlag = GetCarryFlag();
+        if (carryFlag.has_value()) {
+            auto [result, carry, overflow] = arm::ADC(op->lhs.imm.value, op->rhs.imm.value, *carryFlag);
+            Assign(op->dst, result);
 
-        const bool setFlags = op->setFlags;
-        m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            m_emitter.SetNZCV(result, carry, overflow);
-            m_carryFlag = carry;
+            const bool setFlags = op->setFlags;
+            m_emitter.Overwrite().Constant(op->dst, result);
+            if (setFlags) {
+                m_emitter.SetNZCV(result, carry, overflow);
+            }
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -356,28 +337,25 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
-            m_carryFlag = carry;
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
 void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
-    if (op->lhs.immediate && op->rhs.immediate && m_carryFlag.has_value()) {
-        auto [result, carry, overflow] = arm::SBC(op->lhs.imm.value, op->rhs.imm.value, *m_carryFlag);
-        Assign(op->dst, result);
+    if (op->lhs.immediate && op->rhs.immediate) {
+        auto carryFlag = GetCarryFlag();
+        if (carryFlag.has_value()) {
+            auto [result, carry, overflow] = arm::SBC(op->lhs.imm.value, op->rhs.imm.value, *carryFlag);
+            Assign(op->dst, result);
 
-        const bool setFlags = op->setFlags;
-        m_emitter.Overwrite().Constant(op->dst, result);
-        if (setFlags) {
-            m_emitter.SetNZCV(result, carry, overflow);
-            m_carryFlag = carry;
+            const bool setFlags = op->setFlags;
+            m_emitter.Overwrite().Constant(op->dst, result);
+            if (setFlags) {
+                m_emitter.SetNZCV(result, carry, overflow);
+            }
         }
-    } else if (op->setFlags) {
-        m_carryFlag = std::nullopt;
     }
 }
 
@@ -519,20 +497,13 @@ void ConstPropagationOptimizerPass::Process(IRAddLongOp *op) {
 void ConstPropagationOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->srcCPSR);
     Substitute(op->values);
-    if (BitmaskEnum(op->flags).AnyOf(Flags::C)) {
-        if (op->values.immediate) {
-            m_carryFlag = (static_cast<Flags>(op->values.imm.value) & Flags::C) == Flags::C;
-        } else {
-            m_carryFlag = std::nullopt;
-        }
+    if (BitmaskEnum(op->flags).Any() && op->values.immediate) {
+        Assign(op->dstCPSR, op->flags, static_cast<Flags>(op->values.imm.value));
     }
 }
 
 void ConstPropagationOptimizerPass::Process(IRUpdateFlagsOp *op) {
     Substitute(op->srcCPSR);
-    if (BitmaskEnum(op->flags).AnyOf(Flags::C)) {
-        m_carryFlag = std::nullopt;
-    }
 }
 
 void ConstPropagationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {
@@ -566,6 +537,14 @@ void ConstPropagationOptimizerPass::Process(IRCopyVarOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRGetBaseVectorAddressOp *op) {
     // Nothing to do
+}
+
+std::optional<bool> ConstPropagationOptimizerPass::GetCarryFlag() {
+    if (BitmaskEnum(m_knownFlagsMask).AnyOf(Flags::C)) {
+        return BitmaskEnum(m_knownFlagsValues).AnyOf(Flags::C);
+    } else {
+        return std::nullopt;
+    }
 }
 
 void ConstPropagationOptimizerPass::ResizeVarSubsts(size_t size) {
@@ -611,18 +590,6 @@ void ConstPropagationOptimizerPass::Assign(VariableArg var, uint32_t value) {
     m_varSubsts[varIndex] = value;
 }
 
-void ConstPropagationOptimizerPass::Assign(GPRArg gpr, VarOrImmArg value) {
-    if (!value.immediate && !value.var.var.IsPresent()) {
-        return;
-    }
-    auto &subst = GetGPRSubstitution(gpr);
-    if (value.immediate) {
-        subst = value.imm.value;
-    } else {
-        subst = value.var.var;
-    }
-}
-
 void ConstPropagationOptimizerPass::Substitute(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
@@ -646,10 +613,52 @@ void ConstPropagationOptimizerPass::Substitute(VarOrImmArg &var) {
     }
 }
 
+void ConstPropagationOptimizerPass::Assign(GPRArg gpr, VarOrImmArg value) {
+    if (!value.immediate && !value.var.var.IsPresent()) {
+        return;
+    }
+    auto &subst = GetGPRSubstitution(gpr);
+    if (value.immediate) {
+        subst = value.imm.value;
+    } else {
+        subst = value.var.var;
+    }
+}
+
 auto ConstPropagationOptimizerPass::GetGPRSubstitution(GPRArg gpr) -> Value & {
     auto &arr = (gpr.userMode) ? m_userGPRSubsts : m_gprSubsts;
     auto index = static_cast<size_t>(gpr.gpr);
     return arr[index];
+}
+
+void ConstPropagationOptimizerPass::ResizeFlagsSubsts(size_t size) {
+    if (m_flagsSubsts.size() <= size) {
+        m_flagsSubsts.resize(size + 1);
+    }
+}
+
+void ConstPropagationOptimizerPass::Assign(VariableArg var, Flags mask, Flags flags) {
+    if (!var.var.IsPresent()) {
+        return;
+    }
+    if (mask == Flags::None) {
+        return;
+    }
+    auto varIndex = var.var.Index();
+    ResizeFlagsSubsts(varIndex);
+    m_flagsSubsts[varIndex] = {mask, flags};
+}
+
+auto ConstPropagationOptimizerPass::GetFlagsSubstitution(VariableArg var) -> FlagsValue * {
+    if (!var.var.IsPresent()) {
+        return nullptr;
+    }
+    auto varIndex = var.var.Index();
+    if (varIndex < m_flagsSubsts.size()) {
+        return &m_flagsSubsts[varIndex];
+    } else {
+        return nullptr;
+    }
 }
 
 void ConstPropagationOptimizerPass::Value::Substitute(VariableArg &var) {

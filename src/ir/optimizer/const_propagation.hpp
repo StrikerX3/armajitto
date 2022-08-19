@@ -123,27 +123,49 @@ private:
         }
     };
 
+    // Note: this is only concerned with the flags bits; the rest of the variable's value doesn't matter
+    struct FlagsValue {
+        Flags knownMask;
+        Flags flags;
+
+        FlagsValue()
+            : knownMask(Flags::None)
+            , flags(Flags::None) {}
+
+        FlagsValue(Flags mask, Flags flags)
+            : knownMask(mask)
+            , flags(flags) {}
+    };
+
     // Lookup variable or GPR in these lists to find out what its substitution is, if any.
     std::vector<Value> m_varSubsts;
     std::array<Value, 16> m_gprSubsts;
     std::array<Value, 16> m_userGPRSubsts;
 
-    std::optional<bool> m_carryFlag = std::nullopt;
+    Flags m_knownFlagsMask = Flags::None;
+    Flags m_knownFlagsValues = Flags::None;
+    std::vector<FlagsValue> m_flagsSubsts;
 
+    std::optional<bool> GetCarryFlag();
+
+    // General variable substitutions
     void ResizeVarSubsts(size_t size);
-
     void Assign(VariableArg var, VariableArg value);
     void Assign(VariableArg var, ImmediateArg value);
     void Assign(VariableArg var, VarOrImmArg value);
     void Assign(VariableArg var, Variable value);
     void Assign(VariableArg var, uint32_t value);
-
-    void Assign(GPRArg gpr, VarOrImmArg value);
-
     void Substitute(VariableArg &var);
     void Substitute(VarOrImmArg &var);
 
+    // GPR substitutions
+    void Assign(GPRArg gpr, VarOrImmArg value);
     Value &GetGPRSubstitution(GPRArg gpr);
+
+    // Flags substitutions
+    void ResizeFlagsSubsts(size_t size);
+    void Assign(VariableArg var, Flags mask, Flags flags);
+    FlagsValue *GetFlagsSubstitution(VariableArg var);
 };
 
 } // namespace armajitto::ir
