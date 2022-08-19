@@ -11,20 +11,23 @@ void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
     //   Manage cursor
     //     size_t GetCodeSize()
     //     size_t GetCursorPos()
+    //     bool IsCursorAtEnd()
+    //       shorthand for GetCursorPos() == GetCodeSize()
     //     void SetCursorPos(size_t index)
+    //       (assert that index <= size)
     //       Absolute cursor adjustment.
     //       index is clamped to size
     //       index == size means insert at the end
-    //       (assert that index <= size)
     //     size_t MoveCursor(int64_t offset)
+    //       (assert that (size_t)(index+offset) <= size; also works if the negative offset is too large)
     //       Relative cursor adjustment.
     //       index is clamped to 0..size
     //   Get writable pointer to instruction
     //     IROp *GetOp(size_t index)
-    //       index >= size returns nullptr
     //       (assert that index < size)
+    //       index >= size returns nullptr
     //     IROp *GetCurrentOp()
-    //       shorthand for emitter.GetOp(emitter.GetCursorPos())
+    //       shorthand for GetOp(GetCursorPos())
     //   Overwrite one instruction
     //     Emitter &Overwrite()
     //       Next emitted instruction will overwrite the current instruction.
@@ -33,14 +36,19 @@ void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
     //       appended after that, which is the expected behavior.
     //   Erase instructions
     //     void Erase(size_t pos, size_t count = 1)
+    //       (assert that pos < size and pos+count <= size)
+    //       (assert that count >= 1)
+    //       count = 0 is a no-op.
     //       Erasing beyond the end of the vector is a no-op.
-    //       (i.e. pos and pos+count are clamped to size-1)
-    //       (though there should be an assert for correctness)
+    //       (i.e. pos is clamped to size-1 and pos+count is clamped to size)
+    //       Also adjusts cursor position towards the beginning.
+    //       (i.e. erasing a range of elements that contains the cursor will move it to the first instruction before the
+    //       erased range)
     //     void EraseNext(size_t count = 1)
     //       shorthand for Erase(GetCursorPos(), count)
     //
     // Usage examples:
-    //   emitter.SetCursorPos(3);   // move insertion point to index 3 (i.e., between the 3rd and 4th elements)
+    //   emitter.SetCursorPos(3);   // move cursor to index 3 (i.e., between the 3rd and 4th elements)
     //   emitter.SetRegister(...);  // inserted at 3
     //   emitter.Add(...);          // inserted at 4
     //   emitter.Subtract(...);     // ... and so on
@@ -53,7 +61,10 @@ void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
     //   emitter.BitClear(...);                 // insert
     //   emitter.Overwrite().UpdateFlags(...);  // overwrite first instruction, insert rest
     //
-    //   emitter.Erase
+    //   emitter.Erase(3, 5);   // erases instructions 3..7
+    //   emitter.Erase(1);      // erases instruction 1
+    //   emitter.EraseNext();   // erases instruction at cursor
+    //   emitter.EraseNext(4);  // erases 4 instructions starting at the cursor
     //
     //   for (size_t i = 0; i < emitter.GetCodeSize(); i++) {
     //       auto *op = emitter.GetOp(i);
