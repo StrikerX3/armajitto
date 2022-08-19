@@ -27,6 +27,7 @@ add_library(armajitto
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
+    include/armajitto/guest/arm/arithmetic.hpp
     include/armajitto/guest/arm/coprocessor.hpp
     include/armajitto/guest/arm/exceptions.hpp
     include/armajitto/guest/arm/flags.hpp
@@ -89,16 +90,19 @@ target_compile_features(armajitto PUBLIC cxx_std_20)
 ## Build precompiled header
 target_precompile_headers(armajitto
     PUBLIC
+        <algorithm>
         <array>
         <bit>
         <cassert>
         <concepts>
         <cstdint>
         <format>
+        <limits>
         <memory>
         <optional>
         <string>
         <type_traits>
+        <utility>
         <vector>
 )
 

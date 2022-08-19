@@ -7,7 +7,7 @@ namespace armajitto::ir {
 void Optimizer::Optimize(BasicBlock &block) {
     Emitter emitter{block};
 
-    ConstPropagationOptimizerPass{}.Optimize(emitter);
+    ConstPropagationOptimizerPass{emitter}.Optimize();
 }
 
 } // namespace armajitto::ir

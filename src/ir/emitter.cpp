@@ -254,10 +254,18 @@ void Emitter::StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint
     m_blockWriter.InsertOp<IRStoreCopRegisterOp>(srcValue, cpnum, opcode1, crn, crm, opcode2, ext);
 }
 
+void Emitter::Constant(VariableArg dst, uint32_t value) {
+    m_blockWriter.InsertOp<IRConstantOp>(dst, value);
+}
+
 Variable Emitter::Constant(uint32_t value) {
     auto dst = Var();
-    m_blockWriter.InsertOp<IRConstantOp>(dst, value);
+    Constant(dst, value);
     return dst;
+}
+
+void Emitter::CopyVar(VariableArg dst, VariableArg var) {
+    m_blockWriter.InsertOp<IRCopyVarOp>(dst, var);
 }
 
 Variable Emitter::CopyVar(VariableArg var) {

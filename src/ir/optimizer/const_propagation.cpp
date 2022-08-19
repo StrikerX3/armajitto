@@ -1,5 +1,7 @@
 #include "const_propagation.hpp"
 
+#include "armajitto/guest/arm/arithmetic.hpp"
+
 #include <bit>
 #include <cassert>
 #include <optional>
@@ -7,66 +9,9 @@
 
 namespace armajitto::ir {
 
-inline bool Saturate(const int64_t value, int32_t &result) {
-    constexpr int64_t min = (int64_t)std::numeric_limits<int32_t>::min();
-    constexpr int64_t max = (int64_t)std::numeric_limits<int32_t>::max();
-    result = std::clamp(value, min, max);
-    return (result != value);
-}
-
-inline std::pair<uint32_t, std::optional<bool>> LSL(uint32_t value, uint32_t offset) {
-    if (offset == 0) {
-        return {value, std::nullopt};
-    }
-    if (offset >= 32) {
-        return {0, (offset == 32) && (value & 1)};
-    }
-    bool carry = (value >> (32 - offset)) & 1;
-    return {value << offset, carry};
-}
-
-inline std::pair<uint32_t, std::optional<bool>> LSR(uint32_t value, uint8_t offset) {
-    if (offset == 0) {
-        return {value, std::nullopt};
-    }
-    if (offset >= 32) {
-        return {0, (offset == 32) && (value >> 31)};
-    }
-    bool carry = (value >> (offset - 1)) & 1;
-    return {value >> offset, carry};
-}
-
-inline std::pair<uint32_t, std::optional<bool>> ASR(uint32_t value, uint8_t offset) {
-    if (offset == 0) {
-        return {value, std::nullopt};
-    }
-    if (offset >= 32) {
-        bool carry = value >> 31;
-        return {(int32_t)value >> 31, carry};
-    }
-    bool carry = (value >> (offset - 1)) & 1;
-    return {(int32_t)value >> offset, carry};
-}
-
-inline std::pair<uint32_t, std::optional<bool>> ROR(uint32_t value, uint8_t offset) {
-    if (offset == 0) {
-        return {value, std::nullopt};
-    }
-
-    value = std::rotr(value, offset & 0x1F);
-    bool carry = value >> 31;
-    return {value, carry};
-}
-
-inline std::pair<uint32_t, bool> RRX(uint32_t value, bool carry) {
-    uint32_t msb = carry << 31;
-    carry = value & 1;
-    return {(value >> 1) | msb, carry};
-}
-
-void ConstPropagationOptimizerPass::Optimize(Emitter &emitter) {
-    for (emitter.SetCursorPos(0); !emitter.IsCursorAtEnd(); emitter.MoveCursor(1)) {
-        auto *op = emitter.GetCurrentOp();
+void ConstPropagationOptimizerPass::Optimize() {
+    for (m_emitter.SetCursorPos(0); !m_emitter.IsCursorAtEnd(); m_emitter.MoveCursor(1)) {
+        auto *op = m_emitter.GetCurrentOp();
         if (op == nullptr) {
             assert(false);
             // shouldn't happen
@@ -124,10 +69,10 @@ void ConstPropagationOptimizerPass::Process(IRGetRegisterOp *op) {
     if (srcSubst.IsKnown()) {
         if (srcSubst.IsConstant()) {
             Assign(op->dst, srcSubst.constant);
-            // TODO: replace instruction with Constant
+            m_emitter.Overwrite().Constant(op->dst.var, srcSubst.constant);
         } else if (srcSubst.IsVariable()) {
             Assign(op->dst, srcSubst.variable);
-            // TODO: replace instruction with CopyVar
+            m_emitter.Overwrite().CopyVar(op->dst.var, srcSubst.variable);
         }
     }
 }
@@ -170,12 +115,13 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
-        auto [result, carry] = LSL(op->value.imm.value, op->amount.imm.value);
+        auto [result, carry] = arm::LSL(op->value.imm.value, op->amount.imm.value);
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags && carry.has_value()) {
-            // TODO: update carry flag
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -183,12 +129,13 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
-        auto [result, carry] = LSR(op->value.imm.value, op->amount.imm.value);
+        auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags && carry.has_value()) {
-            // TODO: update carry flag
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -196,12 +143,13 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
-        auto [result, carry] = ASR(op->value.imm.value, op->amount.imm.value);
+        auto [result, carry] = arm::ASR(op->value.imm.value, op->amount.imm.value);
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags && carry.has_value()) {
-            // TODO: update carry flag
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -209,12 +157,13 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
-        auto [result, carry] = ROR(op->value.imm.value, op->amount.imm.value);
+        auto [result, carry] = arm::ROR(op->value.imm.value, op->amount.imm.value);
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags && carry.has_value()) {
-            // TODO: update carry flag
+            m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -222,12 +171,13 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     Substitute(op->value);
     if (op->value.immediate /* TODO: && carryKnown */) {
         // TODO: get carry input and:
-        // auto [result, carry] = RRX(op->value.imm.value, carryIn);
+        // auto [result, carry] = arm::RRX(op->value.imm.value, carryIn);
         // Assign(op->dst, result);
-        // if (op->setFlags) {
-        //     // TODO: update carry flag
-        // }
+        //
         // TODO: replace instruction somehow; watch out for flags
+        // if (op->setFlags) {
+        //     m_emitter.StoreFlags(Flags::C, static_cast<uint32_t>((*carry) ? Flags::C : Flags::None));
+        // }
     }
 }
 
@@ -237,10 +187,11 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -250,10 +201,11 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseOrOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value | op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -263,10 +215,11 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value ^ op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -276,10 +229,11 @@ void ConstPropagationOptimizerPass::Process(IRBitClearOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & ~op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -288,7 +242,7 @@ void ConstPropagationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
     if (op->value.immediate) {
         auto result = std::countl_zero(op->value.imm.value);
         Assign(op->dst, result);
-        // TODO: replace instruction somehow
+        m_emitter.Overwrite().Constant(op->dst, result);
     }
 }
 
@@ -298,10 +252,11 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value + op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -321,10 +276,11 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value - op->rhs.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -342,10 +298,10 @@ void ConstPropagationOptimizerPass::Process(IRMoveOp *op) {
     Substitute(op->value);
     Assign(op->dst, op->value);
     if (op->value.immediate) {
+        m_emitter.Overwrite().Constant(op->dst, op->value.imm.value);
         if (op->setFlags) {
             // TODO: calculate flags
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -354,10 +310,11 @@ void ConstPropagationOptimizerPass::Process(IRMoveNegatedOp *op) {
     if (op->value.immediate) {
         auto result = ~op->value.imm.value;
         Assign(op->dst, result);
+
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (op->setFlags) {
             // TODO: calculate flags
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 
@@ -365,13 +322,12 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
-        int32_t result{};
-        bool q = Saturate((int64_t)op->lhs.imm.value + op->rhs.imm.value, result);
+        auto [result, q] = arm::Saturate((int64_t)op->lhs.imm.value + op->rhs.imm.value);
         Assign(op->dst, result);
 
-        // TODO: replace instruction somehow
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (q) {
-            // TODO: emitter.StoreFlags(Flags::Q, static_cast<uint32_t>(Flags::Q));
+            m_emitter.StoreFlags(Flags::Q, static_cast<uint32_t>(Flags::Q));
         }
     }
 }
@@ -380,13 +336,12 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
-        int32_t result{};
-        bool q = Saturate((int64_t)op->lhs.imm.value - op->rhs.imm.value, result);
+        auto [result, q] = arm::Saturate((int64_t)op->lhs.imm.value - op->rhs.imm.value);
         Assign(op->dst, result);
 
-        // TODO: replace instruction somehow
+        m_emitter.Overwrite().Constant(op->dst, result);
         if (q) {
-            // TODO: emitter.StoreFlags(Flags::Q, static_cast<uint32_t>(Flags::Q));
+            m_emitter.StoreFlags(Flags::Q, static_cast<uint32_t>(Flags::Q));
         }
     }
 }
@@ -398,17 +353,19 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyOp *op) {
         if (op->signedMul) {
             auto result = (int32_t)op->lhs.imm.value * (int32_t)op->rhs.imm.value;
             Assign(op->dst, result);
+
+            m_emitter.Overwrite().Constant(op->dst, result);
             if (op->setFlags) {
                 // TODO: calculate flags based on result
             }
-            // TODO: replace instruction somehow; watch out for flags
         } else {
             auto result = op->lhs.imm.value * op->rhs.imm.value;
             Assign(op->dst, result);
+
+            m_emitter.Overwrite().Constant(op->dst, result);
             if (op->setFlags) {
                 // TODO: calculate flags based on result
             }
-            // TODO: replace instruction somehow; watch out for flags
         }
     }
 }
@@ -417,27 +374,26 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
-        // TODO: calculate result (including flags if op->setFlags) and assign to dstLo and dstHi:
-        // Assign(op->dstLo, result >> 0ull);  // or 0ll if signedMul
-        // Assign(op->dstHu, result >> 32ull); // or 32ll if signedMul
-        // TODO: replace instruction somehow; watch out for flags
-
         if (op->signedMul) {
             auto result = (int64_t)op->lhs.imm.value * (int64_t)op->rhs.imm.value;
             Assign(op->dstLo, result >> 0ll);
             Assign(op->dstHi, result >> 32ll);
+
+            m_emitter.Overwrite().Constant(op->dstLo, result >> 0ll);
+            m_emitter.Constant(op->dstHi, result >> 32ll);
             if (op->setFlags) {
                 // TODO: calculate flags based on result
             }
-            // TODO: replace instruction somehow; watch out for flags
         } else {
             auto result = (uint64_t)op->lhs.imm.value * (uint64_t)op->rhs.imm.value;
             Assign(op->dstLo, result >> 0ull);
             Assign(op->dstHi, result >> 32ull);
+
+            m_emitter.Overwrite().Constant(op->dstLo, result >> 0ull);
+            m_emitter.Constant(op->dstHi, result >> 32ull);
             if (op->setFlags) {
                 // TODO: calculate flags based on result
             }
-            // TODO: replace instruction somehow; watch out for flags
         }
     }
 }
@@ -454,10 +410,12 @@ void ConstPropagationOptimizerPass::Process(IRAddLongOp *op) {
         uint64_t result = lhs + rhs;
         Assign(op->dstLo, result >> 0ull);
         Assign(op->dstHi, result >> 32ull);
+
+        m_emitter.Overwrite().Constant(op->dstLo, result >> 0ull);
+        m_emitter.Constant(op->dstHi, result >> 32ull);
         if (op->setFlags) {
             // TODO: calculate flags based on result
         }
-        // TODO: replace instruction somehow; watch out for flags
     }
 }
 

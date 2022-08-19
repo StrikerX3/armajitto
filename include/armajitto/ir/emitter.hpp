@@ -153,7 +153,9 @@ public:
     void StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,
                           VarOrImmArg srcValue);
 
+    void Constant(VariableArg dst, uint32_t value);
     Variable Constant(uint32_t value);
+    void CopyVar(VariableArg dst, VariableArg var);
     Variable CopyVar(VariableArg var);
     Variable GetBaseVectorAddress();
 

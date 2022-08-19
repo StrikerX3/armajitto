@@ -38,9 +38,14 @@ namespace armajitto::ir {
 // instructions 4 and 5 (replaced by the stores in 9 and 10).
 class ConstPropagationOptimizerPass {
 public:
-    void Optimize(Emitter &emitter);
+    ConstPropagationOptimizerPass(Emitter &emitter)
+        : m_emitter(emitter) {}
+
+    void Optimize();
 
 private:
+    Emitter &m_emitter;
+
     void Process(IRGetRegisterOp *op);
     void Process(IRSetRegisterOp *op);
     void Process(IRGetCPSROp *op);
