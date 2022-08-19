@@ -6,7 +6,6 @@
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
 
-#include <cassert>
 #include <vector>
 
 namespace armajitto::ir {
@@ -19,17 +18,17 @@ struct ALUVarPair {
 class Emitter {
 public:
     Emitter(BasicBlock &block)
-        : m_block(block)
-        , m_insertionPoint(block.m_ops.end()) {
+        : m_blockWriter(block) {
 
-        auto loc = m_block.Location();
+        auto loc = block.Location();
         m_thumb = loc.IsThumbMode();
+        m_mode = loc.Mode();
         m_currInstrAddr = loc.BaseAddress();
         m_instrSize = m_thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     }
 
     BasicBlock &GetBlock() {
-        return m_block;
+        return m_blockWriter.Block();
     }
 
     uint32_t InstructionSize() const {
@@ -54,54 +53,44 @@ public:
     // Optimizer helper functions
 
     size_t GetCodeSize() const {
-        return m_block.m_ops.size();
+        return m_blockWriter.GetCodeSize();
     }
 
     size_t GetCursorPos() const {
-        return std::distance(m_block.m_ops.begin(), m_insertionPoint);
+        return m_blockWriter.GetCursorPos();
     }
 
     bool IsCursorAtEnd() const {
-        return m_insertionPoint == m_block.m_ops.end();
+        return m_blockWriter.IsCursorAtEnd();
     }
 
     void SetCursorPos(size_t index) {
-        assert(index <= m_block.m_ops.size());
-        m_insertionPoint = m_block.m_ops.begin() + index;
+        m_blockWriter.SetCursorPos(index);
     }
 
     void MoveCursor(int64_t offset) {
-        assert(static_cast<size_t>(GetCursorPos() + offset) <= m_block.m_ops.size());
-        m_insertionPoint += offset;
+        m_blockWriter.MoveCursor(offset);
     }
 
     IROp &GetOp(size_t index) {
-        assert(index < m_block.m_ops.size());
-        return *m_block.m_ops.at(index);
+        return m_blockWriter.GetOp(index);
     }
 
     IROp *GetCurrentOp() {
-        if (m_insertionPoint != m_block.m_ops.end()) {
-            return m_insertionPoint->get();
-        } else {
-            return nullptr;
-        }
+        return m_blockWriter.GetCurrentOp();
     }
 
     Emitter &Overwrite() {
-        m_overwriteNext = true;
+        m_blockWriter.OverwriteNext();
         return *this;
     }
 
     void Erase(size_t pos, size_t count = 1) {
-        assert(count >= 1);
-        auto it = m_block.m_ops.begin() + pos;
-        m_block.m_ops.erase(it, it + count);
+        m_blockWriter.Erase(pos, count);
     }
 
     void EraseNext(size_t count = 1) {
-        assert(count >= 1);
-        m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
+        m_blockWriter.EraseNext(count);
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -183,29 +172,13 @@ public:
     void FetchInstruction();
 
 private:
-    BasicBlock &m_block;
+    BasicBlock::Writer m_blockWriter;
 
     bool m_thumb;
-    uint32_t m_currInstrAddr;
+    arm::Mode m_mode;
     uint32_t m_instrSize;
 
-    // --- Operation manipulators ----------------------------------------------
-
-    bool m_overwriteNext = false;
-
-    using OpIterator = std::vector<std::unique_ptr<IROp>>::iterator;
-    OpIterator m_insertionPoint;
-
-    template <typename T, typename... Args>
-    void InsertOp(Args &&...args) {
-        if (m_overwriteNext) {
-            *m_insertionPoint = std::make_unique<T>(std::forward<Args>(args)...);
-            m_overwriteNext = false;
-        } else {
-            m_insertionPoint =
-                std::next(m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...)));
-        }
-    }
+    uint32_t m_currInstrAddr;
 
     // --- Variables -----------------------------------------------------------
 
