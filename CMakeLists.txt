@@ -133,8 +133,10 @@ if (MSVC)
 
     ## Configure Visual Studio filters and debugging
     vs_set_filters(TARGET armajitto)
+    vs_set_filters(TARGET armajitto-test)
     
     set_target_properties(armajitto PROPERTIES FOLDER "armajitto")
+    set_target_properties(armajitto-test PROPERTIES FOLDER "armajitto")
 endif ()
 
 ## Generate the export header for armajitto and attach it to the target

@@ -8,6 +8,8 @@
 namespace armajitto::ir {
 
 struct IROp {
+    virtual ~IROp() = default;
+
     virtual IROpcodeType GetType() const = 0;
     virtual std::string ToString() const = 0;
 };

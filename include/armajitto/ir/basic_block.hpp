@@ -5,6 +5,7 @@
 #include "defs/variable.hpp"
 #include "location_ref.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace armajitto::ir {
@@ -26,7 +27,7 @@ public:
         return m_instrCount;
     }
 
-    const std::vector<IROp *> &Ops() const {
+    const std::vector<std::unique_ptr<IROp>> &Ops() const {
         return m_ops;
     }
 
@@ -34,7 +35,7 @@ private:
     LocationRef m_location;
     arm::Condition m_cond;
 
-    std::vector<IROp *> m_ops; // TODO: avoid raw pointers
+    std::vector<std::unique_ptr<IROp>> m_ops;
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
 
     friend class Emitter;

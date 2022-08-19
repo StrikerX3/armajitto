@@ -374,7 +374,7 @@ void testTranslator() {
     armajitto::ir::Translator translator{context, params};
     translator.Translate(block);
     printf("translated:\n\n");
-    for (auto *op : block.Ops()) {
+    for (auto &op : block.Ops()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
     }
@@ -384,7 +384,7 @@ void testTranslator() {
     armajitto::ir::Optimizer optimizer{};
     optimizer.Optimize(block);
     printf("optimized:\n\n");
-    for (auto *op : block.Ops()) {
+    for (auto &op : block.Ops()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
     }

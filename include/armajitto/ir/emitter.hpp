@@ -6,6 +6,7 @@
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
 
+#include <cassert>
 #include <vector>
 
 namespace armajitto::ir {
@@ -47,6 +48,60 @@ public:
 
     uint32_t CurrentPC() const {
         return m_currInstrAddr + 2 * m_instrSize;
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Optimizer helper functions
+
+    size_t GetCodeSize() const {
+        return m_block.m_ops.size();
+    }
+
+    size_t GetCursorPos() const {
+        return std::distance(m_block.m_ops.begin(), m_insertionPoint);
+    }
+
+    bool IsCursorAtEnd() const {
+        return m_insertionPoint == m_block.m_ops.end();
+    }
+
+    void SetCursorPos(size_t index) {
+        assert(index <= m_block.m_ops.size());
+        m_insertionPoint = m_block.m_ops.begin() + index;
+    }
+
+    void MoveCursor(int64_t offset) {
+        assert(static_cast<size_t>(GetCursorPos() + offset) <= m_block.m_ops.size());
+        m_insertionPoint += offset;
+    }
+
+    IROp &GetOp(size_t index) {
+        assert(index < m_block.m_ops.size());
+        return *m_block.m_ops.at(index);
+    }
+
+    IROp *GetCurrentOp() {
+        if (m_insertionPoint != m_block.m_ops.end()) {
+            return m_insertionPoint->get();
+        } else {
+            return nullptr;
+        }
+    }
+
+    Emitter &Overwrite() {
+        m_overwriteNext = true;
+        return *this;
+    }
+
+    void Erase(size_t pos, size_t count = 1) {
+        assert(count >= 1);
+        auto it = m_block.m_ops.begin() + pos;
+        m_block.m_ops.erase(it, it + count);
+    }
+
+    void EraseNext(size_t count = 1) {
+        assert(count >= 1);
+        m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -136,12 +191,20 @@ private:
 
     // --- Operation manipulators ----------------------------------------------
 
-    using OpIterator = std::vector<IROp *>::iterator;
+    bool m_overwriteNext = false;
+
+    using OpIterator = std::vector<std::unique_ptr<IROp>>::iterator;
     OpIterator m_insertionPoint;
 
     template <typename T, typename... Args>
     void InsertOp(Args &&...args) {
-        m_insertionPoint = std::next(m_block.m_ops.insert(m_insertionPoint, new T(std::forward<Args>(args)...)));
+        if (m_overwriteNext) {
+            *m_insertionPoint = std::make_unique<T>(std::forward<Args>(args)...);
+            m_overwriteNext = false;
+        } else {
+            m_insertionPoint =
+                std::next(m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...)));
+        }
     }
 
     // --- Variables -----------------------------------------------------------
