@@ -14,6 +14,7 @@ namespace armajitto::ir {
 // Copies the flags specified in the mask [n][z][c][v][q] from <values> into <src_cpsr> and stores the result in
 // <dst_cpsr>.
 // The position of the bits in <values> must match those in CPSR -- bit 31 is N, bit 30 is Z, and so on.
+// The host flags are also updated to the specified values.
 struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
     Flags flags;
     VariableArg dstCPSR;
