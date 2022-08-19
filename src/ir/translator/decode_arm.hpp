@@ -20,6 +20,9 @@ namespace detail {
         shift.srcReg = static_cast<GPR>(bit::extract<0, 4>(opcode));
         if (shift.immediate) {
             shift.amount.imm = bit::extract<3, 5>(shiftParam);
+            if ((shift.type == arm::ShiftType::LSR || shift.type == arm::ShiftType::ASR) && shift.amount.imm == 0) {
+                shift.amount.imm = 32;
+            }
         } else {
             shift.amount.reg = static_cast<GPR>(bit::extract<4, 4>(shiftParam));
         }

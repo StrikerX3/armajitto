@@ -41,6 +41,7 @@ public:
 
     // -----------------------------------------------------------------------------------------------------------------
     // Translator helper functions
+    // TODO: figure out a way to expose these methods only to the translator
 
     void NextInstruction();
     void SetCondition(arm::Condition cond);
@@ -68,8 +69,8 @@ public:
         m_blockWriter.SetCursorPos(index);
     }
 
-    void MoveCursor(int64_t offset) {
-        m_blockWriter.MoveCursor(offset);
+    size_t MoveCursor(int64_t offset) {
+        return m_blockWriter.MoveCursor(offset);
     }
 
     IROp &GetOp(size_t index) {

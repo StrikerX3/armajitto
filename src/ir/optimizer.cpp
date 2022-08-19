@@ -5,11 +5,9 @@
 namespace armajitto::ir {
 
 void Optimizer::Optimize(BasicBlock &block) {
-    // TODO: implement: modify block in-place
+    Emitter emitter{block};
 
-    // TODO: generic IR op arguments access/manipulation
-    // - add a method to get references (pointers) to all arguments (including flags), split by reads/writes
-    // - how to handle the different argument types (var/imm, var, imm)? should it look at other types too?
+    ConstPropagationOptimizerPass{}.Optimize(emitter);
 }
 
 } // namespace armajitto::ir

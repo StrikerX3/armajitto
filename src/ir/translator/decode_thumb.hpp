@@ -37,6 +37,9 @@ inline auto ShiftByImm(uint16_t opcode) {
     instr.rhs.shift.immediate = true;
     instr.rhs.shift.srcReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.rhs.shift.amount.imm = bit::extract<6, 5>(opcode);
+    if (instr.rhs.shift.type != arm::ShiftType::LSL && instr.rhs.shift.amount.imm == 0) {
+        instr.rhs.shift.amount.imm = 32;
+    }
 
     return instr;
 }

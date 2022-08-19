@@ -67,9 +67,10 @@ public:
             m_insertionPoint = m_block.m_ops.begin() + index;
         }
 
-        void MoveCursor(int64_t offset) {
+        size_t MoveCursor(int64_t offset) {
             assert(static_cast<size_t>(GetCursorPos() + offset) <= m_block.m_ops.size());
             m_insertionPoint += offset;
+            return GetCursorPos();
         }
 
         IROp &GetOp(size_t index) {

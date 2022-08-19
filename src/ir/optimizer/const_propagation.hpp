@@ -3,6 +3,7 @@
 #include "armajitto/guest/arm/gpr.hpp"
 #include "armajitto/ir/defs/variable.hpp"
 #include "armajitto/ir/emitter.hpp"
+#include "armajitto/ir/ops/ir_ops.hpp"
 
 #include <array>
 #include <vector>
@@ -40,6 +41,47 @@ public:
     void Optimize(Emitter &emitter);
 
 private:
+    void Process(IRGetRegisterOp *op);
+    void Process(IRSetRegisterOp *op);
+    void Process(IRGetCPSROp *op);
+    void Process(IRSetCPSROp *op);
+    void Process(IRGetSPSROp *op);
+    void Process(IRSetSPSROp *op);
+    void Process(IRMemReadOp *op);
+    void Process(IRMemWriteOp *op);
+    void Process(IRPreloadOp *op);
+    void Process(IRLogicalShiftLeftOp *op);
+    void Process(IRLogicalShiftRightOp *op);
+    void Process(IRArithmeticShiftRightOp *op);
+    void Process(IRRotateRightOp *op);
+    void Process(IRRotateRightExtendOp *op);
+    void Process(IRBitwiseAndOp *op);
+    void Process(IRBitwiseOrOp *op);
+    void Process(IRBitwiseXorOp *op);
+    void Process(IRBitClearOp *op);
+    void Process(IRCountLeadingZerosOp *op);
+    void Process(IRAddOp *op);
+    void Process(IRAddCarryOp *op);
+    void Process(IRSubtractOp *op);
+    void Process(IRSubtractCarryOp *op);
+    void Process(IRMoveOp *op);
+    void Process(IRMoveNegatedOp *op);
+    void Process(IRSaturatingAddOp *op);
+    void Process(IRSaturatingSubtractOp *op);
+    void Process(IRMultiplyOp *op);
+    void Process(IRMultiplyLongOp *op);
+    void Process(IRAddLongOp *op);
+    void Process(IRStoreFlagsOp *op);
+    void Process(IRUpdateFlagsOp *op);
+    void Process(IRUpdateStickyOverflowOp *op);
+    void Process(IRBranchOp *op);
+    void Process(IRBranchExchangeOp *op);
+    void Process(IRLoadCopRegisterOp *op);
+    void Process(IRStoreCopRegisterOp *op);
+    void Process(IRConstantOp *op);
+    void Process(IRCopyVarOp *op);
+    void Process(IRGetBaseVectorAddressOp *op);
+
     struct Value {
         enum class Type { Unknown, Variable, Constant };
         Type type;
@@ -58,12 +100,42 @@ private:
         Value(uint32_t value)
             : type(Type::Constant)
             , constant(value) {}
+
+        void Substitute(VariableArg &var);
+        void Substitute(VarOrImmArg &var);
+
+        bool IsKnown() const {
+            return type != Type::Unknown;
+        }
+
+        bool IsConstant() const {
+            return type == Type::Constant;
+        }
+
+        bool IsVariable() const {
+            return type == Type::Variable;
+        }
     };
 
     // Lookup variable or GPR in these lists to find out what its substitution is, if any.
     std::vector<Value> m_varSubsts;
     std::array<Value, 16> m_gprSubsts;
     std::array<Value, 16> m_userGPRSubsts;
+
+    void ResizeVarSubsts(size_t size);
+
+    void Assign(VariableArg var, VariableArg value);
+    void Assign(VariableArg var, ImmediateArg value);
+    void Assign(VariableArg var, VarOrImmArg value);
+    void Assign(VariableArg var, Variable value);
+    void Assign(VariableArg var, uint32_t value);
+
+    void Assign(GPRArg gpr, VarOrImmArg value);
+
+    void Substitute(VariableArg &var);
+    void Substitute(VarOrImmArg &var);
+
+    Value &GetGPRSubstitution(GPRArg gpr);
 };
 
 } // namespace armajitto::ir
