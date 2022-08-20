@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace armajitto {
+namespace armajitto::arm {
 
 enum class GPR : uint8_t {
     R0,
@@ -34,4 +34,4 @@ inline std::string ToString(GPR gpr) {
     return names[static_cast<size_t>(gpr)];
 }
 
-} // namespace armajitto
+} // namespace armajitto::arm

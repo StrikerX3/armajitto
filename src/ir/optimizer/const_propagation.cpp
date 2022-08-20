@@ -13,7 +13,7 @@ bool ConstPropagationOptimizerPass::Optimize() {
     m_emitter.ClearDirtyFlag();
 
     // PC is known at entry
-    Assign(GPR::PC, m_emitter.BasePC());
+    Assign(arm::GPR::PC, m_emitter.BasePC());
 
     m_emitter.SetCursorPos(0);
     while (!m_emitter.IsCursorAtEnd()) {
@@ -515,12 +515,12 @@ void ConstPropagationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRBranchOp *op) {
     Substitute(op->address);
-    Forget(GPR::PC);
+    Forget(arm::GPR::PC);
 }
 
 void ConstPropagationOptimizerPass::Process(IRBranchExchangeOp *op) {
     Substitute(op->address);
-    Forget(GPR::PC);
+    Forget(arm::GPR::PC);
 }
 
 void ConstPropagationOptimizerPass::Process(IRLoadCopRegisterOp *op) {
@@ -618,7 +618,7 @@ void ConstPropagationOptimizerPass::Substitute(VarOrImmArg &var) {
     }
 }
 
-void ConstPropagationOptimizerPass::Assign(GPRArg gpr, VarOrImmArg value) {
+void ConstPropagationOptimizerPass::Assign(const GPRArg &gpr, VarOrImmArg value) {
     if (!value.immediate && !value.var.var.IsPresent()) {
         return;
     }
@@ -630,14 +630,13 @@ void ConstPropagationOptimizerPass::Assign(GPRArg gpr, VarOrImmArg value) {
     }
 }
 
-void ConstPropagationOptimizerPass::Forget(GPRArg gpr) {
+void ConstPropagationOptimizerPass::Forget(const GPRArg &gpr) {
     GetGPRSubstitution(gpr) = {};
 }
 
-auto ConstPropagationOptimizerPass::GetGPRSubstitution(GPRArg gpr) -> Value & {
-    auto &arr = (gpr.userMode) ? m_userGPRSubsts : m_gprSubsts;
-    auto index = static_cast<size_t>(gpr.gpr);
-    return arr[index];
+auto ConstPropagationOptimizerPass::GetGPRSubstitution(const GPRArg &gpr) -> Value & {
+    auto index = MakeGPRIndex(gpr);
+    return m_gprSubsts[index];
 }
 
 void ConstPropagationOptimizerPass::ResizeFlagsSubsts(size_t size) {

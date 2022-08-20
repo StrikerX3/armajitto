@@ -367,14 +367,19 @@ void testTranslator() {
 
     // Add with carry test
     // - Requires constant propagation and dead store elimination to fully optimize
-    writeARM(0xE3E00000); // mvn r0, #0
-    writeARM(0xE3A01001); // mov r1, #1
-    writeARM(0xE0902001); // adds r2, r0, r1
-    writeARM(0xE0A23001); // adc r3, r2, r1
+    // writeARM(0xE3E00000); // mvn r0, #0
+    // writeARM(0xE3A01001); // mov r1, #1
+    // writeARM(0xE0902001); // adds r2, r0, r1
+    // writeARM(0xE0A23001); // adc r3, r2, r1
+    // writeARM(0xEAFFFFFE); // b $
+
+    // User mode transfer
+    writeARM(0xE8384210); // ldmda r8!, {r4, r9, r14}
+    writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
     writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
-    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::User, thumb}};
+    armajitto::ir::BasicBlock block{{0x0100, armajitto::arm::Mode::FIQ, thumb}};
 
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,

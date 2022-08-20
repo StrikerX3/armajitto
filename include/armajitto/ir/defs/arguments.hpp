@@ -4,6 +4,7 @@
 #include "armajitto/guest/arm/mode.hpp"
 #include "armajitto/ir/defs/variable.hpp"
 
+#include <array>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -12,23 +13,52 @@
 namespace armajitto::ir {
 
 struct GPRArg {
-    GPR gpr;
-    bool userMode;
+    arm::GPR gpr;
 
-    GPRArg(GPR gpr)
+    GPRArg(arm::GPR gpr)
         : gpr(gpr)
-        , userMode(false) {}
+        , mode(arm::Mode::User) {}
 
-    GPRArg(GPR gpr, bool userMode)
+    GPRArg(arm::GPR gpr, arm::Mode mode)
         : gpr(gpr)
-        , userMode(userMode) {}
+        , mode(ResolveMode(gpr, mode)) {}
+
+    arm::Mode Mode() const {
+        return mode;
+    }
 
     std::string ToString() const {
-        if (userMode) {
-            return ::armajitto::ToString(gpr) + "_usr";
-        } else {
-            return ::armajitto::ToString(gpr);
+        return arm::ToString(gpr) + "_" + arm::ToString(mode);
+    }
+
+private:
+    arm::Mode mode;
+
+    static constexpr auto modeMap = [] {
+        std::array<std::array<arm::Mode, 32>, 16> modeMap{};
+        for (auto &row : modeMap) {
+            row.fill(arm::Mode::User);
         }
+        for (size_t reg = 8; reg <= 12; reg++) {
+            auto &row = modeMap[reg];
+            row[static_cast<size_t>(arm::Mode::FIQ)] = arm::Mode::FIQ;
+        }
+        for (size_t reg = 13; reg <= 14; reg++) {
+            auto &row = modeMap[reg];
+            row[static_cast<size_t>(arm::Mode::FIQ)] = arm::Mode::FIQ;
+            row[static_cast<size_t>(arm::Mode::IRQ)] = arm::Mode::IRQ;
+            row[static_cast<size_t>(arm::Mode::Supervisor)] = arm::Mode::Supervisor;
+            row[static_cast<size_t>(arm::Mode::Abort)] = arm::Mode::Abort;
+            row[static_cast<size_t>(arm::Mode::Undefined)] = arm::Mode::Undefined;
+        }
+
+        return modeMap;
+    }();
+
+    static constexpr arm::Mode ResolveMode(arm::GPR gpr, arm::Mode mode) {
+        auto gprIndex = static_cast<size_t>(gpr);
+        auto modeIndex = static_cast<size_t>(mode);
+        return modeMap[gprIndex][modeIndex];
     }
 };
 

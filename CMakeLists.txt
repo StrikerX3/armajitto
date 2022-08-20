@@ -65,7 +65,6 @@ add_library(armajitto
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
     src/ir/translator.cpp
-    src/ir/defs/arguments.cpp
     src/ir/ops/ir_alu_ops.cpp
     src/ir/ops/ir_branch_ops.cpp
     src/ir/ops/ir_cop_ops.cpp

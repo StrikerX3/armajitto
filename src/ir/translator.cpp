@@ -689,9 +689,9 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     }
 
     // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
-    GPRArg gpr = instr.reg;
-    gpr.userMode = (instr.writeback && !instr.preindexed);
-    const bool isPC = (gpr.gpr == GPR::PC);
+    const bool userModeTransfer = (instr.writeback && !instr.preindexed);
+    GPRArg gpr{instr.reg, (userModeTransfer ? arm::Mode::User : emitter.Mode())};
+    const bool isPC = (instr.reg == GPR::PC);
     Variable pcValue{};
 
     Variable value{};
@@ -890,6 +890,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
 
     const bool pcIncluded = instr.regList & (1 << 15);
     const bool userModeTransfer = instr.userModeOrPSRTransfer && (!instr.load || !pcIncluded);
+    const arm::Mode gprMode = (userModeTransfer ? arm::Mode::User : emitter.Mode());
 
     // Precompute addresses
     auto address = emitter.GetRegister(instr.baseReg);
@@ -930,7 +931,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
                 }
                 pcValue = value;
             } else {
-                emitter.SetRegister({gpr, userModeTransfer}, value);
+                emitter.SetRegister({gpr, gprMode}, value);
             }
         } else {
             Variable value{};
@@ -939,7 +940,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             } else if (gpr == GPR::PC) {
                 value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
             } else {
-                value = emitter.GetRegister({gpr, userModeTransfer});
+                value = emitter.GetRegister({gpr, gprMode});
             }
             emitter.MemWrite(MemAccessSize::Word, value, address);
         }

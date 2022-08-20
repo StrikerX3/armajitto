@@ -13,7 +13,7 @@ void Emitter::SetCondition(arm::Condition cond) {
 }
 
 Variable Emitter::GetRegister(GPRArg src) {
-    if (src.gpr == GPR::PC) {
+    if (src.gpr == arm::GPR::PC) {
         return Constant(CurrentPC());
     } else {
         auto dst = Var();
@@ -22,14 +22,26 @@ Variable Emitter::GetRegister(GPRArg src) {
     }
 }
 
+Variable Emitter::GetRegister(arm::GPR src) {
+    return GetRegister({src, m_mode});
+}
+
 void Emitter::SetRegister(GPRArg dst, VarOrImmArg src) {
     m_blockWriter.InsertOp<IRSetRegisterOp>(dst, src);
 }
 
+void Emitter::SetRegister(arm::GPR dst, VarOrImmArg src) {
+    SetRegister({dst, m_mode}, src);
+}
+
 void Emitter::SetRegisterExceptPC(GPRArg dst, VarOrImmArg src) {
-    if (dst.gpr != GPR::PC) {
+    if (dst.gpr != arm::GPR::PC) {
         SetRegister(dst, src);
     }
+}
+
+void Emitter::SetRegisterExceptPC(arm::GPR dst, VarOrImmArg src) {
+    SetRegisterExceptPC({dst, m_mode}, src);
 }
 
 Variable Emitter::GetCPSR() {
@@ -325,7 +337,7 @@ void Emitter::CopySPSRToCPSR() {
 }
 
 Variable Emitter::ComputeAddress(const arm::Addressing &addressing) {
-    auto baseReg = GetRegister(addressing.baseReg);
+    auto baseReg = GetRegister({addressing.baseReg, m_mode});
     return ApplyAddressOffset(baseReg, addressing);
 }
 
@@ -351,13 +363,13 @@ Variable Emitter::ApplyAddressOffset(Variable baseAddress, const arm::Addressing
 }
 
 Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool setFlags) {
-    auto value = GetRegister(shift.srcReg);
+    auto value = GetRegister({shift.srcReg, m_mode});
 
     VarOrImmArg amount;
     if (shift.immediate) {
         amount = shift.amount.imm;
     } else {
-        amount = GetRegister(shift.amount.reg);
+        amount = GetRegister({shift.amount.reg, m_mode});
         // TODO: add one I cycle
     }
 
@@ -388,7 +400,7 @@ void Emitter::LinkBeforeBranch() {
     if (m_thumb) {
         linkAddress |= 1;
     }
-    SetRegister(GPR::LR, linkAddress);
+    SetRegister({arm::GPR::LR, m_mode}, linkAddress);
 }
 
 void Emitter::EnterException(arm::Exception vector) {
@@ -407,12 +419,12 @@ void Emitter::EnterException(arm::Exception vector) {
     SetCPSR(cpsr);
 
     auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);
-    SetRegister(GPR::LR, m_currInstrAddr + nn);
-    SetRegister(GPR::PC, pc);
+    SetRegister({arm::GPR::LR, m_mode}, m_currInstrAddr + nn);
+    SetRegister({arm::GPR::PC, m_mode}, pc);
 }
 
 void Emitter::FetchInstruction() {
-    SetRegister(GPR::PC, CurrentPC() + m_instrSize);
+    SetRegister({arm::GPR::PC, m_mode}, CurrentPC() + m_instrSize);
 }
 
 Variable Emitter::Var() {

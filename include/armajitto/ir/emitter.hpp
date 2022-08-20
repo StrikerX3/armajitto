@@ -44,6 +44,10 @@ public:
         return m_instrSize;
     }
 
+    arm::Mode Mode() const {
+        return m_mode;
+    }
+
     bool IsThumbMode() const {
         return m_thumb;
     }
@@ -123,8 +127,11 @@ public:
     // Basic IR instruction emitters
 
     Variable GetRegister(GPRArg src);
+    Variable GetRegister(arm::GPR src); // using current mode
     void SetRegister(GPRArg dst, VarOrImmArg src);
+    void SetRegister(arm::GPR dst, VarOrImmArg src); // using current mode
     void SetRegisterExceptPC(GPRArg dst, VarOrImmArg src);
+    void SetRegisterExceptPC(arm::GPR dst, VarOrImmArg src); // using current mode
     Variable GetCPSR();
     void SetCPSR(VarOrImmArg src);
     Variable GetSPSR();

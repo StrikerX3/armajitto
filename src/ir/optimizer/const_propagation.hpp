@@ -137,10 +137,13 @@ private:
             , flags(flags) {}
     };
 
+    size_t MakeGPRIndex(const GPRArg &arg) {
+        return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
+    }
+
     // Lookup variable or GPR in these lists to find out what its substitution is, if any.
     std::vector<Value> m_varSubsts;
-    std::array<Value, 16> m_gprSubsts;
-    std::array<Value, 16> m_userGPRSubsts;
+    std::array<Value, 16 * 32> m_gprSubsts;
 
     Flags m_knownFlagsMask = Flags::None;
     Flags m_knownFlagsValues = Flags::None;
@@ -159,9 +162,9 @@ private:
     void Substitute(VarOrImmArg &var);
 
     // GPR substitutions
-    void Assign(GPRArg gpr, VarOrImmArg value);
-    void Forget(GPRArg gpr);
-    Value &GetGPRSubstitution(GPRArg gpr);
+    void Assign(const GPRArg &gpr, VarOrImmArg value);
+    void Forget(const GPRArg &gpr);
+    Value &GetGPRSubstitution(const GPRArg &gpr);
 
     // Flags substitutions
     void ResizeFlagsSubsts(size_t size);
