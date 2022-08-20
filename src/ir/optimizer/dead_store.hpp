@@ -86,8 +86,6 @@ namespace armajitto::ir {
 //
 // Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
 // hand side arguments for instructions 4 and 5 would be replaced with $v1.
-// It is also impossible for a variable to be written to more than once thanks to the SSA form, so there's at most one
-// link from a written variable to a value.
 class DeadStoreEliminationOptimizerPass final : public OptimizerPassBase {
 public:
     DeadStoreEliminationOptimizerPass(Emitter &emitter)
