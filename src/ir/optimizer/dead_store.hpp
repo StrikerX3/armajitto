@@ -38,9 +38,11 @@ namespace armajitto::ir {
 //  4  st r0, $v1               r0       $v1     $v1 no longer has a write to check for, so nothing is done
 //  5  st pc, #0x10c            pc
 //
-// When a variable or GPR is overwritten before being read, the original destination argument is marked as unused.
-// If the instruction has no used writes and no side effects, it is removed.
-// To illustrate this, let's expand the example above with more code:
+// When a variable, GPR, PSR or flag is overwritten before being read, the original destination argument is marked as
+// unused. If the instruction has no used writes and no side effects, it is removed. Side effects include updates to
+// host flags and changes to GPRs and PSRs. Note that this does not preclude the removal of instructions that write to
+// GPRs or PSRs, as removing the write to the GPR also removes that side effect. To illustrate this, let's expand the
+// example above with more code:
 //
 //     instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
@@ -58,7 +60,8 @@ namespace armajitto::ir {
 //
 // At the end of the block, any unread writes are marked so and if the corresponding instructions no longer have any
 // writes or side effects, they are also removed. In the listing above, instructions 3, 6 and 8 write to variables $v2
-// and $v5 which are never read, thus leaving the instructions useless. The resulting code after the optimization is:
+// and $v5 which are never read, thus leaving the instructions useless. Writes to unread GPRs, PSRs and flags are kept,
+// unless overwritten. The resulting code after the optimization is:
 //
 //  1  ld $v0, r0
 //  2  lsr $v1, $v0, #0xc
@@ -79,7 +82,7 @@ namespace armajitto::ir {
 //
 // Without this, the optimizer would require multiple passees to remove instructions 3, 4 and 5 since $v2 and $v3 are
 // read by the following instructions, but never really used. By tracking dependency chains, the optimizer can erase all
-// three instructions in one go once it reaches the end of the block by simply following the chain.
+// three instructions in one go once it reaches the end of the block by simply following the chain when erasing writes.
 //
 // Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
 // hand side arguments for instructions 4 and 5 would be replaced with $v1.
