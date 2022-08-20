@@ -1,9 +1,9 @@
 #pragma once
 
+#include "optimizer_pass_base.hpp"
+
 #include "armajitto/guest/arm/gpr.hpp"
 #include "armajitto/ir/defs/variable.hpp"
-#include "armajitto/ir/emitter.hpp"
-#include "armajitto/ir/ops/ir_ops.hpp"
 
 #include <array>
 #include <optional>
@@ -37,56 +37,54 @@ namespace armajitto::ir {
 // Note that some instructions in the output code can be easily eliminated by other optimization passes, such as the
 // stores to unread variables $v2, $v3 and $v5 in instructions 3, 6 and 8 and the dead stores to r0 and pc in
 // instructions 4 and 5 (replaced by the stores in 9 and 10).
-class ConstPropagationOptimizerPass {
+class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
     ConstPropagationOptimizerPass(Emitter &emitter)
-        : m_emitter(emitter) {}
-
-    bool Optimize();
+        : OptimizerPassBase(emitter) {}
 
 private:
-    Emitter &m_emitter;
+    void PreProcess() final;
 
-    void Process(IRGetRegisterOp *op);
-    void Process(IRSetRegisterOp *op);
-    void Process(IRGetCPSROp *op);
-    void Process(IRSetCPSROp *op);
-    void Process(IRGetSPSROp *op);
-    void Process(IRSetSPSROp *op);
-    void Process(IRMemReadOp *op);
-    void Process(IRMemWriteOp *op);
-    void Process(IRPreloadOp *op);
-    void Process(IRLogicalShiftLeftOp *op);
-    void Process(IRLogicalShiftRightOp *op);
-    void Process(IRArithmeticShiftRightOp *op);
-    void Process(IRRotateRightOp *op);
-    void Process(IRRotateRightExtendOp *op);
-    void Process(IRBitwiseAndOp *op);
-    void Process(IRBitwiseOrOp *op);
-    void Process(IRBitwiseXorOp *op);
-    void Process(IRBitClearOp *op);
-    void Process(IRCountLeadingZerosOp *op);
-    void Process(IRAddOp *op);
-    void Process(IRAddCarryOp *op);
-    void Process(IRSubtractOp *op);
-    void Process(IRSubtractCarryOp *op);
-    void Process(IRMoveOp *op);
-    void Process(IRMoveNegatedOp *op);
-    void Process(IRSaturatingAddOp *op);
-    void Process(IRSaturatingSubtractOp *op);
-    void Process(IRMultiplyOp *op);
-    void Process(IRMultiplyLongOp *op);
-    void Process(IRAddLongOp *op);
-    void Process(IRStoreFlagsOp *op);
-    void Process(IRUpdateFlagsOp *op);
-    void Process(IRUpdateStickyOverflowOp *op);
-    void Process(IRBranchOp *op);
-    void Process(IRBranchExchangeOp *op);
-    void Process(IRLoadCopRegisterOp *op);
-    void Process(IRStoreCopRegisterOp *op);
-    void Process(IRConstantOp *op);
-    void Process(IRCopyVarOp *op);
-    void Process(IRGetBaseVectorAddressOp *op);
+    void Process(IRGetRegisterOp *op) final;
+    void Process(IRSetRegisterOp *op) final;
+    // void Process(IRGetCPSROp *op) final;
+    void Process(IRSetCPSROp *op) final;
+    // void Process(IRGetSPSROp *op) final;
+    void Process(IRSetSPSROp *op) final;
+    void Process(IRMemReadOp *op) final;
+    void Process(IRMemWriteOp *op) final;
+    void Process(IRPreloadOp *op) final;
+    void Process(IRLogicalShiftLeftOp *op) final;
+    void Process(IRLogicalShiftRightOp *op) final;
+    void Process(IRArithmeticShiftRightOp *op) final;
+    void Process(IRRotateRightOp *op) final;
+    void Process(IRRotateRightExtendOp *op) final;
+    void Process(IRBitwiseAndOp *op) final;
+    void Process(IRBitwiseOrOp *op) final;
+    void Process(IRBitwiseXorOp *op) final;
+    void Process(IRBitClearOp *op) final;
+    void Process(IRCountLeadingZerosOp *op) final;
+    void Process(IRAddOp *op) final;
+    void Process(IRAddCarryOp *op) final;
+    void Process(IRSubtractOp *op) final;
+    void Process(IRSubtractCarryOp *op) final;
+    void Process(IRMoveOp *op) final;
+    void Process(IRMoveNegatedOp *op) final;
+    void Process(IRSaturatingAddOp *op) final;
+    void Process(IRSaturatingSubtractOp *op) final;
+    void Process(IRMultiplyOp *op) final;
+    void Process(IRMultiplyLongOp *op) final;
+    void Process(IRAddLongOp *op) final;
+    void Process(IRStoreFlagsOp *op) final;
+    void Process(IRUpdateFlagsOp *op) final;
+    void Process(IRUpdateStickyOverflowOp *op) final;
+    void Process(IRBranchOp *op) final;
+    void Process(IRBranchExchangeOp *op) final;
+    // void Process(IRLoadCopRegisterOp *op) final;
+    void Process(IRStoreCopRegisterOp *op) final;
+    void Process(IRConstantOp *op) final;
+    void Process(IRCopyVarOp *op) final;
+    // void Process(IRGetBaseVectorAddressOp *op) final;
 
     struct Value {
         enum class Type { Unknown, Variable, Constant };

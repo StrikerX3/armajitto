@@ -1,6 +1,9 @@
 #include "armajitto/ir/optimizer.hpp"
 
 #include "optimizer/const_propagation.hpp"
+#include "optimizer/dead_store.hpp"
+
+#include <memory>
 
 namespace armajitto::ir {
 
@@ -10,7 +13,8 @@ void Optimizer::Optimize(BasicBlock &block) {
     bool dirty;
     do {
         dirty = false;
-        dirty |= ConstPropagationOptimizerPass{emitter}.Optimize();
+        dirty |= std::make_unique<ConstPropagationOptimizerPass>(emitter)->Optimize();
+        dirty |= std::make_unique<DeadStoreEliminationOptimizerPass>(emitter)->Optimize();
     } while (dirty);
 }
 
