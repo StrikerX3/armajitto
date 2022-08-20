@@ -94,10 +94,11 @@ public:
 
         void Erase(size_t pos, size_t count) {
             assert(count >= 1);
-            auto it = m_block.m_ops.begin() + pos;
-            bool beyond = (m_insertionPoint > it + count);
-            bool inside = (m_insertionPoint >= it);
-            it = m_block.m_ops.erase(it, it + count);
+            auto start = m_block.m_ops.begin() + pos;
+            auto end = start + count;
+            bool beyond = (m_insertionPoint > end);
+            bool inside = (m_insertionPoint >= start);
+            auto it = m_block.m_ops.erase(start, end);
             if (beyond) {
                 m_insertionPoint -= count;
             } else if (inside) {
