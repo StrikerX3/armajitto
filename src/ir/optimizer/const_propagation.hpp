@@ -2,9 +2,6 @@
 
 #include "optimizer_pass_base.hpp"
 
-#include "armajitto/guest/arm/gpr.hpp"
-#include "armajitto/ir/defs/variable.hpp"
-
 #include <array>
 #include <optional>
 #include <vector>
@@ -16,9 +13,10 @@ namespace armajitto::ir {
 //
 // This pass propagates known values or variable assignments, eliminating as many variables as possible.
 //
-// This optimization pass keeps track of all assignments to variables (variables or immediate values) and replaces known
-// values in subsequent instructions. In some cases, the entire instruction is replaced with a simpler variant that
-// directly assigns a value to a variable. The example below illustrates the behavior of this optimization pass:
+// This optimization pass keeps track of all assignments to variables (variables or immediate values, including those
+// indirectly set through GPR assignments) and replaces known values in subsequent instructions. In some cases, the
+// entire instruction is replaced with a simpler variant that directly assigns a value to a variable. The example below
+// illustrates the behavior of this optimization pass:
 //
 //      input code             substitutions   output code          assignments
 //   1  ld $v0, r0             -               ld $v0, r0           $v0 = <unknown>

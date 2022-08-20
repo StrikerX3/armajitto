@@ -6,7 +6,85 @@ namespace armajitto::ir {
 
 // Performs dead store elimination for variables, registers, PSRs and flags.
 //
-// TODO: describe algorithm, include an example
+// This optimization pass tracks reads and writes to variables and eliminates variables that are never read.
+// Instructions that end up writing to no variables are removed from the code, unless they have side effects such as
+// updating the host flags or changing the values of GPRs or PSRs.
+//
+// Assuming the following IR code fragment:
+//     instruction
+//  1  ld $v0, r0
+//  2  lsr $v1, $v0, #0xc
+//  3  mov $v2, $v1
+//  4  st r0, $v1
+//  5  st pc, #0x10c
+//
+// The algorithm keeps track of variables and GPRs written to, pointing to the instruction that last wrote to them.
+//
+//     instruction              writes
+//  1  ld $v0, r0               $v0
+//  2  lsr $v1, $v0, #0xc       $v1
+//  3  mov $v2, $v1             $v2
+//  4  st r0, $v1               r0
+//  5  st pc, #0x10c            pc
+//
+// Whenever a variable is read, the corresponding write is marked as "used". Internally, the pointer to the instruction
+// for that particular variable is reset so that the instruction is preserved. Used variables are denoted in parentheses
+// in the listings below.
+//
+//     instruction              writes   reads   actions
+//  1  ld $v0, r0               ($v0)
+//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as used
+//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as used
+//  4  st r0, $v1               r0       $v1     $v1 no longer has a write to check for, so nothing is done
+//  5  st pc, #0x10c            pc
+//
+// When a variable or GPR is overwritten before being read, the original destination argument is marked as unused.
+// If the instruction has no used writes and no side effects, it is removed.
+// To illustrate this, let's expand the example above with more code:
+//
+//     instruction              writes   reads   actions
+//  1  ld $v0, r0               ($v0)
+//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as used
+//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as used
+//  4  st r0, $v1               r0       $v1     (erased by instruction 9)
+//  5  st pc, #0x10c            pc               (erased by instruction 10)
+//  6  copy $v3, $v1            $v3      $v1     again, nothing is done because $v1 has no write to mark
+//  7  lsl $v4, $v1, #0xc       ($v4)    $v1     same as above
+//  8  mov $v5, $v4             $v5      $v4     marks the write to $v4 in instruction 7 as used
+//  9  st r0, $v4               r0       $v4     write to r0 from instruction 4 is unused
+//                                                 instruction 4 has no writes or side effects, so erase it
+// 10  st pc, #0x110            pc               write to pc from instruction 5 is unused
+//                                                 instruction 5 has no writes or side effects, so erase it
+//
+// At the end of the block, any unread writes are marked so and if the corresponding instructions no longer have any
+// writes or side effects, they are also removed. In the listing above, instructions 3, 6 and 8 write to variables $v2
+// and $v5 which are never read, thus leaving the instructions useless. The resulting code after the optimization is:
+//
+//  1  ld $v0, r0
+//  2  lsr $v1, $v0, #0xc
+//  3  lsl $v4, $v1, #0xc
+//  4  st r0, $v4
+//  5  st pc, #0x110
+//
+// In addition to keeping track of reads and writes as described above, the algorithm also tracks the dependencies
+// between variables in order to eliminate entire sequences of dead stores, such as in the following example:
+//
+//     instruction            dependency chains
+//  1  ld $v0, r0             $v0 -> r0
+//  2  lsr $v1, $v0, #0xc     $v1 -> $v0 -> r0
+//  3  mov $v2, $v1           $v2 -> $v1 -> $v0 -> r0
+//  4  mov $v3, $v2           $v3 -> $v2 -> $v1 -> $v0 -> r0
+//  5  mov $v4, $v3           $v4 -> $v3 -> $v2 -> $v1 -> $v0 -> r0
+//  6  st r0, $v1             $v4 -> $v3 -> $v2  (dependency between $v2 and $v1 is broken because the latter was read)
+//
+// Without this, the optimizer would require multiple passees to remove instructions 3, 4 and 5 since $v2 and $v3 are
+// read by the following instructions, but never really used. By tracking dependency chains, the optimizer can erase all
+// three instructions in one go once it reaches the end of the block by simply following the chain.
+//
+// Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
+// hand side arguments for instructions 4 and 5 would be replaced with $v1.
+// It is also impossible for a variable to be written to more than once thanks to the SSA form, so there's at most one
+// link from a written variable to a value.
 class DeadStoreEliminationOptimizerPass final : public OptimizerPassBase {
 public:
     DeadStoreEliminationOptimizerPass(Emitter &emitter)
