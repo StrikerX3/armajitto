@@ -21,6 +21,7 @@ endif ()
 add_library(armajitto
     include/armajitto/armajitto.hpp
     include/armajitto/version.hpp
+    include/armajitto/core/arena_allocator.hpp
     include/armajitto/core/context.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
@@ -58,7 +59,6 @@ add_library(armajitto
     include/armajitto/ir/ops/ir_reg_ops.hpp
     include/armajitto/util/bit_ops.hpp
     include/armajitto/util/bitmask_enum.hpp
-    src/allocator/arena.hpp
     src/core/recompiler.cpp
     src/host/x86_64/cpuid.cpp
     src/ir/basic_block.cpp
@@ -96,13 +96,16 @@ target_precompile_headers(armajitto
         <algorithm>
         <array>
         <bit>
+        <bitset>
         <cassert>
         <concepts>
         <cstdint>
+        <deque>
         <format>
         <limits>
         <memory>
         <optional>
+        <ranges>
         <string>
         <tuple>
         <type_traits>
