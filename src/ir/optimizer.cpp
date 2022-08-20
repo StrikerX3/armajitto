@@ -7,14 +7,14 @@
 
 namespace armajitto::ir {
 
-void Optimize(BasicBlock &block) {
+void Optimize(memory::Allocator &alloc, BasicBlock &block) {
     Emitter emitter{block};
 
     bool dirty;
     do {
         dirty = false;
-        dirty |= std::make_unique<ConstPropagationOptimizerPass>(emitter)->Optimize();
-        dirty |= std::make_unique<DeadStoreEliminationOptimizerPass>(emitter)->Optimize();
+        dirty |= alloc.Allocate<ConstPropagationOptimizerPass>(emitter)->Optimize();
+        dirty |= alloc.Allocate<DeadStoreEliminationOptimizerPass>(emitter)->Optimize();
     } while (dirty);
 }
 

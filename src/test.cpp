@@ -380,25 +380,26 @@ void testTranslator() {
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::memory::Allocator alloc{};
-    armajitto::ir::BasicBlock block{alloc, {0x0100, armajitto::arm::Mode::User, thumb}};
+    auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
+        alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
 
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(block);
-    printf("translated %u instructions:\n\n", block.InstructionCount());
-    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+    translator.Translate(*block);
+    printf("translated %u instructions:\n\n", block->InstructionCount());
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
     }
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(block);
+    armajitto::ir::Optimize(alloc, *block);
     printf("optimized:\n\n");
-    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
     }

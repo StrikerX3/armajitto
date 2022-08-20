@@ -18,14 +18,9 @@ public:
         : m_alloc(alloc)
         , m_location(location) {}
 
-    ~BasicBlock() {
-        IROp *op = m_opsHead;
-        while (op != nullptr) {
-            IROp *next = op->next;
-            m_alloc.Free(op);
-            op = next;
-        }
-    }
+    /*~BasicBlock() {
+        Clear();
+    }*/
 
     LocationRef Location() const {
         return m_location;
@@ -53,6 +48,17 @@ public:
 
     const IROp *Tail() const {
         return m_opsTail;
+    }
+
+    void Clear() {
+        IROp *op = m_opsHead;
+        while (op != nullptr) {
+            IROp *next = op->next;
+            m_alloc.Free(op);
+            op = next;
+        }
+        m_opsHead = nullptr;
+        m_opsTail = nullptr;
     }
 
 private:
