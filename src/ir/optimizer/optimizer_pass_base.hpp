@@ -60,8 +60,14 @@ protected:
     virtual void Process(IRCopyVarOp *op) {}
     virtual void Process(IRGetBaseVectorAddressOp *op) {}
 
+    void MarkDirty(bool dirty) {
+        m_dirty |= dirty;
+    }
+
 private:
     void Process(IROp *op);
+
+    bool m_dirty = false;
 };
 
 } // namespace armajitto::ir

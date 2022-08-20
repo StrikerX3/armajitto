@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/allocator.hpp"
 #include "armajitto/guest/arm/instructions.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 #include "defs/variable.hpp"
@@ -13,8 +14,18 @@ namespace armajitto::ir {
 
 class BasicBlock {
 public:
-    BasicBlock(LocationRef location)
-        : m_location(location) {}
+    BasicBlock(memory::Allocator &alloc, LocationRef location)
+        : m_alloc(alloc)
+        , m_location(location) {}
+
+    ~BasicBlock() {
+        IROp *op = m_opsHead;
+        while (op != nullptr) {
+            IROp *next = op->next;
+            m_alloc.Free(op);
+            op = next;
+        }
+    }
 
     LocationRef Location() const {
         return m_location;
@@ -28,138 +39,127 @@ public:
         return m_instrCount;
     }
 
-    const std::vector<std::unique_ptr<IROp>> &Ops() const {
-        return m_ops;
+    IROp *Head() {
+        return m_opsHead;
     }
 
-    class Writer {
-    public:
-        Writer(BasicBlock &block)
-            : m_block(block)
-            , m_insertionPoint(block.m_ops.end()) {}
+    IROp *Tail() {
+        return m_opsTail;
+    }
 
-        BasicBlock &Block() {
-            return m_block;
-        }
+    const IROp *Head() const {
+        return m_opsHead;
+    }
 
-        void NextInstruction() {
-            ++m_block.m_instrCount;
-        }
-
-        void SetCondition(arm::Condition cond) {
-            m_block.m_cond = cond;
-        }
-
-        size_t GetCodeSize() const {
-            return m_block.m_ops.size();
-        }
-
-        size_t GetCursorPos() const {
-            return std::distance(m_block.m_ops.begin(), m_insertionPoint);
-        }
-
-        bool IsCursorAtEnd() const {
-            return m_insertionPoint == m_block.m_ops.end();
-        }
-
-        void SetCursorPos(size_t index) {
-            assert(index <= m_block.m_ops.size());
-            m_insertionPoint = m_block.m_ops.begin() + index;
-            m_modifiedSinceLastCursorMove = false;
-        }
-
-        size_t MoveCursor(int64_t offset) {
-            assert(static_cast<size_t>(GetCursorPos() + offset) <= m_block.m_ops.size());
-            m_insertionPoint += offset;
-            m_modifiedSinceLastCursorMove = false;
-            return GetCursorPos();
-        }
-
-        IROp &GetOp(size_t index) {
-            assert(index < m_block.m_ops.size());
-            return *m_block.m_ops.at(index);
-        }
-
-        IROp *GetCurrentOp() {
-            if (m_insertionPoint != m_block.m_ops.end()) {
-                return m_insertionPoint->get();
-            } else {
-                return nullptr;
-            }
-        }
-
-        void OverwriteNext() {
-            m_overwriteNext = true;
-        }
-
-        void Erase(size_t pos, size_t count) {
-            assert(count >= 1);
-            auto start = m_block.m_ops.begin() + pos;
-            auto end = start + count;
-            bool beyond = (m_insertionPoint > end);
-            bool inside = (m_insertionPoint >= start);
-            auto it = m_block.m_ops.erase(start, end);
-            if (beyond) {
-                m_insertionPoint -= count;
-            } else if (inside) {
-                m_insertionPoint = it;
-            }
-        }
-
-        void EraseNext(size_t count) {
-            assert(count >= 1);
-            m_insertionPoint = m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
-        }
-
-        bool IsModifiedSinceLastCursorMove() const {
-            return m_modifiedSinceLastCursorMove;
-        }
-
-        void ClearModifiedSinceLastCursorMove() {
-            m_modifiedSinceLastCursorMove = false;
-        }
-
-        template <typename T, typename... Args>
-        void InsertOp(Args &&...args) {
-            if (m_overwriteNext) {
-                *m_insertionPoint = std::make_unique<T>(std::forward<Args>(args)...);
-                m_overwriteNext = false;
-            } else {
-                m_insertionPoint =
-                    m_block.m_ops.insert(m_insertionPoint, std::make_unique<T>(std::forward<Args>(args)...));
-            }
-            ++m_insertionPoint;
-            m_modifiedSinceLastCursorMove = true;
-            m_dirty = true;
-        }
-
-        uint32_t NextVarID() {
-            return m_block.m_nextVarID++;
-        }
-
-        bool IsDirty() const {
-            return m_dirty;
-        }
-
-        void ClearDirtyFlag() {
-            m_dirty = false;
-        }
-
-    private:
-        BasicBlock &m_block;
-        std::vector<std::unique_ptr<IROp>>::iterator m_insertionPoint;
-        bool m_overwriteNext = false;
-        bool m_modifiedSinceLastCursorMove = false;
-        bool m_dirty = false;
-    };
+    const IROp *Tail() const {
+        return m_opsTail;
+    }
 
 private:
+    memory::Allocator &m_alloc;
+
     LocationRef m_location;
     arm::Condition m_cond;
 
-    std::vector<std::unique_ptr<IROp>> m_ops;
+    IROp *m_opsHead = nullptr;
+    IROp *m_opsTail = nullptr;
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
     uint32_t m_nextVarID = 0;
+
+    void NextInstruction() {
+        ++m_instrCount;
+    }
+
+    void SetCondition(arm::Condition cond) {
+        m_cond = cond;
+    }
+
+    template <typename T, typename... Args>
+    IROp *CreateOp(Args &&...args) {
+        return m_alloc.Allocate<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    IROp *AppendOp(IROp *ref, Args &&...args) {
+        IROp *op = CreateOp<T>(std::forward<Args>(args)...);
+        if (ref == nullptr) {
+            m_opsHead = m_opsTail = op;
+        } else {
+            ref->Append(op);
+            if (ref == m_opsTail) {
+                m_opsTail = op;
+            }
+        }
+        return op;
+    }
+
+    template <typename T, typename... Args>
+    IROp *PrependOp(IROp *ref, Args &&...args) {
+        IROp *op = CreateOp<T>(std::forward<Args>(args)...);
+        if (ref == nullptr) {
+            m_opsHead = m_opsTail = op;
+        } else {
+            ref->Prepend(op);
+            if (ref == m_opsHead) {
+                m_opsHead = op;
+            }
+        }
+        return op;
+    }
+
+    template <typename T, typename... Args>
+    IROp *ReplaceOp(IROp *ref, Args &&...args) {
+        IROp *op = CreateOp<T>(std::forward<Args>(args)...);
+        if (ref == nullptr) {
+            m_opsHead = m_opsTail = op;
+        } else {
+            ref->Replace(op);
+            if (ref == m_opsHead) {
+                m_opsHead = op;
+            }
+            if (ref == m_opsTail) {
+                m_opsTail = op;
+            }
+            m_alloc.Free(ref);
+        }
+        return op;
+    }
+
+    void InsertHead(IROp *op) {
+        if (m_opsHead == nullptr) {
+            m_opsHead = op;
+            m_opsTail = op;
+        } else {
+            m_opsHead->Prepend(op);
+            m_opsHead = op;
+        }
+    }
+
+    void InsertTail(IROp *op) {
+        if (m_opsTail == nullptr) {
+            m_opsTail = op;
+            m_opsHead = op;
+        } else {
+            m_opsTail->Append(op);
+            m_opsTail = op;
+        }
+    }
+
+    void Remove(IROp *op) {
+        if (op == m_opsHead) {
+            m_opsHead = m_opsHead->Next();
+        }
+        if (op == m_opsTail) {
+            m_opsTail = m_opsTail->Next();
+        }
+        op->Remove();
+    }
+
+    uint32_t NextVarID() {
+        return m_nextVarID++;
+    }
+
+    friend class Emitter;
 };
 
 } // namespace armajitto::ir

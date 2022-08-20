@@ -21,7 +21,7 @@ endif ()
 add_library(armajitto
     include/armajitto/armajitto.hpp
     include/armajitto/version.hpp
-    include/armajitto/core/arena_allocator.hpp
+    include/armajitto/core/allocator.hpp
     include/armajitto/core/context.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
@@ -99,7 +99,9 @@ target_precompile_headers(armajitto
         <bitset>
         <cassert>
         <concepts>
+        <cstddef>
         <cstdint>
+        <cstdlib>
         <deque>
         <format>
         <limits>

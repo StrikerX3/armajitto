@@ -12,26 +12,15 @@ bool OptimizerPassBase::Optimize() {
 
     PreProcess();
 
-    m_emitter.SetCursorPos(0);
-    while (!m_emitter.IsCursorAtEnd()) {
-        auto *op = m_emitter.GetCurrentOp();
-        if (op == nullptr) {
-            assert(false); // shouldn't happen
-            continue;
-        }
-
+    m_emitter.GoToHead();
+    while (IROp *op = m_emitter.GetCurrentOp()) {
         Process(op);
-
-        if (!m_emitter.IsModifiedSinceLastCursorMove()) {
-            m_emitter.MoveCursor(1);
-        } else {
-            m_emitter.ClearModifiedSinceLastCursorMove();
-        }
+        m_emitter.NextOp();
     }
 
     PostProcess();
 
-    return m_emitter.IsDirty();
+    return m_dirty || m_emitter.IsDirty();
 }
 
 void OptimizerPassBase::Process(IROp *op) {

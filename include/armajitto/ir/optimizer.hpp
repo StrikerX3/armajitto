@@ -4,11 +4,6 @@
 
 namespace armajitto::ir {
 
-class Optimizer {
-public:
-    void Optimize(BasicBlock &block);
-
-private:
-};
+void Optimize(BasicBlock &block);
 
 } // namespace armajitto::ir

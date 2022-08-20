@@ -7,7 +7,7 @@
 
 namespace armajitto::ir {
 
-void Optimizer::Optimize(BasicBlock &block) {
+void Optimize(BasicBlock &block) {
     Emitter emitter{block};
 
     bool dirty;

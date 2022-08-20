@@ -18,7 +18,8 @@ struct ALUVarPair {
 class Emitter {
 public:
     Emitter(BasicBlock &block)
-        : m_blockWriter(block) {
+        : m_block(block)
+        , m_currOp(block.Tail()) {
 
         auto loc = block.Location();
         m_baseAddress = loc.BaseAddress();
@@ -29,7 +30,7 @@ public:
     }
 
     BasicBlock &GetBlock() {
-        return m_blockWriter.Block();
+        return m_block;
     }
 
     uint32_t BaseAddress() const {
@@ -66,61 +67,35 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // Optimizer helper functions
 
-    size_t GetCodeSize() const {
-        return m_blockWriter.GetCodeSize();
-    }
-
-    size_t GetCursorPos() const {
-        return m_blockWriter.GetCursorPos();
-    }
-
-    bool IsCursorAtEnd() const {
-        return m_blockWriter.IsCursorAtEnd();
-    }
-
-    void SetCursorPos(size_t index) {
-        m_blockWriter.SetCursorPos(index);
-    }
-
-    size_t MoveCursor(int64_t offset) {
-        return m_blockWriter.MoveCursor(offset);
-    }
-
-    IROp &GetOp(size_t index) {
-        return m_blockWriter.GetOp(index);
-    }
-
-    IROp *GetCurrentOp() {
-        return m_blockWriter.GetCurrentOp();
-    }
-
-    Emitter &Overwrite() {
-        m_blockWriter.OverwriteNext();
-        return *this;
-    }
-
-    void Erase(size_t pos, size_t count = 1) {
-        m_blockWriter.Erase(pos, count);
-    }
-
-    void EraseNext(size_t count = 1) {
-        m_blockWriter.EraseNext(count);
-    }
-
-    bool IsModifiedSinceLastCursorMove() const {
-        return m_blockWriter.IsModifiedSinceLastCursorMove();
-    }
-
-    void ClearModifiedSinceLastCursorMove() {
-        m_blockWriter.ClearModifiedSinceLastCursorMove();
+    void ClearDirtyFlag() {
+        m_dirty = false;
     }
 
     bool IsDirty() const {
-        return m_blockWriter.IsDirty();
+        return m_dirty;
     }
 
-    void ClearDirtyFlag() {
-        m_blockWriter.ClearDirtyFlag();
+    void GoToHead() {
+        m_currOp = m_block.Head();
+    }
+
+    IROp *GetCurrentOp() {
+        return m_currOp;
+    }
+
+    void NextOp() {
+        if (m_currOp != nullptr) {
+            m_currOp = m_currOp->Next();
+        }
+    }
+
+    Emitter &Overwrite() {
+        m_overwriteNext = true;
+        return *this;
+    }
+
+    void Erase(IROp *op) {
+        m_block.Remove(op);
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -211,7 +186,7 @@ public:
     void FetchInstruction();
 
 private:
-    BasicBlock::Writer m_blockWriter;
+    BasicBlock &m_block;
 
     uint32_t m_baseAddress;
     bool m_thumb;
@@ -219,6 +194,21 @@ private:
     uint32_t m_instrSize;
 
     uint32_t m_currInstrAddr;
+
+    IROp *m_currOp;
+    bool m_dirty = false;
+    bool m_overwriteNext = false;
+
+    template <typename T, typename... Args>
+    void Write(Args &&...args) {
+        if (m_overwriteNext) {
+            m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
+            m_overwriteNext = false;
+        } else {
+            m_currOp = m_block.AppendOp<T>(m_currOp, std::forward<Args>(args)...);
+        }
+        m_dirty = true;
+    }
 
     // --- Variables -----------------------------------------------------------
 

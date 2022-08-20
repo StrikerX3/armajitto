@@ -103,8 +103,8 @@ private:
             : type(Type::Constant)
             , constant(value) {}
 
-        void Substitute(VariableArg &var);
-        void Substitute(VarOrImmArg &var);
+        bool Substitute(VariableArg &var);
+        bool Substitute(VarOrImmArg &var);
 
         bool IsKnown() const {
             return type != Type::Unknown;

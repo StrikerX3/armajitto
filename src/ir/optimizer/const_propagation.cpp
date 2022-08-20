@@ -150,7 +150,7 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
         if (op->dst.var.IsPresent()) {
             m_emitter.Overwrite().Constant(op->dst, result);
         } else {
-            m_emitter.EraseNext();
+            m_emitter.Erase(op);
         }
         if (setFlags) {
             m_emitter.SetNZ(result);
@@ -184,7 +184,7 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
         if (op->dst.var.IsPresent()) {
             m_emitter.Overwrite().Constant(op->dst, result);
         } else {
-            m_emitter.EraseNext();
+            m_emitter.Erase(op);
         }
         if (setFlags) {
             m_emitter.SetNZ(result);
@@ -227,7 +227,7 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
         if (op->dst.var.IsPresent()) {
             m_emitter.Overwrite().Constant(op->dst, result);
         } else {
-            m_emitter.EraseNext();
+            m_emitter.Erase(op);
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
@@ -264,7 +264,7 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
         if (op->dst.var.IsPresent()) {
             m_emitter.Overwrite().Constant(op->dst, result);
         } else {
-            m_emitter.EraseNext();
+            m_emitter.Erase(op);
         }
         if (setFlags) {
             m_emitter.SetNZCV(result, carry, overflow);
@@ -521,7 +521,7 @@ void ConstPropagationOptimizerPass::Substitute(VariableArg &var) {
     }
     auto varIndex = var.var.Index();
     if (varIndex < m_varSubsts.size()) {
-        m_varSubsts[varIndex].Substitute(var);
+        MarkDirty(m_varSubsts[varIndex].Substitute(var));
     }
 }
 
@@ -534,7 +534,7 @@ void ConstPropagationOptimizerPass::Substitute(VarOrImmArg &var) {
     }
     auto varIndex = var.var.var.Index();
     if (varIndex < m_varSubsts.size()) {
-        m_varSubsts[varIndex].Substitute(var);
+        MarkDirty(m_varSubsts[varIndex].Substitute(var));
     }
 }
 
@@ -589,19 +589,20 @@ auto ConstPropagationOptimizerPass::GetFlagsSubstitution(VariableArg var) -> Fla
     }
 }
 
-void ConstPropagationOptimizerPass::Value::Substitute(VariableArg &var) {
-    switch (type) {
-    case Type::Unknown: break;
-    case Type::Constant: break; // Can't replace a VariableArg with a constant
-    case Type::Variable: var.var = variable; break;
+bool ConstPropagationOptimizerPass::Value::Substitute(VariableArg &var) {
+    if (type == Type::Variable) {
+        var.var = variable;
+        return true;
+    } else {
+        return false;
     }
 }
 
-void ConstPropagationOptimizerPass::Value::Substitute(VarOrImmArg &var) {
+bool ConstPropagationOptimizerPass::Value::Substitute(VarOrImmArg &var) {
     switch (type) {
-    case Type::Unknown: break;
-    case Type::Constant: var = constant; break;
-    case Type::Variable: var = variable; break;
+    case Type::Constant: var = constant; return true;
+    case Type::Variable: var = variable; return true;
+    default: return false;
     }
 }
 

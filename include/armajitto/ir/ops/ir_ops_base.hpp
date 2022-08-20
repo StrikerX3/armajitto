@@ -8,10 +8,73 @@
 namespace armajitto::ir {
 
 struct IROp {
-    virtual ~IROp() = default;
-
     virtual IROpcodeType GetType() const = 0;
     virtual std::string ToString() const = 0;
+
+    IROp *Prev() {
+        return prev;
+    }
+
+    IROp *Next() {
+        return next;
+    }
+
+    const IROp *Prev() const {
+        return prev;
+    }
+
+    const IROp *Next() const {
+        return next;
+    }
+
+private:
+    void Append(IROp *op) {
+        op->next = next;
+        op->prev = this;
+        if (next != nullptr) {
+            next->prev = op;
+        }
+        next = op;
+    }
+
+    void Prepend(IROp *op) {
+        op->prev = prev;
+        op->next = this;
+        if (prev != nullptr) {
+            prev->next = op;
+        }
+        prev = op;
+    }
+
+    void Replace(IROp *op) {
+        op->prev = prev;
+        op->next = next;
+        if (next != nullptr) {
+            next->prev = op;
+        }
+        if (prev != nullptr) {
+            prev->next = op;
+        }
+        next = prev = nullptr;
+    }
+
+    IROp *Remove() {
+        IROp *result = next;
+        if (prev != nullptr) {
+            prev->next = next;
+        }
+        if (next != nullptr) {
+            next->prev = prev;
+        }
+        prev = nullptr;
+        next = nullptr;
+        return result;
+    }
+
+    IROp *prev = nullptr;
+    IROp *next = nullptr;
+
+    friend class BasicBlock;
 };
 
 // Base type for all IR opcodes.
