@@ -345,11 +345,11 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // Simple (useless) demo
-     writeARM(0xE3A004DE); // mov r0, #0xDE000000
-     writeARM(0xE3B004DE); // movs r0, #0xDE000000
-     writeARM(0xE38008AD); // orr r0, #0xAD0000
-     writeARM(0xE3800CBE); // orr r0, #0xBE00
-     writeARM(0xE38000EF); // orr r0, #0xEF
+    // writeARM(0xE3A004DE); // mov r0, #0xDE000000
+    // writeARM(0xE3B004DE); // movs r0, #0xDE000000
+    // writeARM(0xE38008AD); // orr r0, #0xAD0000
+    // writeARM(0xE3800CBE); // orr r0, #0xBE00
+    // writeARM(0xE38000EF); // orr r0, #0xEF
     // writeARM(0xE3A01A01); // mov r1, #0x1000
     // writeARM(0xE5A10004); // str r0, [r1, #4]!
     // writeARM(0xE2200475); // eor r0, #0x75000000
@@ -375,8 +375,8 @@ void testTranslator() {
 
     // User mode transfer
     // writeARM(0xE8384210); // ldmda r8!, {r4, r9, r14}
-    // writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
+    writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::memory::Allocator alloc{};
