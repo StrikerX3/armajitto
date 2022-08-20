@@ -73,11 +73,11 @@ namespace armajitto::ir {
 // between variables in order to eliminate entire sequences of dead stores, such as in the following example:
 //
 //     instruction            dependency chains
-//  1  ld $v0, r0             $v0 -> r0
-//  2  lsr $v1, $v0, #0xc     $v1 -> $v0 -> r0
-//  3  mov $v2, $v1           $v2 -> $v1 -> $v0 -> r0
-//  4  mov $v3, $v2           $v3 -> $v2 -> $v1 -> $v0 -> r0
-//  5  mov $v4, $v3           $v4 -> $v3 -> $v2 -> $v1 -> $v0 -> r0
+//  1  ld $v0, r0             $v0
+//  2  lsr $v1, $v0, #0xc     $v1 -> $v0
+//  3  mov $v2, $v1           $v2 -> $v1 -> $v0
+//  4  mov $v3, $v2           $v3 -> $v2 -> $v1 -> $v0
+//  5  mov $v4, $v3           $v4 -> $v3 -> $v2 -> $v1 -> $v0
 //  6  st r0, $v1             $v4 -> $v3 -> $v2  (dependency between $v2 and $v1 is broken because the latter was read)
 //
 // Without this, the optimizer would require multiple passees to remove instructions 3, 4 and 5 since $v2 and $v3 are
