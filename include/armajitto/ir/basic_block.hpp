@@ -95,12 +95,19 @@ public:
         void Erase(size_t pos, size_t count) {
             assert(count >= 1);
             auto it = m_block.m_ops.begin() + pos;
-            m_block.m_ops.erase(it, it + count);
+            bool beyond = (m_insertionPoint > it + count);
+            bool inside = (m_insertionPoint >= it);
+            it = m_block.m_ops.erase(it, it + count);
+            if (beyond) {
+                m_insertionPoint -= count;
+            } else if (inside) {
+                m_insertionPoint = it;
+            }
         }
 
         void EraseNext(size_t count) {
             assert(count >= 1);
-            m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
+            m_insertionPoint = m_block.m_ops.erase(m_insertionPoint, m_insertionPoint + count);
         }
 
         bool IsModifiedSinceLastCursorMove() const {
