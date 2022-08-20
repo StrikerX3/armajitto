@@ -78,14 +78,28 @@ namespace armajitto::ir {
 //  3  mov $v2, $v1           $v2 -> $v1 -> $v0
 //  4  mov $v3, $v2           $v3 -> $v2 -> $v1 -> $v0
 //  5  mov $v4, $v3           $v4 -> $v3 -> $v2 -> $v1 -> $v0
-//  6  st r0, $v1             $v4 -> $v3 -> $v2  (dependency between $v2 and $v1 is broken because the latter was read)
+//  6  st r0, $v1             $v4 -> $v3 -> $v2  (dependency between $v2 and $v1 is broken because the latter was used
+//                                                in an instruction that produces a side effect)
 //
-// Without this, the optimizer would require multiple passees to remove instructions 3, 4 and 5 since $v2 and $v3 are
+// Operations that read from a variable and store a result in another variable create a dependency between the written
+// and read variable. The chain is broken if a variable is consumed in a way that produces side effects, such as writing
+// to a GPR or PSR.
+//
+// Without this, the optimizer would require multiple passes to remove instructions 3, 4 and 5 since $v2 and $v3 are
 // read by the following instructions, but never really used. By tracking dependency chains, the optimizer can erase all
 // three instructions in one go once it reaches the end of the block by simply following the chain when erasing writes.
 //
 // Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
 // hand side arguments for instructions 4 and 5 would be replaced with $v1.
+// It is also impossible for a variable to be written to more than once thanks to the SSA form, however some
+// instructions may link one write to multiple input variables, such as the mull and addl instructions:
+//
+//    ld $v0, r0
+//    ld $v1, r1
+//    umull $v2, $v3, $v0, $v1             $v2 -> [$v0, $v1]; $v3 -> [$v0, $v1]
+//    addl $v4, $v5, $v0, $v1, $v2, $v3    $v4 -> [$v0, $v1, $v2, $v3]; $v5 -> [$v0, $v1, $v2, $v3]  (+ both above)
+//
+// In those cases, the optimizer will follow every linked variable and erase all affected instructions.
 class DeadStoreEliminationOptimizerPass final : public OptimizerPassBase {
 public:
     DeadStoreEliminationOptimizerPass(Emitter &emitter)
