@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace armajitto::ir {
@@ -167,5 +168,8 @@ private:
 
     friend class Emitter;
 };
+
+static_assert(std::is_trivially_destructible_v<BasicBlock>,
+              "BasicBlock must be trivially destructible to be efficiently used with the allocator");
 
 } // namespace armajitto::ir

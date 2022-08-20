@@ -13,7 +13,7 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block) {
     bool dirty;
     do {
         dirty = false;
-        dirty |= alloc.Allocate<ConstPropagationOptimizerPass>(emitter)->Optimize();
+        dirty |= alloc.AllocateNonTrivial<ConstPropagationOptimizerPass>(emitter)->Optimize();
         dirty |= alloc.Allocate<DeadStoreEliminationOptimizerPass>(emitter)->Optimize();
     } while (dirty);
 }
