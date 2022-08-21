@@ -91,7 +91,12 @@ public:
     }
 
     void Erase(IROp *op) {
-        m_block.Erase(op);
+        IROp *result = m_block.Erase(op);
+        if (op == m_currOp) {
+            m_currOp = result;
+            m_prependNext = true;
+        }
+        m_dirty = true;
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -194,12 +199,17 @@ private:
     IROp *m_currOp;
     bool m_dirty = false;
     bool m_overwriteNext = false;
+    bool m_prependNext = false;
 
     template <typename T, typename... Args>
     void Write(Args &&...args) {
         if (m_overwriteNext) {
             m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
             m_overwriteNext = false;
+            m_prependNext = false;
+        } else if (m_prependNext) {
+            m_currOp = m_block.PrependOp<T>(m_currOp, std::forward<Args>(args)...);
+            m_prependNext = false;
         } else {
             m_currOp = m_block.AppendOp<T>(m_currOp, std::forward<Args>(args)...);
         }

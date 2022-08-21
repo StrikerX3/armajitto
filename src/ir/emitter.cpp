@@ -392,6 +392,10 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
         }
         break;
     }
+
+    if (setFlags) {
+        UpdateFlags(Flags::C);
+    }
     return result;
 }
 

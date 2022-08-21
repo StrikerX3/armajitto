@@ -405,6 +405,8 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
 void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     using Opcode = DataProcessing::Opcode;
 
+    const bool dstPC = instr.dstReg == GPR::PC;
+
     Variable lhs;
     if (instr.opcode != Opcode::MOV && instr.opcode != Opcode::MVN) {
         lhs = emitter.GetRegister(instr.lhsReg);
@@ -414,11 +416,13 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     if (instr.immediate) {
         rhs = instr.rhs.imm;
     } else {
-        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags);
+        const bool carryInOpcode =
+            instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
+        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && !dstPC);
     }
 
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
-    if (instr.setFlags && instr.dstReg == GPR::PC) {
+    if (instr.setFlags && dstPC) {
         emitter.CopySPSRToCPSR();
         m_flagsUpdated = true;
     }
@@ -450,7 +454,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     // Update flags if requested (unless Rd = 15)
-    if (instr.setFlags && instr.dstReg != GPR::PC) {
+    if (instr.setFlags && !dstPC) {
         static constexpr auto flagsNZ = Flags::N | Flags::Z;
         static constexpr auto flagsNZCV = flagsNZ | Flags::C | Flags::V;
         static constexpr Flags flagsByOpcode[] = {
@@ -463,7 +467,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     // Branch or fetch next instruction
-    if (instr.dstReg == GPR::PC && result.IsPresent()) {
+    if (dstPC && result.IsPresent()) {
         if (instr.setFlags) {
             // May also switch to thumb depending on CPSR.T
             emitter.BranchExchange(result);

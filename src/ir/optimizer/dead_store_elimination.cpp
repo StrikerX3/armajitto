@@ -476,7 +476,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftL
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -487,7 +487,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftR
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -498,7 +498,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRArithmeticShi
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -509,7 +509,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightOp
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -520,7 +520,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightEx
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -531,7 +531,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseAndOp 
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -542,7 +542,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseOrOp *
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -553,7 +553,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseXorOp 
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -564,7 +564,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitClearOp *o
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -586,7 +586,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -597,7 +597,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddCarryOp *o
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -608,7 +608,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractOp *o
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -619,7 +619,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractCarry
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -630,7 +630,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -641,7 +641,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveNegatedOp
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -652,7 +652,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingAdd
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && false /* TODO: Q flag wasn't consumed */) {
         m_emitter.Erase(op);
         return true;
     }
@@ -663,7 +663,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingSub
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && false /* TODO: Q flag wasn't consumed */) {
         m_emitter.Erase(op);
         return true;
     }
@@ -674,7 +674,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyOp *o
     if (op->dst == var) {
         op->dst.var = {};
     }
-    if (!op->dst.var.IsPresent()) {
+    if (!op->dst.var.IsPresent() && (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -688,7 +688,8 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyLongO
     if (op->dstHi == var) {
         op->dstHi.var = {};
     }
-    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent()) {
+    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() &&
+        (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -702,7 +703,8 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op
     if (op->dstHi == var) {
         op->dstHi.var = {};
     }
-    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent()) {
+    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() &&
+        (!op->setFlags || false /* TODO: flags weren't consumed */)) {
         m_emitter.Erase(op);
         return true;
     }
@@ -713,7 +715,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRStoreFlagsOp 
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
     }
-    if (!op->dstCPSR.var.IsPresent()) {
+    if (!op->dstCPSR.var.IsPresent() && false /* TODO: flags weren't consumed */) {
         m_emitter.Erase(op);
         return true;
     }
@@ -724,7 +726,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRUpdateFlagsOp
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
     }
-    if (!op->dstCPSR.var.IsPresent()) {
+    if (!op->dstCPSR.var.IsPresent() && false /* TODO: flags weren't consumed */) {
         m_emitter.Erase(op);
         return true;
     }
@@ -735,7 +737,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRUpdateStickyO
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
     }
-    if (!op->dstCPSR.var.IsPresent()) {
+    if (!op->dstCPSR.var.IsPresent() && false /* TODO: Q flag wasn't consumed */) {
         m_emitter.Erase(op);
         return true;
     }

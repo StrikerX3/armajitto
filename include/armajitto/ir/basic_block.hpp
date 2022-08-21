@@ -152,14 +152,14 @@ private:
         }
     }
 
-    void Erase(IROp *op) {
+    IROp *Erase(IROp *op) {
         if (op == m_opsHead) {
             m_opsHead = m_opsHead->Next();
         }
         if (op == m_opsTail) {
             m_opsTail = m_opsTail->Next();
         }
-        op->Erase();
+        return op->Erase();
     }
 
     uint32_t NextVarID() {
