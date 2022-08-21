@@ -176,6 +176,9 @@ private:
     void RecordRead(GPRArg gpr);
     void RecordWrite(GPRArg gpr, IROp *op);
 
+    void RecordCPSRRead();
+    void RecordCPSRWrite(IROp *op);
+
     void RecordHostFlagsRead(arm::Flags flags);
     void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
 
@@ -319,12 +322,7 @@ private:
     std::vector<std::vector<Variable>> m_dependencies;
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
-
-    // TODO: track CPSR version
-    // - ld $v, cpsr copies the current CPSR version to the variable
-    // - copy and mov: copy the CPSR version between variables
-    // - other instructions with dependent variables: increment CPSR version on the written variable(s)
-    // - const: new CPSR version
+    IROp *m_cpsrWrite = nullptr;
 
     // Host flag writes tracking
     // Writes: ALU instructions and store flags

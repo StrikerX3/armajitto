@@ -25,13 +25,13 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
-    // TODO: read from CPSR
+    RecordCPSRRead();
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     RecordRead(op->src);
-    // TODO: write to CPSR
+    RecordCPSRWrite(op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
@@ -364,6 +364,18 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
         m_emitter.Erase(writeOp);
     }
     m_gprWrites[gprIndex] = op;
+}
+
+void DeadStoreEliminationOptimizerPass::RecordCPSRRead() {
+    m_cpsrWrite = nullptr; // Leave instruction alone
+}
+
+void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(IROp *op) {
+    if (m_cpsrWrite != nullptr) {
+        // CPSR is overwritten; erase previous instructions, which is always going to be an IRSetCPSROp
+        m_emitter.Erase(m_cpsrWrite);
+    }
+    m_cpsrWrite = op;
 }
 
 void DeadStoreEliminationOptimizerPass::RecordHostFlagsRead(arm::Flags flags) {
