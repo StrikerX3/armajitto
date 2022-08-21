@@ -1,16 +1,16 @@
-#include "dead_store.hpp"
+#include "dead_store_elimination.hpp"
 
 namespace armajitto::ir {
 
 void DeadStoreEliminationOptimizerPass::PostProcess() {
     for (size_t i = 0; i < m_varWrites.size(); i++) {
-        auto *op = m_varWrites[i];
-        Variable var{i};
-        if (op != nullptr) {
+        auto &write = m_varWrites[i];
+        if (write.op != nullptr && !write.read) {
+            Variable var{i};
             // TODO: erase write to var in op
             // TODO: erase instruction if it has no more writes or side effects
             // FIXME: this is a HACK to get things going
-            m_emitter.Erase(op);
+            m_emitter.Erase(write.op);
         }
     }
 }
@@ -307,7 +307,8 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(Variable dst, IROp *op) {
     }
     auto varIndex = dst.Index();
     ResizeWrites(varIndex);
-    m_varWrites[varIndex] = op;
+    m_varWrites[varIndex].op = op;
+    m_varWrites[varIndex].read = false;
 }
 
 void DeadStoreEliminationOptimizerPass::RecordWrite(VariableArg dst, IROp *op) {
@@ -322,7 +323,7 @@ void DeadStoreEliminationOptimizerPass::RecordRead(Variable dst) {
     if (varIndex >= m_varWrites.size()) {
         return;
     }
-    m_varWrites[varIndex] = nullptr;
+    m_varWrites[varIndex].read = true;
 }
 
 void DeadStoreEliminationOptimizerPass::RecordRead(VariableArg dst) {

@@ -73,8 +73,8 @@ add_library(armajitto
     src/ir/ops/ir_reg_ops.cpp
     src/ir/optimizer/const_propagation.cpp
     src/ir/optimizer/const_propagation.hpp
-    src/ir/optimizer/dead_store.cpp
-    src/ir/optimizer/dead_store.hpp
+    src/ir/optimizer/dead_store_elimination.cpp
+    src/ir/optimizer/dead_store_elimination.hpp
     src/ir/optimizer/optimizer_pass_base.cpp
     src/ir/optimizer/optimizer_pass_base.hpp
     src/ir/translator/decode_arm.hpp

@@ -166,7 +166,12 @@ private:
     void ResizeWrites(size_t size);
     void ResizeDependencies(size_t size);
 
-    std::vector<IROp *> m_varWrites;
+    struct VarWrite {
+        IROp *op = nullptr;
+        bool read = false;
+    };
+
+    std::vector<VarWrite> m_varWrites;
     std::vector<std::vector<Variable>> m_dependencies;
 };
 

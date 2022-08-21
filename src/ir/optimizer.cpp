@@ -1,7 +1,7 @@
 #include "armajitto/ir/optimizer.hpp"
 
 #include "optimizer/const_propagation.hpp"
-#include "optimizer/dead_store.hpp"
+#include "optimizer/dead_store_elimination.hpp"
 
 #include <memory>
 

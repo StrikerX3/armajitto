@@ -5,6 +5,7 @@
 
 namespace armajitto::ir {
 
+// TODO: redesign this
 struct OptimizerPasses {
     bool constantPropagation = true;
     bool deadStoreElimination = true;
