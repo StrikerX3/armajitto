@@ -76,6 +76,12 @@ struct VariableArg {
         return *this;
     }
 
+    bool operator==(const VariableArg &) const = default;
+
+    bool operator==(const Variable &var) const {
+        return this->var == var;
+    }
+
     std::string ToString() const {
         if (var.IsPresent()) {
             return std::format("$v{}", var.Index());
@@ -98,6 +104,12 @@ struct ImmediateArg {
     ImmediateArg &operator=(uint32_t imm) {
         value = imm;
         return *this;
+    }
+
+    bool operator==(const ImmediateArg &) const = default;
+
+    bool operator==(uint32_t value) const {
+        return this->value == value;
     }
 
     std::string ToString() const {
@@ -132,6 +144,24 @@ struct VarOrImmArg {
         immediate = true;
         this->imm = imm;
         return *this;
+    }
+
+    bool operator==(const VarOrImmArg &) const = default;
+
+    bool operator==(const VariableArg &var) const {
+        return !immediate && this->var == var;
+    }
+
+    bool operator==(const ImmediateArg &imm) const {
+        return immediate && this->imm == imm;
+    }
+
+    bool operator==(const Variable &var) const {
+        return !immediate && this->var == var;
+    }
+
+    bool operator==(uint32_t imm) const {
+        return immediate && this->imm == imm;
     }
 
     std::string ToString() const {
