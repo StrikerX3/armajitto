@@ -176,8 +176,8 @@ private:
     void RecordRead(GPRArg gpr);
     void RecordWrite(GPRArg gpr, IROp *op);
 
-    void RecordRead(arm::Flags flags);
-    void RecordWrite(arm::Flags flags, IROp *op);
+    void RecordHostFlagsRead(arm::Flags flags);
+    void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
 
     void ResizeWrites(size_t size);
     void ResizeDependencies(size_t size);
@@ -320,21 +320,20 @@ private:
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
 
-    // TODO: flags tracking is busted
-    // - need to eliminate unnecessary CPSR loads/stores and sflg/uflg instructions
-
     // TODO: track CPSR version
     // - ld $v, cpsr copies the current CPSR version to the variable
     // - copy and mov: copy the CPSR version between variables
     // - other instructions with dependent variables: increment CPSR version on the written variable(s)
     // - const: new CPSR version
 
-    IROp *m_nWrite = nullptr;
-    IROp *m_zWrite = nullptr;
-    IROp *m_cWrite = nullptr;
-    IROp *m_vWrite = nullptr;
-    IROp *m_qWrite = nullptr;
-    std::unordered_map<IROp *, arm::Flags> m_flagsRead;
+    // Host flag writes tracking
+    // Writes: ALU instructions and store flags
+    // Reads: Load flags
+    IROp *m_hostFlagWriteN = nullptr;
+    IROp *m_hostFlagWriteZ = nullptr;
+    IROp *m_hostFlagWriteC = nullptr;
+    IROp *m_hostFlagWriteV = nullptr;
+    IROp *m_hostFlagWriteQ = nullptr;
 };
 
 } // namespace armajitto::ir

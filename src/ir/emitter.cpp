@@ -381,6 +381,7 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
     case arm::ShiftType::LSL:
         if (shift.immediate && shift.amount.imm == 0) {
             result = value;
+            setFlags = false;
         } else {
             result = LogicalShiftLeft(value, amount, setFlags);
         }

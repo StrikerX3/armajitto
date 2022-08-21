@@ -597,8 +597,8 @@ void ConstPropagationOptimizerPass::Process(IRCopyVarOp *op) {
 }
 
 std::optional<bool> ConstPropagationOptimizerPass::GetCarryFlag() {
-    if (BitmaskEnum(m_knownCPSRFlagsMask).AnyOf(arm::Flags::C)) {
-        return BitmaskEnum(m_knownCPSRFlagsValues).AnyOf(arm::Flags::C);
+    if (BitmaskEnum(m_knownHostFlagsMask).AnyOf(arm::Flags::C)) {
+        return BitmaskEnum(m_knownHostFlagsValues).AnyOf(arm::Flags::C);
     } else {
         return std::nullopt;
     }

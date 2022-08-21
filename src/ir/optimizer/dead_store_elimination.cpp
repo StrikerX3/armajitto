@@ -62,7 +62,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C, op);
+        RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
 }
@@ -71,7 +71,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C, op);
+        RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
 }
@@ -80,7 +80,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C, op);
+        RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
 }
@@ -89,45 +89,45 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C, op);
+        RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
-    RecordRead(arm::Flags::C);
+    RecordHostFlagsRead(arm::Flags::C);
     RecordDependentRead(op->dst, op->value);
     RecordWrite(op->dst, op);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C, op);
+        RecordHostFlagsWrite(arm::Flags::C, op);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
@@ -139,37 +139,37 @@ void DeadStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
 void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
-    RecordRead(arm::Flags::C);
+    RecordHostFlagsRead(arm::Flags::C);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
-    RecordRead(arm::Flags::C);
+    RecordHostFlagsRead(arm::Flags::C);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
     if (op->flags != arm::Flags::None) {
         RecordDependentRead(op->dst, op->value);
-        RecordWrite(op->flags, op);
+        RecordHostFlagsWrite(op->flags, op);
     } else {
         RecordDependentRead(op->dst, op->value, false);
     }
@@ -178,28 +178,28 @@ void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
     RecordDependentRead(op->dst, op->value);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
@@ -208,7 +208,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
     RecordDependentRead(op->dstLo, op->rhs);
     RecordDependentRead(op->dstHi, op->lhs);
     RecordDependentRead(op->dstHi, op->rhs);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dstLo, op);
     RecordWrite(op->dstHi, op);
 }
@@ -222,23 +222,23 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
     RecordDependentRead(op->dstHi, op->lhsHi);
     RecordDependentRead(op->dstHi, op->rhsLo);
     RecordDependentRead(op->dstHi, op->rhsHi);
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dstLo, op);
     RecordWrite(op->dstHi, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRStoreFlagsOp *op) {
-    RecordWrite(op->flags, op);
+    RecordHostFlagsWrite(op->flags, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
-    RecordRead(op->flags);
+    RecordHostFlagsRead(op->flags);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    RecordRead(arm::Flags::Q);
+    RecordHostFlagsRead(arm::Flags::Q);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
 }
@@ -366,25 +366,21 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
     m_gprWrites[gprIndex] = op;
 }
 
-void DeadStoreEliminationOptimizerPass::RecordRead(arm::Flags flags) {
-    // Leave corresponding instructions alone
+void DeadStoreEliminationOptimizerPass::RecordHostFlagsRead(arm::Flags flags) {
     auto bmFlags = BitmaskEnum(flags);
-    auto clearFlag = [&](arm::Flags flag, IROp *&write) {
+    auto record = [&](arm::Flags flag, IROp *&write) {
         if (bmFlags.AnyOf(flag)) {
-            if (write != nullptr) {
-                m_flagsRead[write] |= flag;
-            }
             write = nullptr;
         }
     };
-    clearFlag(arm::Flags::N, m_nWrite);
-    clearFlag(arm::Flags::Z, m_zWrite);
-    clearFlag(arm::Flags::C, m_cWrite);
-    clearFlag(arm::Flags::V, m_vWrite);
-    clearFlag(arm::Flags::Q, m_qWrite);
+    record(arm::Flags::N, m_hostFlagWriteN);
+    record(arm::Flags::Z, m_hostFlagWriteZ);
+    record(arm::Flags::C, m_hostFlagWriteC);
+    record(arm::Flags::V, m_hostFlagWriteV);
+    record(arm::Flags::Q, m_hostFlagWriteQ);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordWrite(arm::Flags flags, IROp *op) {
+void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, IROp *op) {
     auto bmFlags = BitmaskEnum(flags);
     if (bmFlags.None()) {
         return;
@@ -394,15 +390,14 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(arm::Flags flags, IROp *op) 
             if (write != nullptr) {
                 VisitIROp(write, [this, flag](auto op) -> void { EraseWrite(flag, op); });
             }
-            m_flagsRead[op] |= flag;
             write = op;
         }
     };
-    record(arm::Flags::N, m_nWrite);
-    record(arm::Flags::Z, m_zWrite);
-    record(arm::Flags::C, m_cWrite);
-    record(arm::Flags::V, m_vWrite);
-    record(arm::Flags::Q, m_qWrite);
+    record(arm::Flags::N, m_hostFlagWriteN);
+    record(arm::Flags::Z, m_hostFlagWriteZ);
+    record(arm::Flags::C, m_hostFlagWriteC);
+    record(arm::Flags::V, m_hostFlagWriteV);
+    record(arm::Flags::Q, m_hostFlagWriteQ);
 }
 
 void DeadStoreEliminationOptimizerPass::ResizeWrites(size_t size) {
@@ -828,7 +823,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMemReadOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftLeftOp *op) {
-    if (!op->dst.var.IsPresent() && (op->setCarry || BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::C))) {
+    if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
     }
@@ -836,7 +831,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftLeftOp *o
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftRightOp *op) {
-    if (!op->dst.var.IsPresent() && (!op->setCarry || BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::C))) {
+    if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
     }
@@ -844,7 +839,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftRightOp *
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRArithmeticShiftRightOp *op) {
-    if (!op->dst.var.IsPresent() && (!op->setCarry || BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::C))) {
+    if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
     }
@@ -852,7 +847,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRArithmeticShiftRightO
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightOp *op) {
-    if (!op->dst.var.IsPresent() && (!op->setCarry || BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::C))) {
+    if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
     }
@@ -860,7 +855,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightExtendOp *op) {
-    if (!op->dst.var.IsPresent() && (!op->setCarry || BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::C))) {
+    if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
     }
@@ -868,7 +863,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightExtendOp *
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseAndOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -876,7 +871,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseAndOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseOrOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -884,7 +879,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseOrOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseXorOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -892,7 +887,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseXorOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitClearOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -908,7 +903,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRCountLeadingZerosOp *
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -916,7 +911,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddCarryOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -924,7 +919,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddCarryOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -932,7 +927,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractCarryOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -940,7 +935,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractCarryOp *op) 
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -948,7 +943,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveNegatedOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -956,7 +951,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveNegatedOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingAddOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -964,7 +959,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingAddOp *op) 
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingSubtractOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -972,7 +967,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingSubtractOp 
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyOp *op) {
-    if (!op->dst.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -980,7 +975,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyLongOp *op) {
-    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -988,7 +983,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyLongOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddLongOp *op) {
-    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(op->flags)) {
+    if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -996,7 +991,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddLongOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
-    if (BitmaskEnum(m_flagsRead[op]).None()) {
+    if (op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -1004,7 +999,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
-    if (!op->dstCPSR.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).None()) {
+    if (!op->dstCPSR.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
     }
@@ -1012,7 +1007,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadStickyOverflowOp *op) {
-    if (BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::Q)) {
+    if (!op->dstCPSR.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
     }
