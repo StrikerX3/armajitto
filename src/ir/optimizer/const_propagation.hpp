@@ -141,8 +141,6 @@ private:
     std::vector<Value> m_varSubsts;
     std::array<Value, 16 * 32> m_gprSubsts;
 
-    arm::Flags m_knownCPSRFlagsMask = arm::Flags::None;
-    arm::Flags m_knownCPSRFlagsValues = arm::Flags::None;
     arm::Flags m_knownHostFlagsMask = arm::Flags::None;
     arm::Flags m_knownHostFlagsValues = arm::Flags::None;
     std::vector<FlagsValue> m_flagsSubsts;

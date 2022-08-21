@@ -34,15 +34,6 @@ void ConstPropagationOptimizerPass::Process(IRSetRegisterOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
     Substitute(op->src);
-    if (op->src.immediate) {
-        m_knownCPSRFlagsMask = arm::kFlagsNZCVQ;
-        m_knownCPSRFlagsValues = static_cast<arm::Flags>(op->src.imm.value);
-    } else if (auto subst = GetFlagsSubstitution(op->src.var)) {
-        m_knownCPSRFlagsMask = subst->knownMask;
-        m_knownCPSRFlagsValues = subst->flags;
-    } else {
-        m_knownCPSRFlagsMask = arm::Flags::None;
-    }
 }
 
 void ConstPropagationOptimizerPass::Process(IRSetSPSROp *op) {
