@@ -5,7 +5,6 @@ namespace armajitto::ir {
 
 void Emitter::NextInstruction() {
     m_block.NextInstruction();
-    m_currInstrAddr += m_instrSize;
 }
 
 void Emitter::SetCondition(arm::Condition cond) {
@@ -13,13 +12,9 @@ void Emitter::SetCondition(arm::Condition cond) {
 }
 
 Variable Emitter::GetRegister(GPRArg src) {
-    if (src.gpr == arm::GPR::PC) {
-        return Constant(CurrentPC());
-    } else {
-        auto dst = Var();
-        Write<IRGetRegisterOp>(dst, src);
-        return dst;
-    }
+    auto dst = Var();
+    Write<IRGetRegisterOp>(dst, src);
+    return dst;
 }
 
 Variable Emitter::GetRegister(arm::GPR src) {
@@ -331,6 +326,11 @@ Variable Emitter::GetBaseVectorAddress() {
     return dst;
 }
 
+Variable Emitter::GetOffsetFromCurrentInstructionAddress(int32_t offset) {
+    auto pc = GetRegister(arm::GPR::PC);
+    return Add(pc, offset - m_instrSize * 2, false);
+}
+
 void Emitter::CopySPSRToCPSR() {
     auto spsr = GetSPSR();
     SetCPSR(spsr);
@@ -396,9 +396,9 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
 }
 
 void Emitter::LinkBeforeBranch() {
-    uint32_t linkAddress = m_currInstrAddr + m_instrSize;
+    auto linkAddress = GetOffsetFromCurrentInstructionAddress(m_instrSize);
     if (m_thumb) {
-        linkAddress |= 1;
+        linkAddress = BitwiseOr(linkAddress, 1, false);
     }
     SetRegister({arm::GPR::LR, m_mode}, linkAddress);
 }
@@ -418,13 +418,16 @@ void Emitter::EnterException(arm::Exception vector) {
     cpsr = BitwiseOr(cpsr, setBits, false);  // Set I, F and mode bits
     SetCPSR(cpsr);
 
+    auto lr = GetOffsetFromCurrentInstructionAddress(nn);
     auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);
-    SetRegister({arm::GPR::LR, m_mode}, m_currInstrAddr + nn);
+    SetRegister({arm::GPR::LR, m_mode}, lr);
     SetRegister({arm::GPR::PC, m_mode}, pc);
 }
 
 void Emitter::FetchInstruction() {
-    SetRegister({arm::GPR::PC, m_mode}, CurrentPC() + m_instrSize);
+    auto pc = GetRegister(arm::GPR::PC);
+    pc = Add(pc, m_instrSize, false);
+    SetRegister(arm::GPR::PC, pc);
 }
 
 Variable Emitter::Var() {

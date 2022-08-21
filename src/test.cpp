@@ -176,23 +176,26 @@ void testTranslator() {
     // writeThumb(0x4788); // blx r1
 
     // ARM ALU operations
-    // writeARM(0xE0121003); // ands r1, r2, r3
-    // writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
-    // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
-    // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
-    // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
-    // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
-    // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
-    // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
-    // writeARM(0xE1120003); // tst r2, r3
-    // writeARM(0xE1320003); // teq r2, r3
-    // writeARM(0xE1520003); // cmp r2, r3
-    // writeARM(0xE1720003); // cmn r2, r3
-    // writeARM(0xE1921473); // orrs r1, r2, r3, ror r4
-    // writeARM(0xE1B01002); // movs r1, r2
-    // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
-    // writeARM(0xE1E01003); // mvn r1, r3
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xE3A02012); // mov r2, #0x12
+    writeARM(0xE3A03B0D); // mov r3, #0x3400
+    writeARM(0xE3A04004); // mov r4, #0x4
+    writeARM(0xE0121003); // ands r1, r2, r3
+    writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
+    writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
+    writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
+    writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
+    writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
+    writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
+    writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
+    writeARM(0xE1120003); // tst r2, r3
+    writeARM(0xE1320003); // teq r2, r3
+    writeARM(0xE1520003); // cmp r2, r3
+    writeARM(0xE1720003); // cmn r2, r3
+    writeARM(0xE1921473); // orrs r1, r2, r3, ror r4
+    writeARM(0xE1B01002); // movs r1, r2
+    writeARM(0xE1D21063); // bics r1, r2, r3, rrx
+    writeARM(0xE1E01003); // mvn r1, r3
+    writeARM(0xEAFFFFFE); // b $
 
     // ARM ALU comparisons
     // writeARM(0xE0021003); // and r1, r2, r3
@@ -367,11 +370,11 @@ void testTranslator() {
 
     // Add with carry test
     // - Requires constant propagation and dead store elimination to fully optimize
-    writeARM(0xE3E00000); // mvn r0, #0
-    writeARM(0xE3A01001); // mov r1, #1
-    writeARM(0xE0902001); // adds r2, r0, r1
-    writeARM(0xE0A23001); // adc r3, r2, r1
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE3E00000); // mvn r0, #0
+    // writeARM(0xE3A01001); // mov r1, #1
+    // writeARM(0xE0902001); // adds r2, r0, r1
+    // writeARM(0xE0A23001); // adc r3, r2, r1
+    // writeARM(0xEAFFFFFE); // b $
 
     // User mode transfer
     // writeARM(0xE8384210); // ldmda r8!, {r4, r9, r14}

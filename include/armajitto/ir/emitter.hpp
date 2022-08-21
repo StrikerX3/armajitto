@@ -25,7 +25,6 @@ public:
         m_baseAddress = loc.BaseAddress();
         m_thumb = loc.IsThumbMode();
         m_mode = loc.Mode();
-        m_currInstrAddr = loc.BaseAddress();
         m_instrSize = m_thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     }
 
@@ -59,10 +58,6 @@ public:
 
     void NextInstruction();
     void SetCondition(arm::Condition cond);
-
-    uint32_t CurrentPC() const {
-        return m_currInstrAddr + 2 * m_instrSize;
-    }
 
     // -----------------------------------------------------------------------------------------------------------------
     // Optimizer helper functions
@@ -174,6 +169,8 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // Complex IR instruction sequence emitters
 
+    Variable GetOffsetFromCurrentInstructionAddress(int32_t offset);
+
     void CopySPSRToCPSR();
 
     Variable ComputeAddress(const arm::Addressing &addressing);
@@ -193,8 +190,6 @@ private:
     bool m_thumb;
     arm::Mode m_mode;
     uint32_t m_instrSize;
-
-    uint32_t m_currInstrAddr;
 
     IROp *m_currOp;
     bool m_dirty = false;

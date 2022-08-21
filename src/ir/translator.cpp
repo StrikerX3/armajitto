@@ -364,7 +364,8 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
         emitter.LinkBeforeBranch();
     }
 
-    const uint32_t targetAddress = emitter.CurrentPC() + instr.offset;
+    auto pc = emitter.GetRegister(arm::GPR::PC);
+    auto targetAddress = emitter.Add(pc, instr.offset, false);
     if (instr.IsExchange()) {
         emitter.BranchExchange(targetAddress);
     } else {
@@ -694,6 +695,9 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     const bool isPC = (instr.reg == GPR::PC);
     Variable pcValue{};
 
+    // PC is incremented before the transfer
+    emitter.FetchInstruction();
+
     Variable value{};
     if (instr.load) {
         if (instr.byte) {
@@ -710,12 +714,7 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
             emitter.SetRegister(gpr, value);
         }
     } else {
-        if (isPC) {
-            value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
-        } else {
-            value = emitter.GetRegister(gpr);
-        }
-
+        value = emitter.GetRegister(gpr);
         if (instr.byte) {
             emitter.MemWrite(MemAccessSize::Byte, value, address);
         } else {
@@ -754,8 +753,6 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
             emitter.Branch(pcValue);
         }
         m_endBlock = true;
-    } else {
-        emitter.FetchInstruction();
     }
 }
 
@@ -777,6 +774,9 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             address = emitter.Subtract(address, offset, false);
         }
     }
+
+    // PC is incremented before the transfer
+    emitter.FetchInstruction();
 
     Variable pcValue{};
     bool writeback = false;
@@ -826,12 +826,7 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             writeback = (instr.baseReg != nextReg);
         } else if (instr.half) {
             // STRH
-            Variable value;
-            if (instr.reg == GPR::PC) {
-                value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
-            } else {
-                value = emitter.GetRegister(instr.reg);
-            }
+            auto value = emitter.GetRegister(instr.reg);
             emitter.MemWrite(MemAccessSize::Half, value, address);
             writeback = true;
         } else {
@@ -867,8 +862,6 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
     if (pcValue.IsPresent()) {
         emitter.Branch(pcValue);
         m_endBlock = true;
-    } else {
-        emitter.FetchInstruction();
     }
 }
 
@@ -902,6 +895,9 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
         finalAddress = emitter.Subtract(address, size, false);
         address = finalAddress;
     }
+
+    // PC is incremented before the transfer
+    emitter.FetchInstruction();
 
     // Registers are loaded/stored in asceding order in memory, regardless of pre/post-indexing and direction flags.
     // We can implement a loop that transfers registers without reversing the list by reversing the indexing flag
@@ -937,8 +933,6 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             Variable value{};
             if (!instr.userModeOrPSRTransfer && gpr == instr.baseReg) {
                 value = (i == firstReg) ? startAddress : finalAddress;
-            } else if (gpr == GPR::PC) {
-                value = emitter.Constant(emitter.CurrentPC() + emitter.InstructionSize());
             } else {
                 value = emitter.GetRegister({gpr, gprMode});
             }
@@ -986,8 +980,6 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             emitter.Branch(pcValue);
         }
         m_endBlock = true;
-    } else {
-        emitter.FetchInstruction();
     }
 }
 
