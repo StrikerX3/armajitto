@@ -394,11 +394,13 @@ void DeadStoreEliminationOptimizerPass::EraseWriteRecursive(Variable var, IROp *
 
     // Follow dependencies
     if (erased) {
-        for (auto &dep : m_dependencies[var.Index()]) {
-            if (dep.IsPresent()) {
-                auto &write = m_varWrites[dep.Index()];
-                if (!write.consumed) {
-                    EraseWriteRecursive(dep, write.op);
+        if (var.Index() < m_dependencies.size()) {
+            for (auto &dep : m_dependencies[var.Index()]) {
+                if (dep.IsPresent()) {
+                    auto &write = m_varWrites[dep.Index()];
+                    if (!write.consumed) {
+                        EraseWriteRecursive(dep, write.op);
+                    }
                 }
             }
         }
