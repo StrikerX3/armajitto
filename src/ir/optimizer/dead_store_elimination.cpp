@@ -228,10 +228,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRStoreFlagsOp *op) {
-    RecordDependentRead(op->dstCPSR, op->srcCPSR);
-    RecordDependentRead(op->dstCPSR, op->values);
     RecordWrite(op->flags, op);
-    RecordWrite(op->dstCPSR, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
@@ -625,13 +622,6 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op
     return EraseInstruction(op);
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRStoreFlagsOp *op) {
-    if (op->dstCPSR == var) {
-        op->dstCPSR.var = {};
-    }
-    return EraseInstruction(op);
-}
-
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadFlagsOp *op) {
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
@@ -769,22 +759,20 @@ void DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddLongOp 
 void DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRStoreFlagsOp *op) {
     op->flags &= ~flag;
     if (op->flags == arm::Flags::None) {
-        m_emitter.Overwrite(op).CopyVar(op->dstCPSR, op->srcCPSR);
-    } else if (op->values.immediate) {
-        op->values.imm.value &= static_cast<uint32_t>(~flag);
+        m_emitter.Erase(op);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadFlagsOp *op) {
     op->flags &= ~flag;
     if (op->flags == arm::Flags::None) {
-        m_emitter.Overwrite(op).CopyVar(op->dstCPSR, op->srcCPSR);
+        m_emitter.Erase(op);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
     if (flag == arm::Flags::Q) {
-        m_emitter.Overwrite(op).CopyVar(op->dstCPSR, op->srcCPSR);
+        m_emitter.Erase(op);
     }
 }
 
@@ -1008,7 +996,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddLongOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
-    if (!op->dstCPSR.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).None()) {
+    if (BitmaskEnum(m_flagsRead[op]).None()) {
         m_emitter.Erase(op);
         return true;
     }
@@ -1024,11 +1012,9 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadStickyOverflowOp *op) {
-    if (!op->dstCPSR.var.IsPresent() && BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::Q)) {
+    if (BitmaskEnum(m_flagsRead[op]).NoneOf(arm::Flags::Q)) {
         m_emitter.Erase(op);
         return true;
-    } else if (BitmaskEnum(m_flagsRead[op]).None()) {
-        m_emitter.Overwrite().CopyVar(op->dstCPSR, op->srcCPSR);
     }
     return false;
 }

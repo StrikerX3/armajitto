@@ -141,11 +141,16 @@ private:
     std::vector<Value> m_varSubsts;
     std::array<Value, 16 * 32> m_gprSubsts;
 
-    arm::Flags m_knownFlagsMask = arm::Flags::None;
-    arm::Flags m_knownFlagsValues = arm::Flags::None;
+    arm::Flags m_knownCPSRFlagsMask = arm::Flags::None;
+    arm::Flags m_knownCPSRFlagsValues = arm::Flags::None;
+    arm::Flags m_knownHostFlagsMask = arm::Flags::None;
+    arm::Flags m_knownHostFlagsValues = arm::Flags::None;
     std::vector<FlagsValue> m_flagsSubsts;
 
     std::optional<bool> GetCarryFlag();
+
+    void SetKnownHostFlags(arm::Flags mask, arm::Flags values);
+    void ClearKnownHostFlags(arm::Flags mask);
 
     // General variable substitutions
     void ResizeVarSubsts(size_t size);

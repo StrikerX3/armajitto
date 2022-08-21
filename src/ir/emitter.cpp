@@ -222,10 +222,7 @@ ALUVarPair Emitter::AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rh
 }
 
 void Emitter::StoreFlags(arm::Flags flags, VarOrImmArg values) {
-    auto srcCPSR = GetCPSR();
-    auto dstCPSR = Var();
-    Write<IRStoreFlagsOp>(flags, dstCPSR, srcCPSR, values);
-    SetCPSR(dstCPSR);
+    Write<IRStoreFlagsOp>(flags, values);
 }
 
 void Emitter::LoadFlags(arm::Flags flags) {
@@ -242,7 +239,7 @@ void Emitter::LoadStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
-void Emitter::SetNZ(arm::Flags mask, uint32_t value) {
+arm::Flags Emitter::SetNZ(arm::Flags mask, uint32_t value) {
     arm::Flags flags = arm::Flags::None;
     auto bmMask = BitmaskEnum(mask);
     if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
@@ -252,9 +249,10 @@ void Emitter::SetNZ(arm::Flags mask, uint32_t value) {
         flags |= arm::Flags::Z;
     }
     StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
+    return flags;
 }
 
-void Emitter::SetNZ(arm::Flags mask, uint64_t value) {
+arm::Flags Emitter::SetNZ(arm::Flags mask, uint64_t value) {
     arm::Flags flags = arm::Flags::None;
     auto bmMask = BitmaskEnum(mask);
     if (bmMask.AnyOf(arm::Flags::N) && value >> 63ull) {
@@ -264,9 +262,10 @@ void Emitter::SetNZ(arm::Flags mask, uint64_t value) {
         flags |= arm::Flags::Z;
     }
     StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
+    return flags;
 }
 
-void Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow) {
+arm::Flags Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow) {
     arm::Flags flags = arm::Flags::None;
     auto bmMask = BitmaskEnum(mask);
     if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
@@ -282,6 +281,7 @@ void Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow
         flags |= arm::Flags::V;
     }
     StoreFlags(arm::kFlagsNZCV, static_cast<uint32_t>(flags));
+    return flags;
 }
 
 void Emitter::Branch(VarOrImmArg address) {

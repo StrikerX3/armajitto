@@ -9,28 +9,21 @@
 namespace armajitto::ir {
 
 // Store flags
-//   stflg.[n][z][c][v][q] <var:dst_cpsr>, <var:src_cpsr>, <var/imm:values>
+//   stflg.[n][z][c][v][q] <var/imm:values>
 //
-// Copies the flags specified in the mask [n][z][c][v][q] from <values> into <src_cpsr> and stores the result in
-// <dst_cpsr>.
+// Sets the host flags specified by [n][z][c][v][q] to <values>.
 // The position of the bits in <values> must match those in CPSR -- bit 31 is N, bit 30 is Z, and so on.
-// The host flags are also updated to the specified values.
 struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
     arm::Flags flags;
-    VariableArg dstCPSR;
-    VariableArg srcCPSR;
     VarOrImmArg values;
 
-    IRStoreFlagsOp(arm::Flags flags, VariableArg dstCPSR, VariableArg srcCPSR, VarOrImmArg values)
+    IRStoreFlagsOp(arm::Flags flags, VarOrImmArg values)
         : flags(flags)
-        , dstCPSR(dstCPSR)
-        , srcCPSR(srcCPSR)
         , values(values) {}
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
-        return std::format("stflg{} {}, {}, {}", flagsSuffix, dstCPSR.ToString(), srcCPSR.ToString(),
-                           values.ToString());
+        return std::format("stflg{} {}", flagsSuffix, values.ToString());
     }
 };
 
@@ -41,9 +34,9 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
 struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
     arm::Flags flags;
     VariableArg dstCPSR;
-    VariableArg srcCPSR;
+    VarOrImmArg srcCPSR;
 
-    IRLoadFlagsOp(arm::Flags flags, VariableArg dstCPSR, VariableArg srcCPSR)
+    IRLoadFlagsOp(arm::Flags flags, VariableArg dstCPSR, VarOrImmArg srcCPSR)
         : flags(flags & ~arm::Flags::Q)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
@@ -60,9 +53,9 @@ struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
 // Load the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
 struct IRLoadStickyOverflowOp : public IROpBase<IROpcodeType::LoadStickyOverflow> {
     VariableArg dstCPSR;
-    VariableArg srcCPSR;
+    VarOrImmArg srcCPSR;
 
-    IRLoadStickyOverflowOp(VariableArg dstCPSR, VariableArg srcCPSR)
+    IRLoadStickyOverflowOp(VariableArg dstCPSR, VarOrImmArg srcCPSR)
         : dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 

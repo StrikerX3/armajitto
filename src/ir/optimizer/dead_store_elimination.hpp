@@ -223,7 +223,7 @@ private:
     bool EraseWrite(Variable var, IRMultiplyOp *op);
     bool EraseWrite(Variable var, IRMultiplyLongOp *op);
     bool EraseWrite(Variable var, IRAddLongOp *op);
-    bool EraseWrite(Variable var, IRStoreFlagsOp *op);
+    // IRStoreFlagsOp has side-effects (updates host flags)
     bool EraseWrite(Variable var, IRLoadFlagsOp *op);
     bool EraseWrite(Variable var, IRLoadStickyOverflowOp *op);
     // bool EraseWrite(IRBranchOp *op); // Writes PC
