@@ -19,6 +19,8 @@ struct Variable {
         return index != kInvalidIndex;
     }
 
+    bool operator==(const Variable &) const = default;
+
 private:
     size_t index;
 
