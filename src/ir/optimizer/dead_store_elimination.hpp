@@ -3,6 +3,7 @@
 #include "optimizer_pass_base.hpp"
 
 #include <array>
+#include <unordered_map>
 #include <vector>
 
 namespace armajitto::ir {
@@ -158,14 +159,9 @@ private:
         return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
     }
 
-    void RecordWrite(Variable dst, IROp *op);
-    void RecordWrite(VariableArg dst, IROp *op);
-    void RecordWrite(GPRArg gpr, IROp *op);
-
     void RecordRead(Variable dst, bool consume = true);
     void RecordRead(VariableArg dst, bool consume = true);
     void RecordRead(VarOrImmArg dst, bool consume = true);
-    void RecordRead(GPRArg gpr);
 
     void RecordDependentRead(Variable dst, Variable src, bool consume = true);
     void RecordDependentRead(VariableArg dst, Variable src, bool consume = true);
@@ -174,10 +170,22 @@ private:
     void RecordDependentRead(Variable dst, VarOrImmArg src, bool consume = true);
     void RecordDependentRead(VariableArg dst, VarOrImmArg src, bool consume = true);
 
+    void RecordWrite(Variable dst, IROp *op);
+    void RecordWrite(VariableArg dst, IROp *op);
+
+    void RecordRead(GPRArg gpr);
+    void RecordWrite(GPRArg gpr, IROp *op);
+
+    void RecordRead(arm::Flags flags);
+    void RecordWrite(arm::Flags flags, IROp *op);
+
     void ResizeWrites(size_t size);
     void ResizeDependencies(size_t size);
 
     void EraseWriteRecursive(Variable var, IROp *op);
+
+    // -------------------------------------------------------------------------
+    // Generic EraseWrite for variables
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
@@ -226,6 +234,81 @@ private:
     bool EraseWrite(Variable var, IRCopyVarOp *op);
     bool EraseWrite(Variable var, IRGetBaseVectorAddressOp *op);
 
+    // -------------------------------------------------------------------------
+    // Generic EraseWrite for flags
+
+    // Catch-all method for unused ops, required by the visitor
+    template <typename T>
+    void EraseWrite(arm::Flags flag, T *op) {}
+
+    void EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op);
+    void EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
+    void EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
+    void EraseWrite(arm::Flags flag, IRRotateRightOp *op);
+    void EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op);
+    void EraseWrite(arm::Flags flag, IRBitwiseAndOp *op);
+    void EraseWrite(arm::Flags flag, IRBitwiseOrOp *op);
+    void EraseWrite(arm::Flags flag, IRBitwiseXorOp *op);
+    void EraseWrite(arm::Flags flag, IRBitClearOp *op);
+    void EraseWrite(arm::Flags flag, IRAddOp *op);
+    void EraseWrite(arm::Flags flag, IRAddCarryOp *op);
+    void EraseWrite(arm::Flags flag, IRSubtractOp *op);
+    void EraseWrite(arm::Flags flag, IRSubtractCarryOp *op);
+    void EraseWrite(arm::Flags flag, IRMoveOp *op);
+    void EraseWrite(arm::Flags flag, IRMoveNegatedOp *op);
+    void EraseWrite(arm::Flags flag, IRSaturatingAddOp *op);
+    void EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op);
+    void EraseWrite(arm::Flags flag, IRMultiplyOp *op);
+    void EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
+    void EraseWrite(arm::Flags flag, IRAddLongOp *op);
+    void EraseWrite(arm::Flags flag, IRStoreFlagsOp *op);
+    void EraseWrite(arm::Flags flag, IRUpdateFlagsOp *op);
+    void EraseWrite(arm::Flags flag, IRUpdateStickyOverflowOp *op);
+
+    // -------------------------------------------------------------------------
+    // EraseInstruction -- erases instructions if they have no additional writes or side effects
+
+    bool EraseInstruction(IRGetRegisterOp *op);
+    bool EraseInstruction(IRSetRegisterOp *op);
+    bool EraseInstruction(IRGetCPSROp *op);
+    bool EraseInstruction(IRSetCPSROp *op);
+    bool EraseInstruction(IRGetSPSROp *op);
+    bool EraseInstruction(IRSetSPSROp *op);
+    bool EraseInstruction(IRMemReadOp *op);
+    // IRMemWriteOp has side effects
+    // IRPreloadOp has side effects
+    bool EraseInstruction(IRLogicalShiftLeftOp *op);
+    bool EraseInstruction(IRLogicalShiftRightOp *op);
+    bool EraseInstruction(IRArithmeticShiftRightOp *op);
+    bool EraseInstruction(IRRotateRightOp *op);
+    bool EraseInstruction(IRRotateRightExtendOp *op);
+    bool EraseInstruction(IRBitwiseAndOp *op);
+    bool EraseInstruction(IRBitwiseOrOp *op);
+    bool EraseInstruction(IRBitwiseXorOp *op);
+    bool EraseInstruction(IRBitClearOp *op);
+    bool EraseInstruction(IRCountLeadingZerosOp *op);
+    bool EraseInstruction(IRAddOp *op);
+    bool EraseInstruction(IRAddCarryOp *op);
+    bool EraseInstruction(IRSubtractOp *op);
+    bool EraseInstruction(IRSubtractCarryOp *op);
+    bool EraseInstruction(IRMoveOp *op);
+    bool EraseInstruction(IRMoveNegatedOp *op);
+    bool EraseInstruction(IRSaturatingAddOp *op);
+    bool EraseInstruction(IRSaturatingSubtractOp *op);
+    bool EraseInstruction(IRMultiplyOp *op);
+    bool EraseInstruction(IRMultiplyLongOp *op);
+    bool EraseInstruction(IRAddLongOp *op);
+    bool EraseInstruction(IRStoreFlagsOp *op);
+    bool EraseInstruction(IRUpdateFlagsOp *op);
+    bool EraseInstruction(IRUpdateStickyOverflowOp *op);
+    // IRBranchOp has side effects
+    // IRBranchExchangeOp has side effects
+    bool EraseInstruction(IRLoadCopRegisterOp *op);
+    // IRStoreCopRegisterOp has side effects
+    bool EraseInstruction(IRConstantOp *op);
+    bool EraseInstruction(IRCopyVarOp *op);
+    bool EraseInstruction(IRGetBaseVectorAddressOp *op);
+
     struct VarWrite {
         IROp *op = nullptr;
         bool read = false;
@@ -236,6 +319,13 @@ private:
     std::vector<std::vector<Variable>> m_dependencies;
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
+
+    IROp *m_nWrite = nullptr;
+    IROp *m_zWrite = nullptr;
+    IROp *m_cWrite = nullptr;
+    IROp *m_vWrite = nullptr;
+    IROp *m_qWrite = nullptr;
+    std::unordered_map<IROp *, arm::Flags> m_flagsRead;
 };
 
 } // namespace armajitto::ir

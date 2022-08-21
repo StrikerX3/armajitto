@@ -121,14 +121,14 @@ private:
 
     // Note: this is only concerned with the flags bits; the rest of the variable's value doesn't matter
     struct FlagsValue {
-        Flags knownMask;
-        Flags flags;
+        arm::Flags knownMask;
+        arm::Flags flags;
 
         FlagsValue()
-            : knownMask(Flags::None)
-            , flags(Flags::None) {}
+            : knownMask(arm::Flags::None)
+            , flags(arm::Flags::None) {}
 
-        FlagsValue(Flags mask, Flags flags)
+        FlagsValue(arm::Flags mask, arm::Flags flags)
             : knownMask(mask)
             , flags(flags) {}
     };
@@ -141,8 +141,8 @@ private:
     std::vector<Value> m_varSubsts;
     std::array<Value, 16 * 32> m_gprSubsts;
 
-    Flags m_knownFlagsMask = Flags::None;
-    Flags m_knownFlagsValues = Flags::None;
+    arm::Flags m_knownFlagsMask = arm::Flags::None;
+    arm::Flags m_knownFlagsValues = arm::Flags::None;
     std::vector<FlagsValue> m_flagsSubsts;
 
     std::optional<bool> GetCarryFlag();
@@ -164,7 +164,7 @@ private:
 
     // Flags substitutions
     void ResizeFlagsSubsts(size_t size);
-    void Assign(VariableArg var, Flags mask, Flags flags);
+    void Assign(VariableArg var, arm::Flags mask, arm::Flags flags);
     FlagsValue *GetFlagsSubstitution(VariableArg var);
 };
 

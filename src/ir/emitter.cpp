@@ -221,14 +221,14 @@ ALUVarPair Emitter::AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rh
     return {dstLo, dstHi};
 }
 
-void Emitter::StoreFlags(Flags flags, VarOrImmArg values) {
+void Emitter::StoreFlags(arm::Flags flags, VarOrImmArg values) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
     Write<IRStoreFlagsOp>(flags, dstCPSR, srcCPSR, values);
     SetCPSR(dstCPSR);
 }
 
-void Emitter::UpdateFlags(Flags flags) {
+void Emitter::UpdateFlags(arm::Flags flags) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
     Write<IRUpdateFlagsOp>(flags, dstCPSR, srcCPSR);
@@ -242,43 +242,46 @@ void Emitter::UpdateStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
-void Emitter::SetNZ(uint32_t value) {
-    Flags flags = Flags::None;
-    if (value >> 31) {
-        flags |= Flags::N;
+void Emitter::SetNZ(arm::Flags mask, uint32_t value) {
+    arm::Flags flags = arm::Flags::None;
+    auto bmMask = BitmaskEnum(mask);
+    if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
+        flags |= arm::Flags::N;
     }
-    if (value == 0) {
-        flags |= Flags::Z;
+    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+        flags |= arm::Flags::Z;
     }
-    StoreFlags(Flags::N | Flags::Z, static_cast<uint32_t>(flags));
+    StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
 }
 
-void Emitter::SetNZ(uint64_t value) {
-    Flags flags = Flags::None;
-    if (value >> 63ull) {
-        flags |= Flags::N;
+void Emitter::SetNZ(arm::Flags mask, uint64_t value) {
+    arm::Flags flags = arm::Flags::None;
+    auto bmMask = BitmaskEnum(mask);
+    if (bmMask.AnyOf(arm::Flags::N) && value >> 63ull) {
+        flags |= arm::Flags::N;
     }
-    if (value == 0) {
-        flags |= Flags::Z;
+    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+        flags |= arm::Flags::Z;
     }
-    StoreFlags(Flags::N | Flags::Z, static_cast<uint32_t>(flags));
+    StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
 }
 
-void Emitter::SetNZCV(uint32_t value, bool carry, bool overflow) {
-    Flags flags = Flags::None;
-    if (value >> 31) {
-        flags |= Flags::N;
+void Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow) {
+    arm::Flags flags = arm::Flags::None;
+    auto bmMask = BitmaskEnum(mask);
+    if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
+        flags |= arm::Flags::N;
     }
-    if (value == 0) {
-        flags |= Flags::Z;
+    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+        flags |= arm::Flags::Z;
     }
-    if (carry) {
-        flags |= Flags::C;
+    if (bmMask.AnyOf(arm::Flags::C) && carry) {
+        flags |= arm::Flags::C;
     }
-    if (overflow) {
-        flags |= Flags::V;
+    if (bmMask.AnyOf(arm::Flags::V) && overflow) {
+        flags |= arm::Flags::V;
     }
-    StoreFlags(Flags::N | Flags::Z | Flags::C | Flags::V, static_cast<uint32_t>(flags));
+    StoreFlags(arm::kFlagsNZCV, static_cast<uint32_t>(flags));
 }
 
 void Emitter::Branch(VarOrImmArg address) {
@@ -394,7 +397,7 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
     }
 
     if (setFlags) {
-        UpdateFlags(Flags::C);
+        UpdateFlags(arm::Flags::C);
     }
     return result;
 }

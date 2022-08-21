@@ -90,6 +90,12 @@ public:
         return *this;
     }
 
+    Emitter &Overwrite(IROp *op) {
+        m_overwriteNext = true;
+        m_overwriteOp = op;
+        return *this;
+    }
+
     void Erase(IROp *op) {
         IROp *result = m_block.Erase(op);
         if (op == m_currOp) {
@@ -150,13 +156,13 @@ public:
     ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool shiftDownHalf, bool setFlags);
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
-    void StoreFlags(Flags flags, VarOrImmArg values);
-    void UpdateFlags(Flags flags);
+    void StoreFlags(arm::Flags flags, VarOrImmArg values);
+    void UpdateFlags(arm::Flags flags);
     void UpdateStickyOverflow();
 
-    void SetNZ(uint32_t value);
-    void SetNZ(uint64_t value);
-    void SetNZCV(uint32_t value, bool carry, bool overflow);
+    void SetNZ(arm::Flags mask, uint32_t value);
+    void SetNZ(arm::Flags mask, uint64_t value);
+    void SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow);
 
     void Branch(VarOrImmArg address);
     void BranchExchange(VarOrImmArg address);
@@ -199,12 +205,18 @@ private:
     IROp *m_currOp;
     bool m_dirty = false;
     bool m_overwriteNext = false;
+    IROp *m_overwriteOp = nullptr;
     bool m_prependNext = false;
 
     template <typename T, typename... Args>
     void Write(Args &&...args) {
         if (m_overwriteNext) {
-            m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
+            if (m_overwriteOp != nullptr && m_overwriteOp != m_currOp) {
+                m_block.ReplaceOp<T>(m_overwriteOp, std::forward<Args>(args)...);
+            } else {
+                m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
+            }
+            m_overwriteOp = nullptr;
             m_overwriteNext = false;
             m_prependNext = false;
         } else if (m_prependNext) {

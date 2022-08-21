@@ -16,27 +16,20 @@ namespace armajitto::ir {
 // The position of the bits in <values> must match those in CPSR -- bit 31 is N, bit 30 is Z, and so on.
 // The host flags are also updated to the specified values.
 struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
-    Flags flags;
+    arm::Flags flags;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
     VarOrImmArg values;
 
-    IRStoreFlagsOp(Flags flags, VariableArg dstCPSR, VariableArg srcCPSR, VarOrImmArg values)
+    IRStoreFlagsOp(arm::Flags flags, VariableArg dstCPSR, VariableArg srcCPSR, VarOrImmArg values)
         : flags(flags)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR)
         , values(values) {}
 
     std::string ToString() const final {
-        auto flg = [](bool value, const char *letter) { return value ? std::string(letter) : std::string(""); };
-        auto bmFlags = BitmaskEnum(flags);
-        auto n = flg(bmFlags.AnyOf(Flags::N), "n");
-        auto z = flg(bmFlags.AnyOf(Flags::Z), "z");
-        auto c = flg(bmFlags.AnyOf(Flags::C), "c");
-        auto v = flg(bmFlags.AnyOf(Flags::V), "v");
-        auto q = flg(bmFlags.AnyOf(Flags::Q), "q");
-        return std::format("sflg.{}{}{}{}{} {}, {}, {}", n, z, c, v, q, dstCPSR.ToString(), srcCPSR.ToString(),
-                           values.ToString());
+        auto flagsSuffix = arm::FlagsSuffixStr(flags);
+        return std::format("sflg{} {}, {}, {}", flagsSuffix, dstCPSR.ToString(), srcCPSR.ToString(), values.ToString());
     }
 };
 
@@ -45,23 +38,18 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
 //
 // Updates the specified [n][z][c][v] flags in <src_cpsr> using the host's flags and stores the result in <dst_cpsr>.
 struct IRUpdateFlagsOp : public IROpBase<IROpcodeType::UpdateFlags> {
-    Flags flags;
+    arm::Flags flags;
     VariableArg dstCPSR;
     VariableArg srcCPSR;
 
-    IRUpdateFlagsOp(Flags flags, VariableArg dstCPSR, VariableArg srcCPSR)
-        : flags(flags & ~Flags::Q)
+    IRUpdateFlagsOp(arm::Flags flags, VariableArg dstCPSR, VariableArg srcCPSR)
+        : flags(flags & ~arm::Flags::Q)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 
     std::string ToString() const final {
-        auto flg = [](bool value, const char *letter) { return value ? std::string(letter) : std::string(""); };
-        auto bmFlags = BitmaskEnum(flags);
-        auto n = flg(bmFlags.AnyOf(Flags::N), "n");
-        auto z = flg(bmFlags.AnyOf(Flags::Z), "z");
-        auto c = flg(bmFlags.AnyOf(Flags::C), "c");
-        auto v = flg(bmFlags.AnyOf(Flags::V), "v");
-        return std::format("uflg.{}{}{}{} {}, {}", n, z, c, v, dstCPSR.ToString(), srcCPSR.ToString());
+        auto flagsSuffix = arm::FlagsSuffixStr(flags);
+        return std::format("uflg{} {}, {}", flagsSuffix, dstCPSR.ToString(), srcCPSR.ToString());
     }
 };
 
