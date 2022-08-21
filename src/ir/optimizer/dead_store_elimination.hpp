@@ -2,6 +2,7 @@
 
 #include "optimizer_pass_base.hpp"
 
+#include <array>
 #include <vector>
 
 namespace armajitto::ir {
@@ -153,12 +154,18 @@ private:
     void Process(IRCopyVarOp *op) final;
     void Process(IRGetBaseVectorAddressOp *op) final;
 
+    size_t MakeGPRIndex(const GPRArg &arg) {
+        return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
+    }
+
     void RecordWrite(Variable dst, IROp *op);
     void RecordWrite(VariableArg dst, IROp *op);
+    void RecordWrite(GPRArg gpr, IROp *op);
 
     void RecordRead(Variable dst, bool consume = true);
     void RecordRead(VariableArg dst, bool consume = true);
     void RecordRead(VarOrImmArg dst, bool consume = true);
+    void RecordRead(GPRArg gpr);
 
     void RecordDependentRead(Variable dst, Variable src, bool consume = true);
     void RecordDependentRead(VariableArg dst, Variable src, bool consume = true);
@@ -227,6 +234,8 @@ private:
 
     std::vector<VarWrite> m_varWrites;
     std::vector<std::vector<Variable>> m_dependencies;
+
+    std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
 };
 
 } // namespace armajitto::ir

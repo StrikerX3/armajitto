@@ -5,6 +5,7 @@
 namespace armajitto::ir {
 
 void DeadStoreEliminationOptimizerPass::PostProcess() {
+    // Erase all unread writes to variables
     for (size_t i = 0; i < m_varWrites.size(); i++) {
         auto &write = m_varWrites[i];
         if (write.op != nullptr && !write.read) {
@@ -15,32 +16,32 @@ void DeadStoreEliminationOptimizerPass::PostProcess() {
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
     RecordWrite(op->dst, op);
-    // TODO: deal with GPRs
+    RecordRead(op->src);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
+    RecordWrite(op->dst, op);
     RecordRead(op->src);
-    // TODO: deal with GPRs
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
     RecordWrite(op->dst, op);
-    // TODO: deal with PSRs and flags
+    // TODO: deal with CPSR and flags
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     RecordRead(op->src);
-    // TODO: deal with PSRs and flags
+    // TODO: deal with CPSR and flags
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
     RecordWrite(op->dst, op);
-    // TODO: deal with PSRs
+    // TODO: deal with SPSRs
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
     RecordRead(op->src);
-    // TODO: deal with PSRs
+    // TODO: deal with SPSRs
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
@@ -270,13 +271,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBranchOp *op) {
+    RecordWrite(arm::GPR::PC, op);
     RecordRead(op->address);
-    // TODO: PC is written, CPSR is read
+    // TODO: CPSR is read
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBranchExchangeOp *op) {
+    RecordWrite(arm::GPR::PC, op);
     RecordRead(op->address);
-    // TODO: PC and CPSR are written, CPSR is read
+    // TODO: CPSR is written and read
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadCopRegisterOp *op) {
@@ -315,6 +318,16 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(VariableArg dst, IROp *op) {
     RecordWrite(dst.var, op);
 }
 
+void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
+    auto gprIndex = MakeGPRIndex(gpr);
+    IROp *writeOp = m_gprWrites[gprIndex];
+    if (writeOp != nullptr) {
+        // GPR is overwritten; erase previous instruction, which is always going to be an IRSetRegisterOp
+        m_emitter.Erase(writeOp);
+    }
+    m_gprWrites[gprIndex] = op;
+}
+
 void DeadStoreEliminationOptimizerPass::RecordRead(Variable dst, bool consume) {
     if (!dst.IsPresent()) {
         return;
@@ -337,6 +350,11 @@ void DeadStoreEliminationOptimizerPass::RecordRead(VarOrImmArg dst, bool consume
     if (!dst.immediate) {
         RecordRead(dst.var, consume);
     }
+}
+
+void DeadStoreEliminationOptimizerPass::RecordRead(GPRArg gpr) {
+    auto gprIndex = MakeGPRIndex(gpr);
+    m_gprWrites[gprIndex] = nullptr; // Leave instruction alone
 }
 
 void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, Variable src, bool consume) {
