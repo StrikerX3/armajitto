@@ -35,13 +35,13 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
-    // TODO: read from SPSR
+    RecordSPSRRead(op->mode);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
     RecordRead(op->src);
-    // TODO: write to SPSR
+    RecordSPSRWrite(op->mode, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
@@ -360,7 +360,8 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
     auto gprIndex = MakeGPRIndex(gpr);
     IROp *writeOp = m_gprWrites[gprIndex];
     if (writeOp != nullptr) {
-        // GPR is overwritten; erase previous instruction, which is always going to be an IRSetRegisterOp
+        // GPR is overwritten
+        // Erase previous instruction, which is always going to be an IRSetRegisterOp
         m_emitter.Erase(writeOp);
     }
     m_gprWrites[gprIndex] = op;
@@ -372,10 +373,26 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRRead() {
 
 void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(IROp *op) {
     if (m_cpsrWrite != nullptr) {
-        // CPSR is overwritten; erase previous instructions, which is always going to be an IRSetCPSROp
+        // CPSR is overwritten
+        // Erase previous instruction, which is always going to be an IRSetCPSROp
         m_emitter.Erase(m_cpsrWrite);
     }
     m_cpsrWrite = op;
+}
+
+void DeadStoreEliminationOptimizerPass::RecordSPSRRead(arm::Mode mode) {
+    m_spsrWrites[static_cast<size_t>(mode)] = nullptr; // Leave instruction alone
+}
+
+void DeadStoreEliminationOptimizerPass::RecordSPSRWrite(arm::Mode mode, IROp *op) {
+    auto spsrIndex = static_cast<size_t>(mode);
+    IROp *writeOp = m_spsrWrites[spsrIndex];
+    if (writeOp != nullptr) {
+        // SPSR for the given mode is overwritten
+        // Erase previous instruction, which is always going to be an IRSetSPSROp
+        m_emitter.Erase(writeOp);
+    }
+    m_spsrWrites[spsrIndex] = op;
 }
 
 void DeadStoreEliminationOptimizerPass::RecordHostFlagsRead(arm::Flags flags) {

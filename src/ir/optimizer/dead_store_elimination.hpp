@@ -155,10 +155,6 @@ private:
     void Process(IRCopyVarOp *op) final;
     void Process(IRGetBaseVectorAddressOp *op) final;
 
-    size_t MakeGPRIndex(const GPRArg &arg) {
-        return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
-    }
-
     void RecordRead(Variable dst, bool consume = true);
     void RecordRead(VariableArg dst, bool consume = true);
     void RecordRead(VarOrImmArg dst, bool consume = true);
@@ -173,11 +169,18 @@ private:
     void RecordWrite(Variable dst, IROp *op);
     void RecordWrite(VariableArg dst, IROp *op);
 
+    size_t MakeGPRIndex(const GPRArg &arg) {
+        return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
+    }
+
     void RecordRead(GPRArg gpr);
     void RecordWrite(GPRArg gpr, IROp *op);
 
     void RecordCPSRRead();
     void RecordCPSRWrite(IROp *op);
+
+    void RecordSPSRRead(arm::Mode mode);
+    void RecordSPSRWrite(arm::Mode mode, IROp *op);
 
     void RecordHostFlagsRead(arm::Flags flags);
     void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
@@ -323,6 +326,7 @@ private:
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
     IROp *m_cpsrWrite = nullptr;
+    std::array<IROp *, 32> m_spsrWrites{{nullptr}};
 
     // Host flag writes tracking
     // Writes: ALU instructions and store flags
