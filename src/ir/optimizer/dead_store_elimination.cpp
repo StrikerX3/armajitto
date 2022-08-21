@@ -183,9 +183,11 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
     RecordWrite(op->dst, op);
-    RecordDependentRead(op->dst, op->value);
     if (op->setFlags) {
+        RecordDependentRead(op->dst, op->value);
         // TODO: NZ flags are written
+    } else {
+        RecordDependentRead(op->dst, op->value, false);
     }
 }
 
