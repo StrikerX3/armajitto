@@ -166,6 +166,51 @@ private:
     void ResizeWrites(size_t size);
     void ResizeDependencies(size_t size);
 
+    // Catch-all method for unused ops, required by the visitor
+    template <typename T>
+    void EraseWrite(Variable var, T *op) {}
+
+    void EraseWrite(Variable var, IRGetRegisterOp *op);
+    // void EraseWrite(GPRArg var, IRSetRegisterOp *op);
+    void EraseWrite(Variable var, IRGetCPSROp *op);
+    // void EraseWrite(IRSetCPSROp *op);
+    void EraseWrite(Variable var, IRGetSPSROp *op);
+    // void EraseWrite(IRSetSPSROp *op);
+    void EraseWrite(Variable var, IRMemReadOp *op);
+    // IRMemWriteOp has no writes
+    // IRPreloadOp has no writes
+    void EraseWrite(Variable var, IRLogicalShiftLeftOp *op);
+    void EraseWrite(Variable var, IRLogicalShiftRightOp *op);
+    void EraseWrite(Variable var, IRArithmeticShiftRightOp *op);
+    void EraseWrite(Variable var, IRRotateRightOp *op);
+    void EraseWrite(Variable var, IRRotateRightExtendOp *op);
+    void EraseWrite(Variable var, IRBitwiseAndOp *op);
+    void EraseWrite(Variable var, IRBitwiseOrOp *op);
+    void EraseWrite(Variable var, IRBitwiseXorOp *op);
+    void EraseWrite(Variable var, IRBitClearOp *op);
+    void EraseWrite(Variable var, IRCountLeadingZerosOp *op);
+    void EraseWrite(Variable var, IRAddOp *op);
+    void EraseWrite(Variable var, IRAddCarryOp *op);
+    void EraseWrite(Variable var, IRSubtractOp *op);
+    void EraseWrite(Variable var, IRSubtractCarryOp *op);
+    void EraseWrite(Variable var, IRMoveOp *op);
+    void EraseWrite(Variable var, IRMoveNegatedOp *op);
+    void EraseWrite(Variable var, IRSaturatingAddOp *op);
+    void EraseWrite(Variable var, IRSaturatingSubtractOp *op);
+    void EraseWrite(Variable var, IRMultiplyOp *op);
+    void EraseWrite(Variable var, IRMultiplyLongOp *op);
+    void EraseWrite(Variable var, IRAddLongOp *op);
+    void EraseWrite(Variable var, IRStoreFlagsOp *op);
+    void EraseWrite(Variable var, IRUpdateFlagsOp *op);
+    void EraseWrite(Variable var, IRUpdateStickyOverflowOp *op);
+    // void EraseWrite(IRBranchOp *op); // Writes PC
+    // void EraseWrite(IRBranchExchangeOp *op); // Writes PC and CPSR
+    void EraseWrite(Variable var, IRLoadCopRegisterOp *op); // Has side effects
+    // IRStoreCopRegisterOp has no writes
+    void EraseWrite(Variable var, IRConstantOp *op);
+    void EraseWrite(Variable var, IRCopyVarOp *op);
+    void EraseWrite(Variable var, IRGetBaseVectorAddressOp *op);
+
     struct VarWrite {
         IROp *op = nullptr;
         bool read = false;

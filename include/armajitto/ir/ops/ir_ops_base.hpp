@@ -58,7 +58,7 @@ private:
         next = prev = nullptr;
     }
 
-    IROp *Remove() {
+    IROp *Erase() {
         IROp *result = next;
         if (prev != nullptr) {
             prev->next = next;

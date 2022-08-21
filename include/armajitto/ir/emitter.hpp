@@ -66,6 +66,7 @@ public:
 
     // -----------------------------------------------------------------------------------------------------------------
     // Optimizer helper functions
+    // TODO: figure out a way to expose these methods only to the optimizers
 
     void ClearDirtyFlag() {
         m_dirty = false;
@@ -95,7 +96,7 @@ public:
     }
 
     void Erase(IROp *op) {
-        m_block.Remove(op);
+        m_block.Erase(op);
     }
 
     // -----------------------------------------------------------------------------------------------------------------
