@@ -2,7 +2,7 @@
 
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
-#include "ir_ops_base.hpp"
+#include "armajitto/ir/ops/ir_ops_base.hpp"
 
 #include <format>
 

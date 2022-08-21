@@ -1,7 +1,7 @@
 #pragma once
 
 #include "armajitto/ir/emitter.hpp"
-#include "armajitto/ir/ops/ir_ops.hpp"
+#include "armajitto/ir/ir_ops.hpp"
 
 namespace armajitto::ir {
 
@@ -65,8 +65,6 @@ protected:
     }
 
 private:
-    void Process(IROp *op);
-
     bool m_dirty = false;
 };
 

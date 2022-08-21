@@ -41,6 +41,7 @@ add_library(armajitto
     include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
+    include/armajitto/ir/ir_ops.hpp
     include/armajitto/ir/location_ref.hpp
     include/armajitto/ir/optimizer.hpp
     include/armajitto/ir/translator.hpp
@@ -48,29 +49,23 @@ add_library(armajitto
     include/armajitto/ir/defs/memory_access.hpp
     include/armajitto/ir/defs/opcode_types.hpp
     include/armajitto/ir/defs/variable.hpp
-    include/armajitto/ir/ops/ir_alu_ops.hpp
-    include/armajitto/ir/ops/ir_branch_ops.hpp
-    include/armajitto/ir/ops/ir_cop_ops.hpp
-    include/armajitto/ir/ops/ir_flag_ops.hpp
-    include/armajitto/ir/ops/ir_mem_ops.hpp
-    include/armajitto/ir/ops/ir_misc_ops.hpp
-    include/armajitto/ir/ops/ir_ops.hpp
     include/armajitto/ir/ops/ir_ops_base.hpp
-    include/armajitto/ir/ops/ir_reg_ops.hpp
-    include/armajitto/util/bit_ops.hpp
+    include/armajitto/ir/ops/ir_ops_visitor.hpp
+    include/armajitto/ir/ops/impl/ir_alu_ops.hpp
+    include/armajitto/ir/ops/impl/ir_branch_ops.hpp
+    include/armajitto/ir/ops/impl/ir_cop_ops.hpp
+    include/armajitto/ir/ops/impl/ir_flag_ops.hpp
+    include/armajitto/ir/ops/impl/ir_mem_ops.hpp
+    include/armajitto/ir/ops/impl/ir_misc_ops.hpp
+    include/armajitto/ir/ops/impl/ir_reg_ops.hpp
     include/armajitto/util/bitmask_enum.hpp
+    include/armajitto/util/bit_ops.hpp
     src/core/recompiler.cpp
     src/host/x86_64/cpuid.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
     src/ir/translator.cpp
-    src/ir/ops/ir_alu_ops.cpp
-    src/ir/ops/ir_branch_ops.cpp
-    src/ir/ops/ir_cop_ops.cpp
-    src/ir/ops/ir_flag_ops.cpp
-    src/ir/ops/ir_mem_ops.cpp
-    src/ir/ops/ir_reg_ops.cpp
     src/ir/optimizer/const_propagation.cpp
     src/ir/optimizer/const_propagation.hpp
     src/ir/optimizer/dead_store_elimination.cpp

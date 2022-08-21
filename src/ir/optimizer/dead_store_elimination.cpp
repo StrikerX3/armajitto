@@ -1,5 +1,7 @@
 #include "dead_store_elimination.hpp"
 
+#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+
 namespace armajitto::ir {
 
 void DeadStoreEliminationOptimizerPass::PostProcess() {
@@ -7,10 +9,15 @@ void DeadStoreEliminationOptimizerPass::PostProcess() {
         auto &write = m_varWrites[i];
         if (write.op != nullptr && !write.read) {
             Variable var{i};
-            // TODO: erase write to var in op
-            // TODO: erase instruction if it has no more writes or side effects
-            // FIXME: this is a HACK to get things going
-            m_emitter.Erase(write.op);
+            VisitIROp(write.op, [this, var](auto op) {
+                // TODO: implement this function:
+                // EraseWrite(var, op);
+                // should erase write to var in op and erase instruction if it has no more writes or side effects
+
+                // FIXME: this is a HACK to get things going
+                m_emitter.Erase(write.op);
+            });
+            // TODO: follow dependencies
         }
     }
 }
@@ -27,12 +34,12 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
     RecordWrite(op->dst, op);
-    // TODO: deal with PSRs
+    // TODO: deal with PSRs and flags
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     RecordRead(op->src);
-    // TODO: deal with PSRs
+    // TODO: deal with PSRs and flags
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {

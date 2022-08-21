@@ -1,5 +1,5 @@
 #include "armajitto/ir/emitter.hpp"
-#include "armajitto/ir/ops/ir_ops.hpp"
+#include "armajitto/ir/ir_ops.hpp"
 
 namespace armajitto::ir {
 
