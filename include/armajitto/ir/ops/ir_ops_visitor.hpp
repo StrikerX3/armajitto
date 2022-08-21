@@ -2,51 +2,58 @@
 
 #include "armajitto/ir/ir_ops.hpp"
 
+#include <type_traits>
+
 namespace armajitto::ir {
 
-template <typename Visitor>
-void VisitIROp(IROp *op, Visitor &&visitor) {
+template <typename Visitor, typename ReturnType = std::invoke_result_t<Visitor, IROp *>>
+ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
     switch (op->GetType()) {
-    case IROpcodeType::GetRegister: visitor(*Cast<IRGetRegisterOp>(op)); break;
-    case IROpcodeType::SetRegister: visitor(*Cast<IRSetRegisterOp>(op)); break;
-    case IROpcodeType::GetCPSR: visitor(*Cast<IRGetCPSROp>(op)); break;
-    case IROpcodeType::SetCPSR: visitor(*Cast<IRSetCPSROp>(op)); break;
-    case IROpcodeType::GetSPSR: visitor(*Cast<IRGetSPSROp>(op)); break;
-    case IROpcodeType::SetSPSR: visitor(*Cast<IRSetSPSROp>(op)); break;
-    case IROpcodeType::MemRead: visitor(*Cast<IRMemReadOp>(op)); break;
-    case IROpcodeType::MemWrite: visitor(*Cast<IRMemWriteOp>(op)); break;
-    case IROpcodeType::Preload: visitor(*Cast<IRPreloadOp>(op)); break;
-    case IROpcodeType::LogicalShiftLeft: visitor(*Cast<IRLogicalShiftLeftOp>(op)); break;
-    case IROpcodeType::LogicalShiftRight: visitor(*Cast<IRLogicalShiftRightOp>(op)); break;
-    case IROpcodeType::ArithmeticShiftRight: visitor(*Cast<IRArithmeticShiftRightOp>(op)); break;
-    case IROpcodeType::RotateRight: visitor(*Cast<IRRotateRightOp>(op)); break;
-    case IROpcodeType::RotateRightExtend: visitor(*Cast<IRRotateRightExtendOp>(op)); break;
-    case IROpcodeType::BitwiseAnd: visitor(*Cast<IRBitwiseAndOp>(op)); break;
-    case IROpcodeType::BitwiseOr: visitor(*Cast<IRBitwiseOrOp>(op)); break;
-    case IROpcodeType::BitwiseXor: visitor(*Cast<IRBitwiseXorOp>(op)); break;
-    case IROpcodeType::BitClear: visitor(*Cast<IRBitClearOp>(op)); break;
-    case IROpcodeType::CountLeadingZeros: visitor(*Cast<IRCountLeadingZerosOp>(op)); break;
-    case IROpcodeType::Add: visitor(*Cast<IRAddOp>(op)); break;
-    case IROpcodeType::AddCarry: visitor(*Cast<IRAddCarryOp>(op)); break;
-    case IROpcodeType::Subtract: visitor(*Cast<IRSubtractOp>(op)); break;
-    case IROpcodeType::SubtractCarry: visitor(*Cast<IRSubtractCarryOp>(op)); break;
-    case IROpcodeType::Move: visitor(*Cast<IRMoveOp>(op)); break;
-    case IROpcodeType::MoveNegated: visitor(*Cast<IRMoveNegatedOp>(op)); break;
-    case IROpcodeType::SaturatingAdd: visitor(*Cast<IRSaturatingAddOp>(op)); break;
-    case IROpcodeType::SaturatingSubtract: visitor(*Cast<IRSaturatingSubtractOp>(op)); break;
-    case IROpcodeType::Multiply: visitor(*Cast<IRMultiplyOp>(op)); break;
-    case IROpcodeType::MultiplyLong: visitor(*Cast<IRMultiplyLongOp>(op)); break;
-    case IROpcodeType::AddLong: visitor(*Cast<IRAddLongOp>(op)); break;
-    case IROpcodeType::StoreFlags: visitor(*Cast<IRStoreFlagsOp>(op)); break;
-    case IROpcodeType::UpdateFlags: visitor(*Cast<IRUpdateFlagsOp>(op)); break;
-    case IROpcodeType::UpdateStickyOverflow: visitor(*Cast<IRUpdateStickyOverflowOp>(op)); break;
-    case IROpcodeType::Branch: visitor(*Cast<IRBranchOp>(op)); break;
-    case IROpcodeType::BranchExchange: visitor(*Cast<IRBranchExchangeOp>(op)); break;
-    case IROpcodeType::LoadCopRegister: visitor(*Cast<IRLoadCopRegisterOp>(op)); break;
-    case IROpcodeType::StoreCopRegister: visitor(*Cast<IRStoreCopRegisterOp>(op)); break;
-    case IROpcodeType::Constant: visitor(*Cast<IRConstantOp>(op)); break;
-    case IROpcodeType::CopyVar: visitor(*Cast<IRCopyVarOp>(op)); break;
-    case IROpcodeType::GetBaseVectorAddress: visitor(*Cast<IRGetBaseVectorAddressOp>(op)); break;
+    case IROpcodeType::GetRegister: return visitor(*Cast<IRGetRegisterOp>(op));
+    case IROpcodeType::SetRegister: return visitor(*Cast<IRSetRegisterOp>(op));
+    case IROpcodeType::GetCPSR: return visitor(*Cast<IRGetCPSROp>(op));
+    case IROpcodeType::SetCPSR: return visitor(*Cast<IRSetCPSROp>(op));
+    case IROpcodeType::GetSPSR: return visitor(*Cast<IRGetSPSROp>(op));
+    case IROpcodeType::SetSPSR: return visitor(*Cast<IRSetSPSROp>(op));
+    case IROpcodeType::MemRead: return visitor(*Cast<IRMemReadOp>(op));
+    case IROpcodeType::MemWrite: return visitor(*Cast<IRMemWriteOp>(op));
+    case IROpcodeType::Preload: return visitor(*Cast<IRPreloadOp>(op));
+    case IROpcodeType::LogicalShiftLeft: return visitor(*Cast<IRLogicalShiftLeftOp>(op));
+    case IROpcodeType::LogicalShiftRight: return visitor(*Cast<IRLogicalShiftRightOp>(op));
+    case IROpcodeType::ArithmeticShiftRight: return visitor(*Cast<IRArithmeticShiftRightOp>(op));
+    case IROpcodeType::RotateRight: return visitor(*Cast<IRRotateRightOp>(op));
+    case IROpcodeType::RotateRightExtend: return visitor(*Cast<IRRotateRightExtendOp>(op));
+    case IROpcodeType::BitwiseAnd: return visitor(*Cast<IRBitwiseAndOp>(op));
+    case IROpcodeType::BitwiseOr: return visitor(*Cast<IRBitwiseOrOp>(op));
+    case IROpcodeType::BitwiseXor: return visitor(*Cast<IRBitwiseXorOp>(op));
+    case IROpcodeType::BitClear: return visitor(*Cast<IRBitClearOp>(op));
+    case IROpcodeType::CountLeadingZeros: return visitor(*Cast<IRCountLeadingZerosOp>(op));
+    case IROpcodeType::Add: return visitor(*Cast<IRAddOp>(op));
+    case IROpcodeType::AddCarry: return visitor(*Cast<IRAddCarryOp>(op));
+    case IROpcodeType::Subtract: return visitor(*Cast<IRSubtractOp>(op));
+    case IROpcodeType::SubtractCarry: return visitor(*Cast<IRSubtractCarryOp>(op));
+    case IROpcodeType::Move: return visitor(*Cast<IRMoveOp>(op));
+    case IROpcodeType::MoveNegated: return visitor(*Cast<IRMoveNegatedOp>(op));
+    case IROpcodeType::SaturatingAdd: return visitor(*Cast<IRSaturatingAddOp>(op));
+    case IROpcodeType::SaturatingSubtract: return visitor(*Cast<IRSaturatingSubtractOp>(op));
+    case IROpcodeType::Multiply: return visitor(*Cast<IRMultiplyOp>(op));
+    case IROpcodeType::MultiplyLong: return visitor(*Cast<IRMultiplyLongOp>(op));
+    case IROpcodeType::AddLong: return visitor(*Cast<IRAddLongOp>(op));
+    case IROpcodeType::StoreFlags: return visitor(*Cast<IRStoreFlagsOp>(op));
+    case IROpcodeType::UpdateFlags: return visitor(*Cast<IRUpdateFlagsOp>(op));
+    case IROpcodeType::UpdateStickyOverflow: return visitor(*Cast<IRUpdateStickyOverflowOp>(op));
+    case IROpcodeType::Branch: return visitor(*Cast<IRBranchOp>(op));
+    case IROpcodeType::BranchExchange: return visitor(*Cast<IRBranchExchangeOp>(op));
+    case IROpcodeType::LoadCopRegister: return visitor(*Cast<IRLoadCopRegisterOp>(op));
+    case IROpcodeType::StoreCopRegister: return visitor(*Cast<IRStoreCopRegisterOp>(op));
+    case IROpcodeType::Constant: return visitor(*Cast<IRConstantOp>(op));
+    case IROpcodeType::CopyVar: return visitor(*Cast<IRCopyVarOp>(op));
+    case IROpcodeType::GetBaseVectorAddress: return visitor(*Cast<IRGetBaseVectorAddressOp>(op));
+    }
+    if constexpr (!std::is_void_v<ReturnType>) {
+        static_assert(std::is_default_constructible_v<ReturnType>,
+                      "The visitor must return void or a default constructible object");
+        return ReturnType{};
     }
 }
 

@@ -152,68 +152,73 @@ private:
     void RecordWrite(Variable dst, IROp *op);
     void RecordWrite(VariableArg dst, IROp *op);
 
-    void RecordRead(Variable dst);
-    void RecordRead(VariableArg dst);
-    void RecordRead(VarOrImmArg dst);
+    void RecordRead(Variable dst, bool consume = true);
+    void RecordRead(VariableArg dst, bool consume = true);
+    void RecordRead(VarOrImmArg dst, bool consume = true);
 
-    void RecordDependency(Variable dst, Variable src);
-    void RecordDependency(VariableArg dst, Variable src);
-    void RecordDependency(Variable dst, VariableArg src);
-    void RecordDependency(VariableArg dst, VariableArg src);
-    void RecordDependency(Variable dst, VarOrImmArg src);
-    void RecordDependency(VariableArg dst, VarOrImmArg src);
+    void RecordDependentRead(Variable dst, Variable src, bool consume = true);
+    void RecordDependentRead(VariableArg dst, Variable src, bool consume = true);
+    void RecordDependentRead(Variable dst, VariableArg src, bool consume = true);
+    void RecordDependentRead(VariableArg dst, VariableArg src, bool consume = true);
+    void RecordDependentRead(Variable dst, VarOrImmArg src, bool consume = true);
+    void RecordDependentRead(VariableArg dst, VarOrImmArg src, bool consume = true);
 
     void ResizeWrites(size_t size);
     void ResizeDependencies(size_t size);
 
+    void EraseWriteRecursive(Variable var, IROp *op);
+
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
-    void EraseWrite(Variable var, T *op) {}
+    bool EraseWrite(Variable var, T *op) {
+        return false;
+    }
 
-    void EraseWrite(Variable var, IRGetRegisterOp *op);
-    // void EraseWrite(GPRArg var, IRSetRegisterOp *op);
-    void EraseWrite(Variable var, IRGetCPSROp *op);
-    // void EraseWrite(IRSetCPSROp *op);
-    void EraseWrite(Variable var, IRGetSPSROp *op);
-    // void EraseWrite(IRSetSPSROp *op);
-    void EraseWrite(Variable var, IRMemReadOp *op);
+    bool EraseWrite(Variable var, IRGetRegisterOp *op);
+    // bool EraseWrite(GPRArg var, IRSetRegisterOp *op);
+    bool EraseWrite(Variable var, IRGetCPSROp *op);
+    // bool EraseWrite(IRSetCPSROp *op);
+    bool EraseWrite(Variable var, IRGetSPSROp *op);
+    // bool EraseWrite(IRSetSPSROp *op);
+    bool EraseWrite(Variable var, IRMemReadOp *op);
     // IRMemWriteOp has no writes
     // IRPreloadOp has no writes
-    void EraseWrite(Variable var, IRLogicalShiftLeftOp *op);
-    void EraseWrite(Variable var, IRLogicalShiftRightOp *op);
-    void EraseWrite(Variable var, IRArithmeticShiftRightOp *op);
-    void EraseWrite(Variable var, IRRotateRightOp *op);
-    void EraseWrite(Variable var, IRRotateRightExtendOp *op);
-    void EraseWrite(Variable var, IRBitwiseAndOp *op);
-    void EraseWrite(Variable var, IRBitwiseOrOp *op);
-    void EraseWrite(Variable var, IRBitwiseXorOp *op);
-    void EraseWrite(Variable var, IRBitClearOp *op);
-    void EraseWrite(Variable var, IRCountLeadingZerosOp *op);
-    void EraseWrite(Variable var, IRAddOp *op);
-    void EraseWrite(Variable var, IRAddCarryOp *op);
-    void EraseWrite(Variable var, IRSubtractOp *op);
-    void EraseWrite(Variable var, IRSubtractCarryOp *op);
-    void EraseWrite(Variable var, IRMoveOp *op);
-    void EraseWrite(Variable var, IRMoveNegatedOp *op);
-    void EraseWrite(Variable var, IRSaturatingAddOp *op);
-    void EraseWrite(Variable var, IRSaturatingSubtractOp *op);
-    void EraseWrite(Variable var, IRMultiplyOp *op);
-    void EraseWrite(Variable var, IRMultiplyLongOp *op);
-    void EraseWrite(Variable var, IRAddLongOp *op);
-    void EraseWrite(Variable var, IRStoreFlagsOp *op);
-    void EraseWrite(Variable var, IRUpdateFlagsOp *op);
-    void EraseWrite(Variable var, IRUpdateStickyOverflowOp *op);
-    // void EraseWrite(IRBranchOp *op); // Writes PC
-    // void EraseWrite(IRBranchExchangeOp *op); // Writes PC and CPSR
-    void EraseWrite(Variable var, IRLoadCopRegisterOp *op); // Has side effects
+    bool EraseWrite(Variable var, IRLogicalShiftLeftOp *op);
+    bool EraseWrite(Variable var, IRLogicalShiftRightOp *op);
+    bool EraseWrite(Variable var, IRArithmeticShiftRightOp *op);
+    bool EraseWrite(Variable var, IRRotateRightOp *op);
+    bool EraseWrite(Variable var, IRRotateRightExtendOp *op);
+    bool EraseWrite(Variable var, IRBitwiseAndOp *op);
+    bool EraseWrite(Variable var, IRBitwiseOrOp *op);
+    bool EraseWrite(Variable var, IRBitwiseXorOp *op);
+    bool EraseWrite(Variable var, IRBitClearOp *op);
+    bool EraseWrite(Variable var, IRCountLeadingZerosOp *op);
+    bool EraseWrite(Variable var, IRAddOp *op);
+    bool EraseWrite(Variable var, IRAddCarryOp *op);
+    bool EraseWrite(Variable var, IRSubtractOp *op);
+    bool EraseWrite(Variable var, IRSubtractCarryOp *op);
+    bool EraseWrite(Variable var, IRMoveOp *op);
+    bool EraseWrite(Variable var, IRMoveNegatedOp *op);
+    bool EraseWrite(Variable var, IRSaturatingAddOp *op);
+    bool EraseWrite(Variable var, IRSaturatingSubtractOp *op);
+    bool EraseWrite(Variable var, IRMultiplyOp *op);
+    bool EraseWrite(Variable var, IRMultiplyLongOp *op);
+    bool EraseWrite(Variable var, IRAddLongOp *op);
+    bool EraseWrite(Variable var, IRStoreFlagsOp *op);
+    bool EraseWrite(Variable var, IRUpdateFlagsOp *op);
+    bool EraseWrite(Variable var, IRUpdateStickyOverflowOp *op);
+    // bool EraseWrite(IRBranchOp *op); // Writes PC
+    // bool EraseWrite(IRBranchExchangeOp *op); // Writes PC and CPSR
+    bool EraseWrite(Variable var, IRLoadCopRegisterOp *op);
     // IRStoreCopRegisterOp has no writes
-    void EraseWrite(Variable var, IRConstantOp *op);
-    void EraseWrite(Variable var, IRCopyVarOp *op);
-    void EraseWrite(Variable var, IRGetBaseVectorAddressOp *op);
+    bool EraseWrite(Variable var, IRConstantOp *op);
+    bool EraseWrite(Variable var, IRCopyVarOp *op);
+    bool EraseWrite(Variable var, IRGetBaseVectorAddressOp *op);
 
     struct VarWrite {
         IROp *op = nullptr;
         bool read = false;
+        bool consumed = false;
     };
 
     std::vector<VarWrite> m_varWrites;

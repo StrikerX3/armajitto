@@ -383,12 +383,22 @@ void testTranslator() {
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
+    // Translate code from memory
     armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
-
     armajitto::ir::Translator translator{context, params};
     translator.Translate(*block);
+
+    // Emit IR code manually
+    /*armajitto::ir::Emitter emitter{*block};
+    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
+    auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
+    auto v2 = emitter.CopyVar(v1);                          // copy $v2, $v1
+    auto v3 = emitter.CopyVar(v2);                          // copy $v3, $v2
+    emitter.CopyVar(v3);                                    // copy $v4, $v3
+    emitter.SetRegister(armajitto::arm::GPR::R0, v1);       // st r0, $v1*/
+
     printf("translated %u instructions:\n\n", block->InstructionCount());
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
