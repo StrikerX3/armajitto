@@ -157,8 +157,8 @@ public:
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
     void StoreFlags(arm::Flags flags, VarOrImmArg values);
-    void UpdateFlags(arm::Flags flags);
-    void UpdateStickyOverflow();
+    void LoadFlags(arm::Flags flags);
+    void LoadStickyOverflow();
 
     void SetNZ(arm::Flags mask, uint32_t value);
     void SetNZ(arm::Flags mask, uint64_t value);

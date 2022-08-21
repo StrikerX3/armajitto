@@ -46,8 +46,8 @@ enum class IROpcodeType {
 
     // Flag manipulation
     StoreFlags,
-    UpdateFlags,
-    UpdateStickyOverflow,
+    LoadFlags,
+    LoadStickyOverflow,
 
     // Branching
     Branch,

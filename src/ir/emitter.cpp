@@ -228,17 +228,17 @@ void Emitter::StoreFlags(arm::Flags flags, VarOrImmArg values) {
     SetCPSR(dstCPSR);
 }
 
-void Emitter::UpdateFlags(arm::Flags flags) {
+void Emitter::LoadFlags(arm::Flags flags) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
-    Write<IRUpdateFlagsOp>(flags, dstCPSR, srcCPSR);
+    Write<IRLoadFlagsOp>(flags, dstCPSR, srcCPSR);
     SetCPSR(dstCPSR);
 }
 
-void Emitter::UpdateStickyOverflow() {
+void Emitter::LoadStickyOverflow() {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
-    Write<IRUpdateStickyOverflowOp>(dstCPSR, srcCPSR);
+    Write<IRLoadStickyOverflowOp>(dstCPSR, srcCPSR);
     SetCPSR(dstCPSR);
 }
 
@@ -397,7 +397,7 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
     }
 
     if (setFlags) {
-        UpdateFlags(arm::Flags::C);
+        LoadFlags(arm::Flags::C);
     }
     return result;
 }

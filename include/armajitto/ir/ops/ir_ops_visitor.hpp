@@ -40,8 +40,8 @@ ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
     case IROpcodeType::MultiplyLong: return visitor(*Cast<IRMultiplyLongOp>(op));
     case IROpcodeType::AddLong: return visitor(*Cast<IRAddLongOp>(op));
     case IROpcodeType::StoreFlags: return visitor(*Cast<IRStoreFlagsOp>(op));
-    case IROpcodeType::UpdateFlags: return visitor(*Cast<IRUpdateFlagsOp>(op));
-    case IROpcodeType::UpdateStickyOverflow: return visitor(*Cast<IRUpdateStickyOverflowOp>(op));
+    case IROpcodeType::LoadFlags: return visitor(*Cast<IRLoadFlagsOp>(op));
+    case IROpcodeType::LoadStickyOverflow: return visitor(*Cast<IRLoadStickyOverflowOp>(op));
     case IROpcodeType::Branch: return visitor(*Cast<IRBranchOp>(op));
     case IROpcodeType::BranchExchange: return visitor(*Cast<IRBranchExchangeOp>(op));
     case IROpcodeType::LoadCopRegister: return visitor(*Cast<IRLoadCopRegisterOp>(op));

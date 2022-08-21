@@ -433,11 +433,11 @@ void ConstPropagationOptimizerPass::Process(IRStoreFlagsOp *op) {
     }
 }
 
-void ConstPropagationOptimizerPass::Process(IRUpdateFlagsOp *op) {
+void ConstPropagationOptimizerPass::Process(IRLoadFlagsOp *op) {
     Substitute(op->srcCPSR);
 }
 
-void ConstPropagationOptimizerPass::Process(IRUpdateStickyOverflowOp *op) {
+void ConstPropagationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
 }
 

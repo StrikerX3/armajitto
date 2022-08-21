@@ -145,8 +145,8 @@ private:
     void Process(IRMultiplyLongOp *op) final;
     void Process(IRAddLongOp *op) final;
     void Process(IRStoreFlagsOp *op) final;
-    void Process(IRUpdateFlagsOp *op) final;
-    void Process(IRUpdateStickyOverflowOp *op) final;
+    void Process(IRLoadFlagsOp *op) final;
+    void Process(IRLoadStickyOverflowOp *op) final;
     void Process(IRBranchOp *op) final;
     void Process(IRBranchExchangeOp *op) final;
     void Process(IRLoadCopRegisterOp *op) final;
@@ -224,8 +224,8 @@ private:
     bool EraseWrite(Variable var, IRMultiplyLongOp *op);
     bool EraseWrite(Variable var, IRAddLongOp *op);
     bool EraseWrite(Variable var, IRStoreFlagsOp *op);
-    bool EraseWrite(Variable var, IRUpdateFlagsOp *op);
-    bool EraseWrite(Variable var, IRUpdateStickyOverflowOp *op);
+    bool EraseWrite(Variable var, IRLoadFlagsOp *op);
+    bool EraseWrite(Variable var, IRLoadStickyOverflowOp *op);
     // bool EraseWrite(IRBranchOp *op); // Writes PC
     // bool EraseWrite(IRBranchExchangeOp *op); // Writes PC and CPSR
     bool EraseWrite(Variable var, IRLoadCopRegisterOp *op);
@@ -262,8 +262,8 @@ private:
     void EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
     void EraseWrite(arm::Flags flag, IRAddLongOp *op);
     void EraseWrite(arm::Flags flag, IRStoreFlagsOp *op);
-    void EraseWrite(arm::Flags flag, IRUpdateFlagsOp *op);
-    void EraseWrite(arm::Flags flag, IRUpdateStickyOverflowOp *op);
+    void EraseWrite(arm::Flags flag, IRLoadFlagsOp *op);
+    void EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
     // -------------------------------------------------------------------------
     // EraseInstruction -- erases instructions if they have no additional writes or side effects
@@ -299,8 +299,8 @@ private:
     bool EraseInstruction(IRMultiplyLongOp *op);
     bool EraseInstruction(IRAddLongOp *op);
     bool EraseInstruction(IRStoreFlagsOp *op);
-    bool EraseInstruction(IRUpdateFlagsOp *op);
-    bool EraseInstruction(IRUpdateStickyOverflowOp *op);
+    bool EraseInstruction(IRLoadFlagsOp *op);
+    bool EraseInstruction(IRLoadStickyOverflowOp *op);
     // IRBranchOp has side effects
     // IRBranchExchangeOp has side effects
     bool EraseInstruction(IRLoadCopRegisterOp *op);
@@ -319,6 +319,15 @@ private:
     std::vector<std::vector<Variable>> m_dependencies;
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
+
+    // TODO: flags tracking is busted
+    // - need to eliminate unnecessary CPSR loads/stores and sflg/uflg instructions
+
+    // TODO: track CPSR version
+    // - ld $v, cpsr copies the current CPSR version to the variable
+    // - copy and mov: copy the CPSR version between variables
+    // - other instructions with dependent variables: increment CPSR version on the written variable(s)
+    // - const: new CPSR version
 
     IROp *m_nWrite = nullptr;
     IROp *m_zWrite = nullptr;

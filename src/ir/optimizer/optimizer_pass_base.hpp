@@ -50,8 +50,8 @@ protected:
     virtual void Process(IRMultiplyLongOp *op) {}
     virtual void Process(IRAddLongOp *op) {}
     virtual void Process(IRStoreFlagsOp *op) {}
-    virtual void Process(IRUpdateFlagsOp *op) {}
-    virtual void Process(IRUpdateStickyOverflowOp *op) {}
+    virtual void Process(IRLoadFlagsOp *op) {}
+    virtual void Process(IRLoadStickyOverflowOp *op) {}
     virtual void Process(IRBranchOp *op) {}
     virtual void Process(IRBranchExchangeOp *op) {}
     virtual void Process(IRLoadCopRegisterOp *op) {}

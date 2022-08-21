@@ -74,8 +74,8 @@ private:
     void Process(IRMultiplyLongOp *op) final;
     void Process(IRAddLongOp *op) final;
     void Process(IRStoreFlagsOp *op) final;
-    void Process(IRUpdateFlagsOp *op) final;
-    void Process(IRUpdateStickyOverflowOp *op) final;
+    void Process(IRLoadFlagsOp *op) final;
+    void Process(IRLoadStickyOverflowOp *op) final;
     void Process(IRBranchOp *op) final;
     void Process(IRBranchExchangeOp *op) final;
     // void Process(IRLoadCopRegisterOp *op) final;

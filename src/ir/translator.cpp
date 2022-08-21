@@ -424,7 +424,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // When the S flag is set with Rd = 15, copy SPSR to CPSR
     if (instr.setFlags && dstPC) {
         emitter.CopySPSRToCPSR();
-        m_flagsUpdated = true;
+        m_endBlock = true; // may have changed mode
     }
 
     // Perform the selected ALU operation
@@ -461,7 +461,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
             /*TST*/ kFlagsNZ,   /*TEQ*/ kFlagsNZ,   /*CMP*/ kFlagsNZCV, /*CMN*/ kFlagsNZCV,
             /*ORR*/ kFlagsNZ,   /*MOV*/ kFlagsNZ,   /*BIC*/ kFlagsNZ,   /*MVN*/ kFlagsNZ};
 
-        emitter.UpdateFlags(flagsByOpcode[static_cast<size_t>(instr.opcode)]);
+        emitter.LoadFlags(flagsByOpcode[static_cast<size_t>(instr.opcode)]);
     }
 
     // Branch or fetch next instruction
@@ -494,7 +494,7 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
     auto rhs = emitter.GetRegister(instr.rhsReg);
     if (instr.dbl) {
         rhs = emitter.SaturatingAdd(rhs, rhs);
-        emitter.UpdateStickyOverflow();
+        emitter.LoadStickyOverflow();
     }
 
     Variable result;
@@ -503,7 +503,7 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
     } else {
         result = emitter.SaturatingAdd(lhs, rhs);
     }
-    emitter.UpdateStickyOverflow();
+    emitter.LoadStickyOverflow();
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
@@ -521,7 +521,7 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     if (instr.setFlags) {
-        emitter.UpdateFlags(Flags::N | Flags::Z);
+        emitter.LoadFlags(Flags::N | Flags::Z);
         m_flagsUpdated = true;
     }
 
@@ -542,7 +542,7 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
     emitter.SetRegisterExceptPC(instr.dstAccHiReg, result.hi);
 
     if (instr.setFlags) {
-        emitter.UpdateFlags(Flags::N | Flags::Z);
+        emitter.LoadFlags(Flags::N | Flags::Z);
         m_flagsUpdated = true;
     }
 
@@ -565,7 +565,7 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
     if (instr.accumulate) {
         auto acc = emitter.GetRegister(instr.accReg);
         result = emitter.Add(result, acc, true);
-        emitter.UpdateStickyOverflow();
+        emitter.LoadStickyOverflow();
     }
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
@@ -589,7 +589,7 @@ void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &e
     if (instr.accumulate) {
         auto acc = emitter.GetRegister(instr.accReg);
         result = emitter.Add(result, acc, true);
-        emitter.UpdateStickyOverflow();
+        emitter.LoadStickyOverflow();
     }
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
@@ -678,8 +678,11 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
 
     emitter.FetchInstruction();
 
-    if (instr.f || instr.c) {
+    if (instr.f) {
         m_flagsUpdated = true;
+    }
+    if (instr.c) {
+        m_endBlock = true;
     }
 }
 
