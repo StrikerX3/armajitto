@@ -8,6 +8,9 @@ struct Variable {
     Variable()
         : index(kInvalidIndex) {}
 
+    explicit Variable(size_t index)
+        : index(index) {}
+
     size_t Index() const {
         return index;
     }
@@ -17,9 +20,6 @@ struct Variable {
     }
 
 private:
-    explicit Variable(size_t index)
-        : index(index) {}
-
     size_t index;
 
     friend class Emitter;

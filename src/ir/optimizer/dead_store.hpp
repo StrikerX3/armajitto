@@ -2,6 +2,8 @@
 
 #include "optimizer_pass_base.hpp"
 
+#include <vector>
+
 namespace armajitto::ir {
 
 // Performs dead store elimination for variables, registers, PSRs and flags.
@@ -27,9 +29,8 @@ namespace armajitto::ir {
 //  4  st r0, $v1               r0
 //  5  st pc, #0x10c            pc
 //
-// Whenever a variable is read, the corresponding write is marked as "used". Internally, the pointer to the instruction
-// for that particular variable is reset so that the instruction is preserved. Used variables are denoted in parentheses
-// in the listings below.
+// Whenever a variable is read, the corresponding write is marked as "used". This clears the pointer to the instruction
+// for that particular variable. Used variables are denoted in parentheses in the listings below.
 //
 //     instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
@@ -39,10 +40,9 @@ namespace armajitto::ir {
 //  5  st pc, #0x10c            pc
 //
 // When a variable, GPR, PSR or flag is overwritten before being read, the original destination argument is marked as
-// unused. If the instruction has no used writes and no side effects, it is removed. Side effects include updates to
-// host flags and changes to GPRs and PSRs. Note that this does not preclude the removal of instructions that write to
-// GPRs or PSRs, as removing the write to the GPR also removes that side effect. To illustrate this, let's expand the
-// example above with more code:
+// unused. If the instruction has no used writes and no side effects (writes to host flags, GPRs or PSRs), it is
+// removed. Note that this does not preclude the removal of instructions that write to GPRs or PSRs, as removing the
+// write to the GPR also removes that side effect. To illustrate this, let's expand the example above with more code:
 //
 //     instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
@@ -59,9 +59,9 @@ namespace armajitto::ir {
 //                                                 instruction 5 has no writes or side effects, so erase it
 //
 // At the end of the block, any unread writes are marked so and if the corresponding instructions no longer have any
-// writes or side effects, they are also removed. In the listing above, instructions 3, 6 and 8 write to variables $v2
-// and $v5 which are never read, thus leaving the instructions useless. Writes to unread GPRs, PSRs and flags are kept,
-// unless overwritten. The resulting code after the optimization is:
+// writes or side effects, they are also removed. In the listing above, instructions 3, 6 and 8 write to variables $v2,
+// $v3 and $v5 which are never read, thus leaving the instructions useless. Writes to unread GPRs, PSRs and flags are
+// kept, unless overwritten. The resulting code after the optimization is:
 //
 //  1  ld $v0, r0
 //  2  lsr $v1, $v0, #0xc
@@ -91,7 +91,7 @@ namespace armajitto::ir {
 //
 // Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
 // hand side arguments for instructions 4 and 5 would be replaced with $v1.
-// It is also impossible for a variable to be written to more than once thanks to the SSA form, however some
+// It is also impossible for a variable to be written to more than once thanks to the SSA form. However, some
 // instructions may link one write to multiple input variables, such as the mull and addl instructions:
 //
 //    ld $v0, r0
@@ -106,46 +106,68 @@ public:
         : OptimizerPassBase(emitter) {}
 
 private:
-    // void Process(IRGetRegisterOp *op) final;
-    // void Process(IRSetRegisterOp *op) final;
-    // void Process(IRGetCPSROp *op) final;
-    // void Process(IRSetCPSROp *op) final;
-    // void Process(IRGetSPSROp *op) final;
-    // void Process(IRSetSPSROp *op) final;
-    // void Process(IRMemReadOp *op) final;
-    // void Process(IRMemWriteOp *op) final;
-    // void Process(IRPreloadOp *op) final;
-    // void Process(IRLogicalShiftLeftOp *op) final;
-    // void Process(IRLogicalShiftRightOp *op) final;
-    // void Process(IRArithmeticShiftRightOp *op) final;
-    // void Process(IRRotateRightOp *op) final;
-    // void Process(IRRotateRightExtendOp *op) final;
-    // void Process(IRBitwiseAndOp *op) final;
-    // void Process(IRBitwiseOrOp *op) final;
-    // void Process(IRBitwiseXorOp *op) final;
-    // void Process(IRBitClearOp *op) final;
-    // void Process(IRCountLeadingZerosOp *op) final;
-    // void Process(IRAddOp *op) final;
-    // void Process(IRAddCarryOp *op) final;
-    // void Process(IRSubtractOp *op) final;
-    // void Process(IRSubtractCarryOp *op) final;
-    // void Process(IRMoveOp *op) final;
-    // void Process(IRMoveNegatedOp *op) final;
-    // void Process(IRSaturatingAddOp *op) final;
-    // void Process(IRSaturatingSubtractOp *op) final;
-    // void Process(IRMultiplyOp *op) final;
-    // void Process(IRMultiplyLongOp *op) final;
-    // void Process(IRAddLongOp *op) final;
-    // void Process(IRStoreFlagsOp *op) final;
-    // void Process(IRUpdateFlagsOp *op) final;
-    // void Process(IRUpdateStickyOverflowOp *op) final;
-    // void Process(IRBranchOp *op) final;
-    // void Process(IRBranchExchangeOp *op) final;
-    // void Process(IRLoadCopRegisterOp *op) final;
-    // void Process(IRStoreCopRegisterOp *op) final;
-    // void Process(IRConstantOp *op) final;
-    // void Process(IRCopyVarOp *op) final;
-    // void Process(IRGetBaseVectorAddressOp *op) final;
+    void PostProcess() final;
+
+    void Process(IRGetRegisterOp *op) final;
+    void Process(IRSetRegisterOp *op) final;
+    void Process(IRGetCPSROp *op) final;
+    void Process(IRSetCPSROp *op) final;
+    void Process(IRGetSPSROp *op) final;
+    void Process(IRSetSPSROp *op) final;
+    void Process(IRMemReadOp *op) final;
+    void Process(IRMemWriteOp *op) final;
+    void Process(IRPreloadOp *op) final;
+    void Process(IRLogicalShiftLeftOp *op) final;
+    void Process(IRLogicalShiftRightOp *op) final;
+    void Process(IRArithmeticShiftRightOp *op) final;
+    void Process(IRRotateRightOp *op) final;
+    void Process(IRRotateRightExtendOp *op) final;
+    void Process(IRBitwiseAndOp *op) final;
+    void Process(IRBitwiseOrOp *op) final;
+    void Process(IRBitwiseXorOp *op) final;
+    void Process(IRBitClearOp *op) final;
+    void Process(IRCountLeadingZerosOp *op) final;
+    void Process(IRAddOp *op) final;
+    void Process(IRAddCarryOp *op) final;
+    void Process(IRSubtractOp *op) final;
+    void Process(IRSubtractCarryOp *op) final;
+    void Process(IRMoveOp *op) final;
+    void Process(IRMoveNegatedOp *op) final;
+    void Process(IRSaturatingAddOp *op) final;
+    void Process(IRSaturatingSubtractOp *op) final;
+    void Process(IRMultiplyOp *op) final;
+    void Process(IRMultiplyLongOp *op) final;
+    void Process(IRAddLongOp *op) final;
+    void Process(IRStoreFlagsOp *op) final;
+    void Process(IRUpdateFlagsOp *op) final;
+    void Process(IRUpdateStickyOverflowOp *op) final;
+    void Process(IRBranchOp *op) final;
+    void Process(IRBranchExchangeOp *op) final;
+    void Process(IRLoadCopRegisterOp *op) final;
+    void Process(IRStoreCopRegisterOp *op) final;
+    void Process(IRConstantOp *op) final;
+    void Process(IRCopyVarOp *op) final;
+    void Process(IRGetBaseVectorAddressOp *op) final;
+
+    void RecordWrite(Variable dst, IROp *op);
+    void RecordWrite(VariableArg dst, IROp *op);
+
+    void RecordRead(Variable dst);
+    void RecordRead(VariableArg dst);
+    void RecordRead(VarOrImmArg dst);
+
+    void RecordDependency(Variable dst, Variable src);
+    void RecordDependency(VariableArg dst, Variable src);
+    void RecordDependency(Variable dst, VariableArg src);
+    void RecordDependency(VariableArg dst, VariableArg src);
+    void RecordDependency(Variable dst, VarOrImmArg src);
+    void RecordDependency(VariableArg dst, VarOrImmArg src);
+
+    void ResizeWrites(size_t size);
+    void ResizeDependencies(size_t size);
+
+    std::vector<IROp *> m_varWrites;
+    std::vector<std::vector<Variable>> m_dependencies;
 };
 
 } // namespace armajitto::ir

@@ -5,6 +5,11 @@
 
 namespace armajitto::ir {
 
-void Optimize(memory::Allocator &alloc, BasicBlock &block);
+struct OptimizerPasses {
+    bool constantPropagation = true;
+    bool deadStoreElimination = true;
+};
+
+void Optimize(memory::Allocator &alloc, BasicBlock &block, const OptimizerPasses &passes = {});
 
 } // namespace armajitto::ir

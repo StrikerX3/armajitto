@@ -367,16 +367,16 @@ void testTranslator() {
 
     // Add with carry test
     // - Requires constant propagation and dead store elimination to fully optimize
-    // writeARM(0xE3E00000); // mvn r0, #0
-    // writeARM(0xE3A01001); // mov r1, #1
-    // writeARM(0xE0902001); // adds r2, r0, r1
-    // writeARM(0xE0A23001); // adc r3, r2, r1
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xE3E00000); // mvn r0, #0
+    writeARM(0xE3A01001); // mov r1, #1
+    writeARM(0xE0902001); // adds r2, r0, r1
+    writeARM(0xE0A23001); // adc r3, r2, r1
+    writeARM(0xEAFFFFFE); // b $
 
     // User mode transfer
     // writeARM(0xE8384210); // ldmda r8!, {r4, r9, r14}
-    writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
+    // writeARM(0xEAFFFFFE); // b $
 
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::memory::Allocator alloc{};
@@ -397,8 +397,23 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block);
-    printf("optimized:\n\n");
+    armajitto::ir::OptimizerPasses passes;
+
+    passes.constantPropagation = true;
+    passes.deadStoreElimination = false;
+    armajitto::ir::Optimize(alloc, *block, passes);
+    printf("after constant propagation:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    passes.constantPropagation = false;
+    passes.deadStoreElimination = true;
+    armajitto::ir::Optimize(alloc, *block, passes);
+    printf("after dead store elimination:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
