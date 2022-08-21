@@ -15,7 +15,7 @@ void DeadStoreEliminationOptimizerPass::PostProcess() {
                 // should erase write to var in op and erase instruction if it has no more writes or side effects
 
                 // FIXME: this is a HACK to get things going
-                m_emitter.Erase(write.op);
+                m_emitter.Erase(op);
             });
             // TODO: follow dependencies
         }
