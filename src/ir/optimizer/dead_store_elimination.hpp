@@ -10,7 +10,8 @@ namespace armajitto::ir {
 //
 // This optimization pass tracks reads and writes to variables and eliminates variables that are never read.
 // Instructions that end up writing to no variables are removed from the code, unless they have side effects such as
-// updating the host flags or changing the values of GPRs or PSRs.
+// updating the host flags, changing the values of GPRs or PSRs, writing to memory or reading from memory with side
+// effects (for instance, MMIO regions).
 //
 // Assuming the following IR code fragment:
 //     instruction
@@ -29,13 +30,14 @@ namespace armajitto::ir {
 //  4  st r0, $v1               r0
 //  5  st pc, #0x10c            pc
 //
-// Whenever a variable is read, the corresponding write is marked as "used". This clears the pointer to the instruction
-// for that particular variable. Used variables are denoted in parentheses in the listings below.
+// Whenever a variable is read, the corresponding write is marked as "read". This clears the pointer to the instruction
+// for that particular variable. If the variable is used in an instruction that produces side effects, it is also marked
+// as "consumed". Consumed variables are denoted in parentheses in the listings below.
 //
 //     instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
-//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as used
-//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as used
+//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as consumed
+//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as consumed
 //  4  st r0, $v1               r0       $v1     $v1 no longer has a write to check for, so nothing is done
 //  5  st pc, #0x10c            pc
 //
@@ -46,13 +48,13 @@ namespace armajitto::ir {
 //
 //     instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
-//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as used
-//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as used
+//  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as consumed
+//  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as consumed
 //  4  st r0, $v1               r0       $v1     (erased by instruction 9)
 //  5  st pc, #0x10c            pc               (erased by instruction 10)
 //  6  copy $v3, $v1            $v3      $v1     again, nothing is done because $v1 has no write to mark
 //  7  lsl $v4, $v1, #0xc       ($v4)    $v1     same as above
-//  8  mov $v5, $v4             $v5      $v4     marks the write to $v4 in instruction 7 as used
+//  8  mov $v5, $v4             $v5      $v4     marks the write to $v4 in instruction 7 as consumed
 //  9  st r0, $v4               r0       $v4     write to r0 from instruction 4 is unused
 //                                                 instruction 4 has no writes or side effects, so erase it
 // 10  st pc, #0x110            pc               write to pc from instruction 5 is unused
@@ -75,19 +77,21 @@ namespace armajitto::ir {
 //     instruction            dependency chains
 //  1  ld $v0, r0             $v0
 //  2  lsr $v1, $v0, #0xc     $v1 -> $v0
-//  3  mov $v2, $v1           $v2 -> $v1 -> $v0
-//  4  mov $v3, $v2           $v3 -> $v2 -> $v1 -> $v0
-//  5  mov $v4, $v3           $v4 -> $v3 -> $v2 -> $v1 -> $v0
-//  6  st r0, $v1             $v4 -> $v3 -> $v2  (dependency between $v2 and $v1 is broken because the latter was used
-//                                                in an instruction that produces a side effect)
+//  3  copy $v2, $v1          $v2 -> $v1 -> $v0
+//  4  copy $v3, $v2          $v3 -> $v2 -> $v1 -> $v0
+//  5  copy $v4, $v3          $v4 -> $v3 -> $v2 -> $v1 -> $v0
+//  6  st r0, $v1             $v4 -> $v3 -> $v2
+//                            (consumes $v1, breaking the dependency between $v2 and $v1)
 //
 // Operations that read from a variable and store a result in another variable create a dependency between the written
-// and read variable. The chain is broken if a variable is consumed in a way that produces side effects, such as writing
-// to a GPR or PSR.
+// and read variable. The chain is broken if a variable is consumed, as described earlier.
 //
 // Without this, the optimizer would require multiple passes to remove instructions 3, 4 and 5 since $v2 and $v3 are
 // read by the following instructions, but never really used. By tracking dependency chains, the optimizer can erase all
 // three instructions in one go once it reaches the end of the block by simply following the chain when erasing writes.
+//
+// The only IR instructions that read but do not consume a variable are "copy" (IRCopyVarOp) and "mov" (IRMoveVarOp) if
+// it doesn't set flags.
 //
 // Note that the above sequence is impossible if the constant propagation pass is applied before this pass as the right
 // hand side arguments for instructions 4 and 5 would be replaced with $v1.
