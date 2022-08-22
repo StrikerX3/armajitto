@@ -159,12 +159,12 @@ private:
     void RecordRead(VariableArg dst, bool consume = true);
     void RecordRead(VarOrImmArg dst, bool consume = true);
 
-    void RecordDependentRead(Variable dst, Variable src, bool consume = true);
-    void RecordDependentRead(VariableArg dst, Variable src, bool consume = true);
-    void RecordDependentRead(Variable dst, VariableArg src, bool consume = true);
-    void RecordDependentRead(VariableArg dst, VariableArg src, bool consume = true);
-    void RecordDependentRead(Variable dst, VarOrImmArg src, bool consume = true);
-    void RecordDependentRead(VariableArg dst, VarOrImmArg src, bool consume = true);
+    void RecordDependentRead(Variable dst, Variable src);
+    void RecordDependentRead(VariableArg dst, Variable src);
+    void RecordDependentRead(Variable dst, VariableArg src);
+    void RecordDependentRead(VariableArg dst, VariableArg src);
+    void RecordDependentRead(Variable dst, VarOrImmArg src);
+    void RecordDependentRead(VariableArg dst, VarOrImmArg src);
 
     void RecordWrite(Variable dst, IROp *op);
     void RecordWrite(VariableArg dst, IROp *op);

@@ -45,6 +45,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
+    RecordRead(op->address, true);
     RecordDependentRead(op->dst, op->address);
     RecordWrite(op->dst, op);
 }
@@ -59,6 +60,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRPreloadOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
+    RecordRead(op->value, true);
+    RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
@@ -68,6 +71,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
+    RecordRead(op->value, true);
+    RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
@@ -77,6 +82,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
+    RecordRead(op->value, true);
+    RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
@@ -86,6 +93,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
+    RecordRead(op->value, true);
+    RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
     RecordDependentRead(op->dst, op->amount);
     if (op->setCarry) {
@@ -96,6 +105,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     RecordHostFlagsRead(arm::Flags::C);
+    RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordWrite(op->dst, op);
     if (op->setCarry) {
@@ -104,6 +114,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -111,6 +123,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -118,6 +132,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -125,6 +141,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -132,11 +150,14 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
+    RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -145,6 +166,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
     RecordHostFlagsRead(arm::Flags::C);
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -152,6 +175,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -160,6 +185,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
     RecordHostFlagsRead(arm::Flags::C);
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -168,21 +195,26 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
     if (op->flags != arm::Flags::None) {
+        RecordRead(op->value, true);
         RecordDependentRead(op->dst, op->value);
         RecordHostFlagsWrite(op->flags, op);
     } else {
-        RecordDependentRead(op->dst, op->value, false);
+        RecordRead(op->value, false);
+        RecordDependentRead(op->dst, op->value);
     }
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
+    RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -190,6 +222,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -197,6 +231,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
@@ -204,6 +240,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
+    RecordRead(op->lhs, true);
+    RecordRead(op->rhs, true);
     RecordDependentRead(op->dstLo, op->lhs);
     RecordDependentRead(op->dstLo, op->rhs);
     RecordDependentRead(op->dstHi, op->lhs);
@@ -214,6 +252,10 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
+    RecordRead(op->lhsLo, true);
+    RecordRead(op->lhsHi, true);
+    RecordRead(op->rhsLo, true);
+    RecordRead(op->rhsHi, true);
     RecordDependentRead(op->dstLo, op->lhsLo);
     RecordDependentRead(op->dstLo, op->lhsHi);
     RecordDependentRead(op->dstLo, op->rhsLo);
@@ -233,12 +275,14 @@ void DeadStoreEliminationOptimizerPass::Process(IRStoreFlagsOp *op) {
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
     RecordHostFlagsRead(op->flags);
+    RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     RecordHostFlagsRead(arm::Flags::Q);
+    RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
 }
@@ -268,7 +312,8 @@ void DeadStoreEliminationOptimizerPass::Process(IRConstantOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
-    RecordDependentRead(op->dst, op->var, false);
+    RecordRead(op->var, false);
+    RecordDependentRead(op->dst, op->var);
     RecordWrite(op->dst, op);
 }
 
@@ -302,37 +347,36 @@ void DeadStoreEliminationOptimizerPass::RecordRead(VarOrImmArg dst, bool consume
     }
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, Variable src, bool consume) {
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, Variable src) {
     if (!dst.IsPresent() || !src.IsPresent()) {
         return;
     }
     auto varIndex = dst.Index();
     ResizeDependencies(varIndex);
     m_dependencies[varIndex].push_back(src);
-    RecordRead(src, consume);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, Variable src, bool consume) {
-    RecordDependentRead(dst.var, src, consume);
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, Variable src) {
+    RecordDependentRead(dst.var, src);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, VariableArg src, bool consume) {
-    RecordDependentRead(dst, src.var, consume);
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, VariableArg src) {
+    RecordDependentRead(dst, src.var);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, VariableArg src, bool consume) {
-    RecordDependentRead(dst, src.var, consume);
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, VariableArg src) {
+    RecordDependentRead(dst, src.var);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, VarOrImmArg src, bool consume) {
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(Variable dst, VarOrImmArg src) {
     if (!src.immediate) {
-        RecordDependentRead(dst, src.var, consume);
+        RecordDependentRead(dst, src.var);
     }
 }
 
-void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, VarOrImmArg src, bool consume) {
+void DeadStoreEliminationOptimizerPass::RecordDependentRead(VariableArg dst, VarOrImmArg src) {
     if (!src.immediate) {
-        RecordDependentRead(dst, src.var, consume);
+        RecordDependentRead(dst, src.var);
     }
 }
 
@@ -451,14 +495,12 @@ void DeadStoreEliminationOptimizerPass::EraseWriteRecursive(Variable var, IROp *
     bool erased = VisitIROp(op, [this, var](auto op) { return EraseWrite(var, op); });
 
     // Follow dependencies
-    if (erased) {
-        if (var.Index() < m_dependencies.size()) {
-            for (auto &dep : m_dependencies[var.Index()]) {
-                if (dep.IsPresent()) {
-                    auto &write = m_varWrites[dep.Index()];
-                    if (!write.consumed) {
-                        EraseWriteRecursive(dep, write.op);
-                    }
+    if (erased && var.Index() < m_dependencies.size()) {
+        for (auto &dep : m_dependencies[var.Index()]) {
+            if (dep.IsPresent()) {
+                auto &write = m_varWrites[dep.Index()];
+                if (!write.consumed) {
+                    EraseWriteRecursive(dep, write.op);
                 }
             }
         }
