@@ -141,6 +141,7 @@ private:
         bool valid = false;
         Bits knownBits;
         Bits changedBits;
+        uint32_t definedBits = ~0;
     };
 
     Bits m_knownCPSRBits;
@@ -168,10 +169,18 @@ private:
     void Forget(const GPRArg &gpr);
     Value &GetGPRSubstitution(const GPRArg &gpr);
 
-    // CPSR changes
+    // CPSR bit changes tracking
+    // - InitCPSRBits: used when the value is read directly from CPSR (IRGetCPSROp)
+    // - DeriveCPSRBits: derives a value from another variable, merging their masks and values
+    // - CopyCPSRBits: copies a value from another variable
+    // - DefineCPSRBits: creates a value from an immediate
+    // - UndefineCPSRBits: marks bits as modified with an unknown value
     void ResizeCPSRBitsPerVar(size_t size);
-    void InitCPSRBits(VariableArg dst, IROp *op);
-    void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t values);
+    void InitCPSRBits(VariableArg dst);
+    void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t value);
+    void CopyCPSRBits(VariableArg dst, VariableArg src);
+    void DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value);
+    void UndefineCPSRBits(VariableArg dst, uint32_t mask);
     void UpdateCPSRBitWrites(IROp *op, uint32_t mask);
 };
 
