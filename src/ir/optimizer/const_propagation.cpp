@@ -571,11 +571,13 @@ void ConstPropagationOptimizerPass::Process(IRStoreCopRegisterOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRConstantOp *op) {
     Assign(op->dst, op->value);
+    m_emitter.Erase(op);
 }
 
 void ConstPropagationOptimizerPass::Process(IRCopyVarOp *op) {
     Substitute(op->var);
     Assign(op->dst, op->var);
+    m_emitter.Erase(op);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

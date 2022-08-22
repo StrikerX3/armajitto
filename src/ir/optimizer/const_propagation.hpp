@@ -84,6 +84,9 @@ private:
     void Process(IRCopyVarOp *op) final;
     // void Process(IRGetBaseVectorAddressOp *op) final;
 
+    // -------------------------------------------------------------------------
+    // Variable substitutions
+
     struct Value {
         enum class Type { Unknown, Variable, Constant };
         Type type;
@@ -118,9 +121,6 @@ private:
             return type == Type::Variable;
         }
     };
-
-    // -------------------------------------------------------------------------
-    // Variable substitutions
 
     // Variable substitutions lookup table
     std::vector<Value> m_varSubsts;
