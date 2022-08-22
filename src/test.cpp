@@ -428,8 +428,8 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BasicBitwisePeepholeOptimizations);
-    printf("after basic bitwise peephole optimizations:\n\n");
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BasicPeepholeOptimizations);
+    printf("after basic peephole optimizations:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());

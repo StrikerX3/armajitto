@@ -2,13 +2,13 @@
 
 namespace armajitto::ir {
 
-void BasicBitwisePeepholeOptimizerPass::ResizeValues(size_t index) {
+void BasicPeepholeOptimizerPass::ResizeValues(size_t index) {
     if (m_values.size() <= index) {
         m_values.resize(index + 1);
     }
 }
 
-void BasicBitwisePeepholeOptimizerPass::AssignConstant(Variable var, uint32_t value) {
+void BasicPeepholeOptimizerPass::AssignConstant(Variable var, uint32_t value) {
     if (!var.IsPresent()) {
         return;
     }
@@ -19,7 +19,7 @@ void BasicBitwisePeepholeOptimizerPass::AssignConstant(Variable var, uint32_t va
     m_values[index].value = value;
 }
 
-void BasicBitwisePeepholeOptimizerPass::CopyVariable(Variable var, Variable src) {
+void BasicPeepholeOptimizerPass::CopyVariable(Variable var, Variable src) {
     if (!var.IsPresent()) {
         return;
     }
@@ -35,7 +35,7 @@ void BasicBitwisePeepholeOptimizerPass::CopyVariable(Variable var, Variable src)
     m_values[dstIndex] = m_values[srcIndex];
 }
 
-void BasicBitwisePeepholeOptimizerPass::DeriveKnownBits(Variable var, Variable src, uint32_t mask, uint32_t value) {
+void BasicPeepholeOptimizerPass::DeriveKnownBits(Variable var, Variable src, uint32_t mask, uint32_t value) {
     if (!var.IsPresent()) {
         return;
     }

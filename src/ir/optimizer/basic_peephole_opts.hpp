@@ -8,7 +8,11 @@
 
 namespace armajitto::ir {
 
-// Simplifies sequences of bitwise operations on a single chain of variables.
+// Applies a set of basic peephole optimizations to the code.
+//
+// Bitwise operation chaining
+// --------------------------
+// This optimization simplifies sequences of bitwise operations on a single chain of variables.
 //
 // The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR*) that operates on a
 // variable and an immediate, or basic move and copy operations (MOV, COPY, MVN*), as long as these are the only
@@ -59,9 +63,30 @@ namespace armajitto::ir {
 //                              orr <final var>, <intermediate var>, 0xF0000F00
 //    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
 //    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
-class BasicBitwisePeepholeOptimizerPass final : public OptimizerPassBase {
+//
+// Arithmetic simplification
+// -------------------------
+// For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
+// operation chaining technique above, or by constant assignments), all ALU operations can be applied. This is
+// effectively a slightly more advanced form of constant propagation and folding, and as such, it is left to that pass.
+//
+// Sequences of ALU operations that act on unknown values, however, can sometimes be simplified.
+//
+// Assuming the following IR code fragment:
+//     instruction
+//  1  mov $v0, r0  (r0 is an unknown value)
+//  2  add $v1, $v0, 3
+//  3  sub $v2, $v1, 5
+//  4  add $v3, $v2, 6
+//
+// It is clear that the final result in $v3 is equal to $v0 + 4. The unknown value is involved in a series of simple
+// additions and subtractions, with no flags being output in any step of the calculation.
+//
+// This optimization is applied to any sequences of ADD, SUB and RSB with a variable and an immediate, as well as ADC
+// and SBC if the carry flag is known.
+class BasicPeepholeOptimizerPass final : public OptimizerPassBase {
 public:
-    BasicBitwisePeepholeOptimizerPass(Emitter &emitter)
+    BasicPeepholeOptimizerPass(Emitter &emitter)
         : OptimizerPassBase(emitter) {}
 
 private:
@@ -79,17 +104,17 @@ private:
     // void Process(IRArithmeticShiftRightOp *op) final;
     // void Process(IRRotateRightOp *op) final;
     // void Process(IRRotateRightExtendOp *op) final;
-    // void Process(IRBitwiseAndOp *op) final;
-    // void Process(IRBitwiseOrOp *op) final;
-    // void Process(IRBitwiseXorOp *op) final;
-    // void Process(IRBitClearOp *op) final;
-    // void Process(IRCountLeadingZerosOp *op) final;
+    void Process(IRBitwiseAndOp *op) final;
+    void Process(IRBitwiseOrOp *op) final;
+    void Process(IRBitwiseXorOp *op) final;
+    void Process(IRBitClearOp *op) final;
+    void Process(IRCountLeadingZerosOp *op) final;
     // void Process(IRAddOp *op) final;
     // void Process(IRAddCarryOp *op) final;
     // void Process(IRSubtractOp *op) final;
     // void Process(IRSubtractCarryOp *op) final;
-    // void Process(IRMoveOp *op) final;
-    // void Process(IRMoveNegatedOp *op) final;
+    void Process(IRMoveOp *op) final;
+    void Process(IRMoveNegatedOp *op) final;
     // void Process(IRSaturatingAddOp *op) final;
     // void Process(IRSaturatingSubtractOp *op) final;
     // void Process(IRMultiplyOp *op) final;
@@ -102,8 +127,8 @@ private:
     // void Process(IRBranchExchangeOp *op) final;
     // void Process(IRLoadCopRegisterOp *op) final;
     // void Process(IRStoreCopRegisterOp *op) final;
-    // void Process(IRConstantOp *op) final;
-    // void Process(IRCopyVarOp *op) final;
+    void Process(IRConstantOp *op) final;
+    void Process(IRCopyVarOp *op) final;
     // void Process(IRGetBaseVectorAddressOp *op) final;
 
     // -------------------------------------------------------------------------
