@@ -155,23 +155,36 @@ private:
     void Process(IRCopyVarOp *op) final;
     void Process(IRGetBaseVectorAddressOp *op) final;
 
-    void RecordRead(Variable dst, bool consume = true);
+    // -------------------------------------------------------------------------
+    // Variable read, write and consumption tracking
+
+    struct VarWrite {
+        IROp *op = nullptr;
+        bool read = false;
+        bool consumed = false;
+    };
+
+    std::vector<VarWrite> m_varWrites;
+    std::vector<std::vector<Variable>> m_dependencies;
+
     void RecordRead(VariableArg dst, bool consume = true);
     void RecordRead(VarOrImmArg dst, bool consume = true);
 
-    void RecordDependentRead(Variable dst, Variable src);
     void RecordDependentRead(VariableArg dst, Variable src);
-    void RecordDependentRead(Variable dst, VariableArg src);
     void RecordDependentRead(VariableArg dst, VariableArg src);
-    void RecordDependentRead(Variable dst, VarOrImmArg src);
     void RecordDependentRead(VariableArg dst, VarOrImmArg src);
 
-    void RecordWrite(Variable dst, IROp *op);
     void RecordWrite(VariableArg dst, IROp *op);
 
-    size_t MakeGPRIndex(const GPRArg &arg) {
-        return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
-    }
+    void ResizeWrites(size_t size);
+    void ResizeDependencies(size_t size);
+
+    // -------------------------------------------------------------------------
+    // GPR and PSR read and write tracking
+
+    std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
+    IROp *m_cpsrWrite = nullptr;
+    std::array<IROp *, 32> m_spsrWrites{{nullptr}};
 
     void RecordRead(GPRArg gpr);
     void RecordWrite(GPRArg gpr, IROp *op);
@@ -182,16 +195,59 @@ private:
     void RecordSPSRRead(arm::Mode mode);
     void RecordSPSRWrite(arm::Mode mode, IROp *op);
 
+    // -------------------------------------------------------------------------
+    // Host flag writes tracking
+
+    // Writes: ALU instructions and store flags
+    // Reads: Load flags
+    IROp *m_hostFlagWriteN = nullptr;
+    IROp *m_hostFlagWriteZ = nullptr;
+    IROp *m_hostFlagWriteC = nullptr;
+    IROp *m_hostFlagWriteV = nullptr;
+    IROp *m_hostFlagWriteQ = nullptr;
+
     void RecordHostFlagsRead(arm::Flags flags);
     void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
 
-    void ResizeWrites(size_t size);
-    void ResizeDependencies(size_t size);
+    // -------------------------------------------------------------------------
+    // CPSR bits tracking
 
-    void EraseWriteRecursive(Variable var, IROp *op);
+    // Used with CPSR to track which bits have been changed and erase ineffective IRSetCPSROp instructions
+    struct Bits {
+        uint32_t mask = 0;
+        uint32_t values = 0;
+    };
+
+    struct CPSRBits {
+        bool valid = false;
+        Bits knownBits;
+        Bits changedBits;
+        uint32_t undefinedBits = 0;
+    };
+
+    Bits m_knownCPSRBits;
+    std::vector<CPSRBits> m_cpsrBitsPerVar;
+    std::array<IROp *, 32> m_cpsrBitWrites{{nullptr}};        // Last IRSetCPSROp that wrote to each bit
+    std::unordered_map<IROp *, uint32_t> m_cpsrBitWriteMasks; // Which bits that IRSetCPSROp instruction changed
+
+    // CPSR bit tracking operations
+    // InitCPSRBits      the value is read directly from CPSR (IRGetCPSROp)
+    // DeriveCPSRBits    derives a value from another variable, merging their masks and values
+    // CopyCPSRBits      copies a value from another variable
+    // DefineCPSRBits    creates a value from an immediate
+    // UndefineCPSRBits  marks bits as modified with an unknown value
+    void ResizeCPSRBitsPerVar(size_t size);
+    void InitCPSRBits(VariableArg dst);
+    void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t value);
+    void CopyCPSRBits(VariableArg dst, VariableArg src);
+    void DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value);
+    void UndefineCPSRBits(VariableArg dst, uint32_t mask);
+    void UpdateCPSRBitWrites(IROp *op, uint32_t mask);
 
     // -------------------------------------------------------------------------
     // Generic EraseWrite for variables
+
+    void EraseWriteRecursive(Variable var, IROp *op);
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
@@ -272,7 +328,8 @@ private:
     void EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
     // -------------------------------------------------------------------------
-    // EraseInstruction -- erases instructions if they have no additional writes or side effects
+    // Generic EraseInstruction
+    // Erases instructions if they have no additional writes or side effects
 
     bool EraseInstruction(IRGetRegisterOp *op);
     bool EraseInstruction(IRSetRegisterOp *op);
@@ -314,28 +371,6 @@ private:
     bool EraseInstruction(IRConstantOp *op);
     bool EraseInstruction(IRCopyVarOp *op);
     bool EraseInstruction(IRGetBaseVectorAddressOp *op);
-
-    struct VarWrite {
-        IROp *op = nullptr;
-        bool read = false;
-        bool consumed = false;
-    };
-
-    std::vector<VarWrite> m_varWrites;
-    std::vector<std::vector<Variable>> m_dependencies;
-
-    std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
-    IROp *m_cpsrWrite = nullptr;
-    std::array<IROp *, 32> m_spsrWrites{{nullptr}};
-
-    // Host flag writes tracking
-    // Writes: ALU instructions and store flags
-    // Reads: Load flags
-    IROp *m_hostFlagWriteN = nullptr;
-    IROp *m_hostFlagWriteZ = nullptr;
-    IROp *m_hostFlagWriteC = nullptr;
-    IROp *m_hostFlagWriteV = nullptr;
-    IROp *m_hostFlagWriteQ = nullptr;
 };
 
 } // namespace armajitto::ir

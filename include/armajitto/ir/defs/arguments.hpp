@@ -31,6 +31,10 @@ struct GPRArg {
         return arm::ToString(gpr) + "_" + arm::ToString(mode);
     }
 
+    size_t Index() const {
+        return static_cast<size_t>(gpr) | (static_cast<size_t>(mode) << 4);
+    }
+
 private:
     arm::Mode mode;
 
