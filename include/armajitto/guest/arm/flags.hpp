@@ -15,6 +15,10 @@ enum class Flags : uint32_t {
     C = (1u << 29),
     V = (1u << 28),
     Q = (1u << 27),
+
+    NZ = N | Z,
+    NZCV = N | Z | C | V,
+    NZCVQ = N | Z | C | V | Q,
 };
 
 } // namespace armajitto::arm
@@ -22,11 +26,6 @@ enum class Flags : uint32_t {
 ENABLE_BITMASK_OPERATORS(armajitto::arm::Flags);
 
 namespace armajitto::arm {
-
-// Common flag combinations
-static constexpr Flags kFlagsNZ = Flags::N | Flags::Z;
-static constexpr Flags kFlagsNZCV = kFlagsNZ | Flags::C | Flags::V;
-static constexpr Flags kFlagsNZCVQ = kFlagsNZCV | Flags::Q;
 
 inline std::string FlagsSuffixStr(Flags flags) {
     auto flg = [](bool value, const char *letter) { return value ? std::string(letter) : std::string(""); };

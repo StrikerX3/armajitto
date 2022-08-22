@@ -167,11 +167,11 @@ struct IRRotateRightExtendOp : public IROpBase<IROpcodeType::RotateRightExtend> 
 struct IRBitwiseAndOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseAnd> {
     // Constructor for the TST operation.
     IRBitwiseAndOp(VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(lhs, rhs, arm::kFlagsNZ, "tst") {}
+        : IRBinaryOpBase(lhs, rhs, arm::Flags::NZ, "tst") {}
 
     // Constructor for the AND operation.
     IRBitwiseAndOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "and") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZ : arm::Flags::None), "and") {}
 };
 
 // Bitwise OR
@@ -181,7 +181,7 @@ struct IRBitwiseAndOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseAnd> 
 // Updates the host flags specified by [n][z].
 struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
     IRBitwiseOrOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "orr") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZ : arm::Flags::None), "orr") {}
 };
 
 // Bitwise XOR
@@ -194,11 +194,11 @@ struct IRBitwiseOrOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseOr> {
 struct IRBitwiseXorOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseXor> {
     // Constructor for the TEQ operation.
     IRBitwiseXorOp(VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(lhs, rhs, arm::kFlagsNZ, "teq") {}
+        : IRBinaryOpBase(lhs, rhs, arm::Flags::NZ, "teq") {}
 
     // Constructor for the EOR operation.
     IRBitwiseXorOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "eor") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZ : arm::Flags::None), "eor") {}
 };
 
 // Bit clear
@@ -208,7 +208,7 @@ struct IRBitwiseXorOp : public detail::IRBinaryOpBase<IROpcodeType::BitwiseXor> 
 // Updates the host flags specified by [n][z].
 struct IRBitClearOp : public detail::IRBinaryOpBase<IROpcodeType::BitClear> {
     IRBitClearOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "bic") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZ : arm::Flags::None), "bic") {}
 };
 
 // Count leading zeros
@@ -239,11 +239,11 @@ struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> 
 struct IRAddOp : public detail::IRBinaryOpBase<IROpcodeType::Add> {
     // Constructor for the CMN operation.
     IRAddOp(VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(lhs, rhs, arm::kFlagsNZCV, "cmn") {}
+        : IRBinaryOpBase(lhs, rhs, arm::Flags::NZCV, "cmn") {}
 
     // Constructor for the ADD operation.
     IRAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZCV : arm::Flags::None), "add") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZCV : arm::Flags::None), "add") {}
 };
 
 // Add with carry
@@ -253,7 +253,7 @@ struct IRAddOp : public detail::IRBinaryOpBase<IROpcodeType::Add> {
 // Updates the host flags specified by [n][z][c][v].
 struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
     IRAddCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZCV : arm::Flags::None), "adc") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZCV : arm::Flags::None), "adc") {}
 };
 
 // Subtract
@@ -266,11 +266,11 @@ struct IRAddCarryOp : public detail::IRBinaryOpBase<IROpcodeType::AddCarry> {
 struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
     // Constructor for the CMP operation.
     IRSubtractOp(VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(lhs, rhs, arm::kFlagsNZCV, "cmp") {}
+        : IRBinaryOpBase(lhs, rhs, arm::Flags::NZCV, "cmp") {}
 
     // Constructor for the SUB operation.
     IRSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZCV : arm::Flags::None), "sub") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZCV : arm::Flags::None), "sub") {}
 };
 
 // Subtract with carry
@@ -280,7 +280,7 @@ struct IRSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::Subtract> {
 // Updates the host flags specified by [n][z][c][v].
 struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractCarry> {
     IRSubtractCarryOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
-        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::kFlagsNZCV : arm::Flags::None), "sbc") {}
+        : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZCV : arm::Flags::None), "sbc") {}
 };
 
 // Move
@@ -290,7 +290,7 @@ struct IRSubtractCarryOp : public detail::IRBinaryOpBase<IROpcodeType::SubtractC
 // Updates the host flags specified by [n][z].
 struct IRMoveOp : public detail::IRUnaryOpBase<IROpcodeType::Move> {
     IRMoveOp(VariableArg dst, VarOrImmArg value, bool setFlags)
-        : IRUnaryOpBase(dst, value, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "mov") {}
+        : IRUnaryOpBase(dst, value, (setFlags ? arm::Flags::NZ : arm::Flags::None), "mov") {}
 };
 
 // Move negated
@@ -300,7 +300,7 @@ struct IRMoveOp : public detail::IRUnaryOpBase<IROpcodeType::Move> {
 // Updates the host flags specified by [n][z].
 struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated> {
     IRMoveNegatedOp(VariableArg dst, VarOrImmArg value, bool setFlags)
-        : IRUnaryOpBase(dst, value, (setFlags ? arm::kFlagsNZ : arm::Flags::None), "mvn") {}
+        : IRUnaryOpBase(dst, value, (setFlags ? arm::Flags::NZ : arm::Flags::None), "mvn") {}
 };
 
 // Saturating add
@@ -341,7 +341,7 @@ struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
         , lhs(lhs)
         , rhs(rhs)
         , signedMul(signedMul)
-        , flags(setFlags ? arm::kFlagsNZ : arm::Flags::None) {}
+        , flags(setFlags ? arm::Flags::NZ : arm::Flags::None) {}
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
@@ -375,7 +375,7 @@ struct IRMultiplyLongOp : public IROpBase<IROpcodeType::MultiplyLong> {
         , rhs(rhs)
         , signedMul(signedMul)
         , shiftDownHalf(shiftDownHalf)
-        , flags(setFlags ? arm::kFlagsNZ : arm::Flags::None) {}
+        , flags(setFlags ? arm::Flags::NZ : arm::Flags::None) {}
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
@@ -406,7 +406,7 @@ struct IRAddLongOp : public IROpBase<IROpcodeType::AddLong> {
         , lhsHi(lhsHi)
         , rhsLo(rhsLo)
         , rhsHi(rhsHi)
-        , flags(setFlags ? arm::kFlagsNZ : arm::Flags::None) {}
+        , flags(setFlags ? arm::Flags::NZ : arm::Flags::None) {}
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);

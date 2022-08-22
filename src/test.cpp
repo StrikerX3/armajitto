@@ -176,9 +176,9 @@ void testTranslator() {
     // writeThumb(0x4788); // blx r1
 
     // ARM ALU operations
-    //writeARM(0xE3A02012); // mov r2, #0x12
-    //writeARM(0xE3A03B0D); // mov r3, #0x3400
-    //writeARM(0xE3A04004); // mov r4, #0x4
+    writeARM(0xE3A02012); // mov r2, #0x12
+    writeARM(0xE3A03B0D); // mov r3, #0x3400
+    writeARM(0xE3A04004); // mov r4, #0x4
     writeARM(0xE0121003); // ands r1, r2, r3
     writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
     writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
@@ -410,11 +410,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::OptimizerPasses passes;
-
-    passes.constantPropagation = true;
-    passes.deadStoreElimination = false;
-    armajitto::ir::Optimize(alloc, *block, passes);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -423,9 +419,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    passes.constantPropagation = false;
-    passes.deadStoreElimination = true;
-    armajitto::ir::Optimize(alloc, *block, passes);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
     printf("after dead store elimination:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -434,9 +428,16 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    passes.constantPropagation = true;
-    passes.deadStoreElimination = true;
-    armajitto::ir::Optimize(alloc, *block, passes);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BasicBitwisePeepholeOptimizations);
+    printf("after basic bitwise peephole optimizations:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block);
     printf("after full optimizations:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();

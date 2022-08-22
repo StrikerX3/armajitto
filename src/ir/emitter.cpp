@@ -248,7 +248,7 @@ arm::Flags Emitter::SetNZ(arm::Flags mask, uint32_t value) {
     if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
         flags |= arm::Flags::Z;
     }
-    StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
+    StoreFlags(arm::Flags::NZ, static_cast<uint32_t>(flags));
     return flags;
 }
 
@@ -261,7 +261,7 @@ arm::Flags Emitter::SetNZ(arm::Flags mask, uint64_t value) {
     if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
         flags |= arm::Flags::Z;
     }
-    StoreFlags(arm::kFlagsNZ, static_cast<uint32_t>(flags));
+    StoreFlags(arm::Flags::NZ, static_cast<uint32_t>(flags));
     return flags;
 }
 
@@ -280,7 +280,7 @@ arm::Flags Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool ov
     if (bmMask.AnyOf(arm::Flags::V) && overflow) {
         flags |= arm::Flags::V;
     }
-    StoreFlags(arm::kFlagsNZCV, static_cast<uint32_t>(flags));
+    StoreFlags(arm::Flags::NZCV, static_cast<uint32_t>(flags));
     return flags;
 }
 

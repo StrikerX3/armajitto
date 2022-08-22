@@ -66,6 +66,8 @@ add_library(armajitto
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
     src/ir/translator.cpp
+    src/ir/optimizer/basic_bitwise_peephole_opts.cpp
+    src/ir/optimizer/basic_bitwise_peephole_opts.hpp
     src/ir/optimizer/const_propagation.cpp
     src/ir/optimizer/const_propagation.hpp
     src/ir/optimizer/dead_store_elimination.cpp

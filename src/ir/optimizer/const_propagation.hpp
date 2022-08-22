@@ -147,9 +147,6 @@ private:
     Value &GetGPRSubstitution(const GPRArg &gpr);
 
     // -------------------------------------------------------------------------
-    // PSR substitutions
-
-    // -------------------------------------------------------------------------
     // Host flag state tracking
 
     // Known host flag bits

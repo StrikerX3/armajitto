@@ -456,10 +456,10 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // Update flags if requested (unless Rd = 15)
     if (instr.setFlags && !dstPC) {
         static constexpr Flags flagsByOpcode[] = {
-            /*AND*/ kFlagsNZ,   /*EOR*/ kFlagsNZ,   /*SUB*/ kFlagsNZCV, /*RSB*/ kFlagsNZCV,
-            /*ADD*/ kFlagsNZCV, /*ADC*/ kFlagsNZCV, /*SBC*/ kFlagsNZCV, /*RSC*/ kFlagsNZCV,
-            /*TST*/ kFlagsNZ,   /*TEQ*/ kFlagsNZ,   /*CMP*/ kFlagsNZCV, /*CMN*/ kFlagsNZCV,
-            /*ORR*/ kFlagsNZ,   /*MOV*/ kFlagsNZ,   /*BIC*/ kFlagsNZ,   /*MVN*/ kFlagsNZ};
+            /*AND*/ Flags::NZ,   /*EOR*/ Flags::NZ,   /*SUB*/ Flags::NZCV, /*RSB*/ Flags::NZCV,
+            /*ADD*/ Flags::NZCV, /*ADC*/ Flags::NZCV, /*SBC*/ Flags::NZCV, /*RSC*/ Flags::NZCV,
+            /*TST*/ Flags::NZ,   /*TEQ*/ Flags::NZ,   /*CMP*/ Flags::NZCV, /*CMN*/ Flags::NZCV,
+            /*ORR*/ Flags::NZ,   /*MOV*/ Flags::NZ,   /*BIC*/ Flags::NZ,   /*MVN*/ Flags::NZ};
 
         emitter.LoadFlags(flagsByOpcode[static_cast<size_t>(instr.opcode)]);
     }
