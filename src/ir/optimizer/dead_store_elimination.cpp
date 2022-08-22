@@ -1184,6 +1184,11 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddLongOp 
     return op->flags == arm::Flags::None;
 }
 
+bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRStoreFlagsOp *op) {
+    op->flags &= ~flag;
+    return op->flags == arm::Flags::None;
+}
+
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadFlagsOp *op) {
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;

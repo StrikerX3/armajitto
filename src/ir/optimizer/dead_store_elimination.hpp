@@ -320,6 +320,7 @@ private:
     bool EraseWrite(arm::Flags flag, IRMultiplyOp *op);
     bool EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
     bool EraseWrite(arm::Flags flag, IRAddLongOp *op);
+    bool EraseWrite(arm::Flags flag, IRStoreFlagsOp *op);
     bool EraseWrite(arm::Flags flag, IRLoadFlagsOp *op);
     bool EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
