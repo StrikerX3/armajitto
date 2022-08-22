@@ -3,8 +3,6 @@
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
 #include <cassert>
-#include <cstdio>
-#include <format>
 
 namespace armajitto::ir {
 
@@ -597,13 +595,6 @@ bool DeadStoreEliminationOptimizerPass::RecordAndEraseDeadCPSRRead(VariableArg v
     ResizeCPSRToVarMap(index);
     if (!m_cpsrVarMap[index].var.IsPresent()) {
         m_cpsrVarMap[index].var = var.var;
-        // auto __varStr = var.ToString();
-        // printf("[CPSR version] %s = ver %llu (CPSR)\n", __varStr.c_str(), m_cpsrVersion);
-    } else {
-        // auto __varStr = var.ToString();
-        // auto __prevVarStr = m_cpsrVarMap[index].var.ToString();
-        // printf("[CPSR version] %s -> %s = ver %llu (CPSR; previously assigned)\n", __varStr.c_str(),
-        //        __prevVarStr.c_str(), m_cpsrVersion);
     }
 
     // Assign CPSR version to the variable
@@ -629,15 +620,9 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *o
         const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
         assert(index < m_cpsrVarMap.size());  // this entry should exist
         m_cpsrVarMap[index].writeOp = op;
-
-        // auto __srcStr = src.ToString();
-        // printf("[CPSR version] CPSR store: %s (pass) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     } else {
         // Increment CPSR to the next CPSR version
         m_cpsrVersion = m_nextCPSRVersion++;
-
-        // auto __srcStr = src.ToString();
-        // printf("[CPSR version] CPSR store: %s (fail) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     }
 }
 
@@ -653,9 +638,6 @@ bool DeadStoreEliminationOptimizerPass::CheckAndEraseDeadCPSRLoadStore(IROp *loa
         return false;
     }
 
-    // auto __loadOpStr = loadOp->ToString();
-    // auto __storeOpStr = entry.writeOp->ToString();
-    // printf("[CPSR version] erasing %s and %s\n", __loadOpStr.c_str(), __storeOpStr.c_str());
     m_emitter.Erase(loadOp);
     m_emitter.Erase(entry.writeOp);
     entry.writeOp = nullptr;
@@ -693,9 +675,6 @@ void DeadStoreEliminationOptimizerPass::AssignNewCPSRVersion(VariableArg var) {
     const auto versionIndex = m_varCPSRVersionMap[varIndex] - 1;
     ResizeCPSRToVarMap(versionIndex);
     m_cpsrVarMap[versionIndex].var = var.var;
-
-    // auto __varStr = var.ToString();
-    // printf("[CPSR version] %s = ver %llu (incremented)\n", __varStr.c_str(), m_varCPSRVersionMap[varIndex]);
 }
 
 void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, VariableArg src) {
@@ -718,11 +697,6 @@ void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, Variabl
     const auto versionIndex = m_varCPSRVersionMap[dstIndex] - 1;
     ResizeCPSRToVarMap(versionIndex);
     m_cpsrVarMap[versionIndex].var = dst.var;
-
-    // auto __dstStr = dst.ToString();
-    // auto __srcStr = src.ToString();
-    // printf("[CPSR version] %s = ver %llu (copy from %s)\n", __dstStr.c_str(), m_varCPSRVersionMap[dstIndex],
-    //        __srcStr.c_str());
 }
 
 void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
@@ -747,9 +721,6 @@ void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
     }
     auto &entry = m_cpsrVarMap[versionIndex];
     if (entry.var.IsPresent()) {
-        // auto __srcVar = var.ToString();
-        // auto __dstVar = std::format("$v{}", entry.var.Index());
-        // printf("[CPSR version] replacing %s -> %s\n", __srcVar.c_str(), __dstVar.c_str());
         var = entry.var;
     }
 }
