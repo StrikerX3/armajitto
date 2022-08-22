@@ -61,7 +61,9 @@ void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
                 // Check for differences between current CPSR value and the one coming from the variable
                 const uint32_t maskDelta = bits.knownBits.mask ^ m_knownCPSRBits.mask;
                 const uint32_t valsDelta = bits.knownBits.values ^ m_knownCPSRBits.values;
-                printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
+                const uint32_t defBits = bits.definedBits;
+                // TODO: factor in defBits somehow
+                printf("  found valid entry! delta: 0x%08x 0x%08x // 0x%08x\n", maskDelta, valsDelta, defBits);
                 if (m_knownCPSRBits.mask != 0 && maskDelta == 0 && valsDelta == 0) {
                     // All masked bits are equal; CPSR value has not changed
                     printf("    no changes! erasing instruction\n");
@@ -874,7 +876,6 @@ void ConstPropagationOptimizerPass::DeriveCPSRBits(VariableArg dst, VariableArg 
         return;
     }
     auto &dstBits = m_cpsrBitsPerVar[dstIndex];
-    mask &= srcBits.definedBits;
     dstBits.valid = true;
     dstBits.knownBits.mask = srcBits.knownBits.mask | mask;
     dstBits.knownBits.values = (srcBits.knownBits.values & ~mask) | (value & mask);
