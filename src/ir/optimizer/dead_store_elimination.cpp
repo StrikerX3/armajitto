@@ -24,7 +24,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
     }
     RecordGPRRead(op->src);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
@@ -43,7 +42,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
         return;
     }
     RecordWrite(op->dst, op);
-    InitCPSRBits(op->dst);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
@@ -54,41 +52,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     if (!op->src.immediate) {
         RecordCPSRWrite(op->src.var, op);
     }
-
-    // TODO: revisit this
-
-    // auto opStr = op->ToString();
-    // printf("now checking:  %s\n", opStr.c_str());
-    if (op->src.immediate) {
-        // Immediate value makes every bit known
-        m_knownCPSRBits.mask = ~0;
-        m_knownCPSRBits.values = op->src.imm.value;
-        // printf("  immediate!\n");
-        UpdateCPSRBitWrites(op, ~0);
-    } else if (!op->src.immediate && op->src.var.var.IsPresent()) {
-        // Check for derived values
-        const auto index = op->src.var.var.Index();
-        if (index < m_cpsrBitsPerVar.size()) {
-            auto &bits = m_cpsrBitsPerVar[index];
-            if (bits.valid) {
-                // Check for differences between current CPSR value and the one coming from the variable
-                const uint32_t maskDelta = (bits.knownBits.mask ^ m_knownCPSRBits.mask) | bits.undefinedBits;
-                const uint32_t valsDelta = (bits.knownBits.values ^ m_knownCPSRBits.values) | bits.undefinedBits;
-                // printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
-                if (m_knownCPSRBits.mask != 0 && maskDelta == 0 && valsDelta == 0) {
-                    // All masked bits are equal; CPSR value has not changed
-                    // printf("    no changes! erasing instruction\n");
-                    m_emitter.Erase(op);
-                } else {
-                    // Either the mask or the value (or both) changed
-                    // printf("    applying changes -> 0x%08x 0x%08x\n", bits.changedBits.mask,
-                    // bits.changedBits.values);
-                    m_knownCPSRBits = bits.knownBits;
-                    UpdateCPSRBitWrites(op, bits.changedBits.mask | bits.undefinedBits);
-                }
-            }
-        }
-    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
@@ -97,7 +60,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
     }
     RecordSPSRRead(op->mode);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
@@ -115,7 +77,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
     RecordRead(op->address, true);
     RecordDependentRead(op->dst, op->address);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMemWriteOp *op) {
@@ -139,7 +100,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -157,7 +117,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -175,7 +134,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -193,7 +151,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -210,7 +167,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     if (op->setCarry) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -226,15 +182,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-
-    // AND clears all zero bits
-    if (op->lhs.immediate == op->rhs.immediate) {
-        UndefineCPSRBits(op->dst, ~0);
-    } else if (op->lhs.immediate) {
-        DeriveCPSRBits(op->dst, op->rhs.var, ~op->lhs.imm.value, 0);
-    } else if (op->rhs.immediate) {
-        DeriveCPSRBits(op->dst, op->lhs.var, ~op->rhs.imm.value, 0);
-    }
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -250,15 +197,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-
-    // OR sets all one bits
-    if (op->lhs.immediate == op->rhs.immediate) {
-        UndefineCPSRBits(op->dst, ~0);
-    } else if (op->lhs.immediate) {
-        DeriveCPSRBits(op->dst, op->rhs.var, op->lhs.imm.value, op->lhs.imm.value);
-    } else if (op->rhs.immediate) {
-        DeriveCPSRBits(op->dst, op->lhs.var, op->rhs.imm.value, op->rhs.imm.value);
-    }
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -274,15 +212,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-
-    // XOR flips all one bits
-    if (op->lhs.immediate == op->rhs.immediate) {
-        UndefineCPSRBits(op->dst, ~0);
-    } else if (op->lhs.immediate) {
-        UndefineCPSRBits(op->dst, op->lhs.imm.value);
-    } else if (op->rhs.immediate) {
-        UndefineCPSRBits(op->dst, op->rhs.imm.value);
-    }
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -298,15 +227,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-
-    // BIC clears all one bits
-    if (op->lhs.immediate == op->rhs.immediate) {
-        UndefineCPSRBits(op->dst, ~0);
-    } else if (op->lhs.immediate) {
-        DeriveCPSRBits(op->dst, op->rhs.var, op->lhs.imm.value, 0);
-    } else if (op->rhs.immediate) {
-        DeriveCPSRBits(op->dst, op->lhs.var, op->rhs.imm.value, 0);
-    }
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -319,7 +239,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
     RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -335,7 +254,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -352,7 +270,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -368,7 +285,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -385,7 +301,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -399,10 +314,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    if (op->value.immediate) {
-        DefineCPSRBits(op->dst, ~0, op->value.imm.value);
-    } else {
-        CopyCPSRBits(op->dst, op->value.var);
+    if (!op->value.immediate) {
         CopyCPSRVersion(op->dst, op->value.var);
     }
 }
@@ -415,7 +327,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
     RecordDependentRead(op->dst, op->value);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -431,7 +342,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -447,7 +357,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -463,7 +372,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
     RecordDependentRead(op->dst, op->rhs);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
@@ -482,8 +390,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dstLo, op);
     RecordWrite(op->dstHi, op);
-    UndefineCPSRBits(op->dstLo, ~0);
-    UndefineCPSRBits(op->dstHi, ~0);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dstLo);
         AssignNewCPSRVersion(op->dstHi);
@@ -509,8 +415,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dstLo, op);
     RecordWrite(op->dstHi, op);
-    UndefineCPSRBits(op->dstLo, ~0);
-    UndefineCPSRBits(op->dstHi, ~0);
     if (HasCPSRVersion(op->lhsLo) || HasCPSRVersion(op->lhsHi) || HasCPSRVersion(op->rhsLo) ||
         HasCPSRVersion(op->rhsHi)) {
         AssignNewCPSRVersion(op->dstLo);
@@ -533,7 +437,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
     RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
-    UndefineCPSRBits(op->dstCPSR, static_cast<uint32_t>(op->flags));
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
     }
@@ -547,7 +450,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
-    UndefineCPSRBits(op->dstCPSR, static_cast<uint32_t>(arm::Flags::Q));
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
     }
@@ -568,7 +470,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRLoadCopRegisterOp *op) {
         return;
     }
     RecordWrite(op->dstValue, op);
-    UndefineCPSRBits(op->dstValue, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRStoreCopRegisterOp *op) {
@@ -580,7 +481,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRConstantOp *op) {
         return;
     }
     RecordWrite(op->dst, op);
-    DefineCPSRBits(op->dst, ~0, op->value);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
@@ -590,7 +490,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
     RecordRead(op->var, false);
     RecordDependentRead(op->dst, op->var);
     RecordWrite(op->dst, op);
-    CopyCPSRBits(op->dst, op->var);
     CopyCPSRVersion(op->dst, op->var);
 }
 
@@ -599,7 +498,6 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetBaseVectorAddressOp *op) {
         return;
     }
     RecordWrite(op->dst, op);
-    UndefineCPSRBits(op->dst, ~0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -694,15 +592,15 @@ bool DeadStoreEliminationOptimizerPass::RecordAndEraseDeadCPSRRead(VariableArg v
         return false;
     }
 
-    // auto __varStr = var.ToString();
-
     // Assign variable to current CPSR version
     const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
     ResizeCPSRToVarMap(index);
     if (!m_cpsrVarMap[index].var.IsPresent()) {
         m_cpsrVarMap[index].var = var.var;
+        // auto __varStr = var.ToString();
         // printf("[CPSR version] %s = ver %llu (CPSR)\n", __varStr.c_str(), m_cpsrVersion);
     } else {
+        // auto __varStr = var.ToString();
         // auto __prevVarStr = m_cpsrVarMap[index].var.ToString();
         // printf("[CPSR version] %s -> %s = ver %llu (CPSR; previously assigned)\n", __varStr.c_str(),
         //        __prevVarStr.c_str(), m_cpsrVersion);
@@ -721,8 +619,6 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *o
         return;
     }
 
-    // auto __srcStr = src.ToString();
-
     // Update CPSR version to that of the variable, if present
     const auto varIndex = src.var.Index();
     if (varIndex < m_varCPSRVersionMap.size() && m_varCPSRVersionMap[varIndex] != 0) {
@@ -734,11 +630,13 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *o
         assert(index < m_cpsrVarMap.size());  // this entry should exist
         m_cpsrVarMap[index].writeOp = op;
 
+        // auto __srcStr = src.ToString();
         // printf("[CPSR version] CPSR store: %s (pass) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     } else {
         // Increment CPSR to the next CPSR version
         m_cpsrVersion = m_nextCPSRVersion++;
 
+        // auto __srcStr = src.ToString();
         // printf("[CPSR version] CPSR store: %s (fail) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     }
 }
@@ -807,6 +705,9 @@ void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, Variabl
 
     const auto srcIndex = src.var.Index();
     if (srcIndex >= m_varCPSRVersionMap.size()) {
+        return;
+    }
+    if (m_varCPSRVersionMap[srcIndex] == 0) {
         return;
     }
 
@@ -922,149 +823,6 @@ void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, I
     record(arm::Flags::C, m_hostFlagWriteC);
     record(arm::Flags::V, m_hostFlagWriteV);
     record(arm::Flags::Q, m_hostFlagWriteQ);
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-// CPSR bits tracking
-
-void DeadStoreEliminationOptimizerPass::ResizeCPSRBitsPerVar(size_t index) {
-    if (m_cpsrBitsPerVar.size() <= index) {
-        m_cpsrBitsPerVar.resize(index + 1);
-    }
-}
-
-void DeadStoreEliminationOptimizerPass::InitCPSRBits(VariableArg dst) {
-    if (!dst.var.IsPresent()) {
-        return;
-    }
-    const auto index = dst.var.Index();
-    ResizeCPSRBitsPerVar(index);
-    CPSRBits &bits = m_cpsrBitsPerVar[index];
-    bits.valid = true;
-    bits.knownBits = m_knownCPSRBits;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [cpsr] bits=0x%08x vals=0x%08x\n", dstStr.c_str(), m_knownCPSRBits.mask, m_knownCPSRBits.values);
-}
-
-void DeadStoreEliminationOptimizerPass::DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask,
-                                                       uint32_t value) {
-    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
-        return;
-    }
-    const auto dstIndex = dst.var.Index();
-    const auto srcIndex = src.var.Index();
-    ResizeCPSRBitsPerVar(dstIndex);
-    if (srcIndex >= m_cpsrBitsPerVar.size()) {
-        // This shouldn't happen
-        return;
-    }
-    auto &srcBits = m_cpsrBitsPerVar[srcIndex];
-    if (!srcBits.valid) {
-        // Not a CPSR value; don't care
-        return;
-    }
-    auto &dstBits = m_cpsrBitsPerVar[dstIndex];
-    dstBits.valid = true;
-    dstBits.knownBits.mask = srcBits.knownBits.mask | mask;
-    dstBits.knownBits.values = (srcBits.knownBits.values & ~mask) | (value & mask);
-    dstBits.changedBits.mask = srcBits.changedBits.mask | mask;
-    dstBits.changedBits.values = (srcBits.changedBits.values & ~mask) | (value & mask);
-    dstBits.undefinedBits = srcBits.undefinedBits;
-
-    auto dstStr = dst.ToString();
-    auto srcStr = src.ToString();
-    // printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
-    //        dstStr.c_str(), srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values,
-    //        dstBits.changedBits.mask, dstBits.changedBits.values, dstBits.undefinedBits);
-}
-
-void DeadStoreEliminationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableArg src) {
-    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
-        return;
-    }
-    const auto dstIndex = dst.var.Index();
-    const auto srcIndex = src.var.Index();
-    ResizeCPSRBitsPerVar(dstIndex);
-    if (srcIndex >= m_cpsrBitsPerVar.size()) {
-        // This shouldn't happen
-        return;
-    }
-    auto &srcBits = m_cpsrBitsPerVar[srcIndex];
-    if (!srcBits.valid) {
-        // Not a CPSR value; don't care
-        return;
-    }
-    auto &dstBits = m_cpsrBitsPerVar[dstIndex];
-    dstBits = srcBits;
-
-    auto dstStr = dst.ToString();
-    auto srcStr = src.ToString();
-    // printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
-    // dstStr.c_str(),
-    //        srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-    //        dstBits.changedBits.values, dstBits.undefinedBits);
-}
-
-void DeadStoreEliminationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value) {
-    if (!dst.var.IsPresent()) {
-        return;
-    }
-    const auto dstIndex = dst.var.Index();
-    ResizeCPSRBitsPerVar(dstIndex);
-    auto &dstBits = m_cpsrBitsPerVar[dstIndex];
-    dstBits.valid = true;
-    dstBits.knownBits.mask = mask;
-    dstBits.knownBits.values = value & mask;
-    dstBits.changedBits.mask = mask;
-    dstBits.changedBits.values = value & mask;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
-    //        dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask, dstBits.changedBits.values,
-    //        dstBits.undefinedBits);
-}
-
-void DeadStoreEliminationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32_t mask) {
-    if (!dst.var.IsPresent()) {
-        return;
-    }
-    const auto dstIndex = dst.var.Index();
-    ResizeCPSRBitsPerVar(dstIndex);
-    auto &dstBits = m_cpsrBitsPerVar[dstIndex];
-    dstBits.valid = true;
-    dstBits.undefinedBits = mask;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [undefined] bits=0x%08x\n", dstStr.c_str(), mask);
-}
-
-void DeadStoreEliminationOptimizerPass::UpdateCPSRBitWrites(IROp *op, uint32_t mask) {
-    for (uint32_t i = 0; i < 32; i++) {
-        const uint32_t bit = (1 << i);
-        if (!(mask & bit)) {
-            continue;
-        }
-
-        // Check for previous write
-        auto *prevOp = m_cpsrBitWrites[i];
-        if (prevOp != nullptr) {
-            // Clear bit from mask
-            auto &writeMask = m_cpsrBitWriteMasks[prevOp];
-            writeMask &= ~bit;
-            if (writeMask == 0) {
-                // Instruction no longer writes anything useful; erase it
-                auto str = prevOp->ToString();
-                // printf("    erasing %s\n", str.c_str());
-                m_emitter.Erase(prevOp);
-                m_cpsrBitWriteMasks.erase(prevOp);
-            }
-        }
-
-        // Update reference to this instruction and update mask
-        m_cpsrBitWrites[i] = op;
-        m_cpsrBitWriteMasks[op] |= bit;
-    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

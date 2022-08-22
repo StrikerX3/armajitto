@@ -204,10 +204,12 @@ private:
     bool RecordAndEraseDeadCPSRRead(VariableArg var, IROp *loadOp);
     void RecordCPSRWrite(VariableArg src, IROp *op);
     bool CheckAndEraseDeadCPSRLoadStore(IROp *loadOp);
+
     bool HasCPSRVersion(VariableArg var);
     bool HasCPSRVersion(VarOrImmArg var);
     void AssignNewCPSRVersion(VariableArg var);
     void CopyCPSRVersion(VariableArg dst, VariableArg src);
+
     void SubstituteCPSRVar(VariableArg &var);
     void SubstituteCPSRVar(VarOrImmArg &var);
 
@@ -230,41 +232,6 @@ private:
 
     void RecordHostFlagsRead(arm::Flags flags);
     void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
-
-    // -------------------------------------------------------------------------
-    // CPSR bits tracking
-
-    // Used with CPSR to track which bits have been changed and erase ineffective IRSetCPSROp instructions
-    struct Bits {
-        uint32_t mask = 0;
-        uint32_t values = 0;
-    };
-
-    struct CPSRBits {
-        bool valid = false;
-        Bits knownBits;
-        Bits changedBits;
-        uint32_t undefinedBits = 0;
-    };
-
-    Bits m_knownCPSRBits;
-    std::vector<CPSRBits> m_cpsrBitsPerVar;
-    std::array<IROp *, 32> m_cpsrBitWrites{{nullptr}};        // Last IRSetCPSROp that wrote to each bit
-    std::unordered_map<IROp *, uint32_t> m_cpsrBitWriteMasks; // Which bits that IRSetCPSROp instruction changed
-
-    // CPSR bit tracking operations
-    // InitCPSRBits      the value is read directly from CPSR (IRGetCPSROp)
-    // DeriveCPSRBits    derives a value from another variable, merging their masks and values
-    // CopyCPSRBits      copies a value from another variable
-    // DefineCPSRBits    creates a value from an immediate
-    // UndefineCPSRBits  marks bits as modified with an unknown value
-    void ResizeCPSRBitsPerVar(size_t index);
-    void InitCPSRBits(VariableArg dst);
-    void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t value);
-    void CopyCPSRBits(VariableArg dst, VariableArg src);
-    void DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value);
-    void UndefineCPSRBits(VariableArg dst, uint32_t mask);
-    void UpdateCPSRBitWrites(IROp *op, uint32_t mask);
 
     // -------------------------------------------------------------------------
     // Generic EraseWrite for variables
