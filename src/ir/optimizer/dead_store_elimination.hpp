@@ -234,6 +234,11 @@ private:
     void RecordHostFlagsWrite(arm::Flags flags, IROp *op);
 
     // -------------------------------------------------------------------------
+    // Flags tracking
+
+    // TODO
+
+    // -------------------------------------------------------------------------
     // Generic EraseWrite for variables
 
     void EraseWriteRecursive(Variable var, IROp *op);
@@ -287,34 +292,36 @@ private:
 
     // -------------------------------------------------------------------------
     // Generic EraseWrite for flags
+    // Return true if the instruction no longer writes to any flags
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
-    void EraseWrite(arm::Flags flag, T *op) {}
+    bool EraseWrite(arm::Flags flag, T *op) {
+        return false;
+    }
 
-    void EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op);
-    void EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
-    void EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
-    void EraseWrite(arm::Flags flag, IRRotateRightOp *op);
-    void EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op);
-    void EraseWrite(arm::Flags flag, IRBitwiseAndOp *op);
-    void EraseWrite(arm::Flags flag, IRBitwiseOrOp *op);
-    void EraseWrite(arm::Flags flag, IRBitwiseXorOp *op);
-    void EraseWrite(arm::Flags flag, IRBitClearOp *op);
-    void EraseWrite(arm::Flags flag, IRAddOp *op);
-    void EraseWrite(arm::Flags flag, IRAddCarryOp *op);
-    void EraseWrite(arm::Flags flag, IRSubtractOp *op);
-    void EraseWrite(arm::Flags flag, IRSubtractCarryOp *op);
-    void EraseWrite(arm::Flags flag, IRMoveOp *op);
-    void EraseWrite(arm::Flags flag, IRMoveNegatedOp *op);
-    void EraseWrite(arm::Flags flag, IRSaturatingAddOp *op);
-    void EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op);
-    void EraseWrite(arm::Flags flag, IRMultiplyOp *op);
-    void EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
-    void EraseWrite(arm::Flags flag, IRAddLongOp *op);
-    void EraseWrite(arm::Flags flag, IRStoreFlagsOp *op);
-    void EraseWrite(arm::Flags flag, IRLoadFlagsOp *op);
-    void EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
+    bool EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op);
+    bool EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
+    bool EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
+    bool EraseWrite(arm::Flags flag, IRRotateRightOp *op);
+    bool EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op);
+    bool EraseWrite(arm::Flags flag, IRBitwiseAndOp *op);
+    bool EraseWrite(arm::Flags flag, IRBitwiseOrOp *op);
+    bool EraseWrite(arm::Flags flag, IRBitwiseXorOp *op);
+    bool EraseWrite(arm::Flags flag, IRBitClearOp *op);
+    bool EraseWrite(arm::Flags flag, IRAddOp *op);
+    bool EraseWrite(arm::Flags flag, IRAddCarryOp *op);
+    bool EraseWrite(arm::Flags flag, IRSubtractOp *op);
+    bool EraseWrite(arm::Flags flag, IRSubtractCarryOp *op);
+    bool EraseWrite(arm::Flags flag, IRMoveOp *op);
+    bool EraseWrite(arm::Flags flag, IRMoveNegatedOp *op);
+    bool EraseWrite(arm::Flags flag, IRSaturatingAddOp *op);
+    bool EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op);
+    bool EraseWrite(arm::Flags flag, IRMultiplyOp *op);
+    bool EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
+    bool EraseWrite(arm::Flags flag, IRAddLongOp *op);
+    bool EraseWrite(arm::Flags flag, IRLoadFlagsOp *op);
+    bool EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
     // -------------------------------------------------------------------------
     // Generic EraseDeadInstruction
