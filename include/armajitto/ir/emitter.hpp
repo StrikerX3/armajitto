@@ -94,14 +94,6 @@ public:
         return *this;
     }
 
-    Emitter &Overwrite(IROp *op) {
-        if (op != nullptr) {
-            m_overwriteNext = true;
-            m_overwriteOp = op;
-        }
-        return *this;
-    }
-
     void Erase(IROp *op) {
         if (op == nullptr) {
             return;
@@ -220,12 +212,7 @@ private:
     template <typename T, typename... Args>
     void Write(Args &&...args) {
         if (m_overwriteNext) {
-            if (m_overwriteOp != nullptr && m_overwriteOp != m_currOp) {
-                m_block.ReplaceOp<T>(m_overwriteOp, std::forward<Args>(args)...);
-            } else {
-                m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
-            }
-            m_overwriteOp = nullptr;
+            m_currOp = m_block.ReplaceOp<T>(m_currOp, std::forward<Args>(args)...);
             m_overwriteNext = false;
             m_prependNext = false;
         } else if (m_prependNext) {
