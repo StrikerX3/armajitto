@@ -581,9 +581,9 @@ void ConstPropagationOptimizerPass::Process(IRCopyVarOp *op) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Variable substitutions
 
-void ConstPropagationOptimizerPass::ResizeVarSubsts(size_t size) {
-    if (m_varSubsts.size() <= size) {
-        m_varSubsts.resize(size + 1);
+void ConstPropagationOptimizerPass::ResizeVarSubsts(size_t index) {
+    if (m_varSubsts.size() <= index) {
+        m_varSubsts.resize(index + 1);
     }
 }
 

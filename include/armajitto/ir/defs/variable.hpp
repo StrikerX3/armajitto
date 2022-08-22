@@ -1,5 +1,8 @@
 #pragma once
 
+#include <format>
+#include <string>
+
 namespace armajitto::ir {
 
 struct Variable {
@@ -17,6 +20,14 @@ struct Variable {
 
     bool IsPresent() const {
         return index != kInvalidIndex;
+    }
+
+    std::string ToString() const {
+        if (IsPresent()) {
+            return std::format("$v{}", index);
+        } else {
+            return std::string("$v?");
+        }
     }
 
     bool operator==(const Variable &) const = default;

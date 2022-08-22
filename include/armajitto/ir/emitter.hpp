@@ -81,7 +81,11 @@ public:
 
     void NextOp() {
         if (m_currOp != nullptr) {
-            m_currOp = m_currOp->Next();
+            if (m_prependNext) {
+                m_prependNext = false;
+            } else {
+                m_currOp = m_currOp->Next();
+            }
         }
     }
 
@@ -91,12 +95,17 @@ public:
     }
 
     Emitter &Overwrite(IROp *op) {
-        m_overwriteNext = true;
-        m_overwriteOp = op;
+        if (op != nullptr) {
+            m_overwriteNext = true;
+            m_overwriteOp = op;
+        }
         return *this;
     }
 
     void Erase(IROp *op) {
+        if (op == nullptr) {
+            return;
+        }
         IROp *result = m_block.Erase(op);
         if (op == m_currOp) {
             m_currOp = result;

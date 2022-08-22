@@ -126,7 +126,7 @@ private:
     std::vector<Value> m_varSubsts;
 
     // Variable substitution operations
-    void ResizeVarSubsts(size_t size);
+    void ResizeVarSubsts(size_t index);
     void Assign(VariableArg var, VariableArg value);
     void Assign(VariableArg var, ImmediateArg value);
     void Assign(VariableArg var, VarOrImmArg value);
@@ -145,6 +145,9 @@ private:
     void Assign(const GPRArg &gpr, VarOrImmArg value);
     void Forget(const GPRArg &gpr);
     Value &GetGPRSubstitution(const GPRArg &gpr);
+
+    // -------------------------------------------------------------------------
+    // PSR substitutions
 
     // -------------------------------------------------------------------------
     // Host flag state tracking

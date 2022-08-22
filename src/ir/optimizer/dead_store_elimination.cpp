@@ -2,6 +2,7 @@
 
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
+#include <cassert>
 #include <cstdio>
 #include <format>
 
@@ -18,35 +19,51 @@ void DeadStoreEliminationOptimizerPass::PostProcess() {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
-    RecordRead(op->src);
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
+    RecordGPRRead(op->src);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->src);
-    RecordWrite(op->dst, op);
+    RecordGPRWrite(op->dst, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
-    RecordCPSRRead();
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
+    if (RecordAndEraseDeadCPSRRead(op->dst, op)) {
+        return;
+    }
     RecordWrite(op->dst, op);
     InitCPSRBits(op->dst);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->src);
-    RecordCPSRWrite(op);
+    if (!op->src.immediate) {
+        RecordCPSRWrite(op->src.var, op);
+    }
 
     // TODO: revisit this
 
-    auto opStr = op->ToString();
-    printf("now checking:  %s\n", opStr.c_str());
+    // auto opStr = op->ToString();
+    // printf("now checking:  %s\n", opStr.c_str());
     if (op->src.immediate) {
         // Immediate value makes every bit known
         m_knownCPSRBits.mask = ~0;
         m_knownCPSRBits.values = op->src.imm.value;
-        printf("  immediate!\n");
+        // printf("  immediate!\n");
         UpdateCPSRBitWrites(op, ~0);
     } else if (!op->src.immediate && op->src.var.var.IsPresent()) {
         // Check for derived values
@@ -57,14 +74,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
                 // Check for differences between current CPSR value and the one coming from the variable
                 const uint32_t maskDelta = (bits.knownBits.mask ^ m_knownCPSRBits.mask) | bits.undefinedBits;
                 const uint32_t valsDelta = (bits.knownBits.values ^ m_knownCPSRBits.values) | bits.undefinedBits;
-                printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
+                // printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
                 if (m_knownCPSRBits.mask != 0 && maskDelta == 0 && valsDelta == 0) {
                     // All masked bits are equal; CPSR value has not changed
-                    printf("    no changes! erasing instruction\n");
+                    // printf("    no changes! erasing instruction\n");
                     m_emitter.Erase(op);
                 } else {
                     // Either the mask or the value (or both) changed
-                    printf("    applying changes -> 0x%08x 0x%08x\n", bits.changedBits.mask, bits.changedBits.values);
+                    // printf("    applying changes -> 0x%08x 0x%08x\n", bits.changedBits.mask,
+                    // bits.changedBits.values);
                     m_knownCPSRBits = bits.knownBits;
                     UpdateCPSRBitWrites(op, bits.changedBits.mask | bits.undefinedBits);
                 }
@@ -74,17 +92,26 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordSPSRRead(op->mode);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->src);
     RecordSPSRWrite(op->mode, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->address, true);
     RecordDependentRead(op->dst, op->address);
     RecordWrite(op->dst, op);
@@ -101,6 +128,9 @@ void DeadStoreEliminationOptimizerPass::Process(IRPreloadOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
@@ -110,9 +140,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     }
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
@@ -122,9 +158,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     }
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
@@ -134,9 +176,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     }
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordRead(op->amount, true);
     RecordDependentRead(op->dst, op->value);
@@ -146,9 +194,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
     }
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsRead(arm::Flags::C);
     RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
@@ -157,9 +211,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -168,16 +228,22 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
     RecordWrite(op->dst, op);
 
     // AND clears all zero bits
-    if (op->lhs.immediate) {
+    if (op->lhs.immediate == op->rhs.immediate) {
+        UndefineCPSRBits(op->dst, ~0);
+    } else if (op->lhs.immediate) {
         DeriveCPSRBits(op->dst, op->rhs.var, ~op->lhs.imm.value, 0);
     } else if (op->rhs.immediate) {
         DeriveCPSRBits(op->dst, op->lhs.var, ~op->rhs.imm.value, 0);
-    } else {
-        UndefineCPSRBits(op->dst, ~0);
+    }
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -186,16 +252,22 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
     RecordWrite(op->dst, op);
 
     // OR sets all one bits
-    if (op->lhs.immediate) {
+    if (op->lhs.immediate == op->rhs.immediate) {
+        UndefineCPSRBits(op->dst, ~0);
+    } else if (op->lhs.immediate) {
         DeriveCPSRBits(op->dst, op->rhs.var, op->lhs.imm.value, op->lhs.imm.value);
     } else if (op->rhs.immediate) {
         DeriveCPSRBits(op->dst, op->lhs.var, op->rhs.imm.value, op->rhs.imm.value);
-    } else {
-        UndefineCPSRBits(op->dst, ~0);
+    }
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -204,16 +276,22 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
     RecordWrite(op->dst, op);
 
     // XOR flips all one bits
-    if (op->lhs.immediate) {
+    if (op->lhs.immediate == op->rhs.immediate) {
+        UndefineCPSRBits(op->dst, ~0);
+    } else if (op->lhs.immediate) {
         UndefineCPSRBits(op->dst, op->lhs.imm.value);
     } else if (op->rhs.immediate) {
         UndefineCPSRBits(op->dst, op->rhs.imm.value);
-    } else {
-        UndefineCPSRBits(op->dst, ~0);
+    }
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -222,23 +300,35 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
     RecordWrite(op->dst, op);
 
     // BIC clears all one bits
-    if (op->lhs.immediate) {
+    if (op->lhs.immediate == op->rhs.immediate) {
+        UndefineCPSRBits(op->dst, ~0);
+    } else if (op->lhs.immediate) {
         DeriveCPSRBits(op->dst, op->rhs.var, op->lhs.imm.value, 0);
     } else if (op->rhs.immediate) {
         DeriveCPSRBits(op->dst, op->lhs.var, op->rhs.imm.value, 0);
-    } else {
-        UndefineCPSRBits(op->dst, ~0);
+    }
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -246,9 +336,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsRead(arm::Flags::C);
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
@@ -257,9 +353,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -267,9 +369,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsRead(arm::Flags::C);
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
@@ -278,34 +386,45 @@ void DeadStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
-    if (op->flags != arm::Flags::None) {
-        RecordRead(op->value, true);
-        RecordDependentRead(op->dst, op->value);
-        RecordHostFlagsWrite(op->flags, op);
-    } else {
-        RecordRead(op->value, false);
-        RecordDependentRead(op->dst, op->value);
+    if (EraseDeadInstruction(op)) {
+        return;
     }
+    RecordRead(op->value, op->flags != arm::Flags::None);
+    RecordDependentRead(op->dst, op->value);
+    RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     if (op->value.immediate) {
         DefineCPSRBits(op->dst, ~0, op->value.imm.value);
     } else {
         CopyCPSRBits(op->dst, op->value.var);
+        CopyCPSRVersion(op->dst, op->value.var);
     }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->value, true);
     RecordDependentRead(op->dst, op->value);
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->value)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -313,9 +432,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -323,9 +448,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dst, op->lhs);
@@ -333,9 +464,15 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
     RecordHostFlagsWrite(op->flags, op);
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dst);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);
     RecordDependentRead(op->dstLo, op->lhs);
@@ -347,9 +484,16 @@ void DeadStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
     RecordWrite(op->dstHi, op);
     UndefineCPSRBits(op->dstLo, ~0);
     UndefineCPSRBits(op->dstHi, ~0);
+    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
+        AssignNewCPSRVersion(op->dstLo);
+        AssignNewCPSRVersion(op->dstHi);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->lhsLo, true);
     RecordRead(op->lhsHi, true);
     RecordRead(op->rhsLo, true);
@@ -367,41 +511,62 @@ void DeadStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
     RecordWrite(op->dstHi, op);
     UndefineCPSRBits(op->dstLo, ~0);
     UndefineCPSRBits(op->dstHi, ~0);
+    if (HasCPSRVersion(op->lhsLo) || HasCPSRVersion(op->lhsHi) || HasCPSRVersion(op->rhsLo) ||
+        HasCPSRVersion(op->rhsHi)) {
+        AssignNewCPSRVersion(op->dstLo);
+        AssignNewCPSRVersion(op->dstHi);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRStoreFlagsOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsWrite(op->flags, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsRead(op->flags);
     RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
     UndefineCPSRBits(op->dstCPSR, static_cast<uint32_t>(op->flags));
+    if (HasCPSRVersion(op->srcCPSR)) {
+        AssignNewCPSRVersion(op->dstCPSR);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordHostFlagsRead(arm::Flags::Q);
     RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
     UndefineCPSRBits(op->dstCPSR, static_cast<uint32_t>(arm::Flags::Q));
+    if (HasCPSRVersion(op->srcCPSR)) {
+        AssignNewCPSRVersion(op->dstCPSR);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBranchOp *op) {
     RecordRead(op->address);
-    // TODO: read from CPSR
-    RecordWrite(arm::GPR::PC, op);
+    RecordGPRWrite(arm::GPR::PC, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBranchExchangeOp *op) {
     RecordRead(op->address);
-    // TODO: read from CPSR
-    RecordWrite(arm::GPR::PC, op);
+    RecordGPRWrite(arm::GPR::PC, op);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadCopRegisterOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordWrite(op->dstValue, op);
     UndefineCPSRBits(op->dstValue, ~0);
 }
@@ -411,18 +576,28 @@ void DeadStoreEliminationOptimizerPass::Process(IRStoreCopRegisterOp *op) {
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRConstantOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordWrite(op->dst, op);
     DefineCPSRBits(op->dst, ~0, op->value);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordRead(op->var, false);
     RecordDependentRead(op->dst, op->var);
     RecordWrite(op->dst, op);
     CopyCPSRBits(op->dst, op->var);
+    CopyCPSRVersion(op->dst, op->var);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRGetBaseVectorAddressOp *op) {
+    if (EraseDeadInstruction(op)) {
+        return;
+    }
     RecordWrite(op->dst, op);
     UndefineCPSRBits(op->dst, ~0);
 }
@@ -430,10 +605,11 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetBaseVectorAddressOp *op) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Variable read, write and consumption tracking
 
-void DeadStoreEliminationOptimizerPass::RecordRead(VariableArg dst, bool consume) {
+void DeadStoreEliminationOptimizerPass::RecordRead(VariableArg &dst, bool consume) {
     if (!dst.var.IsPresent()) {
         return;
     }
+    SubstituteCPSRVar(dst);
     auto varIndex = dst.var.Index();
     if (varIndex >= m_varWrites.size()) {
         return;
@@ -444,7 +620,7 @@ void DeadStoreEliminationOptimizerPass::RecordRead(VariableArg dst, bool consume
     }
 }
 
-void DeadStoreEliminationOptimizerPass::RecordRead(VarOrImmArg dst, bool consume) {
+void DeadStoreEliminationOptimizerPass::RecordRead(VarOrImmArg &dst, bool consume) {
     if (!dst.immediate) {
         RecordRead(dst.var, consume);
     }
@@ -480,26 +656,26 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(VariableArg dst, IROp *op) {
     m_varWrites[varIndex].consumed = false;
 }
 
-void DeadStoreEliminationOptimizerPass::ResizeWrites(size_t size) {
-    if (m_varWrites.size() <= size) {
-        m_varWrites.resize(size + 1);
+void DeadStoreEliminationOptimizerPass::ResizeWrites(size_t index) {
+    if (m_varWrites.size() <= index) {
+        m_varWrites.resize(index + 1);
     }
 }
 
-void DeadStoreEliminationOptimizerPass::ResizeDependencies(size_t size) {
-    if (m_dependencies.size() <= size) {
-        m_dependencies.resize(size + 1);
+void DeadStoreEliminationOptimizerPass::ResizeDependencies(size_t index) {
+    if (m_dependencies.size() <= index) {
+        m_dependencies.resize(index + 1);
     }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// GPR and PSR read and write tracking
+// GPR read and write tracking
 
-void DeadStoreEliminationOptimizerPass::RecordRead(GPRArg gpr) {
+void DeadStoreEliminationOptimizerPass::RecordGPRRead(GPRArg gpr) {
     m_gprWrites[gpr.Index()] = nullptr; // Leave instruction alone
 }
 
-void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
+void DeadStoreEliminationOptimizerPass::RecordGPRWrite(GPRArg gpr, IROp *op) {
     auto gprIndex = gpr.Index();
     IROp *writeOp = m_gprWrites[gprIndex];
     if (writeOp != nullptr) {
@@ -510,17 +686,190 @@ void DeadStoreEliminationOptimizerPass::RecordWrite(GPRArg gpr, IROp *op) {
     m_gprWrites[gprIndex] = op;
 }
 
-void DeadStoreEliminationOptimizerPass::RecordCPSRRead() {
-    m_cpsrWrite = nullptr; // Leave instruction alone
+// ---------------------------------------------------------------------------------------------------------------------
+// PSR read and write tracking
+
+bool DeadStoreEliminationOptimizerPass::RecordAndEraseDeadCPSRRead(VariableArg var, IROp *loadOp) {
+    if (!var.var.IsPresent()) {
+        return false;
+    }
+
+    // auto __varStr = var.ToString();
+
+    // Assign variable to current CPSR version
+    const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
+    ResizeCPSRToVarMap(index);
+    if (!m_cpsrVarMap[index].var.IsPresent()) {
+        m_cpsrVarMap[index].var = var.var;
+        // printf("[CPSR version] %s = ver %llu (CPSR)\n", __varStr.c_str(), m_cpsrVersion);
+    } else {
+        // auto __prevVarStr = m_cpsrVarMap[index].var.ToString();
+        // printf("[CPSR version] %s -> %s = ver %llu (CPSR; previously assigned)\n", __varStr.c_str(),
+        //        __prevVarStr.c_str(), m_cpsrVersion);
+    }
+
+    // Assign CPSR version to the variable
+    const auto varIndex = var.var.Index();
+    ResizeVarToCPSRVersionMap(varIndex);
+    m_varCPSRVersionMap[varIndex] = m_cpsrVersion;
+
+    return CheckAndEraseDeadCPSRLoadStore(loadOp);
 }
 
-void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(IROp *op) {
-    if (m_cpsrWrite != nullptr) {
-        // CPSR is overwritten
-        // Erase previous instruction, which is always going to be an IRSetCPSROp
-        m_emitter.Erase(m_cpsrWrite);
+void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *op) {
+    if (!src.var.IsPresent()) {
+        return;
     }
-    m_cpsrWrite = op;
+
+    // auto __srcStr = src.ToString();
+
+    // Update CPSR version to that of the variable, if present
+    const auto varIndex = src.var.Index();
+    if (varIndex < m_varCPSRVersionMap.size() && m_varCPSRVersionMap[varIndex] != 0) {
+        m_cpsrVersion = m_varCPSRVersionMap[varIndex];
+        m_nextCPSRVersion = m_cpsrVersion + 1;
+
+        // Associate this version with the given write op
+        const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
+        assert(index < m_cpsrVarMap.size());  // this entry should exist
+        m_cpsrVarMap[index].writeOp = op;
+
+        // printf("[CPSR version] CPSR store: %s (pass) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
+    } else {
+        // Increment CPSR to the next CPSR version
+        m_cpsrVersion = m_nextCPSRVersion++;
+
+        // printf("[CPSR version] CPSR store: %s (fail) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
+    }
+}
+
+bool DeadStoreEliminationOptimizerPass::CheckAndEraseDeadCPSRLoadStore(IROp *loadOp) {
+    const auto versionIndex = m_cpsrVersion - 1; // CPSR version is 1-indexed
+    if (versionIndex >= m_cpsrVarMap.size()) {
+        return false;
+    }
+
+    // If the current version of CPSR comes from a previous store without modifications, erase both instructions
+    auto &entry = m_cpsrVarMap[versionIndex];
+    if (!entry.var.IsPresent() || entry.writeOp == nullptr) {
+        return false;
+    }
+
+    // auto __loadOpStr = loadOp->ToString();
+    // auto __storeOpStr = entry.writeOp->ToString();
+    // printf("[CPSR version] erasing %s and %s\n", __loadOpStr.c_str(), __storeOpStr.c_str());
+    m_emitter.Erase(loadOp);
+    m_emitter.Erase(entry.writeOp);
+    entry.writeOp = nullptr;
+    return true;
+}
+
+bool DeadStoreEliminationOptimizerPass::HasCPSRVersion(VariableArg var) {
+    if (!var.var.IsPresent()) {
+        return false;
+    }
+
+    const auto varIndex = var.var.Index();
+    if (varIndex < m_varCPSRVersionMap.size()) {
+        return m_varCPSRVersionMap[varIndex] != 0;
+    }
+    return false;
+}
+
+bool DeadStoreEliminationOptimizerPass::HasCPSRVersion(VarOrImmArg var) {
+    if (var.immediate) {
+        return false;
+    }
+    return HasCPSRVersion(var.var);
+}
+
+void DeadStoreEliminationOptimizerPass::AssignNewCPSRVersion(VariableArg var) {
+    if (!var.var.IsPresent()) {
+        return;
+    }
+
+    const auto varIndex = var.var.Index();
+    ResizeVarToCPSRVersionMap(varIndex);
+    m_varCPSRVersionMap[varIndex] = m_nextCPSRVersion++;
+
+    const auto versionIndex = m_varCPSRVersionMap[varIndex] - 1;
+    ResizeCPSRToVarMap(versionIndex);
+    m_cpsrVarMap[versionIndex].var = var.var;
+
+    // auto __varStr = var.ToString();
+    // printf("[CPSR version] %s = ver %llu (incremented)\n", __varStr.c_str(), m_varCPSRVersionMap[varIndex]);
+}
+
+void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, VariableArg src) {
+    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
+        return;
+    }
+
+    const auto srcIndex = src.var.Index();
+    if (srcIndex >= m_varCPSRVersionMap.size()) {
+        return;
+    }
+
+    const auto dstIndex = dst.var.Index();
+    ResizeVarToCPSRVersionMap(dstIndex);
+    m_varCPSRVersionMap[dstIndex] = m_varCPSRVersionMap[srcIndex];
+
+    const auto versionIndex = m_varCPSRVersionMap[dstIndex] - 1;
+    ResizeCPSRToVarMap(versionIndex);
+    m_cpsrVarMap[versionIndex].var = dst.var;
+
+    // auto __dstStr = dst.ToString();
+    // auto __srcStr = src.ToString();
+    // printf("[CPSR version] %s = ver %llu (copy from %s)\n", __dstStr.c_str(), m_varCPSRVersionMap[dstIndex],
+    //        __srcStr.c_str());
+}
+
+void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
+    if (!var.var.IsPresent()) {
+        return;
+    }
+
+    // Check if there is a CPSR version associated with the variable
+    const auto varIndex = var.var.Index();
+    if (varIndex >= m_varCPSRVersionMap.size()) {
+        return;
+    }
+    const auto version = m_varCPSRVersionMap[varIndex];
+    if (version == 0) {
+        return;
+    }
+
+    // Replace variable with the one corresponding to this version, if present
+    const auto versionIndex = version - 1;
+    if (versionIndex >= m_cpsrVarMap.size()) {
+        return;
+    }
+    auto &entry = m_cpsrVarMap[versionIndex];
+    if (entry.var.IsPresent()) {
+        // auto __srcVar = var.ToString();
+        // auto __dstVar = std::format("$v{}", entry.var.Index());
+        // printf("[CPSR version] replacing %s -> %s\n", __srcVar.c_str(), __dstVar.c_str());
+        var = entry.var;
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VarOrImmArg &var) {
+    if (var.immediate) {
+        return;
+    }
+    SubstituteCPSRVar(var.var);
+}
+
+void DeadStoreEliminationOptimizerPass::ResizeCPSRToVarMap(size_t index) {
+    if (m_cpsrVarMap.size() <= index) {
+        m_cpsrVarMap.resize(index + 1);
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::ResizeVarToCPSRVersionMap(size_t index) {
+    if (m_varCPSRVersionMap.size() <= index) {
+        m_varCPSRVersionMap.resize(index + 1);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::RecordSPSRRead(arm::Mode mode) {
@@ -578,9 +927,9 @@ void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, I
 // ---------------------------------------------------------------------------------------------------------------------
 // CPSR bits tracking
 
-void DeadStoreEliminationOptimizerPass::ResizeCPSRBitsPerVar(size_t size) {
-    if (m_cpsrBitsPerVar.size() <= size) {
-        m_cpsrBitsPerVar.resize(size + 1);
+void DeadStoreEliminationOptimizerPass::ResizeCPSRBitsPerVar(size_t index) {
+    if (m_cpsrBitsPerVar.size() <= index) {
+        m_cpsrBitsPerVar.resize(index + 1);
     }
 }
 
@@ -595,7 +944,7 @@ void DeadStoreEliminationOptimizerPass::InitCPSRBits(VariableArg dst) {
     bits.knownBits = m_knownCPSRBits;
 
     auto dstStr = dst.ToString();
-    printf("%s = [cpsr] bits=0x%08x vals=0x%08x\n", dstStr.c_str(), m_knownCPSRBits.mask, m_knownCPSRBits.values);
+    // printf("%s = [cpsr] bits=0x%08x vals=0x%08x\n", dstStr.c_str(), m_knownCPSRBits.mask, m_knownCPSRBits.values);
 }
 
 void DeadStoreEliminationOptimizerPass::DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask,
@@ -625,9 +974,9 @@ void DeadStoreEliminationOptimizerPass::DeriveCPSRBits(VariableArg dst, Variable
 
     auto dstStr = dst.ToString();
     auto srcStr = src.ToString();
-    printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
-           dstStr.c_str(), srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-           dstBits.changedBits.values, dstBits.undefinedBits);
+    // printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
+    //        dstStr.c_str(), srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values,
+    //        dstBits.changedBits.mask, dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableArg src) {
@@ -651,9 +1000,10 @@ void DeadStoreEliminationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableAr
 
     auto dstStr = dst.ToString();
     auto srcStr = src.ToString();
-    printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
-           srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-           dstBits.changedBits.values, dstBits.undefinedBits);
+    // printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
+    // dstStr.c_str(),
+    //        srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
+    //        dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value) {
@@ -670,9 +1020,9 @@ void DeadStoreEliminationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t
     dstBits.changedBits.values = value & mask;
 
     auto dstStr = dst.ToString();
-    printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
-           dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask, dstBits.changedBits.values,
-           dstBits.undefinedBits);
+    // printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
+    //        dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask, dstBits.changedBits.values,
+    //        dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32_t mask) {
@@ -686,7 +1036,7 @@ void DeadStoreEliminationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32
     dstBits.undefinedBits = mask;
 
     auto dstStr = dst.ToString();
-    printf("%s = [undefined] bits=0x%08x\n", dstStr.c_str(), mask);
+    // printf("%s = [undefined] bits=0x%08x\n", dstStr.c_str(), mask);
 }
 
 void DeadStoreEliminationOptimizerPass::UpdateCPSRBitWrites(IROp *op, uint32_t mask) {
@@ -705,7 +1055,7 @@ void DeadStoreEliminationOptimizerPass::UpdateCPSRBitWrites(IROp *op, uint32_t m
             if (writeMask == 0) {
                 // Instruction no longer writes anything useful; erase it
                 auto str = prevOp->ToString();
-                printf("    erasing %s\n", str.c_str());
+                // printf("    erasing %s\n", str.c_str());
                 m_emitter.Erase(prevOp);
                 m_cpsrBitWriteMasks.erase(prevOp);
             }
@@ -732,7 +1082,7 @@ void DeadStoreEliminationOptimizerPass::EraseWriteRecursive(Variable var, IROp *
         for (auto &dep : m_dependencies[var.Index()]) {
             if (dep.IsPresent()) {
                 auto &write = m_varWrites[dep.Index()];
-                if (!write.consumed) {
+                if (write.op != nullptr && !write.consumed) {
                     EraseWriteRecursive(dep, write.op);
                 }
             }
@@ -744,161 +1094,161 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetRegisterOp
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetCPSROp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetSPSROp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMemReadOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftLeftOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftRightOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRArithmeticShiftRightOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightExtendOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseAndOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseOrOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseXorOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitClearOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCountLeadingZerosOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddCarryOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractCarryOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveNegatedOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingAddOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingSubtractOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyLongOp *op) {
@@ -908,7 +1258,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyLongO
     if (op->dstHi == var) {
         op->dstHi.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op) {
@@ -918,49 +1268,49 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op
     if (op->dstHi == var) {
         op->dstHi.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadFlagsOp *op) {
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadStickyOverflowOp *op) {
     if (op->dstCPSR == var) {
         op->dstCPSR.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadCopRegisterOp *op) {
     if (op->dstValue == var) {
         op->dstValue.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRConstantOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCopyVarOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetBaseVectorAddressOp *op) {
     if (op->dst == var) {
         op->dst.var = {};
     }
-    return EraseInstruction(op);
+    return EraseDeadInstruction(op);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1077,9 +1427,9 @@ void DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadSticky
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Generic EraseInstruction
+// Generic EraseDeadInstruction
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetRegisterOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRGetRegisterOp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1087,12 +1437,12 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetRegisterOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSetRegisterOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSetRegisterOp *op) {
     // TODO: implement
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetCPSROp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRGetCPSROp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1100,12 +1450,12 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetCPSROp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSetCPSROp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSetCPSROp *op) {
     // TODO: implement
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetSPSROp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRGetSPSROp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1113,12 +1463,12 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetSPSROp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSetSPSROp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSetSPSROp *op) {
     // TODO: implement
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMemReadOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRMemReadOp *op) {
     if (!op->dst.var.IsPresent()) {
         if (op->address.immediate && false /* TODO: no side effects on address */) {
             m_emitter.Erase(op);
@@ -1128,7 +1478,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMemReadOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftLeftOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRLogicalShiftLeftOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
@@ -1136,7 +1486,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftLeftOp *o
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRLogicalShiftRightOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
@@ -1144,7 +1494,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLogicalShiftRightOp *
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRArithmeticShiftRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRArithmeticShiftRightOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
@@ -1152,7 +1502,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRArithmeticShiftRightO
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRRotateRightOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
@@ -1160,7 +1510,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightExtendOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRRotateRightExtendOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;
@@ -1168,7 +1518,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRRotateRightExtendOp *
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseAndOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRBitwiseAndOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1176,7 +1526,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseAndOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseOrOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRBitwiseOrOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1184,7 +1534,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseOrOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseXorOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRBitwiseXorOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1192,7 +1542,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitwiseXorOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitClearOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRBitClearOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1200,7 +1550,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRBitClearOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRCountLeadingZerosOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRCountLeadingZerosOp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1208,7 +1558,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRCountLeadingZerosOp *
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRAddOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1216,7 +1566,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddCarryOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRAddCarryOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1224,7 +1574,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddCarryOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSubtractOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1232,7 +1582,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractCarryOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSubtractCarryOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1240,7 +1590,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSubtractCarryOp *op) 
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRMoveOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1248,7 +1598,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveNegatedOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRMoveNegatedOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1256,7 +1606,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMoveNegatedOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingAddOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSaturatingAddOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1264,7 +1614,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingAddOp *op) 
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingSubtractOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRSaturatingSubtractOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1272,7 +1622,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRSaturatingSubtractOp 
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRMultiplyOp *op) {
     if (!op->dst.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1280,7 +1630,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyLongOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRMultiplyLongOp *op) {
     if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1288,7 +1638,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRMultiplyLongOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddLongOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRAddLongOp *op) {
     if (!op->dstLo.var.IsPresent() && !op->dstHi.var.IsPresent() && op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1296,7 +1646,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRAddLongOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRStoreFlagsOp *op) {
     if (op->flags == arm::Flags::None) {
         m_emitter.Erase(op);
         return true;
@@ -1304,7 +1654,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRLoadFlagsOp *op) {
     if (!op->dstCPSR.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1312,7 +1662,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadStickyOverflowOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRLoadStickyOverflowOp *op) {
     if (!op->dstCPSR.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1320,7 +1670,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadStickyOverflowOp 
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadCopRegisterOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRLoadCopRegisterOp *op) {
     if (!op->dstValue.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1328,7 +1678,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadCopRegisterOp *op
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRConstantOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRConstantOp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1336,7 +1686,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRConstantOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRCopyVarOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRCopyVarOp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
@@ -1344,7 +1694,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRCopyVarOp *op) {
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRGetBaseVectorAddressOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRGetBaseVectorAddressOp *op) {
     if (!op->dst.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;

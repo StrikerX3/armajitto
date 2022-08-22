@@ -87,11 +87,7 @@ struct VariableArg {
     }
 
     std::string ToString() const {
-        if (var.IsPresent()) {
-            return std::format("$v{}", var.Index());
-        } else {
-            return std::string("$v?");
-        }
+        return var.ToString();
     }
 };
 

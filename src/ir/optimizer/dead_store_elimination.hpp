@@ -167,8 +167,8 @@ private:
     std::vector<VarWrite> m_varWrites;
     std::vector<std::vector<Variable>> m_dependencies;
 
-    void RecordRead(VariableArg dst, bool consume = true);
-    void RecordRead(VarOrImmArg dst, bool consume = true);
+    void RecordRead(VariableArg &dst, bool consume = true);
+    void RecordRead(VarOrImmArg &dst, bool consume = true);
 
     void RecordDependentRead(VariableArg dst, Variable src);
     void RecordDependentRead(VariableArg dst, VariableArg src);
@@ -176,21 +176,43 @@ private:
 
     void RecordWrite(VariableArg dst, IROp *op);
 
-    void ResizeWrites(size_t size);
-    void ResizeDependencies(size_t size);
+    void ResizeWrites(size_t index);
+    void ResizeDependencies(size_t index);
 
     // -------------------------------------------------------------------------
-    // GPR and PSR read and write tracking
+    // GPR read and write tracking
 
     std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
-    IROp *m_cpsrWrite = nullptr;
+
+    void RecordGPRRead(GPRArg gpr);
+    void RecordGPRWrite(GPRArg gpr, IROp *op);
+
+    // -------------------------------------------------------------------------
+    // PSR read and write tracking
+
+    struct CPSRVar {
+        Variable var;
+        IROp *writeOp = nullptr;
+    };
+
+    uintmax_t m_cpsrVersion = 1;
+    uintmax_t m_nextCPSRVersion = 2;
+    std::vector<CPSRVar> m_cpsrVarMap;
+    std::vector<uintmax_t> m_varCPSRVersionMap;
     std::array<IROp *, 32> m_spsrWrites{{nullptr}};
 
-    void RecordRead(GPRArg gpr);
-    void RecordWrite(GPRArg gpr, IROp *op);
+    bool RecordAndEraseDeadCPSRRead(VariableArg var, IROp *loadOp);
+    void RecordCPSRWrite(VariableArg src, IROp *op);
+    bool CheckAndEraseDeadCPSRLoadStore(IROp *loadOp);
+    bool HasCPSRVersion(VariableArg var);
+    bool HasCPSRVersion(VarOrImmArg var);
+    void AssignNewCPSRVersion(VariableArg var);
+    void CopyCPSRVersion(VariableArg dst, VariableArg src);
+    void SubstituteCPSRVar(VariableArg &var);
+    void SubstituteCPSRVar(VarOrImmArg &var);
 
-    void RecordCPSRRead();
-    void RecordCPSRWrite(IROp *op);
+    void ResizeCPSRToVarMap(size_t index);
+    void ResizeVarToCPSRVersionMap(size_t swindexize);
 
     void RecordSPSRRead(arm::Mode mode);
     void RecordSPSRWrite(arm::Mode mode, IROp *op);
@@ -236,7 +258,7 @@ private:
     // CopyCPSRBits      copies a value from another variable
     // DefineCPSRBits    creates a value from an immediate
     // UndefineCPSRBits  marks bits as modified with an unknown value
-    void ResizeCPSRBitsPerVar(size_t size);
+    void ResizeCPSRBitsPerVar(size_t index);
     void InitCPSRBits(VariableArg dst);
     void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t value);
     void CopyCPSRBits(VariableArg dst, VariableArg src);
@@ -328,49 +350,49 @@ private:
     void EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
     // -------------------------------------------------------------------------
-    // Generic EraseInstruction
+    // Generic EraseDeadInstruction
     // Erases instructions if they have no additional writes or side effects
 
-    bool EraseInstruction(IRGetRegisterOp *op);
-    bool EraseInstruction(IRSetRegisterOp *op);
-    bool EraseInstruction(IRGetCPSROp *op);
-    bool EraseInstruction(IRSetCPSROp *op);
-    bool EraseInstruction(IRGetSPSROp *op);
-    bool EraseInstruction(IRSetSPSROp *op);
-    bool EraseInstruction(IRMemReadOp *op);
+    bool EraseDeadInstruction(IRGetRegisterOp *op);
+    bool EraseDeadInstruction(IRSetRegisterOp *op);
+    bool EraseDeadInstruction(IRGetCPSROp *op);
+    bool EraseDeadInstruction(IRSetCPSROp *op);
+    bool EraseDeadInstruction(IRGetSPSROp *op);
+    bool EraseDeadInstruction(IRSetSPSROp *op);
+    bool EraseDeadInstruction(IRMemReadOp *op);
     // IRMemWriteOp has side effects
     // IRPreloadOp has side effects
-    bool EraseInstruction(IRLogicalShiftLeftOp *op);
-    bool EraseInstruction(IRLogicalShiftRightOp *op);
-    bool EraseInstruction(IRArithmeticShiftRightOp *op);
-    bool EraseInstruction(IRRotateRightOp *op);
-    bool EraseInstruction(IRRotateRightExtendOp *op);
-    bool EraseInstruction(IRBitwiseAndOp *op);
-    bool EraseInstruction(IRBitwiseOrOp *op);
-    bool EraseInstruction(IRBitwiseXorOp *op);
-    bool EraseInstruction(IRBitClearOp *op);
-    bool EraseInstruction(IRCountLeadingZerosOp *op);
-    bool EraseInstruction(IRAddOp *op);
-    bool EraseInstruction(IRAddCarryOp *op);
-    bool EraseInstruction(IRSubtractOp *op);
-    bool EraseInstruction(IRSubtractCarryOp *op);
-    bool EraseInstruction(IRMoveOp *op);
-    bool EraseInstruction(IRMoveNegatedOp *op);
-    bool EraseInstruction(IRSaturatingAddOp *op);
-    bool EraseInstruction(IRSaturatingSubtractOp *op);
-    bool EraseInstruction(IRMultiplyOp *op);
-    bool EraseInstruction(IRMultiplyLongOp *op);
-    bool EraseInstruction(IRAddLongOp *op);
-    bool EraseInstruction(IRStoreFlagsOp *op);
-    bool EraseInstruction(IRLoadFlagsOp *op);
-    bool EraseInstruction(IRLoadStickyOverflowOp *op);
+    bool EraseDeadInstruction(IRLogicalShiftLeftOp *op);
+    bool EraseDeadInstruction(IRLogicalShiftRightOp *op);
+    bool EraseDeadInstruction(IRArithmeticShiftRightOp *op);
+    bool EraseDeadInstruction(IRRotateRightOp *op);
+    bool EraseDeadInstruction(IRRotateRightExtendOp *op);
+    bool EraseDeadInstruction(IRBitwiseAndOp *op);
+    bool EraseDeadInstruction(IRBitwiseOrOp *op);
+    bool EraseDeadInstruction(IRBitwiseXorOp *op);
+    bool EraseDeadInstruction(IRBitClearOp *op);
+    bool EraseDeadInstruction(IRCountLeadingZerosOp *op);
+    bool EraseDeadInstruction(IRAddOp *op);
+    bool EraseDeadInstruction(IRAddCarryOp *op);
+    bool EraseDeadInstruction(IRSubtractOp *op);
+    bool EraseDeadInstruction(IRSubtractCarryOp *op);
+    bool EraseDeadInstruction(IRMoveOp *op);
+    bool EraseDeadInstruction(IRMoveNegatedOp *op);
+    bool EraseDeadInstruction(IRSaturatingAddOp *op);
+    bool EraseDeadInstruction(IRSaturatingSubtractOp *op);
+    bool EraseDeadInstruction(IRMultiplyOp *op);
+    bool EraseDeadInstruction(IRMultiplyLongOp *op);
+    bool EraseDeadInstruction(IRAddLongOp *op);
+    bool EraseDeadInstruction(IRStoreFlagsOp *op);
+    bool EraseDeadInstruction(IRLoadFlagsOp *op);
+    bool EraseDeadInstruction(IRLoadStickyOverflowOp *op);
     // IRBranchOp has side effects
     // IRBranchExchangeOp has side effects
-    bool EraseInstruction(IRLoadCopRegisterOp *op);
+    bool EraseDeadInstruction(IRLoadCopRegisterOp *op);
     // IRStoreCopRegisterOp has side effects
-    bool EraseInstruction(IRConstantOp *op);
-    bool EraseInstruction(IRCopyVarOp *op);
-    bool EraseInstruction(IRGetBaseVectorAddressOp *op);
+    bool EraseDeadInstruction(IRConstantOp *op);
+    bool EraseDeadInstruction(IRCopyVarOp *op);
+    bool EraseDeadInstruction(IRGetBaseVectorAddressOp *op);
 };
 
 } // namespace armajitto::ir
