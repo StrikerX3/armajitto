@@ -693,36 +693,6 @@ auto ConstPropagationOptimizerPass::GetGPRSubstitution(const GPRArg &gpr) -> Val
     return m_gprSubsts[index];
 }
 
-void ConstPropagationOptimizerPass::ResizeFlagsSubsts(size_t size) {
-    if (m_flagsSubsts.size() <= size) {
-        m_flagsSubsts.resize(size + 1);
-    }
-}
-
-void ConstPropagationOptimizerPass::Assign(VariableArg var, arm::Flags mask, arm::Flags flags) {
-    if (!var.var.IsPresent()) {
-        return;
-    }
-    if (mask == arm::Flags::None) {
-        return;
-    }
-    auto varIndex = var.var.Index();
-    ResizeFlagsSubsts(varIndex);
-    m_flagsSubsts[varIndex] = {mask, flags};
-}
-
-auto ConstPropagationOptimizerPass::GetFlagsSubstitution(VariableArg var) -> FlagsValue * {
-    if (!var.var.IsPresent()) {
-        return nullptr;
-    }
-    auto varIndex = var.var.Index();
-    if (varIndex < m_flagsSubsts.size()) {
-        return &m_flagsSubsts[varIndex];
-    } else {
-        return nullptr;
-    }
-}
-
 bool ConstPropagationOptimizerPass::Value::Substitute(VariableArg &var) {
     if (type == Type::Variable) {
         var.var = variable;

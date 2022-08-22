@@ -119,20 +119,6 @@ private:
         }
     };
 
-    // Note: this is only concerned with the flags bits; the rest of the variable's value doesn't matter
-    struct FlagsValue {
-        arm::Flags knownMask;
-        arm::Flags flags;
-
-        FlagsValue()
-            : knownMask(arm::Flags::None)
-            , flags(arm::Flags::None) {}
-
-        FlagsValue(arm::Flags mask, arm::Flags flags)
-            : knownMask(mask)
-            , flags(flags) {}
-    };
-
     size_t MakeGPRIndex(const GPRArg &arg) {
         return static_cast<size_t>(arg.gpr) | (static_cast<size_t>(arg.Mode()) << 4);
     }
@@ -143,7 +129,6 @@ private:
 
     arm::Flags m_knownHostFlagsMask = arm::Flags::None;
     arm::Flags m_knownHostFlagsValues = arm::Flags::None;
-    std::vector<FlagsValue> m_flagsSubsts;
 
     std::optional<bool> GetCarryFlag();
 
@@ -164,11 +149,6 @@ private:
     void Assign(const GPRArg &gpr, VarOrImmArg value);
     void Forget(const GPRArg &gpr);
     Value &GetGPRSubstitution(const GPRArg &gpr);
-
-    // Flags substitutions
-    void ResizeFlagsSubsts(size_t size);
-    void Assign(VariableArg var, arm::Flags mask, arm::Flags flags);
-    FlagsValue *GetFlagsSubstitution(VariableArg var);
 };
 
 } // namespace armajitto::ir
