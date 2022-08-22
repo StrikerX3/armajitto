@@ -45,9 +45,9 @@ private:
 
     void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
-    // void Process(IRGetCPSROp *op) final;
+    void Process(IRGetCPSROp *op) final;
     void Process(IRSetCPSROp *op) final;
-    // void Process(IRGetSPSROp *op) final;
+    void Process(IRGetSPSROp *op) final;
     void Process(IRSetSPSROp *op) final;
     void Process(IRMemReadOp *op) final;
     void Process(IRMemWriteOp *op) final;
@@ -78,11 +78,11 @@ private:
     void Process(IRLoadStickyOverflowOp *op) final;
     void Process(IRBranchOp *op) final;
     void Process(IRBranchExchangeOp *op) final;
-    // void Process(IRLoadCopRegisterOp *op) final;
+    void Process(IRLoadCopRegisterOp *op) final;
     void Process(IRStoreCopRegisterOp *op) final;
     void Process(IRConstantOp *op) final;
     void Process(IRCopyVarOp *op) final;
-    // void Process(IRGetBaseVectorAddressOp *op) final;
+    void Process(IRGetBaseVectorAddressOp *op) final;
 
     struct Value {
         enum class Type { Unknown, Variable, Constant };
@@ -127,8 +127,26 @@ private:
     std::vector<Value> m_varSubsts;
     std::array<Value, 16 * 32> m_gprSubsts;
 
+    // Host flag state tracking
     arm::Flags m_knownHostFlagsMask = arm::Flags::None;
     arm::Flags m_knownHostFlagsValues = arm::Flags::None;
+
+    // Used with CPSR to track which bits have been changed and erase ineffective IRSetCPSROp instructions
+    struct Bits {
+        uint32_t mask = 0;
+        uint32_t values = 0;
+    };
+
+    struct CPSRBits {
+        bool valid = false;
+        Bits knownBits;
+        Bits changedBits;
+    };
+
+    Bits m_knownCPSRBits;
+    std::vector<CPSRBits> m_cpsrBitsPerVar;
+    std::array<IROp *, 32> m_cpsrBitWrites{{nullptr}};        // Last IRSetCPSROp that wrote to each bit
+    std::unordered_map<IROp *, uint32_t> m_cpsrBitWriteMasks; // Which bits that IRSetCPSROp instruction changed
 
     std::optional<bool> GetCarryFlag();
 
@@ -149,6 +167,12 @@ private:
     void Assign(const GPRArg &gpr, VarOrImmArg value);
     void Forget(const GPRArg &gpr);
     Value &GetGPRSubstitution(const GPRArg &gpr);
+
+    // CPSR changes
+    void ResizeCPSRBitsPerVar(size_t size);
+    void InitCPSRBits(VariableArg dst, IROp *op);
+    void DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask, uint32_t values);
+    void UpdateCPSRBitWrites(IROp *op, uint32_t mask);
 };
 
 } // namespace armajitto::ir
