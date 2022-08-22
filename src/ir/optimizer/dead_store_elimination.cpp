@@ -1070,7 +1070,7 @@ bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRStoreFlagsOp *op) {
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseInstruction(IRLoadFlagsOp *op) {
-    if (!op->dstCPSR.var.IsPresent() && op->flags == arm::Flags::None) {
+    if (!op->dstCPSR.var.IsPresent()) {
         m_emitter.Erase(op);
         return true;
     }

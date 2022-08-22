@@ -141,7 +141,7 @@ private:
         bool valid = false;
         Bits knownBits;
         Bits changedBits;
-        uint32_t definedBits = ~0;
+        uint32_t undefinedBits = 0;
     };
 
     Bits m_knownCPSRBits;

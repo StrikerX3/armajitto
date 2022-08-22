@@ -59,11 +59,9 @@ void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
             auto &bits = m_cpsrBitsPerVar[index];
             if (bits.valid) {
                 // Check for differences between current CPSR value and the one coming from the variable
-                const uint32_t maskDelta = bits.knownBits.mask ^ m_knownCPSRBits.mask;
-                const uint32_t valsDelta = bits.knownBits.values ^ m_knownCPSRBits.values;
-                const uint32_t defBits = bits.definedBits;
-                // TODO: factor in defBits somehow
-                printf("  found valid entry! delta: 0x%08x 0x%08x // 0x%08x\n", maskDelta, valsDelta, defBits);
+                const uint32_t maskDelta = (bits.knownBits.mask ^ m_knownCPSRBits.mask) | bits.undefinedBits;
+                const uint32_t valsDelta = (bits.knownBits.values ^ m_knownCPSRBits.values) | bits.undefinedBits;
+                printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
                 if (m_knownCPSRBits.mask != 0 && maskDelta == 0 && valsDelta == 0) {
                     // All masked bits are equal; CPSR value has not changed
                     printf("    no changes! erasing instruction\n");
@@ -72,7 +70,7 @@ void ConstPropagationOptimizerPass::Process(IRSetCPSROp *op) {
                     // Either the mask or the value (or both) changed
                     printf("    applying changes -> 0x%08x 0x%08x\n", bits.changedBits.mask, bits.changedBits.values);
                     m_knownCPSRBits = bits.knownBits;
-                    UpdateCPSRBitWrites(op, bits.changedBits.mask);
+                    UpdateCPSRBitWrites(op, bits.changedBits.mask | bits.undefinedBits);
                 }
             }
         }
@@ -881,13 +879,13 @@ void ConstPropagationOptimizerPass::DeriveCPSRBits(VariableArg dst, VariableArg 
     dstBits.knownBits.values = (srcBits.knownBits.values & ~mask) | (value & mask);
     dstBits.changedBits.mask = srcBits.changedBits.mask | mask;
     dstBits.changedBits.values = (srcBits.changedBits.values & ~mask) | (value & mask);
-    dstBits.definedBits = srcBits.definedBits;
+    dstBits.undefinedBits = srcBits.undefinedBits;
 
     auto dstStr = dst.ToString();
     auto srcStr = src.ToString();
-    printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x defs=0x%08x\n", dstStr.c_str(),
-           srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-           dstBits.changedBits.values, dstBits.definedBits);
+    printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
+           dstStr.c_str(), srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
+           dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void ConstPropagationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableArg src) {
@@ -911,9 +909,9 @@ void ConstPropagationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableArg sr
 
     auto dstStr = dst.ToString();
     auto srcStr = src.ToString();
-    printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x defs=0x%08x\n", dstStr.c_str(),
+    printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
            srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-           dstBits.changedBits.values, dstBits.definedBits);
+           dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void ConstPropagationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value) {
@@ -930,9 +928,9 @@ void ConstPropagationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t mas
     dstBits.changedBits.values = value & mask;
 
     auto dstStr = dst.ToString();
-    printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x defs=0x%08x\n", dstStr.c_str(),
+    printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
            dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask, dstBits.changedBits.values,
-           dstBits.definedBits);
+           dstBits.undefinedBits);
 }
 
 void ConstPropagationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32_t mask) {
@@ -943,7 +941,7 @@ void ConstPropagationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32_t m
     ResizeCPSRBitsPerVar(dstIndex);
     auto &dstBits = m_cpsrBitsPerVar[dstIndex];
     dstBits.valid = true;
-    dstBits.definedBits = ~mask;
+    dstBits.undefinedBits = mask;
 
     auto dstStr = dst.ToString();
     printf("%s = [undefined] bits=0x%08x\n", dstStr.c_str(), mask);
