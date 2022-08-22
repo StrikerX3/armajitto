@@ -14,10 +14,15 @@ namespace armajitto::ir {
 // --------------------------
 // This optimization simplifies sequences of bitwise operations on a single chain of variables.
 //
-// The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR*) that operates on a
-// variable and an immediate, or basic move and copy operations (MOV, COPY, MVN*), as long as these are the only
-// operations to be applied to a value and they output no flags. For the MVN and XOR operations, all affected bits must
-// be known -- MVN affects all bits, while XOR only affects bits set in the immediate value.
+// The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR, LSL, LSR, ASR, ROR, RRX)
+// that operates on a variable and an immediate, or basic move and copy operations (MOV, COPY, MVN), as long as these
+// are the only operations to be applied to a value and they output no flags.
+//
+// Certain instructions have additional requirements for this optimization:
+// - The MVN and XOR operations require all affected bits to be known. MVN affects all bits, while XOR only affects bits
+//   set in the immediate value.
+// - ASR requires the most significant bit to be known.
+// - RRX requires the carry flag to be known.
 //
 // Assuming the following IR code fragment:
 //     instruction
@@ -68,9 +73,10 @@ namespace armajitto::ir {
 // -------------------------
 // For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
 // operation chaining technique above, or by constant assignments), all ALU operations can be applied. This is
-// effectively a slightly more advanced form of constant propagation and folding, and as such, it is left to that pass.
+// effectively constant propagation and folding, and as such, it is left to that pass.
 //
-// Sequences of ALU operations that act on unknown values, however, can sometimes be simplified.
+// Sequences of ALU operations that act on unknown values, however, are not in the scope of that optimizer, but can
+// sometimes be simplified.
 //
 // Assuming the following IR code fragment:
 //     instruction
@@ -82,8 +88,11 @@ namespace armajitto::ir {
 // It is clear that the final result in $v3 is equal to $v0 + 4. The unknown value is involved in a series of simple
 // additions and subtractions, with no flags being output in any step of the calculation.
 //
-// This optimization is applied to any sequences of ADD, SUB and RSB with a variable and an immediate, as well as ADC
-// and SBC if the carry flag is known.
+// This optimization is applied to any sequences of ADD, SUB and RSB with a variable and an immediate, and also ADC, SBC
+// and RSC if the carry flag is known. COPY, MOV and MVN are also optimized.
+//
+// When the variable is the subtrahend of any subtraction operation, it is also negated, as well as any accumulated sum
+// up to that point. MVN negates and subtracts one from the running sum.
 class BasicPeepholeOptimizerPass final : public OptimizerPassBase {
 public:
     BasicPeepholeOptimizerPass(Emitter &emitter)
@@ -99,20 +108,20 @@ private:
     // void Process(IRMemReadOp *op) final;
     // void Process(IRMemWriteOp *op) final;
     // void Process(IRPreloadOp *op) final;
-    // void Process(IRLogicalShiftLeftOp *op) final;
-    // void Process(IRLogicalShiftRightOp *op) final;
-    // void Process(IRArithmeticShiftRightOp *op) final;
-    // void Process(IRRotateRightOp *op) final;
-    // void Process(IRRotateRightExtendOp *op) final;
+    void Process(IRLogicalShiftLeftOp *op) final;
+    void Process(IRLogicalShiftRightOp *op) final;
+    void Process(IRArithmeticShiftRightOp *op) final;
+    void Process(IRRotateRightOp *op) final;
+    void Process(IRRotateRightExtendOp *op) final;
     void Process(IRBitwiseAndOp *op) final;
     void Process(IRBitwiseOrOp *op) final;
     void Process(IRBitwiseXorOp *op) final;
     void Process(IRBitClearOp *op) final;
     void Process(IRCountLeadingZerosOp *op) final;
-    // void Process(IRAddOp *op) final;
-    // void Process(IRAddCarryOp *op) final;
-    // void Process(IRSubtractOp *op) final;
-    // void Process(IRSubtractCarryOp *op) final;
+    void Process(IRAddOp *op) final;
+    void Process(IRAddCarryOp *op) final;
+    void Process(IRSubtractOp *op) final;
+    void Process(IRSubtractCarryOp *op) final;
     void Process(IRMoveOp *op) final;
     void Process(IRMoveNegatedOp *op) final;
     // void Process(IRSaturatingAddOp *op) final;
@@ -138,6 +147,8 @@ private:
         bool valid = false; // set to true if this value came from one of the bitwise, copy or constant ops
         uint32_t knownBits = 0;
         uint32_t value = 0;
+        IROp *writerOp = nullptr; // pointer to the instruction that produced this variable
+        Variable source;          // source of the value for this variable
     };
 
     // Value per variable
@@ -145,8 +156,8 @@ private:
 
     void ResizeValues(size_t index);
     void AssignConstant(Variable var, uint32_t value);
-    void CopyVariable(Variable var, Variable src);
-    void DeriveKnownBits(Variable var, Variable src, uint32_t mask, uint32_t value);
+    void CopyVariable(Variable var, Variable src, IROp *op);
+    void DeriveKnownBits(Variable var, Variable src, uint32_t mask, uint32_t value, IROp *op);
 };
 
 } // namespace armajitto::ir
