@@ -3,8 +3,6 @@
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
 #include <cassert>
-#include <cstdio>
-#include <format>
 
 namespace armajitto::ir {
 
@@ -56,14 +54,10 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     }
 
     // TODO: revisit this
-
-    // auto opStr = op->ToString();
-    // printf("now checking:  %s\n", opStr.c_str());
     if (op->src.immediate) {
         // Immediate value makes every bit known
         m_knownCPSRBits.mask = ~0;
         m_knownCPSRBits.values = op->src.imm.value;
-        // printf("  immediate!\n");
         UpdateCPSRBitWrites(op, ~0);
     } else if (!op->src.immediate && op->src.var.var.IsPresent()) {
         // Check for derived values
@@ -74,15 +68,11 @@ void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
                 // Check for differences between current CPSR value and the one coming from the variable
                 const uint32_t maskDelta = (bits.knownBits.mask ^ m_knownCPSRBits.mask) | bits.undefinedBits;
                 const uint32_t valsDelta = (bits.knownBits.values ^ m_knownCPSRBits.values) | bits.undefinedBits;
-                // printf("  found valid entry! delta: 0x%08x 0x%08x\n", maskDelta, valsDelta);
                 if (m_knownCPSRBits.mask != 0 && maskDelta == 0 && valsDelta == 0) {
                     // All masked bits are equal; CPSR value has not changed
-                    // printf("    no changes! erasing instruction\n");
                     m_emitter.Erase(op);
                 } else {
                     // Either the mask or the value (or both) changed
-                    // printf("    applying changes -> 0x%08x 0x%08x\n", bits.changedBits.mask,
-                    // bits.changedBits.values);
                     m_knownCPSRBits = bits.knownBits;
                     UpdateCPSRBitWrites(op, bits.changedBits.mask | bits.undefinedBits);
                 }
@@ -694,18 +684,11 @@ bool DeadStoreEliminationOptimizerPass::RecordAndEraseDeadCPSRRead(VariableArg v
         return false;
     }
 
-    // auto __varStr = var.ToString();
-
     // Assign variable to current CPSR version
     const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
     ResizeCPSRToVarMap(index);
     if (!m_cpsrVarMap[index].var.IsPresent()) {
         m_cpsrVarMap[index].var = var.var;
-        // printf("[CPSR version] %s = ver %llu (CPSR)\n", __varStr.c_str(), m_cpsrVersion);
-    } else {
-        // auto __prevVarStr = m_cpsrVarMap[index].var.ToString();
-        // printf("[CPSR version] %s -> %s = ver %llu (CPSR; previously assigned)\n", __varStr.c_str(),
-        //        __prevVarStr.c_str(), m_cpsrVersion);
     }
 
     // Assign CPSR version to the variable
@@ -721,8 +704,6 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *o
         return;
     }
 
-    // auto __srcStr = src.ToString();
-
     // Update CPSR version to that of the variable, if present
     const auto varIndex = src.var.Index();
     if (varIndex < m_varCPSRVersionMap.size() && m_varCPSRVersionMap[varIndex] != 0) {
@@ -733,13 +714,9 @@ void DeadStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *o
         const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
         assert(index < m_cpsrVarMap.size());  // this entry should exist
         m_cpsrVarMap[index].writeOp = op;
-
-        // printf("[CPSR version] CPSR store: %s (pass) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     } else {
         // Increment CPSR to the next CPSR version
         m_cpsrVersion = m_nextCPSRVersion++;
-
-        // printf("[CPSR version] CPSR store: %s (fail) -> version %llu\n", __srcStr.c_str(), m_cpsrVersion);
     }
 }
 
@@ -754,10 +731,6 @@ bool DeadStoreEliminationOptimizerPass::CheckAndEraseDeadCPSRLoadStore(IROp *loa
     if (!entry.var.IsPresent() || entry.writeOp == nullptr) {
         return false;
     }
-
-    // auto __loadOpStr = loadOp->ToString();
-    // auto __storeOpStr = entry.writeOp->ToString();
-    // printf("[CPSR version] erasing %s and %s\n", __loadOpStr.c_str(), __storeOpStr.c_str());
     m_emitter.Erase(loadOp);
     m_emitter.Erase(entry.writeOp);
     entry.writeOp = nullptr;
@@ -795,9 +768,6 @@ void DeadStoreEliminationOptimizerPass::AssignNewCPSRVersion(VariableArg var) {
     const auto versionIndex = m_varCPSRVersionMap[varIndex] - 1;
     ResizeCPSRToVarMap(versionIndex);
     m_cpsrVarMap[versionIndex].var = var.var;
-
-    // auto __varStr = var.ToString();
-    // printf("[CPSR version] %s = ver %llu (incremented)\n", __varStr.c_str(), m_varCPSRVersionMap[varIndex]);
 }
 
 void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, VariableArg src) {
@@ -817,11 +787,6 @@ void DeadStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, Variabl
     const auto versionIndex = m_varCPSRVersionMap[dstIndex] - 1;
     ResizeCPSRToVarMap(versionIndex);
     m_cpsrVarMap[versionIndex].var = dst.var;
-
-    // auto __dstStr = dst.ToString();
-    // auto __srcStr = src.ToString();
-    // printf("[CPSR version] %s = ver %llu (copy from %s)\n", __dstStr.c_str(), m_varCPSRVersionMap[dstIndex],
-    //        __srcStr.c_str());
 }
 
 void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
@@ -846,9 +811,6 @@ void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
     }
     auto &entry = m_cpsrVarMap[versionIndex];
     if (entry.var.IsPresent()) {
-        // auto __srcVar = var.ToString();
-        // auto __dstVar = std::format("$v{}", entry.var.Index());
-        // printf("[CPSR version] replacing %s -> %s\n", __srcVar.c_str(), __dstVar.c_str());
         var = entry.var;
     }
 }
@@ -942,9 +904,6 @@ void DeadStoreEliminationOptimizerPass::InitCPSRBits(VariableArg dst) {
     CPSRBits &bits = m_cpsrBitsPerVar[index];
     bits.valid = true;
     bits.knownBits = m_knownCPSRBits;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [cpsr] bits=0x%08x vals=0x%08x\n", dstStr.c_str(), m_knownCPSRBits.mask, m_knownCPSRBits.values);
 }
 
 void DeadStoreEliminationOptimizerPass::DeriveCPSRBits(VariableArg dst, VariableArg src, uint32_t mask,
@@ -971,12 +930,6 @@ void DeadStoreEliminationOptimizerPass::DeriveCPSRBits(VariableArg dst, Variable
     dstBits.changedBits.mask = srcBits.changedBits.mask | mask;
     dstBits.changedBits.values = (srcBits.changedBits.values & ~mask) | (value & mask);
     dstBits.undefinedBits = srcBits.undefinedBits;
-
-    auto dstStr = dst.ToString();
-    auto srcStr = src.ToString();
-    // printf("%s = [derived] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
-    //        dstStr.c_str(), srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values,
-    //        dstBits.changedBits.mask, dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableArg src) {
@@ -997,13 +950,6 @@ void DeadStoreEliminationOptimizerPass::CopyCPSRBits(VariableArg dst, VariableAr
     }
     auto &dstBits = m_cpsrBitsPerVar[dstIndex];
     dstBits = srcBits;
-
-    auto dstStr = dst.ToString();
-    auto srcStr = src.ToString();
-    // printf("%s = [copied] src=%s bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n",
-    // dstStr.c_str(),
-    //        srcStr.c_str(), dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask,
-    //        dstBits.changedBits.values, dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t mask, uint32_t value) {
@@ -1018,11 +964,6 @@ void DeadStoreEliminationOptimizerPass::DefineCPSRBits(VariableArg dst, uint32_t
     dstBits.knownBits.values = value & mask;
     dstBits.changedBits.mask = mask;
     dstBits.changedBits.values = value & mask;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [defined] bits=0x%08x vals=0x%08x newbits=0x%08x newvals=0x%08x undefs=0x%08x\n", dstStr.c_str(),
-    //        dstBits.knownBits.mask, dstBits.knownBits.values, dstBits.changedBits.mask, dstBits.changedBits.values,
-    //        dstBits.undefinedBits);
 }
 
 void DeadStoreEliminationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32_t mask) {
@@ -1034,9 +975,6 @@ void DeadStoreEliminationOptimizerPass::UndefineCPSRBits(VariableArg dst, uint32
     auto &dstBits = m_cpsrBitsPerVar[dstIndex];
     dstBits.valid = true;
     dstBits.undefinedBits = mask;
-
-    auto dstStr = dst.ToString();
-    // printf("%s = [undefined] bits=0x%08x\n", dstStr.c_str(), mask);
 }
 
 void DeadStoreEliminationOptimizerPass::UpdateCPSRBitWrites(IROp *op, uint32_t mask) {
@@ -1054,8 +992,6 @@ void DeadStoreEliminationOptimizerPass::UpdateCPSRBitWrites(IROp *op, uint32_t m
             writeMask &= ~bit;
             if (writeMask == 0) {
                 // Instruction no longer writes anything useful; erase it
-                auto str = prevOp->ToString();
-                // printf("    erasing %s\n", str.c_str());
                 m_emitter.Erase(prevOp);
                 m_cpsrBitWriteMasks.erase(prevOp);
             }
