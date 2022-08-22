@@ -73,6 +73,12 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
                 ClearKnownHostFlags(arm::Flags::C);
             }
         }
+    } else if (op->amount.immediate) {
+        // Replace LSL by zero with a copy of the value.
+        // This does not affect the carry flag.
+        if (op->amount.imm.value == 0) {
+            m_emitter.Overwrite().CopyVar(op->dst, op->value.var);
+        }
     }
 }
 
@@ -96,6 +102,12 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
             } else {
                 ClearKnownHostFlags(arm::Flags::C);
             }
+        }
+    } else if (op->amount.immediate) {
+        // Replace LSR by zero with a copy of the value.
+        // This does not affect the carry flag.
+        if (op->amount.imm.value == 0) {
+            m_emitter.Overwrite().CopyVar(op->dst, op->value.var);
         }
     }
 }
@@ -121,6 +133,12 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
                 ClearKnownHostFlags(arm::Flags::C);
             }
         }
+    } else if (op->amount.immediate) {
+        // Replace ASR by zero with a copy of the value.
+        // This does not affect the carry flag.
+        if (op->amount.imm.value == 0) {
+            m_emitter.Overwrite().CopyVar(op->dst, op->value.var);
+        }
     }
 }
 
@@ -144,6 +162,12 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
             } else {
                 ClearKnownHostFlags(arm::Flags::C);
             }
+        }
+    } else if (op->amount.immediate) {
+        // Replace ROR by zero with a copy of the value.
+        // This does not affect the carry flag.
+        if (op->amount.imm.value == 0) {
+            m_emitter.Overwrite().CopyVar(op->dst, op->value.var);
         }
     }
 }
@@ -170,6 +194,19 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
     }
 }
 
+// Helper function to split a pair of VarOrImmArgs into an immediate and a variable
+inline std::optional<std::pair<uint32_t, Variable>> SplitImmVarPair(VarOrImmArg &lhs, VarOrImmArg &rhs) {
+    // Requires that the two arguments be different
+    if (lhs.immediate == rhs.immediate) {
+        return std::nullopt;
+    }
+    if (lhs.immediate) {
+        return std::make_pair(lhs.imm.value, rhs.var.var);
+    } else { // rhs.immediate
+        return std::make_pair(rhs.imm.value, lhs.var.var);
+    }
+}
+
 void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
@@ -187,8 +224,20 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace AND by 0xFFFFFFFF with a copy of the other variable
+            // Replace AND by 0x00000000 with the constant 0
+            if (immValue == ~0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            } else if (immValue == 0) {
+                m_emitter.Overwrite().Constant(op->dst, 0);
+            }
+        }
     }
 }
 
@@ -205,8 +254,20 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseOrOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace OR by 0xFFFFFFFF with the constant 0xFFFFFFFF
+            // Replace OR by 0x00000000 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            } else if (immValue == ~0) {
+                m_emitter.Overwrite().Constant(op->dst, ~0);
+            }
+        }
     }
 }
 
@@ -227,8 +288,17 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace XOR by 0x00000000 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -245,8 +315,20 @@ void ConstPropagationOptimizerPass::Process(IRBitClearOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace BIC by 0x00000000 with a copy of the other variable
+            // Replace BIC by 0xFFFFFFFF with the constant 0
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            } else if (immValue == ~0) {
+                m_emitter.Overwrite().Constant(op->dst, 0);
+            }
+        }
     }
 }
 
@@ -276,8 +358,17 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace ADD by 0 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -295,8 +386,17 @@ void ConstPropagationOptimizerPass::Process(IRAddCarryOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate && carryFlag.has_value() && !*carryFlag) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace ADC by 0 when the carry is clear with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -317,8 +417,17 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace SUB by 0 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -336,8 +445,17 @@ void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
+    } else if (op->lhs.immediate != op->rhs.immediate && carryFlag.has_value() && *carryFlag) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace SBC by 0 when the carry is set with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -390,6 +508,15 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
         } else {
             SetKnownHostFlags(arm::Flags::Q, arm::Flags::None);
         }
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace QADD by 0 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     } else {
         ClearKnownHostFlags(arm::Flags::Q);
     }
@@ -408,6 +535,15 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
             SetKnownHostFlags(arm::Flags::Q, arm::Flags::Q);
         } else {
             SetKnownHostFlags(arm::Flags::Q, arm::Flags::None);
+        }
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace QSUB by 0 with a copy of the other variable
+            if (immValue == 0) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
         }
     } else {
         ClearKnownHostFlags(arm::Flags::Q);
@@ -439,8 +575,17 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyOp *op) {
                 SetKnownHostFlags(flags, setFlags);
             }
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(arm::kFlagsNZ);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace MUL by 1 with a copy of the other variable
+            if (immValue == 1) {
+                m_emitter.Overwrite().CopyVar(op->dst, var);
+            }
+        }
     }
 }
 
@@ -473,8 +618,18 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
                 SetKnownHostFlags(flags, setFlags);
             }
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(arm::kFlagsNZ);
+    } else if (op->lhs.immediate != op->rhs.immediate) {
+        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [immValue, var] = *optPair;
+
+            // Replace MULL by 1 with a copy of the other variable
+            if (immValue == 1) {
+                m_emitter.Overwrite().CopyVar(op->dstLo, var);
+                m_emitter.Constant(op->dstHi, 0);
+            }
+        }
     }
 }
 
@@ -498,8 +653,22 @@ void ConstPropagationOptimizerPass::Process(IRAddLongOp *op) {
             const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
             SetKnownHostFlags(flags, setFlags);
         }
-    } else {
+    } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(arm::kFlagsNZ);
+    } else if (op->lhsLo.immediate != op->rhsLo.immediate && op->lhsHi.immediate != op->rhsHi.immediate &&
+               op->lhsLo.immediate == op->lhsHi.immediate) {
+        auto optPairLo = SplitImmVarPair(op->lhsLo, op->rhsLo);
+        auto optPairHi = SplitImmVarPair(op->lhsHi, op->rhsHi);
+        if (optPairLo && optPairHi) {
+            auto [immValueLo, varLo] = *optPairLo;
+            auto [immValueHi, varHi] = *optPairHi;
+
+            // Replace MULL by 1 with a copy of the other variable
+            if (immValueLo == 1 && immValueHi == 0) {
+                m_emitter.Overwrite().CopyVar(op->dstLo, varLo);
+                m_emitter.CopyVar(op->dstHi, varHi);
+            }
+        }
     }
 }
 
