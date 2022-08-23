@@ -287,9 +287,11 @@ private:
         void operator()(IRBitwiseOrOp *op);
         void operator()(IRBitClearOp *op);
         void operator()(IRBitwiseXorOp *op);
+        void operator()(IRLogicalShiftRightOp *op);
         void operator()(IRRotateRightOp *op);
 
         void CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs, VarOrImmArg &rhs, VariableArg dst);
+        void CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount, VariableArg dst);
 
         void CheckInputVar(Variable var);
         void CheckOutputVar(Variable var);

@@ -693,22 +693,29 @@ void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VariableArg &var) {
 
                 Variable result = value->source;
 
-                // Emit a ROR for rotation
+                // Emit a ROR or LSR for rotation
                 if (rotate != 0) {
-                    result = m_emitter.RotateRight(result, rotate, false);
+                    const uint32_t rotateMask = ~(~0 >> rotate);
+                    if ((value->knownBitsMask & rotateMask) == rotateMask) {
+                        // Emit LSR when all <rotate> most significant bits are known
+                        result = m_emitter.LogicalShiftRight(result, rotate, false);
+                    } else {
+                        // Emit ROR otherwise
+                        result = m_emitter.RotateRight(result, rotate, false);
+                    }
                 }
 
-                // Emit an ORR for all known one bits
+                // Emit ORR for all known one bits
                 if (ones != 0) {
                     result = m_emitter.BitwiseOr(result, ones, false);
                 }
 
-                // Emit a BIC for all known zero bits
+                // Emit BIC for all known zero bits
                 if (zeros != 0) {
                     result = m_emitter.BitClear(result, zeros, false);
                 }
 
-                // Emit a XOR for all unknown flipped bits
+                // Emit XOR for all unknown flipped bits
                 if (flips != 0) {
                     result = m_emitter.BitwiseXor(result, flips, false);
                 }
@@ -823,22 +830,12 @@ void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwise
     CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
-    if (!valid) {
-        return;
-    }
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftRightOp *op) {
+    CommonShiftCheck(op->value, op->amount, op->dst);
+}
 
-    if (!hasRotate) {
-        // Found the instruction; check if the parameters match
-        if (!op->value.immediate && op->amount.immediate) {
-            hasRotate = (op->amount.imm.value == rotate);
-            CheckInputVar(op->value.var.var);
-            CheckOutputVar(op->dst.var);
-        }
-    } else {
-        // Found more than once or matchValue == 0
-        valid = false;
-    }
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
+    CommonShiftCheck(op->value, op->amount, op->dst);
 }
 
 void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue,
@@ -854,6 +851,25 @@ void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &fl
             auto [imm, var] = *split;
             flag = (imm == matchValue);
             CheckInputVar(var);
+            CheckOutputVar(dst.var);
+        }
+    } else {
+        // Found more than once or matchValue == 0
+        valid = false;
+    }
+}
+
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
+                                                                             VariableArg dst) {
+    if (!valid) {
+        return;
+    }
+
+    if (!hasRotate) {
+        // Found the instruction; check if the parameters match
+        if (!value.immediate && amount.immediate) {
+            hasRotate = (amount.imm.value == rotate);
+            CheckInputVar(value.var.var);
             CheckOutputVar(dst.var);
         }
     } else {
