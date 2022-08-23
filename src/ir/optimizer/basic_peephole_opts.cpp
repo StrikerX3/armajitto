@@ -6,69 +6,54 @@
 namespace armajitto::ir {
 
 void BasicPeepholeOptimizerPass::Process(IRSetRegisterOp *op) {
-    Substitute(op->src);
     if (!op->src.immediate) {
         ConsumeValue(op->src.var);
     }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSetCPSROp *op) {
-    Substitute(op->src);
     if (!op->src.immediate) {
         ConsumeValue(op->src.var);
     }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSetSPSROp *op) {
-    Substitute(op->src);
+    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMemReadOp *op) {
-    Substitute(op->address);
+    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMemWriteOp *op) {
-    Substitute(op->src);
-    Substitute(op->address);
+    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRPreloadOp *op) {
-    Substitute(op->address);
+    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendOp *op) {
-    Substitute(op->value);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -82,9 +67,6 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitwiseOrOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -98,9 +80,6 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseOrOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitwiseXorOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -120,9 +99,6 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseXorOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -136,37 +112,26 @@ void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    Substitute(op->value);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddCarryOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSubtractOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSubtractCarryOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
-    Substitute(op->value);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -178,8 +143,6 @@ void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMoveNegatedOp *op) {
-    Substitute(op->value);
-
     // Cannot optimize if flags are affected
     if (op->flags != arm::Flags::None) {
         return;
@@ -198,64 +161,46 @@ void BasicPeepholeOptimizerPass::Process(IRMoveNegatedOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSaturatingAddOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMultiplyOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMultiplyLongOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddLongOp *op) {
-    Substitute(op->lhsLo);
-    Substitute(op->lhsHi);
-    Substitute(op->rhsLo);
-    Substitute(op->rhsHi);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRStoreFlagsOp *op) {
-    Substitute(op->values);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLoadFlagsOp *op) {
-    Substitute(op->srcCPSR);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    Substitute(op->srcCPSR);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBranchOp *op) {
-    Substitute(op->address);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBranchExchangeOp *op) {
-    Substitute(op->address);
     // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    Substitute(op->srcValue);
     // TODO: implement
 }
 
@@ -264,7 +209,6 @@ void BasicPeepholeOptimizerPass::Process(IRConstantOp *op) {
 }
 
 void BasicPeepholeOptimizerPass::Process(IRCopyVarOp *op) {
-    Substitute(op->var);
     CopyVariable(op->dst, op->var, op);
 }
 
@@ -309,7 +253,6 @@ void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, 
     ResizeValues(dstIndex);
     auto &dstValue = m_values[dstIndex];
     dstValue = m_values[srcIndex];
-    dstValue.prev = src.var;
     dstValue.writerOp = op;
 
     auto __varStr = var.ToString();
@@ -437,8 +380,7 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
                 auto __newOpStr = m_emitter.GetCurrentOp()->ToString();
                 printf("      '%s'\n", __newOpStr.c_str());
             }
-            Assign(var, result);
-            Substitute(var);
+            m_emitter.CopyVar(var, result);
 
             m_emitter.GoTo(currPos);
         }
@@ -453,38 +395,6 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
             m_emitter.Erase(value->writerOp);
         }
         value = GetValue(value->prev);
-    }
-}
-
-void BasicPeepholeOptimizerPass::ResizeVarSubsts(size_t index) {
-    if (m_varSubsts.size() <= index) {
-        m_varSubsts.resize(index + 1);
-    }
-}
-
-void BasicPeepholeOptimizerPass::Assign(VariableArg dst, VariableArg src) {
-    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
-        return;
-    }
-    const auto varIndex = dst.var.Index();
-    ResizeVarSubsts(varIndex);
-    m_varSubsts[varIndex] = src.var;
-}
-
-void BasicPeepholeOptimizerPass::Substitute(VariableArg &var) {
-    if (!var.var.IsPresent()) {
-        return;
-    }
-
-    const auto varIndex = var.var.Index();
-    if (varIndex < m_varSubsts.size()) {
-        var = m_varSubsts[varIndex];
-    }
-}
-
-void BasicPeepholeOptimizerPass::Substitute(VarOrImmArg &var) {
-    if (!var.immediate) {
-        Substitute(var.var);
     }
 }
 

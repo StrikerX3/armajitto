@@ -420,7 +420,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    /*armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -445,7 +445,7 @@ void testTranslator() {
         printf("%s\n", str.c_str());
     }
 
-    printf("--------------------------------\n");*/
+    printf("--------------------------------\n");
 
     armajitto::ir::Optimize(alloc, *block);
     printf("after all optimizations:\n\n");

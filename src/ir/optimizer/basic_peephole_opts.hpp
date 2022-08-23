@@ -67,7 +67,7 @@ namespace armajitto::ir {
 //                              orr <final var>, <intermediate var>, 0xF0000F00
 //    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
 //    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
-// 
+//
 // Arithmetic simplification
 // -------------------------
 // For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
@@ -160,16 +160,6 @@ private:
     void DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value, IROp *op);
     Value *GetValue(VariableArg var);
     void ConsumeValue(VariableArg &var);
-
-    // -------------------------------------------------------------------------
-    // Variable substitutions
-
-    std::vector<Variable> m_varSubsts;
-
-    void ResizeVarSubsts(size_t index);
-    void Assign(VariableArg dst, VariableArg src);
-    void Substitute(VariableArg &var);
-    void Substitute(VarOrImmArg &var);
 };
 
 } // namespace armajitto::ir
