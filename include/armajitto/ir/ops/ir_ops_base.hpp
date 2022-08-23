@@ -89,7 +89,9 @@ struct IROpBase : public IROp {
 
 template <typename T>
 std::optional<T *> Cast(IROp *op) {
-    if (T::kOpcodeType == op->GetType()) {
+    if (op == nullptr) {
+        return std::nullopt;
+    } else if (T::kOpcodeType == op->GetType()) {
         return static_cast<T *>(op);
     } else {
         return std::nullopt;

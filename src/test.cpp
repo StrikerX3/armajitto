@@ -178,7 +178,7 @@ void testTranslator() {
     // ARM ALU operations
     writeARM(0xE3A02012); // mov r2, #0x12
     writeARM(0xE3A03B0D); // mov r3, #0x3400
-    writeARM(0xE3A04004); // mov r4, #0x4
+    //writeARM(0xE3A04004); // mov r4, #0x4
     writeARM(0xE0121003); // ands r1, r2, r3
     writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
     writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
@@ -412,6 +412,13 @@ void testTranslator() {
     auto v6 = emitter.MoveNegated(v5, false);               // mvn $v6, $v5
     emitter.SetRegister(armajitto::arm::GPR::R0, v6);*/
 
+    /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
+    auto v1 = emitter.BitwiseAnd(v0, 0x0000FFFF, false);    // and $v1, $v0, #0x0000ffff
+    auto v2 = emitter.BitwiseOr(v1, 0xD15D0000, false);     // orr $v2, $v1, #0xd15d0000
+    auto v3 = emitter.BitwiseXor(v2, 0xF00F4110, false);    // xor $v3, $v2, #0xf00f4110
+    auto v4 = emitter.MoveNegated(v3, false);               // mvn $v4, $v3
+    emitter.SetRegister(armajitto::arm::GPR::R0, v4);*/
+
     printf("translated %u instructions:\n\n", block->InstructionCount());
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -420,7 +427,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    /*armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -445,7 +452,7 @@ void testTranslator() {
         printf("%s\n", str.c_str());
     }
 
-    printf("--------------------------------\n");*/
+    printf("--------------------------------\n");
 
     armajitto::ir::Optimize(alloc, *block);
     printf("after all optimizations:\n\n");

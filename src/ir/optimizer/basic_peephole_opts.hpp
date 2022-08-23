@@ -67,7 +67,7 @@ namespace armajitto::ir {
 //                              orr <final var>, <intermediate var>, 0xF0000F00
 //    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
 //    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
-// 
+//
 // Arithmetic simplification
 // -------------------------
 // For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
@@ -146,6 +146,7 @@ private:
         bool valid = false;
         uint32_t knownBits = 0;
         uint32_t value = 0;
+        uint32_t flippedBits = 0; // through XOR or MVN; for unknown bits only
         IROp *writerOp = nullptr; // pointer to the instruction that produced this variable
         Variable source;          // original source of the value for this variable
         Variable prev;            // previous variable from which this was derived
@@ -155,11 +156,58 @@ private:
     std::vector<Value> m_values;
 
     void ResizeValues(size_t index);
+    
     void AssignConstant(VariableArg var, uint32_t value);
     void CopyVariable(VariableArg var, VariableArg src, IROp *op);
     void DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value, IROp *op);
+    void DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value, uint32_t flipped, IROp *op);
+    
     Value *GetValue(VariableArg var);
+    
     void ConsumeValue(VariableArg &var);
+    void ConsumeValue(VarOrImmArg &var);
+
+    // Helper struct to evaluate a sequence of values in order to check if they contain an ORR, BIC and EOR matching the
+    // given ones, zeros and flip bits as well as the input and output variables.
+    struct BitwiseOpsMatchState {
+        bool valid = true;
+        bool hasOnes;
+        bool hasZeros;
+        bool hasFlips;
+        bool inputMatches = false;
+        bool outputMatches = false;
+
+        bool first = true;
+
+        uint32_t ones;
+        uint32_t zeros;
+        uint32_t flips;
+        Variable expectedInput;
+        Variable expectedOutput;
+
+        std::vector<Value> &values;
+
+        BitwiseOpsMatchState(uint32_t ones, uint32_t zeros, uint32_t flips, Variable expectedInput,
+                             Variable expectedOutput, std::vector<Value> &values);
+
+        bool Check(Value *value);
+
+        bool Valid() const;
+
+        template <typename T>
+        void operator()(T *) {
+            valid = false;
+        }
+
+        void operator()(IRBitwiseOrOp *op);
+        void operator()(IRBitClearOp *op);
+        void operator()(IRBitwiseXorOp *op);
+
+        void CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs, VarOrImmArg &rhs, VariableArg dst);
+
+        void CheckInputVar(Variable var);
+        void CheckOutputVar(Variable var);
+    };
 
     // -------------------------------------------------------------------------
     // Variable substitutions
