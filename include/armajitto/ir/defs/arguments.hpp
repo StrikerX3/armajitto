@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -172,5 +173,19 @@ struct VarOrImmArg {
         }
     }
 };
+
+// Helper function to split a pair of VarOrImmArgs into an immediate and a variable
+inline std::optional<std::pair<uint32_t, Variable>> SplitImmVarPair(VarOrImmArg &lhs, VarOrImmArg &rhs) {
+    // Requires that the two arguments be of different types
+    if (lhs.immediate == rhs.immediate) {
+        return std::nullopt;
+    }
+
+    if (lhs.immediate) {
+        return std::make_pair(lhs.imm.value, rhs.var.var);
+    } else { // rhs.immediate
+        return std::make_pair(rhs.imm.value, lhs.var.var);
+    }
+}
 
 } // namespace armajitto::ir

@@ -387,14 +387,14 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    /*armajitto::ir::Translator::Parameters params{
+    armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);*/
+    translator.Translate(*block);
 
     // Emit IR code manually
-    armajitto::ir::Emitter emitter{*block};
+    // armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -403,14 +403,14 @@ void testTranslator() {
     emitter.CopyVar(v3);                                    // copy $v4, $v3
     emitter.SetRegister(armajitto::arm::GPR::R0, v1);       // st r0, $v1*/
 
-    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
-    auto v1 = emitter.BitwiseAnd(v0, 0xFFFF0000, false);    // and $v1, $v0, #0xffff0000
-    auto v2 = emitter.BitwiseOr(v1, 0xDEAD0000, false);     // orr $v2, $v1, #0xdead0000
+    /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
+    auto v1 = emitter.BitwiseAnd(v0, 0x0000FFFF, false);    // and $v1, $v0, #0x0000ffff
+    auto v2 = emitter.BitwiseOr(v1, 0x21520000, false);     // orr $v2, $v1, #0x21520000
     auto v3 = emitter.BitClear(v2, 0x0000FFFF, false);      // bic $v3, $v2, #0x0000ffff
-    auto v4 = emitter.BitwiseXor(v3, 0x0000BEEF, false);    // xor $v4, $v3, #0x0000beef
+    auto v4 = emitter.BitwiseXor(v3, 0x00004110, false);    // xor $v4, $v3, #0x00004110
     auto v5 = emitter.Move(v4, false);                      // mov $v5, $v4
     auto v6 = emitter.MoveNegated(v5, false);               // mvn $v6, $v5
-    emitter.SetRegister(armajitto::arm::GPR::R0, v6);
+    emitter.SetRegister(armajitto::arm::GPR::R0, v6);*/
 
     printf("translated %u instructions:\n\n", block->InstructionCount());
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
@@ -420,7 +420,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
+    /*armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -445,7 +445,7 @@ void testTranslator() {
         printf("%s\n", str.c_str());
     }
 
-    printf("--------------------------------\n");
+    printf("--------------------------------\n");*/
 
     armajitto::ir::Optimize(alloc, *block);
     printf("after all optimizations:\n\n");

@@ -63,22 +63,32 @@ public:
     // Optimizer helper functions
     // TODO: figure out a way to expose these methods only to the optimizers
 
-    void ClearDirtyFlag() {
-        m_dirty = false;
-    }
-
+    // Determines if the emitter has made any changes.
     bool IsDirty() const {
         return m_dirty;
     }
 
+    // Clears the dirty flag.
+    void ClearDirtyFlag() {
+        m_dirty = false;
+    }
+
+    // Moves the emitter's cursor to the head of the IR block.
     void GoToHead() {
         m_currOp = m_block.Head();
     }
 
+    // Moves the cursor to the specified IR opcode.
+    void GoTo(IROp *op) {
+        m_currOp = op;
+    }
+
+    // Retrieves the current IR opcode.
     IROp *GetCurrentOp() {
         return m_currOp;
     }
 
+    // Moves the emitter to the next IR opcode in the sequence, if any.
     void NextOp() {
         if (m_currOp != nullptr) {
             if (m_prependNext) {
@@ -89,11 +99,13 @@ public:
         }
     }
 
+    // Signals the emitter to overwrite the current instruction with the next emitted instruction.
     Emitter &Overwrite() {
         m_overwriteNext = true;
         return *this;
     }
 
+    // Erases the specified instruction.
     void Erase(IROp *op) {
         if (op == nullptr) {
             return;
@@ -203,10 +215,13 @@ private:
     arm::Mode m_mode;
     uint32_t m_instrSize;
 
-    IROp *m_currOp;
     bool m_dirty = false;
+
+    IROp *m_currOp;
+
     bool m_overwriteNext = false;
     IROp *m_overwriteOp = nullptr;
+
     bool m_prependNext = false;
 
     template <typename T, typename... Args>

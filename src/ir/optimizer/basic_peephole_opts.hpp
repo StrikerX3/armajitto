@@ -2,7 +2,6 @@
 
 #include "optimizer_pass_base.hpp"
 
-#include <array>
 #include <optional>
 #include <vector>
 
@@ -27,7 +26,7 @@ namespace armajitto::ir {
 // Assuming the following IR code fragment:
 //     instruction
 //  1  mov $v0, r0  (r0 is an unknown value)
-//  2  and $v1, $v0, #0xffff0000
+//  2  and $v1, $v0, #0x0000ffff
 //  3  orr $v2, $v1, #0xdead0000
 //  4  bic $v3, $v2, #0x0000ffff
 //  5  xor $v4, $v3, #0x0000beef
@@ -68,7 +67,7 @@ namespace armajitto::ir {
 //                              orr <final var>, <intermediate var>, 0xF0000F00
 //    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
 //    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
-//
+// 
 // Arithmetic simplification
 // -------------------------
 // For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
@@ -100,14 +99,14 @@ public:
 
 private:
     // void Process(IRGetRegisterOp *op) final;
-    // void Process(IRSetRegisterOp *op) final;
+    void Process(IRSetRegisterOp *op) final;
     // void Process(IRGetCPSROp *op) final;
-    // void Process(IRSetCPSROp *op) final;
+    void Process(IRSetCPSROp *op) final;
     // void Process(IRGetSPSROp *op) final;
-    // void Process(IRSetSPSROp *op) final;
-    // void Process(IRMemReadOp *op) final;
-    // void Process(IRMemWriteOp *op) final;
-    // void Process(IRPreloadOp *op) final;
+    void Process(IRSetSPSROp *op) final;
+    void Process(IRMemReadOp *op) final;
+    void Process(IRMemWriteOp *op) final;
+    void Process(IRPreloadOp *op) final;
     void Process(IRLogicalShiftLeftOp *op) final;
     void Process(IRLogicalShiftRightOp *op) final;
     void Process(IRArithmeticShiftRightOp *op) final;
@@ -124,18 +123,18 @@ private:
     void Process(IRSubtractCarryOp *op) final;
     void Process(IRMoveOp *op) final;
     void Process(IRMoveNegatedOp *op) final;
-    // void Process(IRSaturatingAddOp *op) final;
-    // void Process(IRSaturatingSubtractOp *op) final;
-    // void Process(IRMultiplyOp *op) final;
-    // void Process(IRMultiplyLongOp *op) final;
-    // void Process(IRAddLongOp *op) final;
-    // void Process(IRStoreFlagsOp *op) final;
-    // void Process(IRLoadFlagsOp *op) final;
-    // void Process(IRLoadStickyOverflowOp *op) final;
-    // void Process(IRBranchOp *op) final;
-    // void Process(IRBranchExchangeOp *op) final;
+    void Process(IRSaturatingAddOp *op) final;
+    void Process(IRSaturatingSubtractOp *op) final;
+    void Process(IRMultiplyOp *op) final;
+    void Process(IRMultiplyLongOp *op) final;
+    void Process(IRAddLongOp *op) final;
+    void Process(IRStoreFlagsOp *op) final;
+    void Process(IRLoadFlagsOp *op) final;
+    void Process(IRLoadStickyOverflowOp *op) final;
+    void Process(IRBranchOp *op) final;
+    void Process(IRBranchExchangeOp *op) final;
     // void Process(IRLoadCopRegisterOp *op) final;
-    // void Process(IRStoreCopRegisterOp *op) final;
+    void Process(IRStoreCopRegisterOp *op) final;
     void Process(IRConstantOp *op) final;
     void Process(IRCopyVarOp *op) final;
     // void Process(IRGetBaseVectorAddressOp *op) final;
@@ -144,20 +143,33 @@ private:
     // Value tracking
 
     struct Value {
-        bool valid = false; // set to true if this value came from one of the bitwise, copy or constant ops
+        bool valid = false;
         uint32_t knownBits = 0;
         uint32_t value = 0;
         IROp *writerOp = nullptr; // pointer to the instruction that produced this variable
-        Variable source;          // source of the value for this variable
+        Variable source;          // original source of the value for this variable
+        Variable prev;            // previous variable from which this was derived
     };
 
     // Value per variable
     std::vector<Value> m_values;
 
     void ResizeValues(size_t index);
-    void AssignConstant(Variable var, uint32_t value);
-    void CopyVariable(Variable var, Variable src, IROp *op);
-    void DeriveKnownBits(Variable var, Variable src, uint32_t mask, uint32_t value, IROp *op);
+    void AssignConstant(VariableArg var, uint32_t value);
+    void CopyVariable(VariableArg var, VariableArg src, IROp *op);
+    void DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value, IROp *op);
+    Value *GetValue(VariableArg var);
+    void ConsumeValue(VariableArg &var);
+
+    // -------------------------------------------------------------------------
+    // Variable substitutions
+
+    std::vector<Variable> m_varSubsts;
+
+    void ResizeVarSubsts(size_t index);
+    void Assign(VariableArg dst, VariableArg src);
+    void Substitute(VariableArg &var);
+    void Substitute(VarOrImmArg &var);
 };
 
 } // namespace armajitto::ir
