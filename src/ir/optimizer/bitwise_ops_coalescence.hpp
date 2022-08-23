@@ -90,8 +90,7 @@ namespace armajitto::ir {
 //                                                      eor <final var>, <intermediate var 3>, 0x00FF0000
 class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter)
-        : OptimizerPassBase(emitter) {}
+    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter);
 
 private:
     // void Process(IRGetRegisterOp *op) final;

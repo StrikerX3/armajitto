@@ -10,6 +10,13 @@
 
 namespace armajitto::ir {
 
+ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter)
+    : OptimizerPassBase(emitter) {
+
+    const uint32_t varCount = emitter.VariableCount();
+    m_varSubsts.resize(varCount);
+}
+
 void ConstPropagationOptimizerPass::PreProcess() {
     // PC is known at entry
     Assign(arm::GPR::PC, m_emitter.BasePC());

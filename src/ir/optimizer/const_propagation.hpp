@@ -37,8 +37,7 @@ namespace armajitto::ir {
 // instructions 4 and 5 (replaced by the stores in 9 and 10).
 class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
-    ConstPropagationOptimizerPass(Emitter &emitter)
-        : OptimizerPassBase(emitter) {}
+    ConstPropagationOptimizerPass(Emitter &emitter);
 
 private:
     void PreProcess() final;

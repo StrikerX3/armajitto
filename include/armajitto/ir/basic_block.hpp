@@ -62,6 +62,10 @@ public:
         m_opsTail = nullptr;
     }
 
+    uint32_t VariableCount() const {
+        return m_nextVarID;
+    }
+
 private:
     memory::Allocator &m_alloc;
 

@@ -25,7 +25,7 @@ inline std::string ToString(Mode mode) {
     case Mode::Abort: return "abt";
     case Mode::Undefined: return "und";
     case Mode::System: return "sys";
-    default: return std::format("0x{:x}", static_cast<uint32_t>(mode));
+    default: return std::format("unk{:x}", static_cast<uint32_t>(mode));
     }
 }
 

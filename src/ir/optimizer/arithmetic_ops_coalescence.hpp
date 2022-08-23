@@ -34,8 +34,7 @@ namespace armajitto::ir {
 // up to that point. MVN negates and subtracts one from the running sum.
 class ArithmeticOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter)
-        : OptimizerPassBase(emitter) {}
+    ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter);
 
     ~ArithmeticOpsCoalescenceOptimizerPass() {
         // TODO: remove this; it's here to give the class a non-trivial destructor

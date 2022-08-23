@@ -3,6 +3,14 @@
 
 namespace armajitto::ir {
 
+BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter)
+    : OptimizerPassBase(emitter) {
+
+    const uint32_t varCount = emitter.VariableCount();
+    m_values.resize(varCount);
+    m_varSubsts.resize(varCount);
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);

@@ -6,6 +6,17 @@
 
 namespace armajitto::ir {
 
+DeadStoreEliminationOptimizerPass::DeadStoreEliminationOptimizerPass(Emitter &emitter)
+    : OptimizerPassBase(emitter) {
+
+    const uint32_t varCount = emitter.VariableCount();
+    m_varWrites.resize(varCount);
+    m_dependencies.resize(varCount);
+    m_cpsrVarMap.resize(varCount);
+    m_varCPSRVersionMap.resize(varCount);
+    m_flagWritesPerVar.resize(varCount);
+}
+
 void DeadStoreEliminationOptimizerPass::PostProcess() {
     // Erase all unread writes to variables
     for (size_t i = 0; i < m_varWrites.size(); i++) {

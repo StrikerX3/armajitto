@@ -108,8 +108,7 @@ namespace armajitto::ir {
 // In those cases, the optimizer will follow every linked variable and erase all affected instructions.
 class DeadStoreEliminationOptimizerPass final : public OptimizerPassBase {
 public:
-    DeadStoreEliminationOptimizerPass(Emitter &emitter)
-        : OptimizerPassBase(emitter) {}
+    DeadStoreEliminationOptimizerPass(Emitter &emitter);
 
 private:
     void PostProcess() final;

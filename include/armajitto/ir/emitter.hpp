@@ -52,6 +52,10 @@ public:
         return m_thumb;
     }
 
+    uint32_t VariableCount() const {
+        return m_block.VariableCount();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Translator helper functions
     // TODO: figure out a way to expose these methods only to the translator
