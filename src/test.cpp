@@ -176,7 +176,7 @@ void testTranslator() {
     // writeThumb(0x4788); // blx r1
 
     // ARM ALU operations
-    /*writeARM(0xE3A02012); // mov r2, #0x12
+    writeARM(0xE3A02012); // mov r2, #0x12
     writeARM(0xE3A03B0D); // mov r3, #0x3400
     // writeARM(0xE3A04004); // mov r4, #0x4
     writeARM(0xE0121003); // ands r1, r2, r3
@@ -195,7 +195,7 @@ void testTranslator() {
     writeARM(0xE1B01002); // movs r1, r2
     writeARM(0xE1D21063); // bics r1, r2, r3, rrx
     writeARM(0xE1E01003); // mvn r1, r3
-    writeARM(0xEAFFFFFE); // b $*/
+    writeARM(0xEAFFFFFE); // b $
 
     // ARM ALU comparisons
     // writeARM(0xE0021003); // and r1, r2, r3
@@ -362,11 +362,11 @@ void testTranslator() {
     // writeARM(0xEAFFFFFE); // b $
 
     // Code excerpt from real software
-    writeARM(0xE1A00620); // mov r0, r0, lsr #0xC
-    writeARM(0xE1A00600); // mov r0, r0, lsl #0xC
-    writeARM(0xE2800C40); // add r0, r0, #0x4000
-    writeARM(0xE28FE000); // add lr, pc, #0x0
-    writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
+    // writeARM(0xE1A00620); // mov r0, r0, lsr #0xC
+    // writeARM(0xE1A00600); // mov r0, r0, lsl #0xC
+    // writeARM(0xE2800C40); // add r0, r0, #0x4000
+    // writeARM(0xE28FE000); // add lr, pc, #0x0
+    // writeARM(0xE510F004); // ldr pc, [r0, #-0x4]
 
     // Add with carry test
     // - Requires constant propagation and dead store elimination to fully optimize
@@ -456,8 +456,8 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BasicPeepholeOptimizations);
-    printf("after basic peephole optimizations:\n\n");
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::CoalesceBitwiseOps);
+    printf("after coalescing bitwise operations:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());

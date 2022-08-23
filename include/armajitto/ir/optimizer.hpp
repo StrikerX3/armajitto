@@ -11,9 +11,9 @@ enum class OptimizerPasses {
 
     ConstantPropagation = (1 << 0),
     DeadStoreElimination = (1 << 1),
-    BasicPeepholeOptimizations = (1 << 2),
+    CoalesceBitwiseOps = (1 << 2),
 
-    All = ConstantPropagation | DeadStoreElimination | BasicPeepholeOptimizations,
+    All = ConstantPropagation | DeadStoreElimination | CoalesceBitwiseOps,
 };
 
 void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All);

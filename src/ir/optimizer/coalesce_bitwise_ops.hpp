@@ -8,10 +8,8 @@
 
 namespace armajitto::ir {
 
-// Applies a set of basic peephole optimizations to the code.
+// Coalesces a sequence of bitwise operations.
 //
-// Bitwise operation chaining
-// --------------------------
 // This optimization simplifies sequences of bitwise operations on a single chain of variables.
 //
 // The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR, LSL, LSR, ASR, ROR, RRX)
@@ -69,33 +67,10 @@ namespace armajitto::ir {
 //    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
 //    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
 //
-// Arithmetic simplification
-// -------------------------
-// For sequences of instructions that operate on variables with fully known values (as determined by the bitwise
-// operation chaining technique above, or by constant assignments), all ALU operations can be applied. This is
-// effectively constant propagation and folding, and as such, it is left to that pass.
-//
-// Sequences of ALU operations that act on unknown values, however, are not in the scope of that optimizer, but can
-// sometimes be simplified.
-//
-// Assuming the following IR code fragment:
-//     instruction
-//  1  mov $v0, r0  (r0 is an unknown value)
-//  2  add $v1, $v0, 3
-//  3  sub $v2, $v1, 5
-//  4  add $v3, $v2, 6
-//
-// It is clear that the final result in $v3 is equal to $v0 + 4. The unknown value is involved in a series of simple
-// additions and subtractions, with no flags being output in any step of the calculation.
-//
-// This optimization is applied to any sequences of ADD, SUB and RSB with a variable and an immediate, and also ADC, SBC
-// and RSC if the carry flag is known. COPY, MOV and MVN are also optimized.
-//
-// When the variable is the subtrahend of any subtraction operation, it is also negated, as well as any accumulated sum
-// up to that point. MVN negates and subtracts one from the running sum.
-class BasicPeepholeOptimizerPass final : public OptimizerPassBase {
+// Shift and rotations are combined to apply a rotation to the base value before modifying the known bits.
+class CoalesceBitwiseOpsOptimizerPass final : public OptimizerPassBase {
 public:
-    BasicPeepholeOptimizerPass(Emitter &emitter)
+    CoalesceBitwiseOpsOptimizerPass(Emitter &emitter)
         : OptimizerPassBase(emitter) {}
 
 private:

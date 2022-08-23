@@ -1,41 +1,41 @@
-#include "basic_peephole_opts.hpp"
+#include "coalesce_bitwise_ops.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
 namespace armajitto::ir {
 
-void BasicPeepholeOptimizerPass::Process(IRSetRegisterOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSetRegisterOp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSetCPSROp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSetCPSROp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSetSPSROp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSetSPSROp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMemReadOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMemReadOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMemWriteOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMemWriteOp *op) {
     Substitute(op->src);
     Substitute(op->address);
     ConsumeValue(op->src);
     ConsumeValue(op->address);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRPreloadOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRPreloadOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -67,7 +67,7 @@ void BasicPeepholeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -99,7 +99,7 @@ void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -131,7 +131,7 @@ void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -163,7 +163,7 @@ void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendedOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -195,7 +195,7 @@ void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -230,7 +230,7 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBitwiseOrOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseOrOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -265,7 +265,7 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseOrOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBitwiseXorOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseXorOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -300,7 +300,7 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseXorOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBitClearOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -335,40 +335,40 @@ void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRCountLeadingZerosOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRCountLeadingZerosOp *op) {
     Substitute(op->value);
     ConsumeValue(op->value);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRAddOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRAddCarryOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSubtractOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSubtractCarryOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -391,7 +391,7 @@ void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMoveNegatedOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveNegatedOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -421,35 +421,35 @@ void BasicPeepholeOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSaturatingAddOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRSaturatingSubtractOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMultiplyOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMultiplyOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRMultiplyLongOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRMultiplyLongOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRAddLongOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRAddLongOp *op) {
     Substitute(op->lhsLo);
     Substitute(op->lhsHi);
     Substitute(op->rhsLo);
@@ -460,54 +460,54 @@ void BasicPeepholeOptimizerPass::Process(IRAddLongOp *op) {
     ConsumeValue(op->rhsHi);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRStoreFlagsOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->values);
     ConsumeValue(op->values);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRLoadFlagsOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRLoadFlagsOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBranchOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBranchOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRBranchExchangeOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRBranchExchangeOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRStoreCopRegisterOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreCopRegisterOp *op) {
     Substitute(op->srcValue);
     ConsumeValue(op->srcValue);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRConstantOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRConstantOp *op) {
     AssignConstant(op->dst, op->value);
 }
 
-void BasicPeepholeOptimizerPass::Process(IRCopyVarOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::Process(IRCopyVarOp *op) {
     Substitute(op->var);
     CopyVariable(op->dst, op->var, op);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-void BasicPeepholeOptimizerPass::ResizeValues(size_t index) {
+void CoalesceBitwiseOpsOptimizerPass::ResizeValues(size_t index) {
     if (m_values.size() <= index) {
         m_values.resize(index + 1);
     }
 }
 
-void BasicPeepholeOptimizerPass::AssignConstant(VariableArg var, uint32_t value) {
+void CoalesceBitwiseOpsOptimizerPass::AssignConstant(VariableArg var, uint32_t value) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -521,7 +521,7 @@ void BasicPeepholeOptimizerPass::AssignConstant(VariableArg var, uint32_t value)
     dstValue.rotateOffset = 0;
 }
 
-void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
+void CoalesceBitwiseOpsOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -543,7 +543,7 @@ void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, 
     dstValue.writerOp = op;
 }
 
-auto BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
+auto CoalesceBitwiseOpsOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
     if (!var.var.IsPresent()) {
         return nullptr;
     }
@@ -572,7 +572,7 @@ auto BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg sr
     return &dstValue;
 }
 
-auto BasicPeepholeOptimizerPass::GetValue(VariableArg var) -> Value * {
+auto CoalesceBitwiseOpsOptimizerPass::GetValue(VariableArg var) -> Value * {
     if (!var.var.IsPresent()) {
         return nullptr;
     }
@@ -589,7 +589,7 @@ auto BasicPeepholeOptimizerPass::GetValue(VariableArg var) -> Value * {
     return nullptr;
 }
 
-void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
+void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -686,19 +686,19 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
     }
 }
 
-void BasicPeepholeOptimizerPass::ConsumeValue(VarOrImmArg &var) {
+void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VarOrImmArg &var) {
     if (!var.immediate) {
         ConsumeValue(var.var);
     }
 }
 
-void BasicPeepholeOptimizerPass::ResizeVarSubsts(size_t index) {
+void CoalesceBitwiseOpsOptimizerPass::ResizeVarSubsts(size_t index) {
     if (m_varSubsts.size() <= index) {
         m_varSubsts.resize(index + 1);
     }
 }
 
-void BasicPeepholeOptimizerPass::Assign(VariableArg dst, VariableArg src) {
+void CoalesceBitwiseOpsOptimizerPass::Assign(VariableArg dst, VariableArg src) {
     if (!dst.var.IsPresent() || !src.var.IsPresent()) {
         return;
     }
@@ -707,7 +707,7 @@ void BasicPeepholeOptimizerPass::Assign(VariableArg dst, VariableArg src) {
     m_varSubsts[varIndex] = src.var;
 }
 
-void BasicPeepholeOptimizerPass::Substitute(VariableArg &var) {
+void CoalesceBitwiseOpsOptimizerPass::Substitute(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -719,7 +719,7 @@ void BasicPeepholeOptimizerPass::Substitute(VariableArg &var) {
     }
 }
 
-void BasicPeepholeOptimizerPass::Substitute(VarOrImmArg &var) {
+void CoalesceBitwiseOpsOptimizerPass::Substitute(VarOrImmArg &var) {
     if (!var.immediate) {
         Substitute(var.var);
     }
@@ -727,8 +727,8 @@ void BasicPeepholeOptimizerPass::Substitute(VarOrImmArg &var) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-BasicPeepholeOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
-                                                                       const std::vector<Value> &values)
+CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
+                                                                            const std::vector<Value> &values)
     : ones(value.Ones())
     , zeros(value.Zeros())
     , flips(value.Flips())
@@ -743,7 +743,7 @@ BasicPeepholeOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &va
     hasRotate = (rotate == 0);
 }
 
-bool BasicPeepholeOptimizerPass::BitwiseOpsMatchState::Check(const Value *value) {
+bool CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::Check(const Value *value) {
     while (valid && value != nullptr) {
         VisitIROp(value->writerOp, *this);
         if (!value->prev.IsPresent()) {
@@ -761,23 +761,23 @@ bool BasicPeepholeOptimizerPass::BitwiseOpsMatchState::Check(const Value *value)
     return Valid();
 }
 
-bool BasicPeepholeOptimizerPass::BitwiseOpsMatchState::Valid() const {
+bool CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::Valid() const {
     return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
     CommonCheck(hasOnes, ones, op->lhs, op->rhs, op->dst);
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
     CommonCheck(hasZeros, zeros, op->lhs, op->rhs, op->dst);
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
     CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
     if (!valid) {
         return;
     }
@@ -795,8 +795,9 @@ void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightO
     }
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs,
-                                                                   VarOrImmArg &rhs, VariableArg dst) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue,
+                                                                        VarOrImmArg &lhs, VarOrImmArg &rhs,
+                                                                        VariableArg dst) {
     if (!valid) {
         return;
     }
@@ -815,7 +816,7 @@ void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, u
     }
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable var) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable var) {
     // Since we're checking in reverse order, this should be the last instruction in the sequence
     // Check only after all instructions have been matched
     if (hasOnes && hasZeros && hasFlips) {
@@ -823,7 +824,7 @@ void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable va
     }
 }
 
-void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CheckOutputVar(Variable var) {
+void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CheckOutputVar(Variable var) {
     // Since we're checking in reverse order, this should be the first instruction in the sequence
     if (first) {
         outputMatches = (var == expectedOutput);
