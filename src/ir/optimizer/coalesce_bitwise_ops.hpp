@@ -304,6 +304,15 @@ private:
     void Assign(VariableArg dst, VariableArg src);
     void Substitute(VariableArg &var);
     void Substitute(VarOrImmArg &var);
+
+    // -------------------------------------------------------------------------
+    // Host carry flag state
+
+    // Note: this pass assumes that the constant propagation optimization was applied beforehand.
+    // If at any point we find an instruction that modifies the carry flag, we'll assume that the state is unknown.
+
+    enum class FlagState { Unknown, Clear, Set };
+    FlagState m_hostCarryFlagState = FlagState::Unknown;
 };
 
 } // namespace armajitto::ir

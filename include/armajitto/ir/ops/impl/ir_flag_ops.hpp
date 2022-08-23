@@ -23,7 +23,12 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
-        return std::format("stflg{} {}", flagsSuffix, values.ToString());
+        if (values.immediate) {
+            auto flagsStr = arm::FlagsStr(static_cast<arm::Flags>(values.imm.value));
+            return std::format("stflg{} {{{}}}", flagsSuffix, flagsStr);
+        } else {
+            return std::format("stflg{} {}", flagsSuffix, values.var.ToString());
+        }
     }
 };
 

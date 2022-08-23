@@ -65,6 +65,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
+
+    if (op->setCarry) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftRightOp *op) {
@@ -96,6 +100,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     if (!optimized) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
+    }
+
+    if (op->setCarry) {
+        m_hostCarryFlagState = FlagState::Unknown;
     }
 }
 
@@ -129,6 +137,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
+
+    if (op->setCarry) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightOp *op) {
@@ -161,6 +173,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
+
+    if (op->setCarry) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightExtendedOp *op) {
@@ -183,15 +199,22 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightExtendedOp *op) {
             return false;
         }
 
+        // The host carry flag state must be known
+        if (m_hostCarryFlagState == FlagState::Unknown) {
+            return false;
+        }
+
         // RRX rotates bits right by one, shifting in the carry flag
-        // TODO: track carry flag
-        // value->RotateRightExtended(carry);
-        // return true;
-        return false;
+        value->RotateRightExtended(m_hostCarryFlagState == FlagState::Set);
+        return true;
     }();
 
     if (!optimized) {
         ConsumeValue(op->value);
+    }
+
+    if (op->setCarry) {
+        m_hostCarryFlagState = FlagState::Unknown;
     }
 }
 
@@ -345,6 +368,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
+
+    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRAddCarryOp *op) {
@@ -352,6 +379,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
+
+    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractOp *op) {
@@ -359,6 +390,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
+
+    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractCarryOp *op) {
@@ -366,6 +401,10 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
+
+    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveOp *op) {
@@ -463,6 +502,13 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddLongOp *op) {
 void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->values);
     ConsumeValue(op->values);
+
+    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C) && op->values.immediate) {
+        const bool carry = BitmaskEnum(static_cast<arm::Flags>(op->values.imm.value)).AnyOf(arm::Flags::C);
+        m_hostCarryFlagState = carry ? FlagState::Set : FlagState::Clear;
+    } else {
+        m_hostCarryFlagState = FlagState::Unknown;
+    }
 }
 
 void CoalesceBitwiseOpsOptimizerPass::Process(IRLoadFlagsOp *op) {
