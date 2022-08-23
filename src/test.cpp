@@ -461,8 +461,17 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::CoalesceBitwiseOps);
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BitwiseOpsCoalescence);
     printf("after coalescing bitwise operations:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ArithmeticOpsCoalescence);
+    printf("after coalescing arithmetic operations:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());

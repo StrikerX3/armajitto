@@ -8,9 +8,9 @@
 
 namespace armajitto::ir {
 
-// Coalesces a sequence of bitwise operations.
+// Coalesces sequences of bitwise operations.
 //
-// This optimization simplifies sequences of bitwise operations on a single chain of variables.
+// This optimization simplifies sequences of bitwise operations on a chain of variables.
 //
 // The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR, LSL, LSR, ASR, ROR, RRX)
 // that operates on a variable and an immediate, or basic move and copy operations (MOV, COPY, MVN), as long as these
@@ -34,43 +34,63 @@ namespace armajitto::ir {
 //
 // Due to the nature of bitwise operations, we can determine the exact values of affected bits after each operation.
 // The algorithm tracks known and unknown values on a bit-by-bit basis for each variable in the sequence. As long as
-// variables are consumed by the four bitwise operators, the algorithm can expand its knowledge of the value based on
-// the operations performed:
+// variables are consumed by bitwise operators, the algorithm can expand its knowledge of the value based on the
+// operations performed:
 //
-//     instruction                 var  known mask  known values
-//  1  mov $v0, (unknown)          $v0  0x00000000  0x........  (dots = don't matter, but they should be zeros)
-//  2  and $v1, $v0, #0xffff0000   $v1  0xFFFF0000  0x0000....
-//  3  orr $v2, $v1, #0xdead0000   $v2  0xFFFF0000  0xDEAD....
-//  4  bic $v3, $v2, #0x0000ffff   $v3  0xFFFFFFFF  0xDEAD0000
-//  5  xor $v4, $v3, #0x0000beef   $v4  0xFFFFFFFF  0xDEADBEEF
-//  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xDEADBEEF
-//  7  mvn $v6, $v5, #0x0000beef   $v5  0xFFFFFFFF  0x21524110
+// (Note 1: dots are unknown digits, but internally they should be zeros)
+// (Note 2: rotation is an offset for right rotation applied to the base value)
+//
+//     instruction                 var  known mask  known values  rotation (right)
+//  1  mov $v0, (unknown)          $v0  0x00000000  0x........    0
+//  2  and $v1, $v0, #0xfff0000f   $v1  0xFFF0000F  0x000....0    0
+//  3  orr $v2, $v1, #0xead0000d   $v2  0xFFF0000F  0xEAD....D    0
+//  4  bic $v3, $v2, #0x000ffff0   $v3  0xFFFFFFFF  0xEAD0000D    0
+//  5  xor $v4, $v3, #0x000beef0   $v4  0xFFFFFFFF  0xEADBEEFD    0
+//  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xEADBEEFD    0
+//  7  mvn $v6, $v5                $v6  0xFFFFFFFF  0x15241102    0
+//  8  ror $v7, $v6, #0x4          $v7  0xFFFFFFFF  0x21524110    4
 //
 // By instruction 5, we already know the entire value of the variable and can therefore begin replacing the instructions
 // with constant assignments:
 //
 //     instruction                 var  known mask  known values  action
 // ... ...                         ...  ...         ...
-//  5  xor $v4, $v3, #0x0000beef   $v4  0xFFFFFFFF  0xDEADBEEF    replace -> const $v4, #0xdeadbeef
-//  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xDEADBEEF    replace -> const $v5, #0xdeadbeef
-//  7  mvn $v6, $v5, #0x0000beef   $v5  0xFFFFFFFF  0x21524110    replace -> const $v6, #0x21524110
+//  5  xor $v4, $v3, #0x0000beef   $v4  0xFFFFFFFF  0xEADBEEFD    replace -> const $v4, #0xeadbeefd
+//  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xEADBEEFD    replace -> const $v5, #0xeadbeefd
+//  7  mvn $v6, $v5, #0x0000beef   $v5  0xFFFFFFFF  0x15241102    replace -> const $v6, #0x15241102
+//  8  ror $v7, $v6, #0x4          $v7  0xFFFFFFFF  0x21524110    replace -> const $v7, #0x21524110
 //
 // The sequence is broken if any other instruction consumes the variable used in the chain, at which point the algorithm
 // rewrites the whole sequence of instructions.
+//
 // If the entire value is known, the algorithm emits a simple const <last var>, <constant>.
-// If only a few bits are known, the algorithm outputs a BIC and an ORR with the known zero and one bits, respectively,
-// if there are any. For example:
+// If only a few bits are known, the algorithm outputs the following instructions, in this order:
+// - LSR for the rotation, if it is non-zero and all <rotation offset> most significant bits are known
+// - ROR for the rotation, if it is non-zero but some <rotation offset> most significant bits are unknown
+// - ORR for all known ones, if any
+// - BIC for all known zeros, if any
+// - EOR for all flipped bits, if any
 //
-//    known mask  known values  output sequence
-//    0xFF00FF00  0xF0..0F..    bic <intermediate var>, <base var>,  0x0F00F000
-//                              orr <final var>, <intermediate var>, 0xF0000F00
-//    0xFF00FF00  0xFF..FF..    orr <final var>, <base var>, 0xFF00FF00
-//    0xFF00FF00  0x00..00..    bic <final var>, <base var>, 0xFF00FF00
+// For example:
 //
-// Shift and rotations are combined to apply a rotation to the base value before modifying the known bits.
-class CoalesceBitwiseOpsOptimizerPass final : public OptimizerPassBase {
+//    known mask  known values  flipped bits  rotation  output sequence
+//    0xFF00FF00  0xF0..0F..    0x00000000    0         orr <intermediate var>, <base var>, 0xF0000F00
+//                                                      bic <final var>, <intermediate var>,  0x0F00F000
+//    0xFF00FF00  0xFF..FF..    0x00000000    0         orr <final var>, <base var>, 0xFF00FF00
+//    0xFF00FF00  0x00..00..    0x00000000    0         bic <final var>, <base var>, 0xFF00FF00
+//    0xFF00FF00  0x00..00..    0x00FF00FF    0         bic <intermediate var>, <base var>, 0xFF00FF00
+//                                                      eor <final var>, <intermediate var>, 0x00FF00FF
+//    0xFF00FF00  0xFF..FF..    0x00000000    4         lsr <intermediate var>, <base var>, 4
+//                                                      orr <final var>, <intermediate var>, 0xFF00FF00
+//    0x0000FF00  0x....FF..    0x00000000    4         ror <intermediate var>, <base var>, 4
+//                                                      orr <final var>, <intermediate var>, 0x0000FF00
+//    0x0000FF00  0x....F0..    0x00FF0000    4         ror <intermediate var 1>, <base var>, 4
+//                                                      orr <intermediate var 2> <intermediate var 1>, 0x0000F000
+//                                                      bic <intermediate var 3>, <intermediate var 2>, 0x00000F00
+//                                                      eor <final var>, <intermediate var 3>, 0x00FF0000
+class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    CoalesceBitwiseOpsOptimizerPass(Emitter &emitter)
+    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter)
         : OptimizerPassBase(emitter) {}
 
 private:

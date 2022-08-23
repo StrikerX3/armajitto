@@ -1,6 +1,7 @@
 #include "armajitto/ir/optimizer.hpp"
 
-#include "optimizer/coalesce_bitwise_ops.hpp"
+#include "optimizer/arithmetic_ops_coalescence.hpp"
+#include "optimizer/bitwise_ops_coalescence.hpp"
 #include "optimizer/const_propagation.hpp"
 #include "optimizer/dead_store_elimination.hpp"
 
@@ -21,8 +22,11 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
         if (bmPasses.AllOf(OptimizerPasses::DeadStoreElimination)) {
             dirty |= alloc.AllocateNonTrivial<DeadStoreEliminationOptimizerPass>(emitter)->Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::CoalesceBitwiseOps)) {
-            dirty |= alloc.AllocateNonTrivial<CoalesceBitwiseOpsOptimizerPass>(emitter)->Optimize();
+        if (bmPasses.AllOf(OptimizerPasses::BitwiseOpsCoalescence)) {
+            dirty |= alloc.AllocateNonTrivial<BitwiseOpsCoalescenceOptimizerPass>(emitter)->Optimize();
+        }
+        if (bmPasses.AllOf(OptimizerPasses::ArithmeticOpsCoalescence)) {
+            dirty |= alloc.AllocateNonTrivial<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
     } while (dirty);
 }

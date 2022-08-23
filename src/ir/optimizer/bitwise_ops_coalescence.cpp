@@ -1,41 +1,41 @@
-#include "coalesce_bitwise_ops.hpp"
+#include "bitwise_ops_coalescence.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
 namespace armajitto::ir {
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSetRegisterOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSetCPSROp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetCPSROp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSetSPSROp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetSPSROp *op) {
     Substitute(op->src);
     ConsumeValue(op->src);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMemReadOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemReadOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMemWriteOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemWriteOp *op) {
     Substitute(op->src);
     Substitute(op->address);
     ConsumeValue(op->src);
     ConsumeValue(op->address);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRPreloadOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRPreloadOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -71,7 +71,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftRightOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -107,7 +107,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -143,7 +143,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
 
@@ -179,7 +179,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightExtendedOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -218,7 +218,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseAndOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -253,7 +253,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseAndOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseOrOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -288,7 +288,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseOrOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseXorOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -323,7 +323,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRBitwiseXorOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBitClearOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
@@ -358,12 +358,12 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRBitClearOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRCountLeadingZerosOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
     Substitute(op->value);
     ConsumeValue(op->value);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRAddOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
@@ -374,7 +374,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRAddCarryOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
@@ -385,7 +385,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddCarryOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
@@ -396,7 +396,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractCarryOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
@@ -407,7 +407,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRSubtractCarryOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -430,7 +430,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveNegatedOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     Substitute(op->value);
 
     auto optimized = [this, op] {
@@ -460,35 +460,35 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSaturatingAddOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRSaturatingSubtractOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMultiplyOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRMultiplyLongOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRAddLongOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
     Substitute(op->lhsLo);
     Substitute(op->lhsHi);
     Substitute(op->rhsLo);
@@ -499,7 +499,7 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRAddLongOp *op) {
     ConsumeValue(op->rhsHi);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreFlagsOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->values);
     ConsumeValue(op->values);
 
@@ -511,49 +511,49 @@ void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreFlagsOp *op) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRLoadFlagsOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBranchOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRBranchExchangeOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchExchangeOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRStoreCopRegisterOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreCopRegisterOp *op) {
     Substitute(op->srcValue);
     ConsumeValue(op->srcValue);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRConstantOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRConstantOp *op) {
     AssignConstant(op->dst, op->value);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Process(IRCopyVarOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRCopyVarOp *op) {
     Substitute(op->var);
     CopyVariable(op->dst, op->var, op);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-void CoalesceBitwiseOpsOptimizerPass::ResizeValues(size_t index) {
+void BitwiseOpsCoalescenceOptimizerPass::ResizeValues(size_t index) {
     if (m_values.size() <= index) {
         m_values.resize(index + 1);
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::AssignConstant(VariableArg var, uint32_t value) {
+void BitwiseOpsCoalescenceOptimizerPass::AssignConstant(VariableArg var, uint32_t value) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -567,7 +567,7 @@ void CoalesceBitwiseOpsOptimizerPass::AssignConstant(VariableArg var, uint32_t v
     dstValue.rotateOffset = 0;
 }
 
-void CoalesceBitwiseOpsOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -589,7 +589,7 @@ void CoalesceBitwiseOpsOptimizerPass::CopyVariable(VariableArg var, VariableArg 
     dstValue.writerOp = op;
 }
 
-auto CoalesceBitwiseOpsOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
+auto BitwiseOpsCoalescenceOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
     if (!var.var.IsPresent()) {
         return nullptr;
     }
@@ -618,7 +618,7 @@ auto CoalesceBitwiseOpsOptimizerPass::DeriveKnownBits(VariableArg var, VariableA
     return &dstValue;
 }
 
-auto CoalesceBitwiseOpsOptimizerPass::GetValue(VariableArg var) -> Value * {
+auto BitwiseOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value * {
     if (!var.var.IsPresent()) {
         return nullptr;
     }
@@ -635,7 +635,7 @@ auto CoalesceBitwiseOpsOptimizerPass::GetValue(VariableArg var) -> Value * {
     return nullptr;
 }
 
-void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VariableArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -739,19 +739,19 @@ void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VariableArg &var) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::ConsumeValue(VarOrImmArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
     if (!var.immediate) {
         ConsumeValue(var.var);
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::ResizeVarSubsts(size_t index) {
+void BitwiseOpsCoalescenceOptimizerPass::ResizeVarSubsts(size_t index) {
     if (m_varSubsts.size() <= index) {
         m_varSubsts.resize(index + 1);
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Assign(VariableArg dst, VariableArg src) {
+void BitwiseOpsCoalescenceOptimizerPass::Assign(VariableArg dst, VariableArg src) {
     if (!dst.var.IsPresent() || !src.var.IsPresent()) {
         return;
     }
@@ -760,7 +760,7 @@ void CoalesceBitwiseOpsOptimizerPass::Assign(VariableArg dst, VariableArg src) {
     m_varSubsts[varIndex] = src.var;
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Substitute(VariableArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::Substitute(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -772,7 +772,7 @@ void CoalesceBitwiseOpsOptimizerPass::Substitute(VariableArg &var) {
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::Substitute(VarOrImmArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::Substitute(VarOrImmArg &var) {
     if (!var.immediate) {
         Substitute(var.var);
     }
@@ -780,8 +780,8 @@ void CoalesceBitwiseOpsOptimizerPass::Substitute(VarOrImmArg &var) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
-                                                                            const std::vector<Value> &values)
+BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
+                                                                               const std::vector<Value> &values)
     : ones(value.Ones())
     , zeros(value.Zeros())
     , flips(value.Flips())
@@ -796,7 +796,7 @@ CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Valu
     hasRotate = (rotate == 0);
 }
 
-bool CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::Check(const Value *value) {
+bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Check(const Value *value) {
     while (valid && value != nullptr) {
         VisitIROp(value->writerOp, *this);
         if (!value->prev.IsPresent()) {
@@ -814,33 +814,33 @@ bool CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::Check(const Value *v
     return Valid();
 }
 
-bool CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::Valid() const {
+bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Valid() const {
     return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
     CommonCheck(hasOnes, ones, op->lhs, op->rhs, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
     CommonCheck(hasZeros, zeros, op->lhs, op->rhs, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
     CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftRightOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftRightOp *op) {
     CommonShiftCheck(op->value, op->amount, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
     CommonShiftCheck(op->value, op->amount, op->dst);
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue,
-                                                                        VarOrImmArg &lhs, VarOrImmArg &rhs,
-                                                                        VariableArg dst) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue,
+                                                                           VarOrImmArg &lhs, VarOrImmArg &rhs,
+                                                                           VariableArg dst) {
     if (!valid) {
         return;
     }
@@ -859,8 +859,8 @@ void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &fl
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
-                                                                             VariableArg dst) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
+                                                                                VariableArg dst) {
     if (!valid) {
         return;
     }
@@ -878,7 +878,7 @@ void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(Var
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable var) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable var) {
     // Since we're checking in reverse order, this should be the last instruction in the sequence
     // Check only after all instructions have been matched
     if (hasOnes && hasZeros && hasFlips) {
@@ -886,7 +886,7 @@ void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variab
     }
 }
 
-void CoalesceBitwiseOpsOptimizerPass::BitwiseOpsMatchState::CheckOutputVar(Variable var) {
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CheckOutputVar(Variable var) {
     // Since we're checking in reverse order, this should be the first instruction in the sequence
     if (first) {
         outputMatches = (var == expectedOutput);

@@ -66,8 +66,10 @@ add_library(armajitto
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
     src/ir/translator.cpp
-    src/ir/optimizer/coalesce_bitwise_ops.cpp
-    src/ir/optimizer/coalesce_bitwise_ops.hpp
+    src/ir/optimizer/arithmetic_ops_coalescence.cpp
+    src/ir/optimizer/arithmetic_ops_coalescence.hpp
+    src/ir/optimizer/bitwise_ops_coalescence.cpp
+    src/ir/optimizer/bitwise_ops_coalescence.hpp
     src/ir/optimizer/const_propagation.cpp
     src/ir/optimizer/const_propagation.hpp
     src/ir/optimizer/dead_store_elimination.cpp
