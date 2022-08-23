@@ -60,7 +60,7 @@ protected:
     virtual void Process(IRCopyVarOp *op) {}
     virtual void Process(IRGetBaseVectorAddressOp *op) {}
 
-    void MarkDirty(bool dirty) {
+    void MarkDirty(bool dirty = true) {
         m_dirty |= dirty;
     }
 

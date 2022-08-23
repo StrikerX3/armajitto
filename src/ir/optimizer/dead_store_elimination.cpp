@@ -721,6 +721,7 @@ void DeadStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
     }
     auto &entry = m_cpsrVarMap[versionIndex];
     if (entry.var.IsPresent()) {
+        MarkDirty(var != entry.var);
         var = entry.var;
     }
 }
@@ -821,6 +822,7 @@ void DeadStoreEliminationOptimizerPass::EraseWriteRecursive(Variable var, IROp *
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetRegisterOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -828,6 +830,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetRegisterOp
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetCPSROp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -835,6 +838,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetCPSROp *op
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetSPSROp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -842,6 +846,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetSPSROp *op
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMemReadOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -849,6 +854,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMemReadOp *op
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftLeftOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -856,6 +862,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftL
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftRightOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -863,6 +870,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLogicalShiftR
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRArithmeticShiftRightOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -870,6 +878,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRArithmeticShi
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -877,6 +886,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightOp
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightExtendOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -884,6 +894,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightEx
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseAndOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -891,6 +902,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseAndOp 
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseOrOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -898,6 +910,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseOrOp *
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseXorOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -905,6 +918,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitwiseXorOp 
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitClearOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -912,6 +926,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRBitClearOp *o
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCountLeadingZerosOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -919,6 +934,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCountLeadingZ
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -926,6 +942,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddOp *op) {
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddCarryOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -933,6 +950,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddCarryOp *o
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -940,6 +958,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractOp *o
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractCarryOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -947,6 +966,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSubtractCarry
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -954,6 +974,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveOp *op) {
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveNegatedOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -961,6 +982,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMoveNegatedOp
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingAddOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -968,6 +990,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingAdd
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingSubtractOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -975,6 +998,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRSaturatingSub
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -982,9 +1006,11 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyOp *o
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyLongOp *op) {
     if (op->dstLo == var) {
+        MarkDirty();
         op->dstLo.var = {};
     }
     if (op->dstHi == var) {
+        MarkDirty();
         op->dstHi.var = {};
     }
     return EraseDeadInstruction(op);
@@ -992,9 +1018,11 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRMultiplyLongO
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op) {
     if (op->dstLo == var) {
+        MarkDirty();
         op->dstLo.var = {};
     }
     if (op->dstHi == var) {
+        MarkDirty();
         op->dstHi.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1002,6 +1030,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRAddLongOp *op
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadFlagsOp *op) {
     if (op->dstCPSR == var) {
+        MarkDirty();
         op->dstCPSR.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1009,6 +1038,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadFlagsOp *
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadStickyOverflowOp *op) {
     if (op->dstCPSR == var) {
+        MarkDirty();
         op->dstCPSR.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1016,6 +1046,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadStickyOve
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadCopRegisterOp *op) {
     if (op->dstValue == var) {
+        MarkDirty();
         op->dstValue.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1023,6 +1054,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRLoadCopRegist
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRConstantOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1030,6 +1062,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRConstantOp *o
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCopyVarOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1037,6 +1070,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRCopyVarOp *op
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetBaseVectorAddressOp *op) {
     if (op->dst == var) {
+        MarkDirty();
         op->dst.var = {};
     }
     return EraseDeadInstruction(op);
@@ -1047,6 +1081,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetBaseVector
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+        MarkDirty();
         op->setCarry = false;
     }
     return !op->setCarry;
@@ -1054,6 +1089,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShi
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+        MarkDirty();
         op->setCarry = false;
     }
     return !op->setCarry;
@@ -1061,6 +1097,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShi
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+        MarkDirty();
         op->setCarry = false;
     }
     return !op->setCarry;
@@ -1068,6 +1105,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRArithmetic
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+        MarkDirty();
         op->setCarry = false;
     }
     return !op->setCarry;
@@ -1075,98 +1113,120 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRigh
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+        MarkDirty();
         op->setCarry = false;
     }
     return !op->setCarry;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseAndOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseOrOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseXorOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitClearOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddCarryOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSubtractOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSubtractCarryOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMoveOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMoveNegatedOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSaturatingAddOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMultiplyOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMultiplyLongOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddLongOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRStoreFlagsOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadFlagsOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
 bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
-    return (flag == arm::Flags::Q);
+    if (BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
+        MarkDirty();
+        return true;
+    }
+    return false; // TODO: not quite correct; should always return true for the given op after clearing Q once
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

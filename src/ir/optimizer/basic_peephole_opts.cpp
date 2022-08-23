@@ -40,7 +40,6 @@ void BasicPeepholeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->amount);
     ConsumeValue(op->value);
     ConsumeValue(op->amount);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
@@ -48,7 +47,6 @@ void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->amount);
     ConsumeValue(op->value);
     ConsumeValue(op->amount);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
@@ -56,7 +54,6 @@ void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->amount);
     ConsumeValue(op->value);
     ConsumeValue(op->amount);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
@@ -64,13 +61,11 @@ void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->amount);
     ConsumeValue(op->value);
     ConsumeValue(op->amount);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendOp *op) {
     Substitute(op->value);
     ConsumeValue(op->value);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
@@ -151,7 +146,6 @@ void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
 void BasicPeepholeOptimizerPass::Process(IRCountLeadingZerosOp *op) {
     Substitute(op->value);
     ConsumeValue(op->value);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddOp *op) {
@@ -159,7 +153,6 @@ void BasicPeepholeOptimizerPass::Process(IRAddOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddCarryOp *op) {
@@ -167,7 +160,6 @@ void BasicPeepholeOptimizerPass::Process(IRAddCarryOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSubtractOp *op) {
@@ -175,7 +167,6 @@ void BasicPeepholeOptimizerPass::Process(IRSubtractOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSubtractCarryOp *op) {
@@ -183,7 +174,6 @@ void BasicPeepholeOptimizerPass::Process(IRSubtractCarryOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
@@ -223,7 +213,6 @@ void BasicPeepholeOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRSaturatingSubtractOp *op) {
@@ -231,7 +220,6 @@ void BasicPeepholeOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMultiplyOp *op) {
@@ -239,7 +227,6 @@ void BasicPeepholeOptimizerPass::Process(IRMultiplyOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMultiplyLongOp *op) {
@@ -247,7 +234,6 @@ void BasicPeepholeOptimizerPass::Process(IRMultiplyLongOp *op) {
     Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRAddLongOp *op) {
@@ -259,43 +245,36 @@ void BasicPeepholeOptimizerPass::Process(IRAddLongOp *op) {
     ConsumeValue(op->lhsHi);
     ConsumeValue(op->rhsLo);
     ConsumeValue(op->rhsHi);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRStoreFlagsOp *op) {
     Substitute(op->values);
     ConsumeValue(op->values);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLoadFlagsOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBranchOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBranchExchangeOp *op) {
     Substitute(op->address);
     ConsumeValue(op->address);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRStoreCopRegisterOp *op) {
     Substitute(op->srcValue);
     ConsumeValue(op->srcValue);
-    // TODO: implement
 }
 
 void BasicPeepholeOptimizerPass::Process(IRConstantOp *op) {
@@ -520,6 +499,7 @@ void BasicPeepholeOptimizerPass::Substitute(VariableArg &var) {
 
     const auto varIndex = var.var.Index();
     if (varIndex < m_varSubsts.size() && m_varSubsts[varIndex].IsPresent()) {
+        MarkDirty(var != m_varSubsts[varIndex]);
         var = m_varSubsts[varIndex];
     }
 }
@@ -529,6 +509,8 @@ void BasicPeepholeOptimizerPass::Substitute(VarOrImmArg &var) {
         Substitute(var.var);
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
 
 BasicPeepholeOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(uint32_t ones, uint32_t zeros, uint32_t flips,
                                                                        Variable expectedInput, Variable expectedOutput,
