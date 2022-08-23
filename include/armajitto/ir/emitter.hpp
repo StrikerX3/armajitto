@@ -118,6 +118,11 @@ public:
         m_dirty = true;
     }
 
+    // Rename all variables in the block from scratch, eliminating all gaps in the sequence.
+    void RenameVariables() {
+        m_block.RenameVariables();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
 

@@ -166,6 +166,8 @@ private:
         return m_nextVarID++;
     }
 
+    void RenameVariables();
+
     friend class Emitter;
 };
 

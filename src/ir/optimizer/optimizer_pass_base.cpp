@@ -22,6 +22,8 @@ bool OptimizerPassBase::Optimize() {
 
     PostProcess();
 
+    m_emitter.RenameVariables();
+
     return m_dirty || m_emitter.IsDirty();
 }
 
