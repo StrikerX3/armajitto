@@ -696,17 +696,20 @@ void ConstPropagationOptimizerPass::Process(IRLoadFlagsOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
-    if (op->srcCPSR.immediate && BitmaskEnum(m_knownHostFlagsMask).AllOf(arm::Flags::Q)) {
+    const arm::Flags mask = op->setQ ? arm::Flags::Q : arm::Flags::None;
+    if (op->srcCPSR.immediate && BitmaskEnum(m_knownHostFlagsMask).AllOf(mask)) {
+        auto hostFlags = m_knownHostFlagsValues & mask;
         const auto srcCPSR = op->srcCPSR;
         const auto dstCPSR = op->dstCPSR;
 
         m_emitter.Overwrite();
-        if (BitmaskEnum(m_knownHostFlagsValues).AnyOf(arm::Flags::Q)) {
+        if (BitmaskEnum(hostFlags).AnyOf(arm::Flags::Q)) {
             auto cpsr = m_emitter.BitwiseOr(srcCPSR, static_cast<uint32_t>(arm::Flags::Q), false);
             m_emitter.CopyVar(dstCPSR, cpsr);
+        } else if (srcCPSR.immediate) {
+            m_emitter.Constant(dstCPSR, srcCPSR.imm.value);
         } else {
-            auto cpsr = m_emitter.BitClear(srcCPSR, static_cast<uint32_t>(arm::Flags::Q), false);
-            m_emitter.CopyVar(dstCPSR, cpsr);
+            m_emitter.CopyVar(dstCPSR, srcCPSR.var);
         }
     }
 }

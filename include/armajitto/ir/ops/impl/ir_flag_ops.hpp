@@ -57,15 +57,17 @@ struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
 //
 // Load the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
 struct IRLoadStickyOverflowOp : public IROpBase<IROpcodeType::LoadStickyOverflow> {
+    bool setQ;
     VariableArg dstCPSR;
     VarOrImmArg srcCPSR;
 
     IRLoadStickyOverflowOp(VariableArg dstCPSR, VarOrImmArg srcCPSR)
-        : dstCPSR(dstCPSR)
+        : setQ(true)
+        , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 
     std::string ToString() const final {
-        return std::format("ldflg.q {}, {}", dstCPSR.ToString(), srcCPSR.ToString());
+        return std::format("ldflg{} {}, {}", (setQ ? ".q" : ""), dstCPSR.ToString(), srcCPSR.ToString());
     }
 };
 

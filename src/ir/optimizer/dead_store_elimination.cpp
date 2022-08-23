@@ -40,6 +40,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
         return;
     }
     RecordWrite(op->dst, op);
+    InitFlagWrites(op->dst);
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
@@ -183,6 +184,10 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
+    if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+        auto [imm, var] = *split;
+        RecordFlagWrites(op->dst, var, static_cast<arm::Flags>(imm), op);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
@@ -197,6 +202,10 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
     RecordWrite(op->dst, op);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
+    }
+    if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+        auto [imm, var] = *split;
+        RecordFlagWrites(op->dst, var, static_cast<arm::Flags>(imm), op);
     }
 }
 
@@ -227,6 +236,10 @@ void DeadStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
     RecordWrite(op->dst, op);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
+    }
+    if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+        auto [imm, var] = *split;
+        RecordFlagWrites(op->dst, var, static_cast<arm::Flags>(imm), op);
     }
 }
 
@@ -438,18 +451,26 @@ void DeadStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
     }
+    if (!op->srcCPSR.immediate) {
+        RecordFlagWrites(op->dstCPSR, op->srcCPSR.var, op->flags, op);
+    }
 }
 
 void DeadStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     if (EraseDeadInstruction(op)) {
         return;
     }
-    RecordHostFlagsRead(arm::Flags::Q);
+    if (op->setQ) {
+        RecordHostFlagsRead(arm::Flags::Q);
+    }
     RecordRead(op->srcCPSR, true);
     RecordDependentRead(op->dstCPSR, op->srcCPSR);
     RecordWrite(op->dstCPSR, op);
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
+    }
+    if (!op->srcCPSR.immediate && op->setQ) {
+        RecordFlagWrites(op->dstCPSR, op->srcCPSR.var, arm::Flags::Q, op);
     }
 }
 
@@ -785,7 +806,7 @@ void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, I
     auto record = [&](arm::Flags flag, IROp *&write) {
         if (bmFlags.AnyOf(flag)) {
             if (write != nullptr) {
-                VisitIROp(write, [this, flag](auto op) -> void { EraseWrite(flag, op); });
+                VisitIROp(write, [this, flag](auto op) -> void { EraseHostFlagWrite(flag, op); });
             }
             write = op;
         }
@@ -795,6 +816,61 @@ void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, I
     record(arm::Flags::C, m_hostFlagWriteC);
     record(arm::Flags::V, m_hostFlagWriteV);
     record(arm::Flags::Q, m_hostFlagWriteQ);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Flags tracking
+
+void DeadStoreEliminationOptimizerPass::ResizeFlagWritesPerVar(size_t index) {
+    if (m_flagWritesPerVar.size() <= index) {
+        m_flagWritesPerVar.resize(index + 1);
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::InitFlagWrites(VariableArg base) {
+    if (!base.var.IsPresent()) {
+        return;
+    }
+
+    const auto varIndex = base.var.Index();
+    ResizeFlagWritesPerVar(varIndex);
+    m_flagWritesPerVar[varIndex].base = base.var;
+}
+
+void DeadStoreEliminationOptimizerPass::RecordFlagWrites(VariableArg dst, VariableArg src, arm::Flags flags,
+                                                         IROp *writerOp) {
+    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
+        return;
+    }
+    if (flags == arm::Flags::None) {
+        return;
+    }
+
+    const auto dstIndex = dst.var.Index();
+    const auto srcIndex = src.var.Index();
+    if (srcIndex >= m_flagWritesPerVar.size()) {
+        return;
+    }
+    ResizeFlagWritesPerVar(dstIndex);
+
+    const auto bmFlags = BitmaskEnum(flags);
+    auto &srcEntry = m_flagWritesPerVar[srcIndex];
+    auto &dstEntry = m_flagWritesPerVar[dstIndex];
+    dstEntry = srcEntry;
+
+    auto updateWrite = [&](arm::Flags flag, IROp *&srcOp, IROp *&dstOp) {
+        if (bmFlags.AllOf(flag)) {
+            if (srcOp != nullptr) {
+                VisitIROp(srcOp, [this, flag](auto *op) { EraseFlagWrite(flag, op); });
+            }
+            dstOp = writerOp;
+        }
+    };
+    updateWrite(arm::Flags::N, srcEntry.writerOpN, dstEntry.writerOpN);
+    updateWrite(arm::Flags::Z, srcEntry.writerOpZ, dstEntry.writerOpZ);
+    updateWrite(arm::Flags::C, srcEntry.writerOpC, dstEntry.writerOpC);
+    updateWrite(arm::Flags::V, srcEntry.writerOpV, dstEntry.writerOpV);
+    updateWrite(arm::Flags::Q, srcEntry.writerOpQ, dstEntry.writerOpQ);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1077,9 +1153,48 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRGetBaseVector
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Generic EraseWrite for flags
+// Generic EraseFlagWrite
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op) {
+void DeadStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRBitwiseAndOp *op) {
+    if (auto split = SplitImmVarArgPair(op->lhs, op->rhs)) {
+        auto &[imm, _] = *split;
+        MarkDirty(imm.value & ~static_cast<uint32_t>(flag));
+        imm.value |= static_cast<uint32_t>(flag);
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRBitwiseOrOp *op) {
+    if (auto split = SplitImmVarArgPair(op->lhs, op->rhs)) {
+        auto &[imm, _] = *split;
+        MarkDirty(imm.value & static_cast<uint32_t>(flag));
+        imm.value &= ~static_cast<uint32_t>(flag);
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRBitClearOp *op) {
+    if (auto split = SplitImmVarArgPair(op->lhs, op->rhs)) {
+        auto &[imm, _] = *split;
+        MarkDirty(imm.value & static_cast<uint32_t>(flag));
+        imm.value &= ~static_cast<uint32_t>(flag);
+    }
+}
+
+void DeadStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRLoadFlagsOp *op) {
+    MarkDirty((op->flags & flag) != arm::Flags::None);
+    op->flags &= ~flag;
+}
+
+void DeadStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
+    if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
+        op->setQ = false;
+        MarkDirty();
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Generic EraseHostFlagWrite
+
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftLeftOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1087,7 +1202,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShi
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1095,7 +1210,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLogicalShi
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRArithmeticShiftRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1103,7 +1218,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRArithmetic
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRRotateRightOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1111,7 +1226,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRigh
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightExtendedOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRRotateRightExtendedOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1119,114 +1234,114 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRigh
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseAndOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseAndOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseOrOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseOrOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitwiseXorOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseXorOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRBitClearOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitClearOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddCarryOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddCarryOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSubtractOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSubtractOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSubtractCarryOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSubtractCarryOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMoveOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMoveOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMoveNegatedOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMoveNegatedOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSaturatingAddOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSaturatingAddOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSaturatingSubtractOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMultiplyOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMultiplyOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRMultiplyLongOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMultiplyLongOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRAddLongOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddLongOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRStoreFlagsOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRStoreFlagsOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadFlagsOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLoadFlagsOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
     return op->flags == arm::Flags::None;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
+bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
+    if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
         MarkDirty();
-        return true;
+        op->setQ = false;
     }
-    return false; // TODO: not quite correct; should always return true for the given op after clearing Q once
+    return !op->setQ;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

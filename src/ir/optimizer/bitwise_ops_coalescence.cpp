@@ -602,11 +602,11 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveKnownBits(VariableArg var, Variab
     ResizeValues(dstIndex);
 
     auto &dstValue = m_values[dstIndex];
-    auto &srcValue = m_values[srcIndex];
     dstValue.valid = true;
     dstValue.prev = src.var;
     dstValue.writerOp = op;
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
+        auto &srcValue = m_values[srcIndex];
         dstValue.source = srcValue.source;
         dstValue.knownBitsMask = srcValue.knownBitsMask;
         dstValue.knownBitsValue = srcValue.knownBitsValue;
@@ -725,15 +725,19 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                 m_emitter.GoTo(currPos);
             }
         }
+    } else {
+        // Erase the whole sequence of instructions since they don't change anything
+        Variable result = value->source;
+        Assign(var, result);
+        var = result;
+        m_emitter.Erase(value->writerOp);
     }
 
     // Erase previous instructions if changed
     if (!match) {
         value = GetValue(value->prev);
         while (value != nullptr) {
-            if (value->writerOp != nullptr) {
-                m_emitter.Erase(value->writerOp);
-            }
+            m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
     }

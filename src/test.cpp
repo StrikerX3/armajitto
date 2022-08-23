@@ -387,14 +387,14 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    /*armajitto::ir::Translator::Parameters params{
+    armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);*/
+    translator.Translate(*block);
 
     // Emit IR code manually
-    armajitto::ir::Emitter emitter{*block};
+    //armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -419,7 +419,8 @@ void testTranslator() {
     val = emitter.MoveNegated(val, false);                   // mvn $v4, $v3
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v4*/
 
-    constexpr auto flgC = armajitto::arm::Flags::C;
+    // Bitwise ops coalescence test
+    /*constexpr auto flgC = armajitto::arm::Flags::C;
     constexpr auto u32flgC = static_cast<uint32_t>(flgC);
     constexpr auto u32flgNone = static_cast<uint32_t>(armajitto::arm::Flags::None);
     auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
@@ -433,7 +434,7 @@ void testTranslator() {
     val = emitter.RotateRight(val, 3, false);                // ror $v8, $v7, #0x3
     emitter.StoreFlags(flgC, u32flgC);                       // stflg.c {c}
     val = emitter.RotateRightExtended(val, false);           // rrx $v9, $v8
-    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v8
+    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v8*/
 
     printf("translated %u instructions:\n\n", block->InstructionCount());
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {

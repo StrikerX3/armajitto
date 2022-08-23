@@ -188,4 +188,18 @@ inline std::optional<std::pair<uint32_t, Variable>> SplitImmVarPair(VarOrImmArg 
     }
 }
 
+// Helper function to split a pair of VarOrImmArgs into immediate and variable argument references
+inline std::optional<std::pair<ImmediateArg &, VariableArg &>> SplitImmVarArgPair(VarOrImmArg &lhs, VarOrImmArg &rhs) {
+    // Requires that the two arguments be of different types
+    if (lhs.immediate == rhs.immediate) {
+        return std::nullopt;
+    }
+
+    if (lhs.immediate) {
+        return {{lhs.imm, rhs.var}};
+    } else { // rhs.immediate
+        return {{rhs.imm, lhs.var}};
+    }
+}
+
 } // namespace armajitto::ir

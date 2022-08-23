@@ -236,7 +236,21 @@ private:
     // -------------------------------------------------------------------------
     // Flags tracking
 
-    // TODO
+    struct FlagWrites {
+        Variable base; // the base variable from which this chain originates
+
+        IROp *writerOpN = nullptr; // last instruction that wrote to N
+        IROp *writerOpZ = nullptr; // last instruction that wrote to Z
+        IROp *writerOpC = nullptr; // last instruction that wrote to C
+        IROp *writerOpV = nullptr; // last instruction that wrote to V
+        IROp *writerOpQ = nullptr; // last instruction that wrote to Q
+    };
+
+    std::vector<FlagWrites> m_flagWritesPerVar;
+
+    void ResizeFlagWritesPerVar(size_t index);
+    void InitFlagWrites(VariableArg base);
+    void RecordFlagWrites(VariableArg dst, VariableArg src, arm::Flags flags, IROp *writerOp);
 
     // -------------------------------------------------------------------------
     // Generic EraseWrite for variables
@@ -291,38 +305,51 @@ private:
     bool EraseWrite(Variable var, IRGetBaseVectorAddressOp *op);
 
     // -------------------------------------------------------------------------
-    // Generic EraseWrite for flags
+    // Generic EraseFlagWrite
+
+    // Catch-all method for unused ops, required by the visitor
+    template <typename T>
+    void EraseFlagWrite(arm::Flags flag, T *op) {}
+
+    void EraseFlagWrite(arm::Flags flag, IRBitwiseAndOp *op);
+    void EraseFlagWrite(arm::Flags flag, IRBitwiseOrOp *op);
+    void EraseFlagWrite(arm::Flags flag, IRBitClearOp *op);
+    void EraseFlagWrite(arm::Flags flag, IRLoadFlagsOp *op);
+    void EraseFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
+
+    // -------------------------------------------------------------------------
+    // Generic EraseHostFlagWrite
     // Return true if the instruction no longer writes to any flags
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
-    bool EraseWrite(arm::Flags flag, T *op) {
+    bool EraseHostFlagWrite(arm::Flags flag, T *op) {
         return false;
     }
 
-    bool EraseWrite(arm::Flags flag, IRLogicalShiftLeftOp *op);
-    bool EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
-    bool EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
-    bool EraseWrite(arm::Flags flag, IRRotateRightOp *op);
-    bool EraseWrite(arm::Flags flag, IRRotateRightExtendedOp *op);
-    bool EraseWrite(arm::Flags flag, IRBitwiseAndOp *op);
-    bool EraseWrite(arm::Flags flag, IRBitwiseOrOp *op);
-    bool EraseWrite(arm::Flags flag, IRBitwiseXorOp *op);
-    bool EraseWrite(arm::Flags flag, IRBitClearOp *op);
-    bool EraseWrite(arm::Flags flag, IRAddOp *op);
-    bool EraseWrite(arm::Flags flag, IRAddCarryOp *op);
-    bool EraseWrite(arm::Flags flag, IRSubtractOp *op);
-    bool EraseWrite(arm::Flags flag, IRSubtractCarryOp *op);
-    bool EraseWrite(arm::Flags flag, IRMoveOp *op);
-    bool EraseWrite(arm::Flags flag, IRMoveNegatedOp *op);
-    bool EraseWrite(arm::Flags flag, IRSaturatingAddOp *op);
-    bool EraseWrite(arm::Flags flag, IRSaturatingSubtractOp *op);
-    bool EraseWrite(arm::Flags flag, IRMultiplyOp *op);
-    bool EraseWrite(arm::Flags flag, IRMultiplyLongOp *op);
-    bool EraseWrite(arm::Flags flag, IRAddLongOp *op);
-    bool EraseWrite(arm::Flags flag, IRStoreFlagsOp *op);
-    bool EraseWrite(arm::Flags flag, IRLoadFlagsOp *op);
-    bool EraseWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftLeftOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRRotateRightOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRRotateRightExtendedOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRBitwiseAndOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRBitwiseOrOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRBitwiseXorOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRBitClearOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRAddOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRAddCarryOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRSubtractOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRSubtractCarryOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRMoveOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRMoveNegatedOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRSaturatingAddOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRSaturatingSubtractOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRMultiplyOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRMultiplyLongOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRAddLongOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRStoreFlagsOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRLoadFlagsOp *op);
+    bool EraseHostFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
 
     // -------------------------------------------------------------------------
     // Generic EraseDeadInstruction
