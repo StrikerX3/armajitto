@@ -38,51 +38,195 @@ void BasicPeepholeOptimizerPass::Process(IRPreloadOp *op) {
 void BasicPeepholeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+
+    auto optimized = [this, op] {
+        // Cannot optimize if the carry flag is affected
+        if (op->setCarry) {
+            return false;
+        }
+
+        // Requires the value to be a variable and the amount to be an immediate
+        if (op->value.immediate || !op->amount.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // LSL shifts bits left, shifting in zeros
+        value->LogicalShiftLeft(op->amount.imm.value);
+        return true;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
+        ConsumeValue(op->amount);
+    }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+
+    auto optimized = [this, op] {
+        // Cannot optimize if the carry flag is affected
+        if (op->setCarry) {
+            return false;
+        }
+
+        // Requires the value to be a variable and the amount to be an immediate
+        if (op->value.immediate || !op->amount.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // LSR shifts bits right, shifting in zeros
+        value->LogicalShiftRight(op->amount.imm.value);
+        return true;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
+        ConsumeValue(op->amount);
+    }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+
+    auto optimized = [this, op] {
+        // Cannot optimize if the carry flag is affected
+        if (op->setCarry) {
+            return false;
+        }
+
+        // Requires the value to be a variable and the amount to be an immediate
+        if (op->value.immediate || !op->amount.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // ASR shifts bits right, shifting in the most significant (sign) bit
+        // Requires the sign bit to be known
+        return value->ArithmeticShiftRight(op->amount.imm.value);
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
+        ConsumeValue(op->amount);
+    }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+
+    auto optimized = [this, op] {
+        // Cannot optimize if the carry flag is affected
+        if (op->setCarry) {
+            return false;
+        }
+
+        // Requires the value to be a variable and the amount to be an immediate
+        if (op->value.immediate || !op->amount.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // ROR rotates bits right
+        value->RotateRight(op->amount.imm.value);
+        return true;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
+        ConsumeValue(op->amount);
+    }
 }
 
-void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendOp *op) {
+void BasicPeepholeOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     Substitute(op->value);
-    ConsumeValue(op->value);
+
+    auto optimized = [this, op] {
+        // Cannot optimize if the carry flag is affected
+        if (op->setCarry) {
+            return false;
+        }
+
+        // Requires the value to be a variable
+        if (op->value.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // RRX rotates bits right by one, shifting in the carry flag
+        // TODO: track carry flag
+        // value->RotateRightExtended(carry);
+        // return true;
+        return false;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
+    }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
+        }
+
+        // Requires a variable/immediate pair in lhs and rhs
+        if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *pair;
+
+            // Must derive from existing value
+            auto *value = DeriveKnownBits(op->dst, var, op);
+            if (value == nullptr) {
+                return false;
+            }
+
+            // AND clears all zero bits
+            value->Clear(~imm);
+            return true;
+        }
+
+        // Not a variable/immediate pair
+        return false;
+    }();
+
+    if (!optimized) {
         ConsumeValue(op->lhs);
         ConsumeValue(op->rhs);
-        return;
-    }
-
-    // AND clears all zero bits
-    if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
-        auto [imm, var] = *pair;
-        DeriveKnownBits(op->dst, var, ~imm, 0, op);
     }
 }
 
@@ -90,17 +234,34 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseOrOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
+        }
+
+        // Requires a variable/immediate pair in lhs and rhs
+        if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *pair;
+
+            // Must derive from existing value
+            auto *value = DeriveKnownBits(op->dst, var, op);
+            if (value == nullptr) {
+                return false;
+            }
+
+            // OR sets all one bits
+            value->Set(imm);
+            return true;
+        }
+
+        // Not a variable/immediate pair
+        return false;
+    }();
+
+    if (!optimized) {
         ConsumeValue(op->lhs);
         ConsumeValue(op->rhs);
-        return;
-    }
-
-    // OR sets all one bits
-    if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
-        auto [imm, var] = *pair;
-        DeriveKnownBits(op->dst, var, imm, imm, op);
     }
 }
 
@@ -108,20 +269,34 @@ void BasicPeepholeOptimizerPass::Process(IRBitwiseXorOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
+        }
+
+        // Requires a variable/immediate pair in lhs and rhs
+        if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *pair;
+
+            // Must derive from existing value
+            auto *value = DeriveKnownBits(op->dst, var, op);
+            if (value == nullptr) {
+                return false;
+            }
+
+            // XOR flips all one bits
+            value->Flip(imm);
+            return true;
+        }
+
+        // Not a variable/immediate pair
+        return false;
+    }();
+
+    if (!optimized) {
         ConsumeValue(op->lhs);
         ConsumeValue(op->rhs);
-        return;
-    }
-
-    // XOR flips all one bits
-    if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
-        auto [imm, var] = *pair;
-        if (auto optValue = GetValue(var)) {
-            auto &value = *optValue;
-            DeriveKnownBits(op->dst, var, value.knownBits & imm, value.value ^ imm, imm, op);
-        }
     }
 }
 
@@ -129,17 +304,34 @@ void BasicPeepholeOptimizerPass::Process(IRBitClearOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
+        }
+
+        // Requires a variable/immediate pair in lhs and rhs
+        if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *pair;
+
+            // Must derive from existing value
+            auto *value = DeriveKnownBits(op->dst, var, op);
+            if (value == nullptr) {
+                return false;
+            }
+
+            // BIC clears all one bits
+            value->Clear(imm);
+            return true;
+        }
+
+        // Not a variable/immediate pair
+        return false;
+    }();
+
+    if (!optimized) {
         ConsumeValue(op->lhs);
         ConsumeValue(op->rhs);
-        return;
-    }
-
-    // BIC clears all one bits
-    if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
-        auto [imm, var] = *pair;
-        DeriveKnownBits(op->dst, var, imm, 0, op);
     }
 }
 
@@ -179,32 +371,53 @@ void BasicPeepholeOptimizerPass::Process(IRSubtractCarryOp *op) {
 void BasicPeepholeOptimizerPass::Process(IRMoveOp *op) {
     Substitute(op->value);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
-        ConsumeValue(op->value);
-        return;
-    }
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
+        }
 
-    if (!op->value.immediate) {
+        // The value must be a variable
+        if (op->value.immediate) {
+            return false;
+        }
+
         CopyVariable(op->dst, op->value.var, op);
+        return true;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
     }
 }
 
 void BasicPeepholeOptimizerPass::Process(IRMoveNegatedOp *op) {
     Substitute(op->value);
 
-    // Cannot optimize if flags are affected
-    if (op->flags != arm::Flags::None) {
-        ConsumeValue(op->value);
-        return;
-    }
-
-    // MVN inverts all bits
-    if (!op->value.immediate) {
-        if (auto optValue = GetValue(op->value.var)) {
-            auto &value = *optValue;
-            DeriveKnownBits(op->dst, op->value.var, value.knownBits, ~value.value, ~0, op);
+    auto optimized = [this, op] {
+        // Cannot optimize if flags are affected
+        if (op->flags != arm::Flags::None) {
+            return false;
         }
+
+        // The value must be a variable
+        if (op->value.immediate) {
+            return false;
+        }
+
+        // Must derive from existing value
+        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // MVN inverts all bits
+        value->Flip(~0);
+        return true;
+    }();
+
+    if (!optimized) {
+        ConsumeValue(op->value);
     }
 }
 
@@ -302,9 +515,10 @@ void BasicPeepholeOptimizerPass::AssignConstant(VariableArg var, uint32_t value)
     ResizeValues(index);
     auto &dstValue = m_values[index];
     dstValue.valid = true;
-    dstValue.knownBits = ~0;
-    dstValue.value = value;
+    dstValue.knownBitsMask = ~0;
+    dstValue.knownBitsValue = value;
     dstValue.flippedBits = 0;
+    dstValue.rotateOffset = 0;
 }
 
 void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
@@ -329,39 +543,33 @@ void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, 
     dstValue.writerOp = op;
 }
 
-void BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value,
-                                                 IROp *op) {
-    DeriveKnownBits(var, src, mask, value, 0, op);
-}
-
-void BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value,
-                                                 uint32_t flipped, IROp *op) {
+auto BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
     if (!var.var.IsPresent()) {
-        return;
+        return nullptr;
     }
     if (!src.var.IsPresent()) {
-        return;
+        return nullptr;
     }
+
     const auto srcIndex = src.var.Index();
     const auto dstIndex = var.var.Index();
     ResizeValues(dstIndex);
 
     auto &dstValue = m_values[dstIndex];
+    auto &srcValue = m_values[srcIndex];
     dstValue.valid = true;
     dstValue.prev = src.var;
     dstValue.writerOp = op;
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
-        auto &srcValue = m_values[srcIndex];
         dstValue.source = srcValue.source;
-        dstValue.knownBits = srcValue.knownBits | mask;
-        dstValue.value = (srcValue.value & ~mask) | (value & mask);
-        dstValue.flippedBits = (srcValue.flippedBits ^ flipped) & ~mask;
+        dstValue.knownBitsMask = srcValue.knownBitsMask;
+        dstValue.knownBitsValue = srcValue.knownBitsValue;
+        dstValue.flippedBits = srcValue.flippedBits;
+        dstValue.rotateOffset = srcValue.rotateOffset;
     } else {
         dstValue.source = src.var;
-        dstValue.knownBits = mask;
-        dstValue.value = value & mask;
-        dstValue.flippedBits = flipped & ~mask;
     }
+    return &dstValue;
 }
 
 auto BasicPeepholeOptimizerPass::GetValue(VariableArg var) -> Value * {
@@ -395,7 +603,7 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
     }
 
     bool match = false;
-    if (value->knownBits == ~0) {
+    if (value->knownBitsMask == ~0) {
         // The entire value is known
 
         // Check if the sequence of instructions contains exactly this instruction:
@@ -403,7 +611,7 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
         if (value->prev == value->source) {
             if (auto maybeConstOp = Cast<IRConstantOp>(value->writerOp)) {
                 auto *constOp = *maybeConstOp;
-                match = (constOp->dst == var) && (constOp->value == value->value);
+                match = (constOp->dst == var) && (constOp->value == value->knownBitsValue);
             }
         }
 
@@ -414,30 +622,37 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
                 m_emitter.GoTo(value->writerOp);
-                m_emitter.Overwrite().Constant(var, value->value);
+                m_emitter.Overwrite().Constant(var, value->knownBitsValue);
                 m_emitter.GoTo(currPos);
             }
         }
-    } else if (value->knownBits != 0) {
+    } else if (value->knownBitsMask != 0) {
         // Some of the bits are known
-        const uint32_t ones = value->value & value->knownBits;
-        const uint32_t zeros = ~value->value & value->knownBits;
-        const uint32_t flips = value->flippedBits & ~value->knownBits;
+        const uint32_t ones = value->knownBitsValue & value->knownBitsMask;
+        const uint32_t zeros = ~value->knownBitsValue & value->knownBitsMask;
+        const uint32_t flips = value->flippedBits & ~value->knownBitsMask;
+        const uint32_t rotate = value->rotateOffset;
 
         // Check if the sequence of instructions contains an ORR (if ones is non-zero), BIC (if zeros is non-zero)
         // and/or EOR (if flips is non-zero), and that the first consumed variable is value->source and the last output
         // variable is var.
-        match = BitwiseOpsMatchState{ones, zeros, flips, value->source, var.var, m_values}.Check(value);
+        match = BitwiseOpsMatchState{*value, var.var, m_values}.Check(value);
         if (!match) {
-            // Replace the last instruction with a BIC+ORR sequence, or one of the two
+            // Replace the last instruction with ROR for rotation, ORR for ones, BIC for zeros and XOR for flips
             IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
                 m_emitter.GoTo(value->writerOp);
                 m_emitter.Overwrite();
 
-                // Emit an ORR for all known one bits
                 Variable result = value->source;
+
+                // Emit a ROR for rotation
+                if (rotate != 0) {
+                    result = m_emitter.RotateRight(result, rotate, false);
+                }
+
+                // Emit an ORR for all known one bits
                 if (ones != 0) {
                     result = m_emitter.BitwiseOr(result, ones, false);
                 }
@@ -452,7 +667,7 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
                     result = m_emitter.BitwiseXor(result, flips, false);
                 }
                 Assign(var, result);
-                Substitute(var);
+                var = result;
 
                 m_emitter.GoTo(currPos);
             }
@@ -512,20 +727,23 @@ void BasicPeepholeOptimizerPass::Substitute(VarOrImmArg &var) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-BasicPeepholeOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(uint32_t ones, uint32_t zeros, uint32_t flips,
-                                                                       Variable expectedInput, Variable expectedOutput,
-                                                                       std::vector<Value> &values)
-    : hasOnes(ones == 0)
-    , hasZeros(zeros == 0)
-    , hasFlips(flips == 0)
-    , ones(ones)
-    , zeros(zeros)
-    , flips(flips)
-    , expectedInput(expectedInput)
+BasicPeepholeOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
+                                                                       const std::vector<Value> &values)
+    : ones(value.Ones())
+    , zeros(value.Zeros())
+    , flips(value.Flips())
+    , rotate(value.RotateOffset())
+    , expectedInput(value.source)
     , expectedOutput(expectedOutput)
-    , values(values) {}
+    , values(values) {
 
-bool BasicPeepholeOptimizerPass::BitwiseOpsMatchState::Check(Value *value) {
+    hasOnes = (ones == 0);
+    hasZeros = (zeros == 0);
+    hasFlips = (flips == 0);
+    hasRotate = (rotate == 0);
+}
+
+bool BasicPeepholeOptimizerPass::BitwiseOpsMatchState::Check(const Value *value) {
     while (valid && value != nullptr) {
         VisitIROp(value->writerOp, *this);
         if (!value->prev.IsPresent()) {
@@ -557,6 +775,24 @@ void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *
 
 void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
     CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
+}
+
+void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
+    if (!valid) {
+        return;
+    }
+
+    if (!hasRotate) {
+        // Found the instruction; check if the parameters match
+        if (!op->value.immediate && op->amount.immediate) {
+            hasRotate = (op->amount.imm.value == rotate);
+            CheckInputVar(op->value.var.var);
+            CheckOutputVar(op->dst.var);
+        }
+    } else {
+        // Found more than once or matchValue == 0
+        valid = false;
+    }
 }
 
 void BasicPeepholeOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs,

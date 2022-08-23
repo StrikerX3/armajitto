@@ -154,7 +154,7 @@ void DeadStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
     }
 }
 
-void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendOp *op) {
+void DeadStoreEliminationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     if (EraseDeadInstruction(op)) {
         return;
     }
@@ -884,7 +884,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightOp
     return EraseDeadInstruction(op);
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightExtendOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseWrite(Variable var, IRRotateRightExtendedOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
@@ -1111,7 +1111,7 @@ bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRigh
     return !op->setCarry;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseWrite(arm::Flags flag, IRRotateRightExtendedOp *op) {
     if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
@@ -1313,7 +1313,7 @@ bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRRotateRightOp *op
     return false;
 }
 
-bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRRotateRightExtendOp *op) {
+bool DeadStoreEliminationOptimizerPass::EraseDeadInstruction(IRRotateRightExtendedOp *op) {
     if (!op->dst.var.IsPresent() && !op->setCarry) {
         m_emitter.Erase(op);
         return true;

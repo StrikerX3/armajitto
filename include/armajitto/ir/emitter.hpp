@@ -146,7 +146,7 @@ public:
     Variable LogicalShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable ArithmeticShiftRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     Variable RotateRight(VarOrImmArg value, VarOrImmArg amount, bool setFlags);
-    Variable RotateRightExtend(VarOrImmArg value, bool setFlags);
+    Variable RotateRightExtended(VarOrImmArg value, bool setFlags);
 
     Variable BitwiseAnd(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
     Variable BitwiseOr(VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);

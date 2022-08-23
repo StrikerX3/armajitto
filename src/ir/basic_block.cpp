@@ -115,8 +115,8 @@ void BasicBlock::RenameVariables() {
             map(opImpl->amount);
             break;
         }
-        case IROpcodeType::RotateRightExtend: {
-            auto opImpl = *Cast<IRRotateRightExtendOp>(op);
+        case IROpcodeType::RotateRightExtended: {
+            auto opImpl = *Cast<IRRotateRightExtendedOp>(op);
             map(opImpl->dst);
             map(opImpl->value);
             break;

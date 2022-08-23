@@ -56,7 +56,7 @@ private:
     void Process(IRLogicalShiftRightOp *op) final;
     void Process(IRArithmeticShiftRightOp *op) final;
     void Process(IRRotateRightOp *op) final;
-    void Process(IRRotateRightExtendOp *op) final;
+    void Process(IRRotateRightExtendedOp *op) final;
     void Process(IRBitwiseAndOp *op) final;
     void Process(IRBitwiseOrOp *op) final;
     void Process(IRBitwiseXorOp *op) final;

@@ -82,7 +82,7 @@ public:
 
     ~Allocator() {
         for (auto &block : m_blocks) {
-            Free(block.basePtr);
+            AlignedFree(block.basePtr);
         }
     }
 
@@ -124,7 +124,9 @@ private:
             void *ptr = it->Allocate(size);
             if (ptr != nullptr) {
                 // Move this block to the front to speed up future allocations
-                std::iter_swap(it, m_blocks.begin());
+                if (it != m_blocks.begin()) {
+                    std::iter_swap(it, m_blocks.begin());
+                }
                 return ptr;
             }
         }
@@ -274,19 +276,19 @@ private:
     std::vector<Block> m_blocks;
 
 #ifdef _WIN32
-    void *AlignedAlloc(std::size_t size) {
+    static void *AlignedAlloc(std::size_t size) {
         return _aligned_malloc(size, alignment);
     }
 
-    void AlignedFree(void *ptr) {
+    static void AlignedFree(void *ptr) {
         _aligned_free(ptr);
     }
 #else
-    void *AlignedAlloc(std::size_t size) {
+    static void *AlignedAlloc(std::size_t size) {
         return std::aligned_alloc(alignment, size);
     }
 
-    void AlignedFree(void *ptr) {
+    static void AlignedFree(void *ptr) {
         std::free(ptr);
     }
 #endif

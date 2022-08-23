@@ -127,7 +127,7 @@ private:
     void Process(IRLogicalShiftRightOp *op) final;
     void Process(IRArithmeticShiftRightOp *op) final;
     void Process(IRRotateRightOp *op) final;
-    void Process(IRRotateRightExtendOp *op) final;
+    void Process(IRRotateRightExtendedOp *op) final;
     void Process(IRBitwiseAndOp *op) final;
     void Process(IRBitwiseOrOp *op) final;
     void Process(IRBitwiseXorOp *op) final;
@@ -262,7 +262,7 @@ private:
     bool EraseWrite(Variable var, IRLogicalShiftRightOp *op);
     bool EraseWrite(Variable var, IRArithmeticShiftRightOp *op);
     bool EraseWrite(Variable var, IRRotateRightOp *op);
-    bool EraseWrite(Variable var, IRRotateRightExtendOp *op);
+    bool EraseWrite(Variable var, IRRotateRightExtendedOp *op);
     bool EraseWrite(Variable var, IRBitwiseAndOp *op);
     bool EraseWrite(Variable var, IRBitwiseOrOp *op);
     bool EraseWrite(Variable var, IRBitwiseXorOp *op);
@@ -304,7 +304,7 @@ private:
     bool EraseWrite(arm::Flags flag, IRLogicalShiftRightOp *op);
     bool EraseWrite(arm::Flags flag, IRArithmeticShiftRightOp *op);
     bool EraseWrite(arm::Flags flag, IRRotateRightOp *op);
-    bool EraseWrite(arm::Flags flag, IRRotateRightExtendOp *op);
+    bool EraseWrite(arm::Flags flag, IRRotateRightExtendedOp *op);
     bool EraseWrite(arm::Flags flag, IRBitwiseAndOp *op);
     bool EraseWrite(arm::Flags flag, IRBitwiseOrOp *op);
     bool EraseWrite(arm::Flags flag, IRBitwiseXorOp *op);
@@ -341,7 +341,7 @@ private:
     bool EraseDeadInstruction(IRLogicalShiftRightOp *op);
     bool EraseDeadInstruction(IRArithmeticShiftRightOp *op);
     bool EraseDeadInstruction(IRRotateRightOp *op);
-    bool EraseDeadInstruction(IRRotateRightExtendOp *op);
+    bool EraseDeadInstruction(IRRotateRightExtendedOp *op);
     bool EraseDeadInstruction(IRBitwiseAndOp *op);
     bool EraseDeadInstruction(IRBitwiseOrOp *op);
     bool EraseDeadInstruction(IRBitwiseXorOp *op);

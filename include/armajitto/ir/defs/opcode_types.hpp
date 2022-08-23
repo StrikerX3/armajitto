@@ -21,7 +21,7 @@ enum class IROpcodeType {
     LogicalShiftRight,
     ArithmeticShiftRight,
     RotateRight,
-    RotateRightExtend,
+    RotateRightExtended,
 
     BitwiseAnd,
     BitwiseOr,

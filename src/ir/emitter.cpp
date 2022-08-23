@@ -101,9 +101,9 @@ Variable Emitter::RotateRight(VarOrImmArg value, VarOrImmArg amount, bool setFla
     return dst;
 }
 
-Variable Emitter::RotateRightExtend(VarOrImmArg value, bool setFlags) {
+Variable Emitter::RotateRightExtended(VarOrImmArg value, bool setFlags) {
     auto dst = Var();
-    Write<IRRotateRightExtendOp>(dst, value, setFlags);
+    Write<IRRotateRightExtendedOp>(dst, value, setFlags);
     return dst;
 }
 
@@ -390,7 +390,7 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
     case arm::ShiftType::ASR: result = ArithmeticShiftRight(value, amount, setFlags); break;
     case arm::ShiftType::ROR:
         if (shift.immediate && shift.amount.imm == 0) {
-            result = RotateRightExtend(value, setFlags);
+            result = RotateRightExtended(value, setFlags);
         } else {
             result = RotateRight(value, amount, setFlags);
         }

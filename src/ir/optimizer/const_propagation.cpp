@@ -172,7 +172,7 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
     }
 }
 
-void ConstPropagationOptimizerPass::Process(IRRotateRightExtendOp *op) {
+void ConstPropagationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     Substitute(op->value);
     auto carryFlag = GetCarryFlag();
     if (op->value.immediate && carryFlag.has_value()) {

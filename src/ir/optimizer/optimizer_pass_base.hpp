@@ -32,7 +32,7 @@ protected:
     virtual void Process(IRLogicalShiftRightOp *op) {}
     virtual void Process(IRArithmeticShiftRightOp *op) {}
     virtual void Process(IRRotateRightOp *op) {}
-    virtual void Process(IRRotateRightExtendOp *op) {}
+    virtual void Process(IRRotateRightExtendedOp *op) {}
     virtual void Process(IRBitwiseAndOp *op) {}
     virtual void Process(IRBitwiseOrOp *op) {}
     virtual void Process(IRBitwiseXorOp *op) {}

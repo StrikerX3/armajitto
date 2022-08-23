@@ -23,7 +23,7 @@ ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
         case IROpcodeType::LogicalShiftRight: return visitor(*Cast<IRLogicalShiftRightOp>(op));
         case IROpcodeType::ArithmeticShiftRight: return visitor(*Cast<IRArithmeticShiftRightOp>(op));
         case IROpcodeType::RotateRight: return visitor(*Cast<IRRotateRightOp>(op));
-        case IROpcodeType::RotateRightExtend: return visitor(*Cast<IRRotateRightExtendOp>(op));
+        case IROpcodeType::RotateRightExtended: return visitor(*Cast<IRRotateRightExtendedOp>(op));
         case IROpcodeType::BitwiseAnd: return visitor(*Cast<IRBitwiseAndOp>(op));
         case IROpcodeType::BitwiseOr: return visitor(*Cast<IRBitwiseOrOp>(op));
         case IROpcodeType::BitwiseXor: return visitor(*Cast<IRBitwiseXorOp>(op));
