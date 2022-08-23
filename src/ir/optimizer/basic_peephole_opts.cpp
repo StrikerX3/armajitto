@@ -1,9 +1,6 @@
 #include "basic_peephole_opts.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
-#include <cstdio>
-#include <format>
-
 namespace armajitto::ir {
 
 void BasicPeepholeOptimizerPass::Process(IRSetRegisterOp *op) {
@@ -329,10 +326,6 @@ void BasicPeepholeOptimizerPass::AssignConstant(VariableArg var, uint32_t value)
     dstValue.knownBits = ~0;
     dstValue.value = value;
     dstValue.flippedBits = 0;
-
-    auto __varStr = var.ToString();
-    printf("assigned known bits: %s value=0x%08x -> known mask=0x%08x value=0x%08x flip=0x%08x\n", __varStr.c_str(),
-           value, dstValue.knownBits, dstValue.value, dstValue.flippedBits);
 }
 
 void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
@@ -355,11 +348,6 @@ void BasicPeepholeOptimizerPass::CopyVariable(VariableArg var, VariableArg src, 
     dstValue = srcValue;
     dstValue.prev = src.var;
     dstValue.writerOp = op;
-
-    auto __varStr = var.ToString();
-    auto __srcStr = src.ToString();
-    printf("copied known bits: %s = %s -> known mask=0x%08x value=0x%08x flip=0x%08x\n", __varStr.c_str(),
-           __srcStr.c_str(), dstValue.knownBits, dstValue.value, dstValue.flippedBits);
 }
 
 void BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, uint32_t mask, uint32_t value,
@@ -395,11 +383,6 @@ void BasicPeepholeOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg sr
         dstValue.value = value & mask;
         dstValue.flippedBits = flipped & ~mask;
     }
-
-    auto __varStr = var.ToString();
-    auto __srcStr = src.ToString();
-    printf("derived known bits: %s = %s -- mask=0x%08x value=0x%08x -> known mask=0x%08x value=0x%08x flips=0x%08x\n",
-           __varStr.c_str(), __srcStr.c_str(), mask, value, dstValue.knownBits, dstValue.value, dstValue.flippedBits);
 }
 
 auto BasicPeepholeOptimizerPass::GetValue(VariableArg var) -> Value * {
@@ -432,15 +415,9 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
         return;
     }
 
-    auto __varStr = var.ToString();
-    auto __srcStr = value->source.ToString();
-    printf("consuming %s -> mask=0x%08x value=0x%08x src=%s\n", __varStr.c_str(), value->knownBits, value->value,
-           __srcStr.c_str());
-
     bool match = false;
     if (value->knownBits == ~0) {
         // The entire value is known
-        printf("  full value known!\n");
 
         // Check if the sequence of instructions contains exactly this instruction:
         //   const <var>, <value->value>
@@ -457,12 +434,9 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
             IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
-                auto __writerOpStr = value->writerOp->ToString();
                 m_emitter.GoTo(value->writerOp);
                 m_emitter.Overwrite().Constant(var, value->value);
                 m_emitter.GoTo(currPos);
-                auto __newOpStr = m_emitter.GetCurrentOp()->Prev()->ToString();
-                printf("    replaced '%s' with '%s'\n", __writerOpStr.c_str(), __newOpStr.c_str());
             }
         }
     } else if (value->knownBits != 0) {
@@ -470,7 +444,6 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
         const uint32_t ones = value->value & value->knownBits;
         const uint32_t zeros = ~value->value & value->knownBits;
         const uint32_t flips = value->flippedBits & ~value->knownBits;
-        printf("  partial value known: ones=0x%08x zeros=0x%08x flips=0x%08x\n", ones, zeros, flips);
 
         // Check if the sequence of instructions contains an ORR (if ones is non-zero), BIC (if zeros is non-zero)
         // and/or EOR (if flips is non-zero), and that the first consumed variable is value->source and the last output
@@ -481,8 +454,6 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
             IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
-                auto __writerOpStr = value->writerOp->ToString();
-                printf("    replaced '%s' with:\n", __writerOpStr.c_str());
                 m_emitter.GoTo(value->writerOp);
                 m_emitter.Overwrite();
 
@@ -490,22 +461,16 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
                 Variable result = value->source;
                 if (ones != 0) {
                     result = m_emitter.BitwiseOr(result, ones, false);
-                    auto __newOpStr = m_emitter.GetCurrentOp()->ToString();
-                    printf("      '%s'\n", __newOpStr.c_str());
                 }
 
                 // Emit a BIC for all known zero bits
                 if (zeros != 0) {
                     result = m_emitter.BitClear(result, zeros, false);
-                    auto __newOpStr = m_emitter.GetCurrentOp()->ToString();
-                    printf("      '%s'\n", __newOpStr.c_str());
                 }
 
                 // Emit a XOR for all unknown flipped bits
                 if (flips != 0) {
                     result = m_emitter.BitwiseXor(result, flips, false);
-                    auto __newOpStr = m_emitter.GetCurrentOp()->ToString();
-                    printf("      '%s'\n", __newOpStr.c_str());
                 }
                 Assign(var, result);
                 Substitute(var);
@@ -520,8 +485,6 @@ void BasicPeepholeOptimizerPass::ConsumeValue(VariableArg &var) {
         value = GetValue(value->prev);
         while (value != nullptr) {
             if (value->writerOp != nullptr) {
-                auto opStr = value->writerOp->ToString();
-                printf("    erased '%s'\n", opStr.c_str());
                 m_emitter.Erase(value->writerOp);
             }
             value = GetValue(value->prev);
