@@ -14,7 +14,7 @@
 
 namespace armajitto::ir {
 
-bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes) {
+bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes, bool repeatWhileDirty) {
     Emitter emitter{block};
 
     auto bmPasses = BitmaskEnum(passes);
@@ -50,7 +50,7 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
         optimized |= dirty;
-    } while (dirty);
+    } while (repeatWhileDirty && dirty);
     return optimized;
 }
 

@@ -487,7 +487,7 @@ void testTranslator() {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(alloc, *block, pass)) {
+        if (armajitto::ir::Optimize(alloc, *block, pass, false)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
