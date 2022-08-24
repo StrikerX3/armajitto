@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
 
 #include <bit>
@@ -92,6 +93,8 @@ public:
     BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter);
 
 private:
+    void PreProcess(IROp *op) final;
+
     // void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     // void Process(IRGetCPSROp *op) final;
@@ -328,12 +331,7 @@ private:
     // -------------------------------------------------------------------------
     // Variable substitutions
 
-    std::vector<Variable> m_varSubsts;
-
-    void ResizeVarSubsts(size_t index);
-    void Assign(VariableArg dst, VariableArg src);
-    void Substitute(VariableArg &var);
-    void Substitute(VarOrImmArg &var);
+    VarSubstitutor m_varSubst;
 
     // -------------------------------------------------------------------------
     // Host carry flag state

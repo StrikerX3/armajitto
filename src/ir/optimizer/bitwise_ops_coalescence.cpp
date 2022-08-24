@@ -4,49 +4,43 @@
 namespace armajitto::ir {
 
 BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter)
-    : OptimizerPassBase(emitter) {
+    : OptimizerPassBase(emitter)
+    , m_varSubst(emitter.VariableCount()) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_values.resize(varCount);
-    m_varSubsts.resize(varCount);
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
+    MarkDirty(m_varSubst.Substitute(op));
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
-    Substitute(op->src);
     ConsumeValue(op->src);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetCPSROp *op) {
-    Substitute(op->src);
     ConsumeValue(op->src);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetSPSROp *op) {
-    Substitute(op->src);
     ConsumeValue(op->src);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemReadOp *op) {
-    Substitute(op->address);
     ConsumeValue(op->address);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemWriteOp *op) {
-    Substitute(op->src);
-    Substitute(op->address);
     ConsumeValue(op->src);
     ConsumeValue(op->address);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRPreloadOp *op) {
-    Substitute(op->address);
     ConsumeValue(op->address);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
-
     auto optimized = [this, op] {
         // Cannot optimize if the carry flag is affected
         if (op->setCarry) {
@@ -80,9 +74,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
-
     auto optimized = [this, op] {
         // Cannot optimize if the carry flag is affected
         if (op->setCarry) {
@@ -116,9 +107,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
-
     auto optimized = [this, op] {
         // Cannot optimize if the carry flag is affected
         if (op->setCarry) {
@@ -152,9 +140,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
-    Substitute(op->value);
-    Substitute(op->amount);
-
     auto optimized = [this, op] {
         // Cannot optimize if the carry flag is affected
         if (op->setCarry) {
@@ -188,8 +173,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    Substitute(op->value);
-
     auto optimized = [this, op] {
         // Cannot optimize if the carry flag is affected
         if (op->setCarry) {
@@ -227,9 +210,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -262,9 +242,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -297,9 +274,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -332,9 +306,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -367,13 +338,10 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    Substitute(op->value);
     ConsumeValue(op->value);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 
@@ -383,8 +351,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 
@@ -394,8 +360,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 
@@ -405,8 +369,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 
@@ -416,8 +378,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
-    Substitute(op->value);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -439,8 +399,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
-    Substitute(op->value);
-
     auto optimized = [this, op] {
         // Cannot optimize if flags are affected
         if (op->flags != arm::Flags::None) {
@@ -469,38 +427,26 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
-    Substitute(op->lhs);
-    Substitute(op->rhs);
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
-    Substitute(op->lhsLo);
-    Substitute(op->lhsHi);
-    Substitute(op->rhsLo);
-    Substitute(op->rhsHi);
     ConsumeValue(op->lhsLo);
     ConsumeValue(op->lhsHi);
     ConsumeValue(op->rhsLo);
@@ -508,7 +454,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
-    Substitute(op->values);
     ConsumeValue(op->values);
 
     if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C) && op->values.immediate) {
@@ -520,27 +465,22 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
-    Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    Substitute(op->srcCPSR);
     ConsumeValue(op->srcCPSR);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchOp *op) {
-    Substitute(op->address);
     ConsumeValue(op->address);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchExchangeOp *op) {
-    Substitute(op->address);
     ConsumeValue(op->address);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    Substitute(op->srcValue);
     ConsumeValue(op->srcValue);
 }
 
@@ -549,7 +489,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRConstantOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRCopyVarOp *op) {
-    Substitute(op->var);
     CopyVariable(op->dst, op->var, op);
 }
 
@@ -735,7 +674,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                         result = m_emitter.BitwiseXor(result, flips, false);
                     }
                 }
-                Assign(var, result);
+                m_varSubst.Assign(var, result);
                 var = result;
 
                 m_emitter.GoTo(currPos);
@@ -744,7 +683,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
     } else {
         // Erase the whole sequence of instructions since they don't change anything
         Variable result = value->source;
-        Assign(var, result);
+        m_varSubst.Assign(var, result);
         var = result;
         m_emitter.Erase(value->writerOp);
     }
@@ -762,39 +701,6 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
 void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
     if (!var.immediate) {
         ConsumeValue(var.var);
-    }
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::ResizeVarSubsts(size_t index) {
-    if (m_varSubsts.size() <= index) {
-        m_varSubsts.resize(index + 1);
-    }
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::Assign(VariableArg dst, VariableArg src) {
-    if (!dst.var.IsPresent() || !src.var.IsPresent()) {
-        return;
-    }
-    const auto varIndex = dst.var.Index();
-    ResizeVarSubsts(varIndex);
-    m_varSubsts[varIndex] = src.var;
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::Substitute(VariableArg &var) {
-    if (!var.var.IsPresent()) {
-        return;
-    }
-
-    const auto varIndex = var.var.Index();
-    if (varIndex < m_varSubsts.size() && m_varSubsts[varIndex].IsPresent()) {
-        MarkDirty(var != m_varSubsts[varIndex]);
-        var = m_varSubsts[varIndex];
-    }
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::Substitute(VarOrImmArg &var) {
-    if (!var.immediate) {
-        Substitute(var.var);
     }
 }
 

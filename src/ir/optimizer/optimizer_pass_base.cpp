@@ -19,7 +19,10 @@ bool OptimizerPassBase::Optimize() {
 
     PreProcess();
     while (IROp *op = m_emitter.GetCurrentOp()) {
+        PreProcess(op);
         VisitIROp(op, [this](auto op) -> void { Process(op); });
+        PostProcess(op);
+
         if (m_backward) {
             m_emitter.PrevOp();
         } else {

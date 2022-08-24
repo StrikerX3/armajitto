@@ -21,6 +21,10 @@ protected:
     virtual void PreProcess() {}
     virtual void PostProcess() {}
 
+    // Global processors, invoked for all IROps
+    virtual void PreProcess(IROp *op) {}
+    virtual void PostProcess(IROp *op) {}
+
     virtual void Process(IRGetRegisterOp *op) {}
     virtual void Process(IRSetRegisterOp *op) {}
     virtual void Process(IRGetCPSROp *op) {}

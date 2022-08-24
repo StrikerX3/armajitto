@@ -36,10 +36,6 @@ class ArithmeticOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
     ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter);
 
-    ~ArithmeticOpsCoalescenceOptimizerPass() {
-        // TODO: remove this; it's here to give the class a non-trivial destructor
-    }
-
 private:
     // void Process(IRGetRegisterOp *op) final;
     // void Process(IRSetRegisterOp *op) final;

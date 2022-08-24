@@ -9,6 +9,7 @@
 #include "optimizer/dead_psr_store_elimination.hpp"
 #include "optimizer/dead_var_store_elimination.hpp"
 #include "optimizer/host_flags_ops_coalescence.hpp"
+#include "optimizer/identity_ops_elimination.hpp"
 
 #include <memory>
 
@@ -44,10 +45,13 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
             dirty |= alloc.AllocateNonTrivial<BitwiseOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
         if (bmPasses.AllOf(OptimizerPasses::ArithmeticOpsCoalescence)) {
-            dirty |= alloc.AllocateNonTrivial<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
+            dirty |= alloc.Allocate<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
         if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
+        }
+        if (bmPasses.AllOf(OptimizerPasses::IdentityOpsElimination)) {
+            dirty |= alloc.AllocateNonTrivial<IdentityOpsEliminationOptimizerPass>(emitter)->Optimize();
         }
         optimized |= dirty;
     } while (repeatWhileDirty && dirty);
