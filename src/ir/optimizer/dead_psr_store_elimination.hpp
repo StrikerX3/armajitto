@@ -18,14 +18,14 @@ public:
 
 private:
     // void Process(IRGetRegisterOp *op) final;
-    // void Process(IRSetRegisterOp *op) final;
+    void Process(IRSetRegisterOp *op) final;
     void Process(IRGetCPSROp *op) final;
     void Process(IRSetCPSROp *op) final;
     void Process(IRGetSPSROp *op) final;
     void Process(IRSetSPSROp *op) final;
-    // void Process(IRMemReadOp *op) final;
-    // void Process(IRMemWriteOp *op) final;
-    // void Process(IRPreloadOp *op) final;
+    void Process(IRMemReadOp *op) final;
+    void Process(IRMemWriteOp *op) final;
+    void Process(IRPreloadOp *op) final;
     void Process(IRLogicalShiftLeftOp *op) final;
     void Process(IRLogicalShiftRightOp *op) final;
     void Process(IRArithmeticShiftRightOp *op) final;
@@ -50,10 +50,10 @@ private:
     // void Process(IRStoreFlagsOp *op) final;
     void Process(IRLoadFlagsOp *op) final;
     void Process(IRLoadStickyOverflowOp *op) final;
-    // void Process(IRBranchOp *op) final;
-    // void Process(IRBranchExchangeOp *op) final;
+    void Process(IRBranchOp *op) final;
+    void Process(IRBranchExchangeOp *op) final;
     // void Process(IRLoadCopRegisterOp *op) final;
-    // void Process(IRStoreCopRegisterOp *op) final;
+    void Process(IRStoreCopRegisterOp *op) final;
     // void Process(IRConstantOp *op) final;
     void Process(IRCopyVarOp *op) final;
     // void Process(IRGetBaseVectorAddressOp *op) final;

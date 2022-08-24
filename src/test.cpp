@@ -468,101 +468,65 @@ void testTranslator() {
     emitter.StoreFlags(flgV, flgV);                         // stflg.v {v}
     emitter.StoreFlags(flgCV, flgNone);                     // stflg.cv {}*/
 
+    auto printBlock = [&] {
+        for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+            auto str = op->ToString();
+            printf("%s\n", str.c_str());
+        }
+    };
+
     printf("translated %u instructions:\n\n", block->InstructionCount());
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
+    printBlock();
 
-    printf("--------------------------------\n");
+    using OptPass = armajitto::ir::OptimizerPasses;
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
-    printf("after constant propagation:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
+    bool printSep = false;
 
-    printf("--------------------------------\n");
+    auto runOptimizer = [&](OptPass pass, const char *name) {
+        if (printSep) {
+            printSep = false;
+            printf("--------------------------------\n");
+        }
+        if (armajitto::ir::Optimize(alloc, *block, pass)) {
+            printf("after %s:\n\n", name);
+            printBlock();
+            printSep = true;
+            return true;
+        } else {
+            printf("%s made no changes\n", name);
+            return false;
+        }
+    };
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadGPRStoreElimination);
-    printf("after dead GPR store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
+    bool optimized;
+    int i = 0;
+    do {
+        printSep = false;
+        optimized = false;
+        ++i;
 
-    printf("--------------------------------\n");
+        printf("\n==================================================\n");
+        printf("  iteration %d\n", i);
+        printf("==================================================\n\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadPSRStoreElimination);
-    printf("after dead PSR store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
+        optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
+        optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
+        optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
+        optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
+        optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
+        optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
+        optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
+        optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
+        optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
+    } while (optimized);
 
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadHostFlagStoreElimination);
-    printf("after dead host flag store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadFlagValueStoreElimination);
-    printf("after dead flag value store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadVarStoreElimination);
-    printf("after dead variable store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::BitwiseOpsCoalescence);
-    printf("after coalescing bitwise operations:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ArithmeticOpsCoalescence);
-    printf("after coalescing arithmetic operations:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
-
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::HostFlagsOpsCoalescence);
-    printf("after coalescing host flags operations:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
-
-    printf("--------------------------------\n");
+    printf("\n==================================================\n");
+    printf("  finished\n");
+    printf("==================================================\n\n");
 
     armajitto::ir::Optimize(alloc, *block);
     printf("after all optimizations:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
-    }
+    printBlock();
 }
 
 int main() {

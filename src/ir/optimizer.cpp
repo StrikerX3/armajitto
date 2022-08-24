@@ -14,10 +14,11 @@
 
 namespace armajitto::ir {
 
-void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes) {
+bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes) {
     Emitter emitter{block};
 
     auto bmPasses = BitmaskEnum(passes);
+    bool optimized = false;
     bool dirty;
     do {
         dirty = false;
@@ -48,7 +49,9 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
         if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
+        optimized |= dirty;
     } while (dirty);
+    return optimized;
 }
 
 } // namespace armajitto::ir

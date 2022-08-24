@@ -26,7 +26,7 @@ enum class OptimizerPasses {
           HostFlagsOpsCoalescence,
 };
 
-void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All);
+bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All);
 
 } // namespace armajitto::ir
 

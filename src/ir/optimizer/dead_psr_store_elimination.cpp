@@ -14,6 +14,10 @@ DeadPSRStoreEliminationOptimizerPass::DeadPSRStoreEliminationOptimizerPass(Emitt
     m_varCPSRVersionMap.resize(varCount);
 }
 
+void DeadPSRStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
+    SubstituteCPSRVar(op->src);
+}
+
 void DeadPSRStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
     if (RecordAndEraseDeadCPSRRead(op->dst, op)) {
         return;
@@ -21,6 +25,7 @@ void DeadPSRStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
+    SubstituteCPSRVar(op->src);
     if (!op->src.immediate) {
         RecordCPSRWrite(op->src.var, op);
     }
@@ -31,124 +36,174 @@ void DeadPSRStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
+    SubstituteCPSRVar(op->src);
     RecordSPSRWrite(op->mode, op);
 }
 
+void DeadPSRStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
+    SubstituteCPSRVar(op->address);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::Process(IRMemWriteOp *op) {
+    SubstituteCPSRVar(op->src);
+    SubstituteCPSRVar(op->address);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::Process(IRPreloadOp *op) {
+    SubstituteCPSRVar(op->address);
+}
+
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
+    SubstituteCPSRVar(op->value);
+    SubstituteCPSRVar(op->amount);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
+    SubstituteCPSRVar(op->value);
+    SubstituteCPSRVar(op->amount);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
+    SubstituteCPSRVar(op->value);
+    SubstituteCPSRVar(op->amount);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
+    SubstituteCPSRVar(op->value);
+    SubstituteCPSRVar(op->amount);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
+    SubstituteCPSRVar(op->value);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
+    SubstituteCPSRVar(op->value);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
+    SubstituteCPSRVar(op->value);
     if (!op->value.immediate) {
         CopyCPSRVersion(op->dst, op->value.var);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
+    SubstituteCPSRVar(op->value);
     if (HasCPSRVersion(op->value)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
+    SubstituteCPSRVar(op->lhs);
+    SubstituteCPSRVar(op->rhs);
     if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
         AssignNewCPSRVersion(op->dstLo);
         AssignNewCPSRVersion(op->dstHi);
@@ -156,6 +211,10 @@ void DeadPSRStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
+    SubstituteCPSRVar(op->lhsLo);
+    SubstituteCPSRVar(op->lhsHi);
+    SubstituteCPSRVar(op->rhsLo);
+    SubstituteCPSRVar(op->rhsHi);
     if (HasCPSRVersion(op->lhsLo) || HasCPSRVersion(op->lhsHi) || HasCPSRVersion(op->rhsLo) ||
         HasCPSRVersion(op->rhsHi)) {
         AssignNewCPSRVersion(op->dstLo);
@@ -164,18 +223,33 @@ void DeadPSRStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
+    SubstituteCPSRVar(op->srcCPSR);
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
+    SubstituteCPSRVar(op->srcCPSR);
     if (HasCPSRVersion(op->srcCPSR)) {
         AssignNewCPSRVersion(op->dstCPSR);
     }
 }
 
+void DeadPSRStoreEliminationOptimizerPass::Process(IRBranchOp *op) {
+    SubstituteCPSRVar(op->address);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::Process(IRBranchExchangeOp *op) {
+    SubstituteCPSRVar(op->address);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::Process(IRStoreCopRegisterOp *op) {
+    SubstituteCPSRVar(op->srcValue);
+}
+
 void DeadPSRStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
+    SubstituteCPSRVar(op->var);
     CopyCPSRVersion(op->dst, op->var);
 }
 
