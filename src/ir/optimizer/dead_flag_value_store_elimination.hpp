@@ -9,9 +9,46 @@ namespace armajitto::ir {
 
 // Performs dead store elimination for flag values in variables.
 //
-// TODO: write documentation
+// The algorithm tracks the last instructions that wrote to each one of the NZCVQ flags in variables.
+// It only tracks the AND, ORR, BIC bitwise operations with a variable and an immediate argument and the load CPSR, load
+// flags and load sticky overflow flag instructions.
 //
-// TODO: describe further with examples
+// Loading from CPSR initializes the variable into an unknown state. This variable is used as the "base" for subsequent
+// operations. Each operation that takes this variable and outputs another variable connects those two in a chain and
+// erases the written flags from the previous instructions -- from the immediate values for the bitwise operations, or
+// from the flags mask for the load flags instructions. This is done per flag.
+//
+// Assuming the following IR code fragment:
+//  #  instruction
+//  1  ld $v0, cpsr
+//  2  bic $v1, $v0, #0xc0000000
+//  3  orr $v2, $v1, #0x78000000
+//  4  ldflg.q $v3, $v2
+//  5  ldflg.nc $v4, $v3
+//  6  st cpsr, $v4
+//
+// The algorithm takes the following actions for each instruction:
+//  1. Records $v0 as the base of a series of flag value modifications.
+//  2. Stores this instruction as the writer for flags NZ (corresponding to #0xc0000000) into the base variable $v0.
+//  3. Erases the Z write from instruction 2, modifying its immediate value to #0x80000000.
+//     Stores this instruction as the writer for flags ZCVQ into the base variable $v0.
+//  4. Erases the Q write from instruction 3, modifying its immediate value to #0x70000000.
+//     Stores this instruction as the writer for flag Q into the base variable $v0.
+//  5. Erases the N write from instruction 2, modifying its immediate value to #0x00000000.
+//     Erases the C write from instruction 3, modifying its immediate value to #0x50000000.
+//     Stores this instruction as the writer for flags NZ into the base variable $v0.
+//  6. No action taken.
+//
+// The resulting code is:
+//  #  instruction
+//  1  ld $v0, cpsr
+//  2  bic $v1, $v0, #0x00000000
+//  3  orr $v2, $v1, #0x50000000
+//  4  ldflg.q $v3, $v2
+//  5  ldflg.nc $v4, $v3
+//  6  st cpsr, $v4
+//
+// The BIC operation becomes an identity operation, which is removed by a later optimization pass.
 class DeadFlagValueStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
     DeadFlagValueStoreEliminationOptimizerPass(Emitter &emitter);
