@@ -350,7 +350,10 @@ void DeadVarStoreEliminationOptimizerPass::ResetVariableRecursive(Variable var, 
         return;
     }
 
-    bool erased = VisitIROp(op, [this, var](auto op) { return ResetVariable(var, op); });
+    bool erased = VisitIROp(op, [this, var](auto op) {
+        ResetVariable(var, op);
+        return IsDeadInstruction(op);
+    });
 
     // Follow dependencies
     if (erased && var.Index() < m_dependencies.size()) {
@@ -365,191 +368,168 @@ void DeadVarStoreEliminationOptimizerPass::ResetVariableRecursive(Variable var, 
     }
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetRegisterOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetRegisterOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetCPSROp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetCPSROp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetSPSROp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetSPSROp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMemReadOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMemReadOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLogicalShiftLeftOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLogicalShiftLeftOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLogicalShiftRightOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLogicalShiftRightOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRArithmeticShiftRightOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRArithmeticShiftRightOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRRotateRightOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRRotateRightOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRRotateRightExtendedOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRRotateRightExtendedOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseAndOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseAndOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseOrOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseOrOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseXorOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitwiseXorOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitClearOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRBitClearOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRCountLeadingZerosOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRCountLeadingZerosOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddCarryOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddCarryOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSubtractOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSubtractOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSubtractCarryOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSubtractCarryOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMoveOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMoveOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMoveNegatedOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMoveNegatedOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSaturatingAddOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSaturatingAddOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSaturatingSubtractOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRSaturatingSubtractOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMultiplyOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMultiplyOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMultiplyLongOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMultiplyLongOp *op) {
     if (op->dstLo == var) {
         MarkDirty();
         op->dstLo.var = {};
@@ -558,10 +538,9 @@ bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRMultipl
         MarkDirty();
         op->dstHi.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddLongOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddLongOp *op) {
     if (op->dstLo == var) {
         MarkDirty();
         op->dstLo.var = {};
@@ -570,55 +549,48 @@ bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRAddLong
         MarkDirty();
         op->dstHi.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadFlagsOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadFlagsOp *op) {
     if (op->dstCPSR == var) {
         MarkDirty();
         op->dstCPSR.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadStickyOverflowOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadStickyOverflowOp *op) {
     if (op->dstCPSR == var) {
         MarkDirty();
         op->dstCPSR.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadCopRegisterOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRLoadCopRegisterOp *op) {
     if (op->dstValue == var) {
         MarkDirty();
         op->dstValue.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRConstantOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRConstantOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRCopyVarOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRCopyVarOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
-bool DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetBaseVectorAddressOp *op) {
+void DeadVarStoreEliminationOptimizerPass::ResetVariable(Variable var, IRGetBaseVectorAddressOp *op) {
     if (op->dst == var) {
         MarkDirty();
         op->dst.var = {};
     }
-    return IsDeadInstruction(op);
 }
 
 } // namespace armajitto::ir

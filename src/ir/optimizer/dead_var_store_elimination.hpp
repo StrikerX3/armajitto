@@ -172,50 +172,48 @@ private:
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
-    bool ResetVariable(Variable var, T *op) {
-        return false;
-    }
+    void ResetVariable(Variable var, T *op) {}
 
-    bool ResetVariable(Variable var, IRGetRegisterOp *op);
-    // bool ResetVariable(GPRArg var, IRSetRegisterOp *op);
-    bool ResetVariable(Variable var, IRGetCPSROp *op);
-    // bool ResetVariable(IRSetCPSROp *op);
-    bool ResetVariable(Variable var, IRGetSPSROp *op);
-    // bool ResetVariable(IRSetSPSROp *op);
-    bool ResetVariable(Variable var, IRMemReadOp *op);
+    void ResetVariable(Variable var, IRGetRegisterOp *op);
+    // IRSetRegisterOp writes to GPRs
+    void ResetVariable(Variable var, IRGetCPSROp *op);
+    // IRSetCPSROp writes to CPSR
+    void ResetVariable(Variable var, IRGetSPSROp *op);
+    // IRSetSPSROp writes to SPSRs
+    void ResetVariable(Variable var, IRMemReadOp *op);
     // IRMemWriteOp has no writes
     // IRPreloadOp has no writes
-    bool ResetVariable(Variable var, IRLogicalShiftLeftOp *op);
-    bool ResetVariable(Variable var, IRLogicalShiftRightOp *op);
-    bool ResetVariable(Variable var, IRArithmeticShiftRightOp *op);
-    bool ResetVariable(Variable var, IRRotateRightOp *op);
-    bool ResetVariable(Variable var, IRRotateRightExtendedOp *op);
-    bool ResetVariable(Variable var, IRBitwiseAndOp *op);
-    bool ResetVariable(Variable var, IRBitwiseOrOp *op);
-    bool ResetVariable(Variable var, IRBitwiseXorOp *op);
-    bool ResetVariable(Variable var, IRBitClearOp *op);
-    bool ResetVariable(Variable var, IRCountLeadingZerosOp *op);
-    bool ResetVariable(Variable var, IRAddOp *op);
-    bool ResetVariable(Variable var, IRAddCarryOp *op);
-    bool ResetVariable(Variable var, IRSubtractOp *op);
-    bool ResetVariable(Variable var, IRSubtractCarryOp *op);
-    bool ResetVariable(Variable var, IRMoveOp *op);
-    bool ResetVariable(Variable var, IRMoveNegatedOp *op);
-    bool ResetVariable(Variable var, IRSaturatingAddOp *op);
-    bool ResetVariable(Variable var, IRSaturatingSubtractOp *op);
-    bool ResetVariable(Variable var, IRMultiplyOp *op);
-    bool ResetVariable(Variable var, IRMultiplyLongOp *op);
-    bool ResetVariable(Variable var, IRAddLongOp *op);
+    void ResetVariable(Variable var, IRLogicalShiftLeftOp *op);
+    void ResetVariable(Variable var, IRLogicalShiftRightOp *op);
+    void ResetVariable(Variable var, IRArithmeticShiftRightOp *op);
+    void ResetVariable(Variable var, IRRotateRightOp *op);
+    void ResetVariable(Variable var, IRRotateRightExtendedOp *op);
+    void ResetVariable(Variable var, IRBitwiseAndOp *op);
+    void ResetVariable(Variable var, IRBitwiseOrOp *op);
+    void ResetVariable(Variable var, IRBitwiseXorOp *op);
+    void ResetVariable(Variable var, IRBitClearOp *op);
+    void ResetVariable(Variable var, IRCountLeadingZerosOp *op);
+    void ResetVariable(Variable var, IRAddOp *op);
+    void ResetVariable(Variable var, IRAddCarryOp *op);
+    void ResetVariable(Variable var, IRSubtractOp *op);
+    void ResetVariable(Variable var, IRSubtractCarryOp *op);
+    void ResetVariable(Variable var, IRMoveOp *op);
+    void ResetVariable(Variable var, IRMoveNegatedOp *op);
+    void ResetVariable(Variable var, IRSaturatingAddOp *op);
+    void ResetVariable(Variable var, IRSaturatingSubtractOp *op);
+    void ResetVariable(Variable var, IRMultiplyOp *op);
+    void ResetVariable(Variable var, IRMultiplyLongOp *op);
+    void ResetVariable(Variable var, IRAddLongOp *op);
     // IRStoreFlagsOp has side-effects (updates host flags)
-    bool ResetVariable(Variable var, IRLoadFlagsOp *op);
-    bool ResetVariable(Variable var, IRLoadStickyOverflowOp *op);
-    // bool ResetVariable(IRBranchOp *op); // Writes PC
-    // bool ResetVariable(IRBranchExchangeOp *op); // Writes PC and CPSR
-    bool ResetVariable(Variable var, IRLoadCopRegisterOp *op);
+    void ResetVariable(Variable var, IRLoadFlagsOp *op);
+    void ResetVariable(Variable var, IRLoadStickyOverflowOp *op);
+    // IRBranchOp writes to PC
+    // IRBranchExchangeOp writes to PC and CPSR
+    void ResetVariable(Variable var, IRLoadCopRegisterOp *op);
     // IRStoreCopRegisterOp has no writes
-    bool ResetVariable(Variable var, IRConstantOp *op);
-    bool ResetVariable(Variable var, IRCopyVarOp *op);
-    bool ResetVariable(Variable var, IRGetBaseVectorAddressOp *op);
+    void ResetVariable(Variable var, IRConstantOp *op);
+    void ResetVariable(Variable var, IRCopyVarOp *op);
+    void ResetVariable(Variable var, IRGetBaseVectorAddressOp *op);
 };
 
 } // namespace armajitto::ir
