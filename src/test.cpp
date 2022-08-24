@@ -403,7 +403,7 @@ void testTranslator() {
     emitter.CopyVar(v3);                                    // copy $v4, $v3
     emitter.SetRegister(armajitto::arm::GPR::R0, v1);       // st r0, $v1*/
 
-    /*auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
+    /*auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0x21520000, false);         // orr $v2, $v1, #0x21520000
     val = emitter.BitClear(val, 0x0000FFFF, false);          // bic $v3, $v2, #0x0000ffff
@@ -412,7 +412,7 @@ void testTranslator() {
     val = emitter.MoveNegated(val, false);                   // mvn $v6, $v5
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v6*/
 
-    /*auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
+    /*auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0xD15D0000, false);         // orr $v2, $v1, #0xd15d0000
     val = emitter.BitwiseXor(val, 0xF00F4110, false);        // xor $v3, $v2, #0xf00f4110
@@ -423,7 +423,7 @@ void testTranslator() {
     /*constexpr auto flgC = armajitto::arm::Flags::C;
     constexpr auto u32flgC = static_cast<uint32_t>(flgC);
     constexpr auto u32flgNone = static_cast<uint32_t>(armajitto::arm::Flags::None);
-    auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // mov $v0, r0  (r0 is an unknown value)
+    auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0xFFFF0000, false);         // orr $v2, $v1, #0xffff0000
     val = emitter.BitwiseXor(val, 0xF00F0FF0, false);        // xor $v3, $v2, #0xf00f0ff0
@@ -469,9 +469,7 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    for (int i = 0; i < 10; i++) {
-        armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
-    }
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -480,13 +478,11 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    for (int i = 0; i < 10; i++) {
-        armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
-        printf("after dead store elimination:\n\n");
-        for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-            auto str = op->ToString();
-            printf("%s\n", str.c_str());
-        }
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
+    printf("after dead store elimination:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
     }
 
     printf("--------------------------------\n");

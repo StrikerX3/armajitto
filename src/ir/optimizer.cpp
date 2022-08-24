@@ -15,7 +15,7 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
 
     auto bmPasses = BitmaskEnum(passes);
     bool dirty;
-    //do {
+    do {
         dirty = false;
         if (bmPasses.AllOf(OptimizerPasses::ConstantPropagation)) {
             dirty |= alloc.AllocateNonTrivial<ConstPropagationOptimizerPass>(emitter)->Optimize();
@@ -32,7 +32,7 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
         if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
-    //} while (dirty);
+    } while (dirty);
 }
 
 } // namespace armajitto::ir
