@@ -11,6 +11,8 @@ namespace armajitto::ir {
 // Add an instance of this class to an optimizer, then add this to the IROp preprocessor stage:
 //   m_varSubst.Substitute(op);
 // Invoke Assign to assign variable substitutions.
+//
+// Does not work on a backward scan.
 class VarSubstitutor {
 public:
     VarSubstitutor(size_t varCount);

@@ -10,6 +10,10 @@ void IdentityOpsEliminationOptimizerPass::PreProcess(IROp *op) {
     MarkDirty(m_varSubst.Substitute(op));
 }
 
+void IdentityOpsEliminationOptimizerPass::PostProcess(IROp *op) {
+    m_hostFlagsStateTracker.Update(op);
+}
+
 void IdentityOpsEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     ProcessShift(op->dst, op->value, op->amount, op->setCarry, op);
 }
@@ -47,8 +51,11 @@ void IdentityOpsEliminationOptimizerPass::Process(IRAddOp *op) {
 }
 
 void IdentityOpsEliminationOptimizerPass::Process(IRAddCarryOp *op) {
-    // TODO: track host carry flag
-    // TODO: extract this functionality from the other optimizer that has it
+    if (auto carry = m_hostFlagsStateTracker.Carry()) {
+        if (!*carry) {
+            ProcessImmVarPair(op->dst, op->lhs, op->rhs, op->flags, 0, op);
+        }
+    }
 }
 
 void IdentityOpsEliminationOptimizerPass::Process(IRSubtractOp *op) {
@@ -56,8 +63,11 @@ void IdentityOpsEliminationOptimizerPass::Process(IRSubtractOp *op) {
 }
 
 void IdentityOpsEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
-    // TODO: track host carry flag
-    // TODO: extract this functionality from the other optimizer that has it
+    if (auto carry = m_hostFlagsStateTracker.Carry()) {
+        if (*carry) {
+            ProcessImmVarPair(op->dst, op->lhs, op->rhs, op->flags, 0, op);
+        }
+    }
 }
 
 void IdentityOpsEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {

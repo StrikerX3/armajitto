@@ -15,6 +15,10 @@ void BitwiseOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
     MarkDirty(m_varSubst.Substitute(op));
 }
 
+void BitwiseOpsCoalescenceOptimizerPass::PostProcess(IROp *op) {
+    m_hostFlagsStateTracker.Update(op);
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
     ConsumeValue(op->src);
 }
@@ -67,10 +71,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
-
-    if (op->setCarry) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
@@ -99,10 +99,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     if (!optimized) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
-    }
-
-    if (op->setCarry) {
-        m_hostCarryFlagState = FlagState::Unknown;
     }
 }
 
@@ -133,10 +129,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
-
-    if (op->setCarry) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
@@ -166,10 +158,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
         ConsumeValue(op->value);
         ConsumeValue(op->amount);
     }
-
-    if (op->setCarry) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
@@ -191,21 +179,18 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
         }
 
         // The host carry flag state must be known
-        if (m_hostCarryFlagState == FlagState::Unknown) {
+        auto hostCarry = m_hostFlagsStateTracker.Carry();
+        if (!hostCarry) {
             return false;
         }
 
         // RRX rotates bits right by one, shifting in the carry flag
-        value->RotateRightExtended(m_hostCarryFlagState == FlagState::Set);
+        value->RotateRightExtended(*hostCarry);
         return true;
     }();
 
     if (!optimized) {
         ConsumeValue(op->value);
-    }
-
-    if (op->setCarry) {
-        m_hostCarryFlagState = FlagState::Unknown;
     }
 }
 
@@ -344,37 +329,21 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-
-    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-
-    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-
-    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
     ConsumeValue(op->lhs);
     ConsumeValue(op->rhs);
-
-    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C)) {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
@@ -455,13 +424,6 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
     ConsumeValue(op->values);
-
-    if (BitmaskEnum(op->flags).AnyOf(arm::Flags::C) && op->values.immediate) {
-        const bool carry = BitmaskEnum(static_cast<arm::Flags>(op->values.imm.value)).AnyOf(arm::Flags::C);
-        m_hostCarryFlagState = carry ? FlagState::Set : FlagState::Clear;
-    } else {
-        m_hostCarryFlagState = FlagState::Unknown;
-    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {

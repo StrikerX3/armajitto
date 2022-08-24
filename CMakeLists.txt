@@ -90,6 +90,8 @@ add_library(armajitto
     src/ir/optimizer/identity_ops_elimination.hpp
     src/ir/optimizer/optimizer_pass_base.cpp
     src/ir/optimizer/optimizer_pass_base.hpp
+    src/ir/optimizer/common/host_flags_tracking.cpp
+    src/ir/optimizer/common/host_flags_tracking.hpp
     src/ir/optimizer/common/var_subst.cpp
     src/ir/optimizer/common/var_subst.hpp
     src/ir/translator/decode_arm.hpp

@@ -428,8 +428,7 @@ void testTranslator() {
 
     // Bitwise ops coalescence test
     /*constexpr auto flgC = armajitto::arm::Flags::C;
-    constexpr auto u32flgC = static_cast<uint32_t>(flgC);
-    constexpr auto u32flgNone = static_cast<uint32_t>(armajitto::arm::Flags::None);
+    constexpr auto flgNone = armajitto::arm::Flags::None;
     auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0xFFFF0000, false);         // orr $v2, $v1, #0xffff0000
@@ -439,7 +438,7 @@ void testTranslator() {
     val = emitter.LogicalShiftLeft(val, 8, false);           // lsl $v6, $v5, #0x8
     val = emitter.LogicalShiftRight(val, 4, false);          // lsr $v7, $v6, #0x4
     val = emitter.RotateRight(val, 3, false);                // ror $v8, $v7, #0x3
-    emitter.StoreFlags(flgC, u32flgC);                       // stflg.c {c}
+    emitter.StoreFlags(flgC, flgC);                          // stflg.c {c}
     val = emitter.RotateRightExtended(val, false);           // rrx $v9, $v8
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v8*/
 
@@ -478,6 +477,7 @@ void testTranslator() {
     auto r5 = emitter.GetRegister(armajitto::arm::GPR::R5); // ld $v4, r5
     emitter.SetCPSR(r5);                                    // st cpsr, $v4*/
 
+    // Identity operation elimination test
     auto var = emitter.GetRegister(armajitto::arm::GPR::R0);
     var = emitter.LogicalShiftLeft(var, 0, false);     // lsl <var>, <var>, 0
     var = emitter.LogicalShiftRight(var, 0, false);    // lsr <var>, <var>, 0
@@ -494,11 +494,11 @@ void testTranslator() {
     var = emitter.Add(var, 0, false);                  // add <var>, <var>, 0
     var = emitter.Add(0, var, false);                  // add <var>, 0, <var>
     var = emitter.Subtract(0, var, false);             // sub <var>, <var>, 0
-    // emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::None);
-    // var = emitter.AddCarry(var, 0, false); // adc <var>, <var>, 0 (with known ~C)
-    // var = emitter.AddCarry(0, var, false); // adc <var>, 0, <var> (with known ~C)
-    // emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::C);
-    // var = emitter.SubtractCarry(var, 0, false);                     // sbc  <var>, <var>, 0 (with known  C)
+    emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::None);
+    var = emitter.AddCarry(var, 0, false); // adc <var>, <var>, 0 (with known ~C)
+    var = emitter.AddCarry(0, var, false); // adc <var>, 0, <var> (with known ~C)
+    emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::C);
+    var = emitter.SubtractCarry(var, 0, false);                     // sbc  <var>, <var>, 0 (with known  C)
     var = emitter.SaturatingAdd(var, 0, false);                     // qadd <var>, <var>, 0
     var = emitter.SaturatingAdd(0, var, false);                     // qadd <var>, 0, <var>
     var = emitter.SaturatingSubtract(var, 0, false);                // qsub <var>, <var>, 0
@@ -506,10 +506,10 @@ void testTranslator() {
     var = emitter.Multiply(1, var, false, false);                   // umul <var>, 1, <var>
     var = emitter.Multiply(var, 1, true, false);                    // smul <var>, <var>, 1
     var = emitter.Multiply(1, var, true, false);                    // smul <var>, 1, <var>
-    auto dual1 = emitter.MultiplyLong(var, 1, false, false, false); // umull <var>, <var>:<var>, 0:1
-    auto dual2 = emitter.MultiplyLong(1, var, false, false, false); // umull <var>, 0:1, <var>:<var>
-    auto dual3 = emitter.MultiplyLong(var, 1, true, false, false);  // smull <var>, <var>:<var>, 0:1
-    auto dual4 = emitter.MultiplyLong(1, var, true, false, false);  // smull <var>, 0:1, <var>:<var>
+    auto dual1 = emitter.MultiplyLong(var, 1, false, false, false); // umull <var>:<var>, <var>, 1
+    auto dual2 = emitter.MultiplyLong(1, var, false, false, false); // umull <var>:<var>, 1, <var>
+    auto dual3 = emitter.MultiplyLong(var, 1, true, false, false);  // smull <var>:<var>, <var>, 1
+    auto dual4 = emitter.MultiplyLong(1, var, true, false, false);  // smull <var>:<var>, 1, <var>
     auto dual5 = emitter.AddLong(var, var, 0, 0, false);            // addl <var>:<var>, <var>:<var>, 0:0
     auto dual6 = emitter.AddLong(0, 0, var, var, false);            // addl <var>:<var>, 0:0, <var>:<var>
     emitter.SetRegister(armajitto::arm::GPR::R1, dual1.lo);

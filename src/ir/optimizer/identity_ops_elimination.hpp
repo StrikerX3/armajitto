@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
 
@@ -52,6 +53,7 @@ public:
 
 private:
     void PreProcess(IROp *op) final;
+    void PostProcess(IROp *op) final;
 
     // void Process(IRGetRegisterOp *op) final;
     // void Process(IRSetRegisterOp *op) final;
@@ -103,9 +105,10 @@ private:
                            uint32_t identityValue, IROp *op);
 
     // -------------------------------------------------------------------------
-    // Variable substitutions
+    // Helpers
 
     VarSubstitutor m_varSubst;
+    HostFlagStateTracker m_hostFlagsStateTracker;
 };
 
 } // namespace armajitto::ir
