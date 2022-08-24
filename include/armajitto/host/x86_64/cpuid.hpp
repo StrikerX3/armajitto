@@ -6,41 +6,44 @@ namespace armajitto::x86_64 {
 
 class CPUID {
 public:
-    static CPUID &Instance() {
+    enum class Vendor { Intel, AMD, Unknown };
+
+    static CPUID &Instance() noexcept {
         return s_instance;
     }
 
-    [[nodiscard]] bool HasBMI2() const {
+    [[nodiscard]] Vendor GetVendor() const noexcept {
+        return vendor;
+    }
+
+    [[nodiscard]] bool HasBMI2() const noexcept {
         return hasBMI2;
     }
-    [[nodiscard]] bool HasLZCNT() const {
+    [[nodiscard]] bool HasLZCNT() const noexcept {
         return hasLZCNT;
     }
 
-    [[nodiscard]] bool HasFastPDEPAndPEXT() const {
-        if (!hasBMI2) {
-            return false;
-        }
-
+    [[nodiscard]] bool HasFastPDEPAndPEXT() const noexcept {
         // Zen1 and Zen2 implement PDEP and PEXT in microcode which has a latency of 18/19 cycles.
         // See: https://www.agner.org/optimize/instruction_tables.pdf
 
         // Family 17h is AMD Zen, Zen+ and Zen2, all of which have the slow PDEP/PEXT
-        return (family != 0x17);
+        return hasBMI2 && (family != 0x17);
     }
 
 private:
-    CPUID();
+    CPUID() noexcept;
 
     static CPUID s_instance;
 
-    uint8_t family;
+    uint32_t maxLeaf;
+    uint32_t maxExtLeaf;
 
-    bool hasBMI2;
-    bool hasLZCNT;
+    Vendor vendor = Vendor::Unknown;
+    uint8_t family = 0;
 
-    static void cpuid(uint32_t leaf, uint32_t &eax, uint32_t &ebx, uint32_t &ecx, uint32_t &edx);
-    static void cpuid(uint32_t leaf, uint32_t subleaf, uint32_t &eax, uint32_t &ebx, uint32_t &ecx, uint32_t &edx);
+    bool hasBMI2 = false;
+    bool hasLZCNT = false;
 };
 
 } // namespace armajitto::x86_64
