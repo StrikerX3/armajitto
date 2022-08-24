@@ -9,9 +9,41 @@ namespace armajitto::ir {
 
 // Performs dead store elimination for host flags.
 //
-// TODO: write documentation
+// This algorithm tracks the last instruction that updates the host state of each one of the five CPSR flags: NZCVQ.
+// Whenever a flag is overwritten, the host flag update is removed from previous instruction that updated it. Flags that
+// are consumed (read) by other instructions are preserved. A later optimization pass removes dead instructions that no
+// longer write to any variables or flags.
 //
-// TODO: describe further with examples
+// Assuming the following IR code fragment:
+//  #  instruction
+//  1  ld $v0, r1
+//  2  ld $v1, r2
+//  3  ld $v2, r3
+//  4  add.nzcv $v3, $v0, $v1
+//  5  adc.nzcv $v4, $v3, $v2
+//  6  st r0, $v4
+//  7  stflg.nz {}
+//
+// The algorithm takes the following actions for each instruction:
+//  1-3. No action taken -- instructions don't read or write host flags.
+//  4. This instruction is recorded as the last writer to NZCV host flags.
+//  5. This instruction consumes the C host flag, so instruction 4 is no longer tracked for it. It also outputs NZCV,
+//     replacing instruction 4 as the writer for flags NZV, which are removed from the previous instruction. This
+//     instruction is now recorded as the last writer to NZCV host flags.
+//  6. No action taken -- instructions don't read or write host flags.
+//  7. This instruction overwrites the NZ flags written by instruction 5, so those flags are disabled from that
+//     instruction, and this instruction is now recorded as the last writer to NZ flags.
+//
+// After those actions, the resulting code is:
+//                              last writes per flag   actions taken
+//  #  instruction
+//  1  ld $v0, r1
+//  2  ld $v1, r2
+//  3  ld $v2, r3
+//  4  add.c $v3, $v0, $v1      N:4, Z:4, C:4, V:4
+//  5  adc.cv $v4, $v3, $v2     N:5, Z:5, C:5, V:5      consumed C, overwritten NZV
+//  6  st r0, $v4               N:5, Z:5, C:5, V:5
+//  7  stflg.nz {}              N:7, Z:7, C:5, V:5      overwritten NZ
 class DeadHostFlagStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
     DeadHostFlagStoreEliminationOptimizerPass(Emitter &emitter)
