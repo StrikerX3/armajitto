@@ -269,20 +269,12 @@ void DeadPSRStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp
     RecordPSRWrite(0, src, op);
 }
 
-void DeadPSRStoreEliminationOptimizerPass::EraseDeadCPSRLoadStore(IROp *loadOp) {
-    EraseDeadPSRLoadStore(0, loadOp);
-}
-
 void DeadPSRStoreEliminationOptimizerPass::RecordSPSRRead(arm::Mode mode, VariableArg var, IROp *loadOp) {
     RecordPSRRead(SPSRIndex(mode), var, loadOp);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::RecordSPSRWrite(arm::Mode mode, VariableArg src, IROp *op) {
     RecordPSRWrite(SPSRIndex(mode), src, op);
-}
-
-void DeadPSRStoreEliminationOptimizerPass::EraseDeadSPSRLoadStore(arm::Mode mode, IROp *loadOp) {
-    EraseDeadPSRLoadStore(SPSRIndex(mode), loadOp);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::RecordPSRRead(size_t index, VariableArg var, IROp *loadOp) {
@@ -292,20 +284,28 @@ void DeadPSRStoreEliminationOptimizerPass::RecordPSRRead(size_t index, VariableA
         return;
     }
 
-    // Assign variable to current CPSR version
+    // Assign variable to current PSR version
     auto &psrVersion = m_psrVersions[index];
     const auto versionIndex = psrVersion - 1; // PSR versions are 1-indexed
     ResizePSRToVarMap(versionIndex);
-    if (!m_psrToVarMap[versionIndex].var.IsPresent()) {
-        m_psrToVarMap[versionIndex].var = var.var;
+    auto &versionEntry = m_psrToVarMap[versionIndex];
+    if (!versionEntry.var.IsPresent()) {
+        versionEntry.var = var.var;
     }
 
-    // Assign CPSR version to the variable
+    // Assign PSR version to the variable
     const auto varIndex = var.var.Index();
     ResizeVarToPSRVersionMap(varIndex);
     m_varToPSRVersionMap[varIndex] = psrVersion;
 
-    EraseDeadCPSRLoadStore(loadOp);
+    // If the current version of the PSR comes from a previous store without modifications, erase both instructions
+    if (versionEntry.writeOp == nullptr) {
+        return;
+    }
+
+    m_emitter.Erase(loadOp);
+    m_emitter.Erase(versionEntry.writeOp);
+    versionEntry.writeOp = nullptr;
 }
 
 void DeadPSRStoreEliminationOptimizerPass::RecordPSRWrite(size_t index, VariableArg src, IROp *op) {
@@ -329,33 +329,17 @@ void DeadPSRStoreEliminationOptimizerPass::RecordPSRWrite(size_t index, Variable
             // No changes were made; erase this write
             m_emitter.Erase(op);
         }
-        m_nextPSRVersion = psrVersion + 1;
+        psrVersion = version;
 
         // Associate this version with the given write op
         const auto index = psrVersion - 1;    // PSR versions are 1-indexed
         assert(index < m_psrToVarMap.size()); // this entry should exist
         m_psrToVarMap[index].writeOp = op;
     } else {
-        // Increment CPSR to the next CPSR version
-        psrVersion = m_nextPSRVersion++;
+        // Set PSR to the next PSR version
+        psrVersion = m_nextPSRVersion;
     }
-}
-
-void DeadPSRStoreEliminationOptimizerPass::EraseDeadPSRLoadStore(size_t index, IROp *loadOp) {
-    const auto versionIndex = m_psrVersions[index] - 1; // PSR versions are 1-indexed
-    if (versionIndex >= m_psrToVarMap.size()) {
-        return;
-    }
-
-    // If the current version of the PSR comes from a previous store without modifications, erase both instructions
-    auto &entry = m_psrToVarMap[versionIndex];
-    if (!entry.var.IsPresent() || entry.writeOp == nullptr) {
-        return;
-    }
-
-    m_emitter.Erase(loadOp);
-    m_emitter.Erase(entry.writeOp);
-    entry.writeOp = nullptr;
+    ++m_nextPSRVersion;
 }
 
 bool DeadPSRStoreEliminationOptimizerPass::HasVersion(VariableArg var) {
@@ -418,7 +402,7 @@ void DeadPSRStoreEliminationOptimizerPass::SubstituteVar(VariableArg &var) {
         return;
     }
 
-    // Check if there is a CPSR version associated with the variable
+    // Check if there is a PSR version associated with the variable
     const auto varIndex = var.var.Index();
     if (varIndex >= m_varToPSRVersionMap.size()) {
         return;

@@ -129,11 +129,9 @@ private:
 
     void RecordCPSRRead(VariableArg var, IROp *loadOp);
     void RecordCPSRWrite(VariableArg src, IROp *op);
-    void EraseDeadCPSRLoadStore(IROp *loadOp);
 
     void RecordSPSRRead(arm::Mode mode, VariableArg var, IROp *loadOp);
     void RecordSPSRWrite(arm::Mode mode, VariableArg src, IROp *op);
-    void EraseDeadSPSRLoadStore(arm::Mode mode, IROp *loadOp);
 
     void RecordPSRRead(size_t index, VariableArg var, IROp *loadOp);
     void RecordPSRWrite(size_t index, VariableArg src, IROp *op);
