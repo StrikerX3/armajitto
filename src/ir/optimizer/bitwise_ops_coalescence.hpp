@@ -71,6 +71,7 @@ namespace armajitto::ir {
 // - ORR for all known ones, if any
 // - BIC for all known zeros, if any
 // - EOR for all flipped bits, if any
+// - MVN if all bits are flipped (which implies they're all unknown)
 //
 // For example:
 //
@@ -89,6 +90,7 @@ namespace armajitto::ir {
 //                                                      orr <intermediate var 2> <intermediate var 1>, 0x0000F000
 //                                                      bic <intermediate var 3>, <intermediate var 2>, 0x00000F00
 //                                                      eor <final var>, <intermediate var 3>, 0x00FF0000
+//    0x00000000  0x........    0xFFFFFFFF    0         mvn <final var>, <base var>
 class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
     BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter);
@@ -324,6 +326,7 @@ private:
         void operator()(IRBitwiseOrOp *op);
         void operator()(IRBitClearOp *op);
         void operator()(IRBitwiseXorOp *op);
+        void operator()(IRMoveNegatedOp *op);
 
         void CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount, VariableArg dst);
         void CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs, VarOrImmArg &rhs, VariableArg dst);

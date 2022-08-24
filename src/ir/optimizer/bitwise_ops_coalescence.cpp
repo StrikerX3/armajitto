@@ -580,7 +580,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                 m_emitter.Overwrite().Constant(var, value->knownBitsValue);
             }
         }
-    } else if (value->knownBitsMask != 0) {
+    } else if (value->knownBitsMask != 0 || value->flippedBits != 0) {
         // Some of the bits are known
         const uint32_t ones = value->knownBitsValue & value->knownBitsMask;
         const uint32_t zeros = ~value->knownBitsValue & value->knownBitsMask;
@@ -629,8 +629,11 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                         result = m_emitter.BitClear(result, zeros, false);
                     }
 
-                    // Emit EOR for all unknown flipped bits
-                    if (flips != 0) {
+                    if (flips == ~0) {
+                        // Emit MVN if all bits are flipped
+                        result = m_emitter.MoveNegated(result, false);
+                    } else if (flips != 0) {
+                        // Emit EOR for all unknown flipped bits
                         result = m_emitter.BitwiseXor(result, flips, false);
                     }
                 }
@@ -741,6 +744,23 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitw
     }
 }
 
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRMoveNegatedOp *op) {
+    if (!valid) {
+        return;
+    }
+
+    if (!hasFlips && zeros == 0 && ones == 0 && flips == ~0) {
+        // Found the instruction; check if the parameters match
+        if (!op->value.immediate) {
+            hasFlips = true;
+            CheckInputVar(op->value.var.var);
+            CheckOutputVar(op->dst.var);
+        }
+    } else {
+        // Found more than once or not in a valid sequence
+    }
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
                                                                                 VariableArg dst) {
     if (!valid) {
@@ -755,7 +775,7 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(
             CheckOutputVar(dst.var);
         }
     } else {
-        // Found more than once or matchValue == 0
+        // Found more than once
         valid = false;
     }
 }
