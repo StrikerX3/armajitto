@@ -17,7 +17,7 @@ void HostFlagStateTracker::Unknown(arm::Flags flags) {
 
 void HostFlagStateTracker::Known(arm::Flags flags, arm::Flags values) {
     m_known |= flags;
-    m_state = (m_state & ~values) | (values & flags);
+    m_state = (m_state & ~flags) | (values & flags);
 }
 
 void HostFlagStateTracker::UpdateImpl(IRLogicalShiftLeftOp *op) {
