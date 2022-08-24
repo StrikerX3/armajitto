@@ -9,9 +9,57 @@ namespace armajitto::ir {
 
 // Performs dead store elimination for PSRs.
 //
-// TODO: write documentation
+// This algorithm tracks CPSR changes by tagging variables with the CPSR "version" and incrementing it on every change.
+// When CPSR is loaded into a variable, it is tagged with the current CPSR version. Operations that take a tagged
+// variable, modify the value, and return a new variable tag the output variable with a new version. When a tagged
+// variable is stored into CPSR, the CPSR version is updated to that of the variable.
 //
-// TODO: describe further with examples
+// Once the algorithm detects an attempt to store an unmodified CPSR value (that is, storing a tagged variable with the
+// same version as the CPSR), the store is removed. Additionally, every subsequent load from CPSR will create a variable
+// mapping from the output variable of the ld cpsr instruction to the variable that contains the current version of the
+// CPSR value, eliminating several redundant sequences of loads and stores.
+//
+// The same algorithm is applied to SPSRs in every mode, with a separate version for each.
+//
+// Assuming the following IR code fragment:
+//                                  CPSR version
+//  #  instruction                  curr   next    tags ($v<x>=<version>) or substitutions ($v<x>->$v<y>)
+//  1  ld $v0, cpsr                 1      2       $v0=1
+//  2  add $v1, $v0, #0x4           1      3       $v1=2
+//  3  st r0_usr, $v1               1      3
+//  4  st cpsr, $v0                 1      3
+//  5  ld $v2, cpsr                 1      3       $v2->$v0
+//  6  bic $v3, $v2, #0xc0000000    1      4       $v3=3  (note the global increment)
+//  7  st cpsr, $v3                 3      4
+//  8  ld $v4, r5                   3      4
+//  9  st cpsr, $v4                 4      5
+//
+// Before executing the algorithm, CPSR is initialized with version 1 and the next version is set to 2.
+// These are the actions taken by the algorithm for each instruction:
+//   1. $v0 is tagged with CPSR version 1.
+//   2. Modifies $v0 and outputs the result to $v1, thus $v1 is tagged with CPSR version 2.
+//   3. No variables are output, so nothing is done.
+//   4. Stores $v0 back into CPSR. Since the version of the variable matches the current CPSR version, the store is
+//      redundant and therefore eliminated.
+//   5. Loads CPSR into $v2. Since there already exists a variable tagged with version 1, this load is erased and $v2 is
+//      mapped to $v0. All subsequent instances of $v2 are replaced with $v1.
+//   6. $v2 is replaced with $v0. BIC consumes $v0 and outputs $v3. The latter is tagged with the next CPSR version: 3.
+//      Note that the "next CPSR version" is a global counter and not an increment of the currently tagged version.
+//   7. Stores $v3 into CPSR, updating the current CPSR version to 3.
+//   8. Loads a value into $v4. This variable is not tagged because it does not come from CPSR.
+//   9. Stores $v4 into CPSR, which is untagged. CPSR version is updated to version 4 -- the next global version.
+//      Additionally, because this overwrites the CPSR value from instruction 7, that write is erased.
+//
+// This is the resulting code:
+//
+//     ld $v0, cpsr
+//     add $v1, $v0, #0x4
+//     st r0_usr, $v1
+//     bic $v3, $v0, #0xc0000000
+//     ld $v4, r5
+//     st cpsr, $v4
+//
+// Note that the BIC instruction is now a dead store and should be eliminated by the dead variable store pass.
 class DeadPSRStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
     DeadPSRStoreEliminationOptimizerPass(Emitter &emitter);
@@ -61,34 +109,46 @@ private:
     // -------------------------------------------------------------------------
     // PSR read and write tracking
 
-    struct CPSRVar {
+    struct PSRVar {
         Variable var;
         IROp *writeOp = nullptr;
     };
 
-    uintmax_t m_cpsrVersion = 1;
-    uintmax_t m_nextCPSRVersion = 2;
-    std::vector<CPSRVar> m_cpsrVarMap;
-    std::vector<uintmax_t> m_varCPSRVersionMap;
-    std::array<IROp *, 32> m_spsrWrites{{nullptr}};
+    // 0=CPSR, 1..6=SPSR by mode
+    std::array<uintmax_t, 1 + arm::kNumNormalizedModeIndices> m_psrVersions;
+    std::array<IROp *, 1 + arm::kNumNormalizedModeIndices> m_psrWrites;
 
-    bool RecordAndEraseDeadCPSRRead(VariableArg var, IROp *loadOp);
+    uintmax_t m_nextPSRVersion;
+
+    std::vector<PSRVar> m_psrToVarMap;
+    std::vector<uintmax_t> m_varToPSRVersionMap;
+
+    static inline size_t SPSRIndex(arm::Mode mode) {
+        return arm::NormalizedIndex(mode) + 1;
+    }
+
+    void RecordCPSRRead(VariableArg var, IROp *loadOp);
     void RecordCPSRWrite(VariableArg src, IROp *op);
-    bool CheckAndEraseDeadCPSRLoadStore(IROp *loadOp);
+    void EraseDeadCPSRLoadStore(IROp *loadOp);
 
-    bool HasCPSRVersion(VariableArg var);
-    bool HasCPSRVersion(VarOrImmArg var);
-    void AssignNewCPSRVersion(VariableArg var);
-    void CopyCPSRVersion(VariableArg dst, VariableArg src);
+    void RecordSPSRRead(arm::Mode mode, VariableArg var, IROp *loadOp);
+    void RecordSPSRWrite(arm::Mode mode, VariableArg src, IROp *op);
+    void EraseDeadSPSRLoadStore(arm::Mode mode, IROp *loadOp);
 
-    void SubstituteCPSRVar(VariableArg &var);
-    void SubstituteCPSRVar(VarOrImmArg &var);
+    void RecordPSRRead(size_t index, VariableArg var, IROp *loadOp);
+    void RecordPSRWrite(size_t index, VariableArg src, IROp *op);
+    void EraseDeadPSRLoadStore(size_t index, IROp *loadOp);
 
-    void ResizeCPSRToVarMap(size_t index);
-    void ResizeVarToCPSRVersionMap(size_t swindexize);
+    bool HasVersion(VariableArg var);
+    bool HasVersion(VarOrImmArg var);
+    void AssignNewVersion(VariableArg var);
+    void CopyVersion(VariableArg dst, VariableArg src);
 
-    void RecordSPSRRead(arm::Mode mode);
-    void RecordSPSRWrite(arm::Mode mode, IROp *op);
+    void SubstituteVar(VariableArg &var);
+    void SubstituteVar(VarOrImmArg &var);
+
+    void ResizePSRToVarMap(size_t index);
+    void ResizeVarToPSRVersionMap(size_t swindexize);
 };
 
 } // namespace armajitto::ir

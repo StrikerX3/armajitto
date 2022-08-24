@@ -14,7 +14,9 @@ namespace armajitto::ir {
 class DeadGPRStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
     DeadGPRStoreEliminationOptimizerPass(Emitter &emitter)
-        : DeadStoreEliminationOptimizerPassBase(emitter) {}
+        : DeadStoreEliminationOptimizerPassBase(emitter) {
+        m_gprWrites.fill(nullptr);
+    }
 
 private:
     void Process(IRGetRegisterOp *op) final;
@@ -25,7 +27,7 @@ private:
     // -------------------------------------------------------------------------
     // GPR read and write tracking
 
-    std::array<IROp *, 16 * 32> m_gprWrites{{nullptr}};
+    std::array<IROp *, 16 * arm::kNumNormalizedModeIndices> m_gprWrites;
 
     void RecordGPRRead(GPRArg gpr);
     void RecordGPRWrite(GPRArg gpr, IROp *op);

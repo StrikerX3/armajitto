@@ -15,7 +15,7 @@ namespace armajitto::ir {
 // effects (for instance, MMIO regions).
 //
 // Assuming the following IR code fragment:
-//     instruction
+//  #  instruction
 //  1  ld $v0, r0
 //  2  lsr $v1, $v0, #0xc
 //  3  mov $v2, $v1
@@ -24,7 +24,7 @@ namespace armajitto::ir {
 //
 // The algorithm keeps track of variables written to, pointing to the instruction that last wrote to them.
 //
-//     instruction              writes
+//  #  instruction              writes
 //  1  ld $v0, r0               $v0
 //  2  lsr $v1, $v0, #0xc       $v1
 //  3  mov $v2, $v1             $v2
@@ -35,7 +35,7 @@ namespace armajitto::ir {
 // for that particular variable. If the variable is used in an instruction that produces side effects, it is also marked
 // as "consumed". Consumed variables are denoted in parentheses in the listings below.
 //
-//     instruction              writes   reads   actions
+//  #  instruction              writes   reads   actions
 //  1  ld $v0, r0               ($v0)
 //  2  lsr $v1, $v0, #0xc       ($v1)    $v0     marks the write to $v0 in instruction 1 as consumed
 //  3  mov $v2, $v1             $v2      $v1     marks the write to $v1 in instruction 2 as consumed
@@ -63,7 +63,7 @@ namespace armajitto::ir {
 // In addition to keeping track of reads and writes as described above, the algorithm also tracks the dependencies
 // between variables in order to eliminate entire sequences of dead stores, such as in the following example:
 //
-//     instruction            dependency chains
+//  #  instruction            dependency chains
 //  1  ld $v0, r0             $v0
 //  2  lsr $v1, $v0, #0xc     $v1 -> $v0
 //  3  copy $v2, $v1          $v2 -> $v1 -> $v0

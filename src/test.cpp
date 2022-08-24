@@ -387,14 +387,14 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator::Parameters params{
+    /*armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);
+    translator.Translate(*block);*/
 
     // Emit IR code manually
-    // armajitto::ir::Emitter emitter{*block};
+    armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -467,6 +467,16 @@ void testTranslator() {
     emitter.StoreFlags(flgZ, flgZ);                         // stflg.z {z}
     emitter.StoreFlags(flgV, flgV);                         // stflg.v {v}
     emitter.StoreFlags(flgCV, flgNone);                     // stflg.cv {}*/
+
+    auto cpsr = emitter.GetCPSR();                          // ld $v0, cpsr
+    auto mod = emitter.Add(cpsr, 4, false);                 // add $v1, $v0, #0x4
+    emitter.SetRegister(armajitto::arm::GPR::R0, mod);      // st r0_usr, $v1
+    emitter.SetCPSR(cpsr);                                  // st cpsr, $v0
+    auto cpsr2 = emitter.GetCPSR();                         // ld $v2, cpsr
+    cpsr2 = emitter.BitClear(cpsr2, 0xc0000000, false);     // bic $v3, $v2, #0xc0000000
+    emitter.SetCPSR(cpsr2);                                 // st cpsr, $v3
+    auto r5 = emitter.GetRegister(armajitto::arm::GPR::R5); // ld $v4, r5
+    emitter.SetCPSR(r5);                                    // st cpsr, $v4
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {

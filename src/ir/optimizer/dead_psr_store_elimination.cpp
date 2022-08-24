@@ -10,425 +10,453 @@ DeadPSRStoreEliminationOptimizerPass::DeadPSRStoreEliminationOptimizerPass(Emitt
     : DeadStoreEliminationOptimizerPassBase(emitter) {
 
     const uint32_t varCount = emitter.VariableCount();
-    m_cpsrVarMap.resize(varCount);
-    m_varCPSRVersionMap.resize(varCount);
+    m_psrToVarMap.resize(varCount);
+    m_varToPSRVersionMap.resize(varCount);
+
+    m_nextPSRVersion = 1;
+    for (auto &ver : m_psrVersions) {
+        ver = m_nextPSRVersion++;
+    }
+    m_psrWrites.fill(nullptr);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
-    SubstituteCPSRVar(op->src);
+    SubstituteVar(op->src);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
-    if (RecordAndEraseDeadCPSRRead(op->dst, op)) {
-        return;
-    }
+    RecordCPSRRead(op->dst, op);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
-    SubstituteCPSRVar(op->src);
+    SubstituteVar(op->src);
     if (!op->src.immediate) {
         RecordCPSRWrite(op->src.var, op);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
-    RecordSPSRRead(op->mode);
+    RecordSPSRRead(op->mode, op->dst, op);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
-    SubstituteCPSRVar(op->src);
-    RecordSPSRWrite(op->mode, op);
+    SubstituteVar(op->src);
+    if (!op->src.immediate) {
+        RecordSPSRWrite(op->mode, op->src.var, op);
+    }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMemReadOp *op) {
-    SubstituteCPSRVar(op->address);
+    SubstituteVar(op->address);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMemWriteOp *op) {
-    SubstituteCPSRVar(op->src);
-    SubstituteCPSRVar(op->address);
+    SubstituteVar(op->src);
+    SubstituteVar(op->address);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRPreloadOp *op) {
-    SubstituteCPSRVar(op->address);
+    SubstituteVar(op->address);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    SubstituteCPSRVar(op->value);
-    SubstituteCPSRVar(op->amount);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    SubstituteVar(op->amount);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    SubstituteCPSRVar(op->value);
-    SubstituteCPSRVar(op->amount);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    SubstituteVar(op->amount);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    SubstituteCPSRVar(op->value);
-    SubstituteCPSRVar(op->amount);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    SubstituteVar(op->amount);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
-    SubstituteCPSRVar(op->value);
-    SubstituteCPSRVar(op->amount);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    SubstituteVar(op->amount);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    SubstituteCPSRVar(op->value);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseOrOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitwiseXorOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBitClearOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    SubstituteCPSRVar(op->value);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
-    SubstituteCPSRVar(op->value);
+    SubstituteVar(op->value);
     if (!op->value.immediate) {
-        CopyCPSRVersion(op->dst, op->value.var);
+        CopyVersion(op->dst, op->value.var);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
-    SubstituteCPSRVar(op->value);
-    if (HasCPSRVersion(op->value)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->value);
+    if (HasVersion(op->value)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMultiplyOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dst);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dst);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRMultiplyLongOp *op) {
-    SubstituteCPSRVar(op->lhs);
-    SubstituteCPSRVar(op->rhs);
-    if (HasCPSRVersion(op->lhs) || HasCPSRVersion(op->rhs)) {
-        AssignNewCPSRVersion(op->dstLo);
-        AssignNewCPSRVersion(op->dstHi);
+    SubstituteVar(op->lhs);
+    SubstituteVar(op->rhs);
+    if (HasVersion(op->lhs) || HasVersion(op->rhs)) {
+        AssignNewVersion(op->dstLo);
+        AssignNewVersion(op->dstHi);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRAddLongOp *op) {
-    SubstituteCPSRVar(op->lhsLo);
-    SubstituteCPSRVar(op->lhsHi);
-    SubstituteCPSRVar(op->rhsLo);
-    SubstituteCPSRVar(op->rhsHi);
-    if (HasCPSRVersion(op->lhsLo) || HasCPSRVersion(op->lhsHi) || HasCPSRVersion(op->rhsLo) ||
-        HasCPSRVersion(op->rhsHi)) {
-        AssignNewCPSRVersion(op->dstLo);
-        AssignNewCPSRVersion(op->dstHi);
+    SubstituteVar(op->lhsLo);
+    SubstituteVar(op->lhsHi);
+    SubstituteVar(op->rhsLo);
+    SubstituteVar(op->rhsHi);
+    if (HasVersion(op->lhsLo) || HasVersion(op->lhsHi) || HasVersion(op->rhsLo) || HasVersion(op->rhsHi)) {
+        AssignNewVersion(op->dstLo);
+        AssignNewVersion(op->dstHi);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
-    SubstituteCPSRVar(op->srcCPSR);
-    if (HasCPSRVersion(op->srcCPSR)) {
-        AssignNewCPSRVersion(op->dstCPSR);
+    SubstituteVar(op->srcCPSR);
+    if (HasVersion(op->srcCPSR)) {
+        AssignNewVersion(op->dstCPSR);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    SubstituteCPSRVar(op->srcCPSR);
-    if (HasCPSRVersion(op->srcCPSR)) {
-        AssignNewCPSRVersion(op->dstCPSR);
+    SubstituteVar(op->srcCPSR);
+    if (HasVersion(op->srcCPSR)) {
+        AssignNewVersion(op->dstCPSR);
     }
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBranchOp *op) {
-    SubstituteCPSRVar(op->address);
+    SubstituteVar(op->address);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRBranchExchangeOp *op) {
-    SubstituteCPSRVar(op->address);
+    SubstituteVar(op->address);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    SubstituteCPSRVar(op->srcValue);
+    SubstituteVar(op->srcValue);
 }
 
 void DeadPSRStoreEliminationOptimizerPass::Process(IRCopyVarOp *op) {
-    SubstituteCPSRVar(op->var);
-    CopyCPSRVersion(op->dst, op->var);
+    SubstituteVar(op->var);
+    CopyVersion(op->dst, op->var);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 // PSR read and write tracking
 
-bool DeadPSRStoreEliminationOptimizerPass::RecordAndEraseDeadCPSRRead(VariableArg var, IROp *loadOp) {
+void DeadPSRStoreEliminationOptimizerPass::RecordCPSRRead(VariableArg var, IROp *loadOp) {
+    RecordPSRRead(0, var, loadOp);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *op) {
+    RecordPSRWrite(0, src, op);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::EraseDeadCPSRLoadStore(IROp *loadOp) {
+    EraseDeadPSRLoadStore(0, loadOp);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::RecordSPSRRead(arm::Mode mode, VariableArg var, IROp *loadOp) {
+    RecordPSRRead(SPSRIndex(mode), var, loadOp);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::RecordSPSRWrite(arm::Mode mode, VariableArg src, IROp *op) {
+    RecordPSRWrite(SPSRIndex(mode), src, op);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::EraseDeadSPSRLoadStore(arm::Mode mode, IROp *loadOp) {
+    EraseDeadPSRLoadStore(SPSRIndex(mode), loadOp);
+}
+
+void DeadPSRStoreEliminationOptimizerPass::RecordPSRRead(size_t index, VariableArg var, IROp *loadOp) {
+    m_psrWrites[index] = nullptr; // Leave previous write instruction alone
+
     if (!var.var.IsPresent()) {
-        return false;
+        return;
     }
 
     // Assign variable to current CPSR version
-    const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
-    ResizeCPSRToVarMap(index);
-    if (!m_cpsrVarMap[index].var.IsPresent()) {
-        m_cpsrVarMap[index].var = var.var;
+    auto &psrVersion = m_psrVersions[index];
+    const auto versionIndex = psrVersion - 1; // PSR versions are 1-indexed
+    ResizePSRToVarMap(versionIndex);
+    if (!m_psrToVarMap[versionIndex].var.IsPresent()) {
+        m_psrToVarMap[versionIndex].var = var.var;
     }
 
     // Assign CPSR version to the variable
     const auto varIndex = var.var.Index();
-    ResizeVarToCPSRVersionMap(varIndex);
-    m_varCPSRVersionMap[varIndex] = m_cpsrVersion;
+    ResizeVarToPSRVersionMap(varIndex);
+    m_varToPSRVersionMap[varIndex] = psrVersion;
 
-    return CheckAndEraseDeadCPSRLoadStore(loadOp);
+    EraseDeadCPSRLoadStore(loadOp);
 }
 
-void DeadPSRStoreEliminationOptimizerPass::RecordCPSRWrite(VariableArg src, IROp *op) {
+void DeadPSRStoreEliminationOptimizerPass::RecordPSRWrite(size_t index, VariableArg src, IROp *op) {
+    auto *psrWrite = m_psrWrites[index];
+    if (psrWrite != nullptr) {
+        // PSR is overwritten; erase previous write instruction
+        m_emitter.Erase(psrWrite);
+    }
+    psrWrite = op;
+
     if (!src.var.IsPresent()) {
         return;
     }
 
-    // Update CPSR version to that of the variable, if present
+    // Update PSR version to that of the variable, if present
+    auto &psrVersion = m_psrVersions[index];
     const auto varIndex = src.var.Index();
-    if (varIndex < m_varCPSRVersionMap.size() && m_varCPSRVersionMap[varIndex] != 0) {
-        m_cpsrVersion = m_varCPSRVersionMap[varIndex];
-        m_nextCPSRVersion = m_cpsrVersion + 1;
+    if (varIndex < m_varToPSRVersionMap.size() && m_varToPSRVersionMap[varIndex] != 0) {
+        auto version = m_varToPSRVersionMap[varIndex];
+        if (version == psrVersion) {
+            // No changes were made; erase this write
+            m_emitter.Erase(op);
+        }
+        m_nextPSRVersion = psrVersion + 1;
 
         // Associate this version with the given write op
-        const auto index = m_cpsrVersion - 1; // CPSR version is 1-indexed
-        assert(index < m_cpsrVarMap.size());  // this entry should exist
-        m_cpsrVarMap[index].writeOp = op;
+        const auto index = psrVersion - 1;    // PSR versions are 1-indexed
+        assert(index < m_psrToVarMap.size()); // this entry should exist
+        m_psrToVarMap[index].writeOp = op;
     } else {
         // Increment CPSR to the next CPSR version
-        m_cpsrVersion = m_nextCPSRVersion++;
+        psrVersion = m_nextPSRVersion++;
     }
 }
 
-bool DeadPSRStoreEliminationOptimizerPass::CheckAndEraseDeadCPSRLoadStore(IROp *loadOp) {
-    const auto versionIndex = m_cpsrVersion - 1; // CPSR version is 1-indexed
-    if (versionIndex >= m_cpsrVarMap.size()) {
-        return false;
+void DeadPSRStoreEliminationOptimizerPass::EraseDeadPSRLoadStore(size_t index, IROp *loadOp) {
+    const auto versionIndex = m_psrVersions[index] - 1; // PSR versions are 1-indexed
+    if (versionIndex >= m_psrToVarMap.size()) {
+        return;
     }
 
-    // If the current version of CPSR comes from a previous store without modifications, erase both instructions
-    auto &entry = m_cpsrVarMap[versionIndex];
+    // If the current version of the PSR comes from a previous store without modifications, erase both instructions
+    auto &entry = m_psrToVarMap[versionIndex];
     if (!entry.var.IsPresent() || entry.writeOp == nullptr) {
-        return false;
+        return;
     }
 
     m_emitter.Erase(loadOp);
     m_emitter.Erase(entry.writeOp);
     entry.writeOp = nullptr;
-    return true;
 }
 
-bool DeadPSRStoreEliminationOptimizerPass::HasCPSRVersion(VariableArg var) {
+bool DeadPSRStoreEliminationOptimizerPass::HasVersion(VariableArg var) {
     if (!var.var.IsPresent()) {
         return false;
     }
 
     const auto varIndex = var.var.Index();
-    if (varIndex < m_varCPSRVersionMap.size()) {
-        return m_varCPSRVersionMap[varIndex] != 0;
+    if (varIndex < m_varToPSRVersionMap.size()) {
+        return m_varToPSRVersionMap[varIndex] != 0;
     }
     return false;
 }
 
-bool DeadPSRStoreEliminationOptimizerPass::HasCPSRVersion(VarOrImmArg var) {
+bool DeadPSRStoreEliminationOptimizerPass::HasVersion(VarOrImmArg var) {
     if (var.immediate) {
         return false;
     }
-    return HasCPSRVersion(var.var);
+    return HasVersion(var.var);
 }
 
-void DeadPSRStoreEliminationOptimizerPass::AssignNewCPSRVersion(VariableArg var) {
+void DeadPSRStoreEliminationOptimizerPass::AssignNewVersion(VariableArg var) {
     if (!var.var.IsPresent()) {
         return;
     }
 
     const auto varIndex = var.var.Index();
-    ResizeVarToCPSRVersionMap(varIndex);
-    m_varCPSRVersionMap[varIndex] = m_nextCPSRVersion++;
+    ResizeVarToPSRVersionMap(varIndex);
+    m_varToPSRVersionMap[varIndex] = m_nextPSRVersion++;
 
-    const auto versionIndex = m_varCPSRVersionMap[varIndex] - 1;
-    ResizeCPSRToVarMap(versionIndex);
-    m_cpsrVarMap[versionIndex].var = var.var;
+    const auto versionIndex = m_varToPSRVersionMap[varIndex] - 1;
+    ResizePSRToVarMap(versionIndex);
+    m_psrToVarMap[versionIndex].var = var.var;
 }
 
-void DeadPSRStoreEliminationOptimizerPass::CopyCPSRVersion(VariableArg dst, VariableArg src) {
+void DeadPSRStoreEliminationOptimizerPass::CopyVersion(VariableArg dst, VariableArg src) {
     if (!dst.var.IsPresent() || !src.var.IsPresent()) {
         return;
     }
 
     const auto srcIndex = src.var.Index();
-    if (srcIndex >= m_varCPSRVersionMap.size()) {
+    if (srcIndex >= m_varToPSRVersionMap.size()) {
         return;
     }
-    if (m_varCPSRVersionMap[srcIndex] == 0) {
+    if (m_varToPSRVersionMap[srcIndex] == 0) {
         return;
     }
 
     const auto dstIndex = dst.var.Index();
-    ResizeVarToCPSRVersionMap(dstIndex);
-    m_varCPSRVersionMap[dstIndex] = m_varCPSRVersionMap[srcIndex];
+    ResizeVarToPSRVersionMap(dstIndex);
+    m_varToPSRVersionMap[dstIndex] = m_varToPSRVersionMap[srcIndex];
 
-    const auto versionIndex = m_varCPSRVersionMap[dstIndex] - 1;
-    ResizeCPSRToVarMap(versionIndex);
-    m_cpsrVarMap[versionIndex].var = dst.var;
+    const auto versionIndex = m_varToPSRVersionMap[dstIndex] - 1;
+    ResizePSRToVarMap(versionIndex);
+    m_psrToVarMap[versionIndex].var = dst.var;
 }
 
-void DeadPSRStoreEliminationOptimizerPass::SubstituteCPSRVar(VariableArg &var) {
+void DeadPSRStoreEliminationOptimizerPass::SubstituteVar(VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
 
     // Check if there is a CPSR version associated with the variable
     const auto varIndex = var.var.Index();
-    if (varIndex >= m_varCPSRVersionMap.size()) {
+    if (varIndex >= m_varToPSRVersionMap.size()) {
         return;
     }
-    const auto version = m_varCPSRVersionMap[varIndex];
+    const auto version = m_varToPSRVersionMap[varIndex];
     if (version == 0) {
         return;
     }
 
     // Replace variable with the one corresponding to this version, if present
     const auto versionIndex = version - 1;
-    if (versionIndex >= m_cpsrVarMap.size()) {
+    if (versionIndex >= m_psrToVarMap.size()) {
         return;
     }
-    auto &entry = m_cpsrVarMap[versionIndex];
+    auto &entry = m_psrToVarMap[versionIndex];
     if (entry.var.IsPresent()) {
         MarkDirty(var != entry.var);
         var = entry.var;
     }
 }
 
-void DeadPSRStoreEliminationOptimizerPass::SubstituteCPSRVar(VarOrImmArg &var) {
+void DeadPSRStoreEliminationOptimizerPass::SubstituteVar(VarOrImmArg &var) {
     if (var.immediate) {
         return;
     }
-    SubstituteCPSRVar(var.var);
+    SubstituteVar(var.var);
 }
 
-void DeadPSRStoreEliminationOptimizerPass::ResizeCPSRToVarMap(size_t index) {
-    if (m_cpsrVarMap.size() <= index) {
-        m_cpsrVarMap.resize(index + 1);
+void DeadPSRStoreEliminationOptimizerPass::ResizePSRToVarMap(size_t index) {
+    if (m_psrToVarMap.size() <= index) {
+        m_psrToVarMap.resize(index + 1);
     }
 }
 
-void DeadPSRStoreEliminationOptimizerPass::ResizeVarToCPSRVersionMap(size_t index) {
-    if (m_varCPSRVersionMap.size() <= index) {
-        m_varCPSRVersionMap.resize(index + 1);
+void DeadPSRStoreEliminationOptimizerPass::ResizeVarToPSRVersionMap(size_t index) {
+    if (m_varToPSRVersionMap.size() <= index) {
+        m_varToPSRVersionMap.resize(index + 1);
     }
-}
-
-void DeadPSRStoreEliminationOptimizerPass::RecordSPSRRead(arm::Mode mode) {
-    m_spsrWrites[static_cast<size_t>(mode)] = nullptr; // Leave instruction alone
-}
-
-void DeadPSRStoreEliminationOptimizerPass::RecordSPSRWrite(arm::Mode mode, IROp *op) {
-    auto spsrIndex = static_cast<size_t>(mode);
-    IROp *writeOp = m_spsrWrites[spsrIndex];
-    if (writeOp != nullptr) {
-        // SPSR for the given mode is overwritten
-        // Erase previous instruction, which is always going to be an IRSetSPSROp
-        m_emitter.Erase(writeOp);
-    }
-    m_spsrWrites[spsrIndex] = op;
 }
 
 } // namespace armajitto::ir
