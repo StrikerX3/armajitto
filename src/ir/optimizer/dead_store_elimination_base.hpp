@@ -7,62 +7,66 @@ namespace armajitto::ir {
 // Base class for all dead store elimination optimization passes.
 //
 // This class provides common functionality for those passes, specifically:
-// - Erase "dead" instructions (no writes to any variables or flags)
+// - Determining if an instruction is "dead" (has no writes or side effects)
 class DeadStoreEliminationOptimizerPassBase : public OptimizerPassBase {
 public:
     DeadStoreEliminationOptimizerPassBase(Emitter &emitter);
 
 protected:
+    void PostProcess() final;
+
+    virtual void PostProcessImpl() {}
+
     // -------------------------------------------------------------------------
-    // Generic EraseDeadInstruction
-    // Erases instructions if they have no additional writes or side effects
+    // Generic IsDeadInstruction
+    // Determines if instructions have no writes or side effects
 
     // Catch-all method for unused ops, required by the visitor
     template <typename T>
-    bool EraseDeadInstruction(T *op) {
+    bool IsDeadInstruction(T *op) {
         return false;
     }
 
-    bool EraseDeadInstruction(IRGetRegisterOp *op);
+    bool IsDeadInstruction(IRGetRegisterOp *op);
     // IRSetRegisterOp has side effects
-    bool EraseDeadInstruction(IRGetCPSROp *op);
+    bool IsDeadInstruction(IRGetCPSROp *op);
     // IRSetCPSROp has side effects
-    bool EraseDeadInstruction(IRGetSPSROp *op);
+    bool IsDeadInstruction(IRGetSPSROp *op);
     // IRSetSPSROp has side effects
-    bool EraseDeadInstruction(IRMemReadOp *op);
+    bool IsDeadInstruction(IRMemReadOp *op);
     // IRMemWriteOp has side effects
     // IRPreloadOp has side effects
-    bool EraseDeadInstruction(IRLogicalShiftLeftOp *op);
-    bool EraseDeadInstruction(IRLogicalShiftRightOp *op);
-    bool EraseDeadInstruction(IRArithmeticShiftRightOp *op);
-    bool EraseDeadInstruction(IRRotateRightOp *op);
-    bool EraseDeadInstruction(IRRotateRightExtendedOp *op);
-    bool EraseDeadInstruction(IRBitwiseAndOp *op);
-    bool EraseDeadInstruction(IRBitwiseOrOp *op);
-    bool EraseDeadInstruction(IRBitwiseXorOp *op);
-    bool EraseDeadInstruction(IRBitClearOp *op);
-    bool EraseDeadInstruction(IRCountLeadingZerosOp *op);
-    bool EraseDeadInstruction(IRAddOp *op);
-    bool EraseDeadInstruction(IRAddCarryOp *op);
-    bool EraseDeadInstruction(IRSubtractOp *op);
-    bool EraseDeadInstruction(IRSubtractCarryOp *op);
-    bool EraseDeadInstruction(IRMoveOp *op);
-    bool EraseDeadInstruction(IRMoveNegatedOp *op);
-    bool EraseDeadInstruction(IRSaturatingAddOp *op);
-    bool EraseDeadInstruction(IRSaturatingSubtractOp *op);
-    bool EraseDeadInstruction(IRMultiplyOp *op);
-    bool EraseDeadInstruction(IRMultiplyLongOp *op);
-    bool EraseDeadInstruction(IRAddLongOp *op);
-    bool EraseDeadInstruction(IRStoreFlagsOp *op);
-    bool EraseDeadInstruction(IRLoadFlagsOp *op);
-    bool EraseDeadInstruction(IRLoadStickyOverflowOp *op);
+    bool IsDeadInstruction(IRLogicalShiftLeftOp *op);
+    bool IsDeadInstruction(IRLogicalShiftRightOp *op);
+    bool IsDeadInstruction(IRArithmeticShiftRightOp *op);
+    bool IsDeadInstruction(IRRotateRightOp *op);
+    bool IsDeadInstruction(IRRotateRightExtendedOp *op);
+    bool IsDeadInstruction(IRBitwiseAndOp *op);
+    bool IsDeadInstruction(IRBitwiseOrOp *op);
+    bool IsDeadInstruction(IRBitwiseXorOp *op);
+    bool IsDeadInstruction(IRBitClearOp *op);
+    bool IsDeadInstruction(IRCountLeadingZerosOp *op);
+    bool IsDeadInstruction(IRAddOp *op);
+    bool IsDeadInstruction(IRAddCarryOp *op);
+    bool IsDeadInstruction(IRSubtractOp *op);
+    bool IsDeadInstruction(IRSubtractCarryOp *op);
+    bool IsDeadInstruction(IRMoveOp *op);
+    bool IsDeadInstruction(IRMoveNegatedOp *op);
+    bool IsDeadInstruction(IRSaturatingAddOp *op);
+    bool IsDeadInstruction(IRSaturatingSubtractOp *op);
+    bool IsDeadInstruction(IRMultiplyOp *op);
+    bool IsDeadInstruction(IRMultiplyLongOp *op);
+    bool IsDeadInstruction(IRAddLongOp *op);
+    bool IsDeadInstruction(IRStoreFlagsOp *op);
+    bool IsDeadInstruction(IRLoadFlagsOp *op);
+    bool IsDeadInstruction(IRLoadStickyOverflowOp *op);
     // IRBranchOp has side effects
     // IRBranchExchangeOp has side effects
-    bool EraseDeadInstruction(IRLoadCopRegisterOp *op);
+    bool IsDeadInstruction(IRLoadCopRegisterOp *op);
     // IRStoreCopRegisterOp has side effects
-    bool EraseDeadInstruction(IRConstantOp *op);
-    bool EraseDeadInstruction(IRCopyVarOp *op);
-    bool EraseDeadInstruction(IRGetBaseVectorAddressOp *op);
+    bool IsDeadInstruction(IRConstantOp *op);
+    bool IsDeadInstruction(IRCopyVarOp *op);
+    bool IsDeadInstruction(IRGetBaseVectorAddressOp *op);
 };
 
 } // namespace armajitto::ir

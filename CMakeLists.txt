@@ -72,10 +72,18 @@ add_library(armajitto
     src/ir/optimizer/bitwise_ops_coalescence.hpp
     src/ir/optimizer/const_propagation.cpp
     src/ir/optimizer/const_propagation.hpp
-    src/ir/optimizer/dead_store_elimination.cpp
-    src/ir/optimizer/dead_store_elimination.hpp
+    src/ir/optimizer/dead_flag_value_store_elimination.cpp
+    src/ir/optimizer/dead_flag_value_store_elimination.hpp
+    src/ir/optimizer/dead_gpr_store_elimination.cpp
+    src/ir/optimizer/dead_gpr_store_elimination.hpp
+    src/ir/optimizer/dead_host_flag_store_elimination.cpp
+    src/ir/optimizer/dead_host_flag_store_elimination.hpp
+    src/ir/optimizer/dead_psr_store_elimination.cpp
+    src/ir/optimizer/dead_psr_store_elimination.hpp
     src/ir/optimizer/dead_store_elimination_base.cpp
     src/ir/optimizer/dead_store_elimination_base.hpp
+    src/ir/optimizer/dead_var_store_elimination.cpp
+    src/ir/optimizer/dead_var_store_elimination.hpp
     src/ir/optimizer/host_flags_ops_coalescence.cpp
     src/ir/optimizer/host_flags_ops_coalescence.hpp
     src/ir/optimizer/optimizer_pass_base.cpp

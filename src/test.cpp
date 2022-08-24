@@ -485,8 +485,44 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
-    printf("after dead store elimination:\n\n");
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadGPRStoreElimination);
+    printf("after dead GPR store elimination:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadPSRStoreElimination);
+    printf("after dead PSR store elimination:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadHostFlagStoreElimination);
+    printf("after dead host flag store elimination:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadFlagValueStoreElimination);
+    printf("after dead flag value store elimination:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadVarStoreElimination);
+    printf("after dead variable store elimination:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());
