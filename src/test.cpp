@@ -394,7 +394,7 @@ void testTranslator() {
     translator.Translate(*block);
 
     // Emit IR code manually
-    //armajitto::ir::Emitter emitter{*block};
+    // armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -436,6 +436,31 @@ void testTranslator() {
     val = emitter.RotateRightExtended(val, false);           // rrx $v9, $v8
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v8*/
 
+    // Host flag ops coalescence test
+    /*constexpr auto flgNone = armajitto::arm::Flags::None;
+    constexpr auto flgZ = armajitto::arm::Flags::Z;
+    constexpr auto flgC = armajitto::arm::Flags::C;
+    constexpr auto flgV = armajitto::arm::Flags::V;
+    constexpr auto flgQ = armajitto::arm::Flags::Q;
+    constexpr auto flgNZ = armajitto::arm::Flags::NZ;
+    constexpr auto flgCV = flgC | flgV;
+    constexpr auto flgNZC = flgNZ | flgC;
+    emitter.StoreFlags(flgNZ, flgNone);                     // stflg.nz {}
+    emitter.StoreFlags(flgC, flgNone);                      // stflg.c {}
+    emitter.StoreFlags(flgV, flgNone);                      // stflg.v {}
+    emitter.StoreFlags(flgQ, flgQ);                         // stflg.q {q}
+    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
+    auto v1 = emitter.GetRegister(armajitto::arm::GPR::R1); // ld $v1, r1
+    emitter.StoreFlags(flgC, flgNone);                      // stflg.c {}
+    emitter.AddCarry(v1, v0, true);                         // adc.nzcv $v1, $v0
+    emitter.StoreFlags(flgQ, flgQ);                         // stflg.q {q}
+    emitter.StoreFlags(flgCV, flgNone);                     // stflg.cv {}
+    emitter.StoreFlags(flgNZ, flgNZ);                       // stflg.nz {nz}
+    emitter.LoadFlags(flgNZC);                              // ld $v2, cpsr; ldflg.nzc $v3, $v2; st cpsr, $v3
+    emitter.StoreFlags(flgZ, flgZ);                         // stflg.z {z}
+    emitter.StoreFlags(flgV, flgV);                         // stflg.v {v}
+    emitter.StoreFlags(flgCV, flgNone);                     // stflg.cv {}*/
+
     printf("translated %u instructions:\n\n", block->InstructionCount());
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -444,7 +469,9 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
+    for (int i = 0; i < 10; i++) {
+        armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ConstantPropagation);
+    }
     printf("after constant propagation:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
@@ -453,11 +480,13 @@ void testTranslator() {
 
     printf("--------------------------------\n");
 
-    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
-    printf("after dead store elimination:\n\n");
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
+    for (int i = 0; i < 10; i++) {
+        armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::DeadStoreElimination);
+        printf("after dead store elimination:\n\n");
+        for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+            auto str = op->ToString();
+            printf("%s\n", str.c_str());
+        }
     }
 
     printf("--------------------------------\n");
@@ -473,6 +502,15 @@ void testTranslator() {
 
     armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::ArithmeticOpsCoalescence);
     printf("after coalescing arithmetic operations:\n\n");
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+
+    printf("--------------------------------\n");
+
+    armajitto::ir::Optimize(alloc, *block, armajitto::ir::OptimizerPasses::HostFlagsOpsCoalescence);
+    printf("after coalescing host flags operations:\n\n");
     for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
         auto str = op->ToString();
         printf("%s\n", str.c_str());

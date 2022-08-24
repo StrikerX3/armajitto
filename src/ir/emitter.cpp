@@ -225,6 +225,10 @@ void Emitter::StoreFlags(arm::Flags flags, VarOrImmArg values) {
     Write<IRStoreFlagsOp>(flags, values);
 }
 
+void Emitter::StoreFlags(arm::Flags flags, arm::Flags values) {
+    StoreFlags(flags, static_cast<uint32_t>(values));
+}
+
 void Emitter::LoadFlags(arm::Flags flags) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();

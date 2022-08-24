@@ -1338,6 +1338,9 @@ bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAd
 bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRStoreFlagsOp *op) {
     MarkDirty((op->flags & flag) != arm::Flags::None);
     op->flags &= ~flag;
+    if (op->values.immediate) {
+        op->values.imm.value &= ~static_cast<uint32_t>(flag);
+    }
     return op->flags == arm::Flags::None;
 }
 

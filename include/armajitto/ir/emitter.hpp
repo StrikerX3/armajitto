@@ -80,6 +80,8 @@ public:
     // Moves the emitter's cursor to the head of the IR block.
     void GoToHead() {
         m_currOp = m_block.Head();
+        m_overwriteNext = false;
+        m_prependNext = false;
     }
 
     // Moves the cursor to the specified IR opcode.
@@ -179,6 +181,7 @@ public:
     ALUVarPair AddLong(VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo, VarOrImmArg rhsHi, bool setFlags);
 
     void StoreFlags(arm::Flags flags, VarOrImmArg values);
+    void StoreFlags(arm::Flags flags, arm::Flags values);
     void LoadFlags(arm::Flags flags);
     void LoadStickyOverflow();
 
@@ -229,8 +232,6 @@ private:
     IROp *m_currOp;
 
     bool m_overwriteNext = false;
-    IROp *m_overwriteOp = nullptr;
-
     bool m_prependNext = false;
 
     template <typename T, typename... Args>

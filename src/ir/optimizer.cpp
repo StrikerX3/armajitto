@@ -4,6 +4,7 @@
 #include "optimizer/bitwise_ops_coalescence.hpp"
 #include "optimizer/const_propagation.hpp"
 #include "optimizer/dead_store_elimination.hpp"
+#include "optimizer/host_flags_ops_coalescence.hpp"
 
 #include <memory>
 
@@ -14,7 +15,7 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
 
     auto bmPasses = BitmaskEnum(passes);
     bool dirty;
-    do {
+    //do {
         dirty = false;
         if (bmPasses.AllOf(OptimizerPasses::ConstantPropagation)) {
             dirty |= alloc.AllocateNonTrivial<ConstPropagationOptimizerPass>(emitter)->Optimize();
@@ -28,7 +29,10 @@ void Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
         if (bmPasses.AllOf(OptimizerPasses::ArithmeticOpsCoalescence)) {
             dirty |= alloc.AllocateNonTrivial<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
-    } while (dirty);
+        if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
+            dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
+        }
+    //} while (dirty);
 }
 
 } // namespace armajitto::ir
