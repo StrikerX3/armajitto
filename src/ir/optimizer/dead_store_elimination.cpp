@@ -817,7 +817,9 @@ void DeadStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, I
     auto record = [&](arm::Flags flag, IROp *&write) {
         if (bmFlags.AnyOf(flag)) {
             if (write != nullptr) {
-                VisitIROp(write, [this, flag](auto op) -> void { EraseHostFlagWrite(flag, op); });
+                if (VisitIROp(write, [this, flag](auto op) { return EraseHostFlagWrite(flag, op); })) {
+                    VisitIROp(write, [this](auto op) { EraseDeadInstruction(op); });
+                }
             }
             write = op;
         }
@@ -1352,8 +1354,8 @@ bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLo
 
 bool DeadStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
     if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
-        MarkDirty();
         op->setQ = false;
+        MarkDirty();
     }
     return !op->setQ;
 }

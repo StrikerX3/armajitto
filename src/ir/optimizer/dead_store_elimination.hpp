@@ -353,6 +353,12 @@ private:
     // -------------------------------------------------------------------------
     // Generic EraseDeadInstruction
     // Erases instructions if they have no additional writes or side effects
+    // Catch-all method for unused ops, required by the visitor
+
+    template <typename T>
+    bool EraseDeadInstruction(T *op) {
+        return false;
+    }
 
     bool EraseDeadInstruction(IRGetRegisterOp *op);
     bool EraseDeadInstruction(IRSetRegisterOp *op);

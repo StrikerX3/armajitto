@@ -694,9 +694,17 @@ void ConstPropagationOptimizerPass::Process(IRLoadFlagsOp *op) {
             const auto dstCPSR = op->dstCPSR;
 
             m_emitter.Overwrite();
-            auto cpsr = m_emitter.BitClear(srcCPSR, static_cast<uint32_t>(mask), false);
-            cpsr = m_emitter.BitwiseOr(cpsr, static_cast<uint32_t>(hostFlags), false);
-            m_emitter.CopyVar(dstCPSR, cpsr);
+            if (mask == arm::Flags::None) {
+                if (srcCPSR.immediate) {
+                    m_emitter.Constant(dstCPSR, srcCPSR.imm.value);
+                } else {
+                    m_emitter.CopyVar(dstCPSR, srcCPSR.var);
+                }
+            } else {
+                auto cpsr = m_emitter.BitClear(srcCPSR, static_cast<uint32_t>(mask), false);
+                cpsr = m_emitter.BitwiseOr(cpsr, static_cast<uint32_t>(hostFlags), false);
+                m_emitter.CopyVar(dstCPSR, cpsr);
+            }
         }
     }
 }
