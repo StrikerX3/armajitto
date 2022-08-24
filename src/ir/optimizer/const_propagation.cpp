@@ -591,6 +591,9 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         if (op->signedMul) {
             auto result = (int64_t)op->lhs.imm.value * (int64_t)op->rhs.imm.value;
+            if (op->shiftDownHalf) {
+                result >>= 16ll;
+            }
             Assign(op->dstLo, result >> 0ll);
             Assign(op->dstHi, result >> 32ll);
             m_emitter.Erase(op);
@@ -602,6 +605,9 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
             }
         } else {
             auto result = (uint64_t)op->lhs.imm.value * (uint64_t)op->rhs.imm.value;
+            if (op->shiftDownHalf) {
+                result >>= 16ull;
+            }
             Assign(op->dstLo, result >> 0ull);
             Assign(op->dstHi, result >> 32ull);
             m_emitter.Erase(op);
@@ -618,11 +624,20 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [immValue, var] = *optPair;
 
-            // Replace MULL by 1 with a copy of the other variable
-            if (immValue == 1) {
-                Assign(op->dstLo, var);
-                Assign(op->dstHi, 0);
-                m_emitter.Erase(op);
+            if (op->shiftDownHalf) {
+                // Replace MULLH by 0x10000 with a copy of the other variable
+                if (immValue == 0x10000) {
+                    Assign(op->dstLo, var);
+                    Assign(op->dstHi, 0);
+                    m_emitter.Erase(op);
+                }
+            } else {
+                // Replace MULL by 1 with a copy of the other variable
+                if (immValue == 1) {
+                    Assign(op->dstLo, var);
+                    Assign(op->dstHi, 0);
+                    m_emitter.Erase(op);
+                }
             }
         }
     }
