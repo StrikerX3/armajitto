@@ -1,9 +1,8 @@
 #pragma once
 
-#include "optimizer_pass_base.hpp"
+#include "dead_store_elimination_base.hpp"
 
 #include <array>
-#include <unordered_map>
 #include <vector>
 
 namespace armajitto::ir {
@@ -106,7 +105,7 @@ namespace armajitto::ir {
 //    addl $v4, $v5, $v0, $v1, $v2, $v3    $v4 -> [$v0, $v1, $v2, $v3]; $v5 -> [$v0, $v1, $v2, $v3]  (+ both above)
 //
 // In those cases, the optimizer will follow every linked variable and erase all affected instructions.
-class DeadStoreEliminationOptimizerPass final : public OptimizerPassBase {
+class DeadStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
     DeadStoreEliminationOptimizerPass(Emitter &emitter);
 
@@ -349,57 +348,6 @@ private:
     bool EraseHostFlagWrite(arm::Flags flag, IRStoreFlagsOp *op);
     bool EraseHostFlagWrite(arm::Flags flag, IRLoadFlagsOp *op);
     bool EraseHostFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op);
-
-    // -------------------------------------------------------------------------
-    // Generic EraseDeadInstruction
-    // Erases instructions if they have no additional writes or side effects
-    // Catch-all method for unused ops, required by the visitor
-
-    template <typename T>
-    bool EraseDeadInstruction(T *op) {
-        return false;
-    }
-
-    bool EraseDeadInstruction(IRGetRegisterOp *op);
-    bool EraseDeadInstruction(IRSetRegisterOp *op);
-    bool EraseDeadInstruction(IRGetCPSROp *op);
-    bool EraseDeadInstruction(IRSetCPSROp *op);
-    bool EraseDeadInstruction(IRGetSPSROp *op);
-    bool EraseDeadInstruction(IRSetSPSROp *op);
-    bool EraseDeadInstruction(IRMemReadOp *op);
-    // IRMemWriteOp has side effects
-    // IRPreloadOp has side effects
-    bool EraseDeadInstruction(IRLogicalShiftLeftOp *op);
-    bool EraseDeadInstruction(IRLogicalShiftRightOp *op);
-    bool EraseDeadInstruction(IRArithmeticShiftRightOp *op);
-    bool EraseDeadInstruction(IRRotateRightOp *op);
-    bool EraseDeadInstruction(IRRotateRightExtendedOp *op);
-    bool EraseDeadInstruction(IRBitwiseAndOp *op);
-    bool EraseDeadInstruction(IRBitwiseOrOp *op);
-    bool EraseDeadInstruction(IRBitwiseXorOp *op);
-    bool EraseDeadInstruction(IRBitClearOp *op);
-    bool EraseDeadInstruction(IRCountLeadingZerosOp *op);
-    bool EraseDeadInstruction(IRAddOp *op);
-    bool EraseDeadInstruction(IRAddCarryOp *op);
-    bool EraseDeadInstruction(IRSubtractOp *op);
-    bool EraseDeadInstruction(IRSubtractCarryOp *op);
-    bool EraseDeadInstruction(IRMoveOp *op);
-    bool EraseDeadInstruction(IRMoveNegatedOp *op);
-    bool EraseDeadInstruction(IRSaturatingAddOp *op);
-    bool EraseDeadInstruction(IRSaturatingSubtractOp *op);
-    bool EraseDeadInstruction(IRMultiplyOp *op);
-    bool EraseDeadInstruction(IRMultiplyLongOp *op);
-    bool EraseDeadInstruction(IRAddLongOp *op);
-    bool EraseDeadInstruction(IRStoreFlagsOp *op);
-    bool EraseDeadInstruction(IRLoadFlagsOp *op);
-    bool EraseDeadInstruction(IRLoadStickyOverflowOp *op);
-    // IRBranchOp has side effects
-    // IRBranchExchangeOp has side effects
-    bool EraseDeadInstruction(IRLoadCopRegisterOp *op);
-    // IRStoreCopRegisterOp has side effects
-    bool EraseDeadInstruction(IRConstantOp *op);
-    bool EraseDeadInstruction(IRCopyVarOp *op);
-    bool EraseDeadInstruction(IRGetBaseVectorAddressOp *op);
 };
 
 } // namespace armajitto::ir
