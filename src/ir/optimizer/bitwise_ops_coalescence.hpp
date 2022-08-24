@@ -274,9 +274,19 @@ private:
     // given value.
     struct BitwiseOpsMatchState {
         bool valid = true;
+
+        bool trifecta;
+
+        // These are checked when trifecta == false
         bool hasOnes;
         bool hasZeros;
         bool hasFlips;
+
+        // These are checked when trifecta == true
+        bool hasTrifectaClear = false;
+        bool hasTrifectaFlip = false;
+
+        // These are checked in both cases
         bool hasRotate;
         bool inputMatches = false;
         bool outputMatches = false;
@@ -303,14 +313,14 @@ private:
             valid = false;
         }
 
+        void operator()(IRLogicalShiftRightOp *op);
+        void operator()(IRRotateRightOp *op);
         void operator()(IRBitwiseOrOp *op);
         void operator()(IRBitClearOp *op);
         void operator()(IRBitwiseXorOp *op);
-        void operator()(IRLogicalShiftRightOp *op);
-        void operator()(IRRotateRightOp *op);
 
-        void CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs, VarOrImmArg &rhs, VariableArg dst);
         void CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount, VariableArg dst);
+        void CommonCheck(bool &flag, uint32_t matchValue, VarOrImmArg &lhs, VarOrImmArg &rhs, VariableArg dst);
 
         void CheckInputVar(Variable var);
         void CheckOutputVar(Variable var);

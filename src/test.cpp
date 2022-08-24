@@ -387,14 +387,14 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator::Parameters params{
+    /*armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);
+    translator.Translate(*block);*/
 
     // Emit IR code manually
-    // armajitto::ir::Emitter emitter{*block};
+    armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -407,7 +407,7 @@ void testTranslator() {
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0x21520000, false);         // orr $v2, $v1, #0x21520000
     val = emitter.BitClear(val, 0x0000FFFF, false);          // bic $v3, $v2, #0x0000ffff
-    val = emitter.BitwiseXor(val, 0x00004110, false);        // xor $v4, $v3, #0x00004110
+    val = emitter.BitwiseXor(val, 0x00004110, false);        // eor $v4, $v3, #0x00004110
     val = emitter.Move(val, false);                          // mov $v5, $v4
     val = emitter.MoveNegated(val, false);                   // mvn $v6, $v5
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v6*/
@@ -415,9 +415,16 @@ void testTranslator() {
     /*auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0xD15D0000, false);         // orr $v2, $v1, #0xd15d0000
-    val = emitter.BitwiseXor(val, 0xF00F4110, false);        // xor $v3, $v2, #0xf00f4110
+    val = emitter.BitwiseXor(val, 0xF00F4110, false);        // eor $v3, $v2, #0xf00f4110
     val = emitter.MoveNegated(val, false);                   // mvn $v4, $v3
     emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v4*/
+
+    auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
+    val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
+    val = emitter.BitwiseOr(val, 0x21520000, false);         // orr $v2, $v1, #0x21520000
+    val = emitter.BitwiseXor(val, 0xF00FF00F, false);        // eor $v3, $v2, #0xf00ff00f
+    val = emitter.MoveNegated(val, false);                   // mvn $v4, $v3
+    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v4
 
     // Bitwise ops coalescence test
     /*constexpr auto flgC = armajitto::arm::Flags::C;
@@ -426,7 +433,7 @@ void testTranslator() {
     auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0  (r0 is an unknown value)
     val = emitter.BitwiseAnd(val, 0x0000FFFF, false);        // and $v1, $v0, #0x0000ffff
     val = emitter.BitwiseOr(val, 0xFFFF0000, false);         // orr $v2, $v1, #0xffff0000
-    val = emitter.BitwiseXor(val, 0xF00F0FF0, false);        // xor $v3, $v2, #0xf00f0ff0
+    val = emitter.BitwiseXor(val, 0xF00F0FF0, false);        // eor $v3, $v2, #0xf00f0ff0
     val = emitter.MoveNegated(val, false);                   // mvn $v4, $v3
     val = emitter.ArithmeticShiftRight(val, 12, false);      // asr $v5, $v4, #0xc
     val = emitter.LogicalShiftLeft(val, 8, false);           // lsl $v6, $v5, #0x8

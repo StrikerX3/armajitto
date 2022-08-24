@@ -316,7 +316,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
                 return false;
             }
 
-            // XOR flips all one bits
+            // EOR flips all one bits
             value->Flip(imm);
             return true;
         }
@@ -692,7 +692,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         // variable is var.
         match = BitwiseOpsMatchState{*value, var.var, m_values}.Check(value);
         if (!match) {
-            // Replace the last instruction with ROR for rotation, ORR for ones, BIC for zeros and XOR for flips
+            // Replace the last instruction with ROR for rotation, ORR for ones, BIC for zeros and EOR for flips
             IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
@@ -713,19 +713,27 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                     }
                 }
 
-                // Emit ORR for all known one bits
-                if (ones != 0) {
-                    result = m_emitter.BitwiseOr(result, ones, false);
-                }
+                if (ones != 0 && zeros != 0 && flips != 0) {
+                    // Emit an optimized sequence with BIC/EOR instead of ORR/BIC/EOR by merging the ones into the other
+                    // two instructions. This works because BIC will clear all one bits to zeros, then EOR will flip
+                    // those to one.
+                    result = m_emitter.BitClear(result, zeros | ones, false);
+                    result = m_emitter.BitwiseXor(result, flips | ones, false);
+                } else {
+                    // Emit ORR for all known one bits
+                    if (ones != 0) {
+                        result = m_emitter.BitwiseOr(result, ones, false);
+                    }
 
-                // Emit BIC for all known zero bits
-                if (zeros != 0) {
-                    result = m_emitter.BitClear(result, zeros, false);
-                }
+                    // Emit BIC for all known zero bits
+                    if (zeros != 0) {
+                        result = m_emitter.BitClear(result, zeros, false);
+                    }
 
-                // Emit XOR for all unknown flipped bits
-                if (flips != 0) {
-                    result = m_emitter.BitwiseXor(result, flips, false);
+                    // Emit EOR for all unknown flipped bits
+                    if (flips != 0) {
+                        result = m_emitter.BitwiseXor(result, flips, false);
+                    }
                 }
                 Assign(var, result);
                 var = result;
@@ -802,6 +810,9 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
     , expectedOutput(expectedOutput)
     , values(values) {
 
+    // When we have the trifecta, only look for BIC and EOR
+    trifecta = (ones != 0) && (zeros != 0) && (flips != 0);
+
     hasOnes = (ones == 0);
     hasZeros = (zeros == 0);
     hasFlips = (flips == 0);
@@ -827,19 +838,11 @@ bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Check(const Value
 }
 
 bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Valid() const {
-    return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
-    CommonCheck(hasOnes, ones, op->lhs, op->rhs, op->dst);
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
-    CommonCheck(hasZeros, zeros, op->lhs, op->rhs, op->dst);
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
-    CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
+    if (trifecta) {
+        return valid && hasTrifectaClear && hasTrifectaFlip && inputMatches && outputMatches;
+    } else {
+        return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
+    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftRightOp *op) {
@@ -848,6 +851,49 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRLogi
 
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRRotateRightOp *op) {
     CommonShiftCheck(op->value, op->amount, op->dst);
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
+    if (trifecta) {
+        valid = false;
+    } else {
+        CommonCheck(hasOnes, ones, op->lhs, op->rhs, op->dst);
+    }
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
+    if (trifecta) {
+        CommonCheck(hasTrifectaClear, zeros | ones, op->lhs, op->rhs, op->dst);
+    } else {
+        CommonCheck(hasZeros, zeros, op->lhs, op->rhs, op->dst);
+    }
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseXorOp *op) {
+    if (trifecta) {
+        CommonCheck(hasTrifectaFlip, flips | ones, op->lhs, op->rhs, op->dst);
+    } else {
+        CommonCheck(hasFlips, flips, op->lhs, op->rhs, op->dst);
+    }
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
+                                                                                VariableArg dst) {
+    if (!valid) {
+        return;
+    }
+
+    if (!hasRotate) {
+        // Found the instruction; check if the parameters match
+        if (!value.immediate && amount.immediate) {
+            hasRotate = (amount.imm.value == rotate);
+            CheckInputVar(value.var.var);
+            CheckOutputVar(dst.var);
+        }
+    } else {
+        // Found more than once or matchValue == 0
+        valid = false;
+    }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool &flag, uint32_t matchValue,
@@ -871,29 +917,16 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonCheck(bool 
     }
 }
 
-void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(VarOrImmArg &value, VarOrImmArg &amount,
-                                                                                VariableArg dst) {
-    if (!valid) {
-        return;
-    }
-
-    if (!hasRotate) {
-        // Found the instruction; check if the parameters match
-        if (!value.immediate && amount.immediate) {
-            hasRotate = (amount.imm.value == rotate);
-            CheckInputVar(value.var.var);
-            CheckOutputVar(dst.var);
-        }
-    } else {
-        // Found more than once or matchValue == 0
-        valid = false;
-    }
-}
-
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Variable var) {
     // Since we're checking in reverse order, this should be the last instruction in the sequence
     // Check only after all instructions have been matched
-    if (hasOnes && hasZeros && hasFlips) {
+    bool test;
+    if (trifecta) {
+        test = hasTrifectaClear && hasTrifectaFlip;
+    } else {
+        test = hasOnes && hasZeros && hasFlips;
+    }
+    if (test) {
         inputMatches = (var == expectedInput);
     }
 }
