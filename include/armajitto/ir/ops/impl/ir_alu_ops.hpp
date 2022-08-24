@@ -351,7 +351,7 @@ struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
 };
 
 // Multiply long
-//   [u/s]mull[h].[n][z] <var:dstLo>, <var:dstHi>, <var/imm:lhs>, <var/imm:rhs>
+//   [u/s]mull[h].[n][z] <var:dstLo>:<var:dstHi>, <var/imm:lhs>:<var/imm:rhs>
 //
 // Computes <lhs> * <rhs> and stores the least significant word of the result in <dstLo> and the most significant word
 // in <dstHi>.
@@ -379,13 +379,13 @@ struct IRMultiplyLongOp : public IROpBase<IROpcodeType::MultiplyLong> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
-        return std::format("{}mull{}{} {}, {}, {}, {}", (signedMul ? "s" : "u"), (shiftDownHalf ? "h" : ""),
-                           flagsSuffix, dstLo.ToString(), dstHi.ToString(), lhs.ToString(), rhs.ToString());
+        return std::format("{}mull{}{} {}:{}, {}:{}", (signedMul ? "s" : "u"), (shiftDownHalf ? "h" : ""), flagsSuffix,
+                           dstLo.ToString(), dstHi.ToString(), lhs.ToString(), rhs.ToString());
     }
 };
 
 // Add long
-//   addl.[n][z] <var:dstLo>, <var:dstHi>, <var/imm:lhsLo>, <var/imm:lhsHi>, <var/imm:rhsLo>, <var/imm:rhsHi>
+//   addl.[n][z] <var:dstLo>:<var:dstHi>, <var/imm:lhsLo>:<var/imm:lhsHi>, <var/imm:rhsLo>:<var/imm:rhsHi>
 //
 // Adds the 64-bit values <lhsLo>:<lhsHi> + <rhsLo>:<rhsHi> and stores the result in <dstLo>:<dstHi>.
 // Updates the host flags specified by [n][z].
@@ -410,8 +410,8 @@ struct IRAddLongOp : public IROpBase<IROpcodeType::AddLong> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags);
-        return std::format("addl{} {}, {}, {}, {}", flagsSuffix, dstLo.ToString(), dstHi.ToString(), lhsLo.ToString(),
-                           lhsHi.ToString(), rhsLo.ToString(), rhsHi.ToString());
+        return std::format("addl{} {}:{}, {}:{}, {}:{}", flagsSuffix, dstLo.ToString(), dstHi.ToString(),
+                           lhsLo.ToString(), lhsHi.ToString(), rhsLo.ToString(), rhsHi.ToString());
     }
 };
 
