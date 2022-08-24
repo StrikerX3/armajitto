@@ -6,6 +6,7 @@
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
 
+#include <set>
 #include <vector>
 
 namespace armajitto::ir {
@@ -82,6 +83,7 @@ public:
         m_currOp = m_block.Head();
         m_overwriteNext = false;
         m_prependNext = false;
+        m_erased.clear();
     }
 
     // Moves the emitter's cursor to the tail of the IR block.
@@ -89,6 +91,7 @@ public:
         m_currOp = m_block.Tail();
         m_overwriteNext = false;
         m_prependNext = false;
+        m_erased.clear();
     }
 
     // Moves the cursor to the specified IR opcode.
@@ -137,6 +140,12 @@ public:
             m_prependNext = true;
         }
         m_dirty = true;
+        m_erased.insert(op);
+    }
+
+    // Determines if the given op was erased.
+    bool WasErased(IROp *op) const {
+        return m_erased.contains(op);
     }
 
     // Rename all variables in the block from scratch, eliminating all gaps in the sequence.
@@ -246,6 +255,7 @@ private:
 
     IROp *m_currOp;
 
+    std::set<IROp *> m_erased;
     bool m_overwriteNext = false;
     bool m_prependNext = false;
 

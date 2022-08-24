@@ -35,6 +35,42 @@ namespace armajitto::ir {
 // Note that some instructions in the output code can be easily eliminated by other optimization passes, such as the
 // stores to unread variables $v2, $v3 and $v5 in instructions 3, 6 and 8 and the dead stores to r0 and pc in
 // instructions 4 and 5 (replaced by the stores in 9 and 10).
+//
+// The algorithm also removes the following operations from the code if they don't output flags:
+//   lsl   <var>, <var>, 0
+//   lsr   <var>, <var>, 0
+//   asr   <var>, <var>, 0
+//   ror   <var>, <var>, 0
+//   and   <var>, <var>, 0xFFFFFFFF
+//   and   <var>, 0xFFFFFFFF, <var>
+//   orr   <var>, <var>, 0
+//   orr   <var>, 0, <var>
+//   eor   <var>, <var>, 0
+//   eor   <var>, 0, <var>
+//   bic   <var>, <var>, 0
+//   bic   <var>, 0, <var>
+//   add   <var>, <var>, 0
+//   add   <var>, 0, <var>
+//   sub   <var>, <var>, 0
+//   adc   <var>, <var>, 0   (if carry is known to be clear)
+//   adc   <var>, 0, <var>   (if carry is known to be clear)
+//   sbc   <var>, <var>, 0   (if carry is known to be set)
+//   qadd  <var>, <var>, 0
+//   qadd  <var>, 0, <var>
+//   qsub  <var>, <var>, 0
+//   umul  <var>, <var>, 1
+//   umul  <var>, 1, <var>
+//   smul  <var>, <var>, 1
+//   smul  <var>, 1, <var>
+//   umull <var>, <var>:<var>, 0:1
+//   umull <var>, 0:1, <var>:<var>
+//   smull <var>, <var>:<var>, 0:1
+//   smull <var>, 0:1, <var>:<var>
+//   addl  <var>:<var>, <var>:<var>, 0:0
+//   addl  <var>:<var>, 0:0, <var>:<var>
+//
+// The output variables of removed instructions are mapped to the argument variables and all instances of those
+// variables are substituted in subsequent instructions.
 class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
     ConstPropagationOptimizerPass(Emitter &emitter);

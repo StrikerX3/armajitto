@@ -566,7 +566,6 @@ void testTranslator() {
         printf("  iteration %d\n", i);
         printf("==================================================\n\n");
 
-        optimized |= runOptimizer(OptPass::IdentityOpsElimination, "identity operations elimination");
         optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
         optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
         optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");

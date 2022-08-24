@@ -86,8 +86,6 @@ add_library(armajitto
     src/ir/optimizer/dead_var_store_elimination.hpp
     src/ir/optimizer/host_flags_ops_coalescence.cpp
     src/ir/optimizer/host_flags_ops_coalescence.hpp
-    src/ir/optimizer/identity_ops_elimination.cpp
-    src/ir/optimizer/identity_ops_elimination.hpp
     src/ir/optimizer/optimizer_pass_base.cpp
     src/ir/optimizer/optimizer_pass_base.hpp
     src/ir/optimizer/common/host_flags_tracking.cpp

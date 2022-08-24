@@ -9,7 +9,6 @@
 #include "optimizer/dead_psr_store_elimination.hpp"
 #include "optimizer/dead_var_store_elimination.hpp"
 #include "optimizer/host_flags_ops_coalescence.hpp"
-#include "optimizer/identity_ops_elimination.hpp"
 
 #include <memory>
 
@@ -23,9 +22,6 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
     bool dirty;
     do {
         dirty = false;
-        if (bmPasses.AllOf(OptimizerPasses::IdentityOpsElimination)) {
-            dirty |= alloc.AllocateNonTrivial<IdentityOpsEliminationOptimizerPass>(emitter)->Optimize();
-        }
         if (bmPasses.AllOf(OptimizerPasses::ConstantPropagation)) {
             dirty |= alloc.AllocateNonTrivial<ConstPropagationOptimizerPass>(emitter)->Optimize();
         }
