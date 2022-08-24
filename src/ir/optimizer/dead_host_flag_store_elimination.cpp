@@ -31,10 +31,10 @@ void DeadHostFlagStoreEliminationOptimizerPass::Process(IRRotateRightOp *op) {
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    RecordHostFlagsRead(arm::Flags::C);
     if (op->setCarry) {
         RecordHostFlagsWrite(arm::Flags::C, op);
     }
+    RecordHostFlagsRead(arm::Flags::C, op);
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
@@ -58,8 +58,8 @@ void DeadHostFlagStoreEliminationOptimizerPass::Process(IRAddOp *op) {
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRAddCarryOp *op) {
-    RecordHostFlagsRead(arm::Flags::C);
     RecordHostFlagsWrite(op->flags, op);
+    RecordHostFlagsRead(arm::Flags::C, op);
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
@@ -67,8 +67,8 @@ void DeadHostFlagStoreEliminationOptimizerPass::Process(IRSubtractOp *op) {
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRSubtractCarryOp *op) {
-    RecordHostFlagsRead(arm::Flags::C);
     RecordHostFlagsWrite(op->flags, op);
+    RecordHostFlagsRead(arm::Flags::C, op);
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRMoveOp *op) {
@@ -104,180 +104,163 @@ void DeadHostFlagStoreEliminationOptimizerPass::Process(IRStoreFlagsOp *op) {
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
-    RecordHostFlagsRead(op->flags);
+    RecordHostFlagsRead(op->flags, op);
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     if (op->setQ) {
-        RecordHostFlagsRead(arm::Flags::Q);
+        RecordHostFlagsRead(arm::Flags::Q, op);
     }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Host flag writes tracking
 
-void DeadHostFlagStoreEliminationOptimizerPass::RecordHostFlagsRead(arm::Flags flags) {
-    auto bmFlags = BitmaskEnum(flags);
-    auto record = [&](arm::Flags flag, IROp *&write) {
-        if (bmFlags.AnyOf(flag)) {
-            write = nullptr;
-        }
-    };
-    record(arm::Flags::N, m_hostFlagWriteN);
-    record(arm::Flags::Z, m_hostFlagWriteZ);
-    record(arm::Flags::C, m_hostFlagWriteC);
-    record(arm::Flags::V, m_hostFlagWriteV);
-    record(arm::Flags::Q, m_hostFlagWriteQ);
+void DeadHostFlagStoreEliminationOptimizerPass::RecordHostFlagsRead(arm::Flags flags, IROp *op) {
+    bool dead = VisitIROp(op, [this](auto op) -> bool { return IsDeadInstruction(op); });
+    if (!dead) {
+        m_writtenFlags &= ~flags;
+    }
 }
 
 void DeadHostFlagStoreEliminationOptimizerPass::RecordHostFlagsWrite(arm::Flags flags, IROp *op) {
-    auto bmFlags = BitmaskEnum(flags);
-    if (bmFlags.None()) {
-        return;
+    bool dead = VisitIROp(op, [this](auto op) -> bool {
+        EraseHostFlagsWrite(m_writtenFlags, op);
+        return IsDeadInstruction(op);
+    });
+    if (!dead) {
+        m_writtenFlags |= flags;
     }
-    auto record = [&](arm::Flags flag, IROp *&write) {
-        if (bmFlags.AnyOf(flag)) {
-            if (write != nullptr) {
-                VisitIROp(write, [this, flag](auto op) -> void { EraseHostFlagWrite(flag, op); });
-            }
-            write = op;
-        }
-    };
-    record(arm::Flags::N, m_hostFlagWriteN);
-    record(arm::Flags::Z, m_hostFlagWriteZ);
-    record(arm::Flags::C, m_hostFlagWriteC);
-    record(arm::Flags::V, m_hostFlagWriteV);
-    record(arm::Flags::Q, m_hostFlagWriteQ);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Generic EraseHostFlagWrite
+// Generic EraseHostFlagsWrite
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftLeftOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRLogicalShiftLeftOp *op) {
+    if (BitmaskEnum(flags).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLogicalShiftRightOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRLogicalShiftRightOp *op) {
+    if (BitmaskEnum(flags).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRArithmeticShiftRightOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRArithmeticShiftRightOp *op) {
+    if (BitmaskEnum(flags).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRRotateRightOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRRotateRightOp *op) {
+    if (BitmaskEnum(flags).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRRotateRightExtendedOp *op) {
-    if (BitmaskEnum(flag).AnyOf(arm::Flags::C)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRRotateRightExtendedOp *op) {
+    if (BitmaskEnum(flags).AnyOf(arm::Flags::C)) {
         MarkDirty();
         op->setCarry = false;
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseAndOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRBitwiseAndOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseOrOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRBitwiseOrOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitwiseXorOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRBitwiseXorOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRBitClearOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRBitClearOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRAddOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddCarryOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRAddCarryOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSubtractOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRSubtractOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSubtractCarryOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRSubtractCarryOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMoveOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRMoveOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMoveNegatedOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRMoveNegatedOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSaturatingAddOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRSaturatingAddOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRSaturatingSubtractOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRSaturatingSubtractOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMultiplyOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRMultiplyOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRMultiplyLongOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRMultiplyLongOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRAddLongOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRAddLongOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRStoreFlagsOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRStoreFlagsOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
     if (op->values.immediate) {
-        op->values.imm.value &= ~static_cast<uint32_t>(flag);
+        op->values.imm.value &= ~static_cast<uint32_t>(flags);
     }
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLoadFlagsOp *op) {
-    MarkDirty((op->flags & flag) != arm::Flags::None);
-    op->flags &= ~flag;
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRLoadFlagsOp *op) {
+    MarkDirty((op->flags & flags) != arm::Flags::None);
+    op->flags &= ~flags;
 }
 
-void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
-    if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
+void DeadHostFlagStoreEliminationOptimizerPass::EraseHostFlagsWrite(arm::Flags flags, IRLoadStickyOverflowOp *op) {
+    if (op->setQ && BitmaskEnum(flags).AnyOf(arm::Flags::Q)) {
         op->setQ = false;
         MarkDirty();
     }

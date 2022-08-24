@@ -8,13 +8,15 @@ namespace armajitto::ir {
 // Base class for all optimization passes that implements common algorithms and data structures.
 class OptimizerPassBase {
 public:
-    OptimizerPassBase(Emitter &emitter)
-        : m_emitter(emitter) {}
+    OptimizerPassBase(Emitter &emitter, bool backward = false)
+        : m_emitter(emitter)
+        , m_backward(backward) {}
 
     bool Optimize();
 
 protected:
     Emitter &m_emitter;
+    bool m_backward;
 
     virtual void PreProcess() {}
     virtual void PostProcess() {}

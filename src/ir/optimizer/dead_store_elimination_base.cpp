@@ -6,9 +6,6 @@
 
 namespace armajitto::ir {
 
-DeadStoreEliminationOptimizerPassBase::DeadStoreEliminationOptimizerPassBase(Emitter &emitter)
-    : OptimizerPassBase(emitter) {}
-
 void DeadStoreEliminationOptimizerPassBase::PostProcess() {
     PostProcessImpl();
 

@@ -84,6 +84,13 @@ public:
         m_prependNext = false;
     }
 
+    // Moves the emitter's cursor to the tail of the IR block.
+    void GoToTail() {
+        m_currOp = m_block.Tail();
+        m_overwriteNext = false;
+        m_prependNext = false;
+    }
+
     // Moves the cursor to the specified IR opcode.
     void GoTo(IROp *op) {
         m_currOp = op;
@@ -102,6 +109,14 @@ public:
             } else {
                 m_currOp = m_currOp->Next();
             }
+        }
+    }
+
+    // Moves the emitter to the previous IR opcode in the sequence, if any.
+    void PrevOp() {
+        if (m_currOp != nullptr) {
+            // TODO: check if this is correct
+            m_currOp = m_currOp->Prev();
         }
     }
 

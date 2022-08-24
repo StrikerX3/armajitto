@@ -10,7 +10,8 @@ namespace armajitto::ir {
 // - Determining if an instruction is "dead" (has no writes or side effects)
 class DeadStoreEliminationOptimizerPassBase : public OptimizerPassBase {
 public:
-    DeadStoreEliminationOptimizerPassBase(Emitter &emitter);
+    DeadStoreEliminationOptimizerPassBase(Emitter &emitter, bool backward = false)
+        : OptimizerPassBase(emitter, backward) {}
 
 protected:
     void PostProcess() final;
