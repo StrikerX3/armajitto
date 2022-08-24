@@ -526,12 +526,36 @@ void testTranslator() {
     emitter.SetRegister(armajitto::arm::GPR::R12, dual6.hi);*/
 
     // Arithmetic ops coalescence test
+    constexpr auto flgNone = armajitto::arm::Flags::None;
+    constexpr auto flgC = armajitto::arm::Flags::C;
     auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
-    val = emitter.Add(val, 3, false);                        // add $v1, $v0, 3
-    val = emitter.Subtract(5, val, false);                   // sub $v2, 5, $v1
-    val = emitter.Add(val, 6, false);                        // add $v3, $v2, 6
-    val = emitter.Subtract(5, val, false);                   // sub $v4, 5, $v3
-    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v4
+    val = emitter.Add(val, 3, false);                        // add $v1, $v0, 3        $v0 + 3
+    val = emitter.Add(val, 6, false);                        // add $v2, $v1, 6        $v0 + 9
+    val = emitter.Subtract(val, 5, false);                   // sub $v3, $v2, 5        $v0 + 4
+    val = emitter.Subtract(val, 4, false);                   // sub $v4, $v3, 4        $v0
+    val = emitter.Add(2, val, false);                        // add $v5, 2, $v4        $v0 + 2
+    val = emitter.Subtract(5, val, false);                   // sub $v6, 5, $v5        3 - $v0
+    emitter.StoreFlags(flgC, flgC);                          // stflg.c {c}         C
+    val = emitter.AddCarry(val, 0, false);                   // adc $v7, $v6, 0     C  4 - $v0
+    emitter.StoreFlags(flgC, flgNone);                       // stflg.c {}
+    val = emitter.AddCarry(val, 1, false);                   // adc $v8, $v7, 1        5 - $v0
+    emitter.StoreFlags(flgC, flgC);                          // stflg.c {c}         C
+    val = emitter.AddCarry(1, val, false);                   // adc $v9, 1, $v8     C  7 - $v0
+    emitter.StoreFlags(flgC, flgNone);                       // stflg.c {}
+    val = emitter.AddCarry(2, val, false);                   // adc $v10, 2, $v9       9 - $v0
+    emitter.StoreFlags(flgC, flgC);                          // stflg.c {c}         C
+    val = emitter.SubtractCarry(val, 1, false);              // sbc $v11, $v10, 1   C  8 - $v0
+    emitter.StoreFlags(flgC, flgNone);                       // stflg.c {}
+    val = emitter.SubtractCarry(val, 0, false);              // sbc $v12, $v11, 0      7 - $v0
+    emitter.StoreFlags(flgC, flgC);                          // stflg.c {c}         C
+    val = emitter.SubtractCarry(2, val, false);              // sbc $v13, 2, $v12   C  $v0 - 5
+    emitter.StoreFlags(flgC, flgNone);                       // stflg.c {}
+    val = emitter.SubtractCarry(1, val, false);              // sbc $v14, 1, $v13      5 - $v0
+    val = emitter.CopyVar(val);                              // copy $v15, $v14        5 - $v0
+    val = emitter.Move(val, false);                          // mov $v16, $v15         5 - $v0
+    val = emitter.MoveNegated(val, false);                   // mvn $v17, $v16         $v0 - 6
+    val = emitter.BitwiseXor(val, ~0, false);                // eor $v18, $v17, ~0     5 - $v0
+    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v18
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {

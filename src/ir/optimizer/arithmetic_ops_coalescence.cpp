@@ -261,16 +261,21 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
                 return false;
             }
 
-            // Include the carry value
-            if (!*carryFlag) {
-                --imm;
-            }
-
             if (op->lhs.immediate) {
+                // Include the carry value
+                if (!*carryFlag) {
+                    --imm;
+                }
+
                 // When the immediate is on the left-hand side, SBC adds to the running sum and negates the value
                 value->Negate();
                 value->Add(imm);
             } else {
+                // Include the carry value
+                if (!*carryFlag) {
+                    ++imm;
+                }
+
                 // When the immediate is on the right-hand side, SBC subtracts from the running sum
                 value->Subtract(imm);
             }
@@ -491,14 +496,22 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
             if (value->negated) {
                 if (auto maybeSubOp = Cast<IRSubtractOp>(value->writerOp)) {
                     auto *subOp = *maybeSubOp;
-                    match = (subOp->dst == var) && (subOp->lhs == value->runningSum) && (subOp->rhs == value->source) &&
-                            (subOp->flags == arm::Flags::None);
+                    const bool dstMatch = (subOp->dst == var);
+                    const bool fwdMatch = (subOp->lhs == value->runningSum) && (subOp->rhs == value->source);
+                    const bool revMatch = (subOp->lhs == value->source) && (subOp->rhs == value->runningSum);
+                    const bool paramsMatch = (fwdMatch || revMatch);
+                    const bool flagsMatch = (subOp->flags == arm::Flags::None);
+                    match = dstMatch && paramsMatch && flagsMatch;
                 }
             } else {
                 if (auto maybeAddOp = Cast<IRAddOp>(value->writerOp)) {
                     auto *addOp = *maybeAddOp;
-                    match = (addOp->dst == var) && (addOp->lhs == value->runningSum) && (addOp->rhs == value->source) &&
-                            (addOp->flags == arm::Flags::None);
+                    const bool dstMatch = (addOp->dst == var);
+                    const bool fwdMatch = (addOp->lhs == value->runningSum) && (addOp->rhs == value->source);
+                    const bool revMatch = (addOp->lhs == value->source) && (addOp->rhs == value->runningSum);
+                    const bool paramsMatch = (fwdMatch || revMatch);
+                    const bool flagsMatch = (addOp->flags == arm::Flags::None);
+                    match = dstMatch && paramsMatch && flagsMatch;
                 }
             }
         }
