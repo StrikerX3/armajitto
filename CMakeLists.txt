@@ -39,7 +39,10 @@ add_library(armajitto
     include/armajitto/guest/arm/psr.hpp
     include/armajitto/guest/arm/state.hpp
     include/armajitto/guest/arm/coprocessors/coproc_null.hpp
+    include/armajitto/host/compiler.hpp
+    include/armajitto/host/host_code.hpp
     include/armajitto/host/x86_64/cpuid.hpp
+    include/armajitto/host/x86_64/x86_64_compiler.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
     include/armajitto/ir/ir_ops.hpp
@@ -63,6 +66,7 @@ add_library(armajitto
     include/armajitto/util/bit_ops.hpp
     src/core/recompiler.cpp
     src/host/x86_64/cpuid.cpp
+    src/host/x86_64/x86_64_compiler.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
@@ -105,6 +109,11 @@ target_include_directories(armajitto
     PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
 )
 target_compile_features(armajitto PUBLIC cxx_std_20)
+
+## Add xbyak
+# TODO: include on x86_64 systems only
+find_package(xbyak CONFIG REQUIRED)
+target_link_libraries(armajitto PUBLIC xbyak::xbyak)
 
 ## Build precompiled header
 target_precompile_headers(armajitto

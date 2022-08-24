@@ -50,9 +50,10 @@ public:
     }
 
 private:
+    arm::State m_armState;
+
     CPUArch m_arch;
     ISystem &m_system;
-    arm::State m_armState;
 };
 
 } // namespace armajitto

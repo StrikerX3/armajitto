@@ -86,6 +86,14 @@ public:
         }
     }
 
+    void *AllocateRaw(size_t size, bool zeroMemory = false) {
+        void *ptr = AllocateMemory(size);
+        if (ptr != nullptr) {
+            std::memset(ptr, 0, size);
+        }
+        return ptr;
+    }
+
     template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
     T *Allocate(Args &&...args) {
         void *ptr = AllocateMemory(sizeof(T));

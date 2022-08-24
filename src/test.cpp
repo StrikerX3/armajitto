@@ -1,5 +1,6 @@
 #include <armajitto/armajitto.hpp>
 #include <armajitto/host/x86_64/cpuid.hpp>
+#include <armajitto/host/x86_64/x86_64_compiler.hpp>
 #include <armajitto/ir/optimizer.hpp>
 #include <armajitto/ir/translator.hpp>
 
@@ -137,7 +138,8 @@ void testCPUID() {
         printf("Fast PDEP/PEXT available\n");
     }
 }
-void testTranslator() {
+
+void testTranslatorAndOptimizer() {
     System sys{};
 
     const uint32_t baseAddress = 0x0100;
@@ -625,12 +627,112 @@ void testTranslator() {
     printBlock();
 }
 
+void testCompiler() {
+    System sys{};
+
+    armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
+
+    const uint32_t baseAddress = 0x0100;
+
+    uint32_t address = baseAddress;
+    bool thumb = false;
+
+    [[maybe_unused]] auto writeThumb = [&](uint16_t opcode) {
+        sys.ROMWriteHalf(address, opcode);
+        address += sizeof(opcode);
+        thumb = true;
+    };
+
+    [[maybe_unused]] auto writeARM = [&](uint32_t opcode) {
+        sys.ROMWriteWord(address, opcode);
+        address += sizeof(opcode);
+        thumb = false;
+    };
+
+    writeARM(0xE3A02012); // mov r2, #0x12
+    writeARM(0xE3A03B0D); // mov r3, #0x3400
+    // writeARM(0xE3A04004); // mov r4, #0x4
+    writeARM(0xE0121003); // ands r1, r2, r3
+    writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
+    writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
+    writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
+    writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
+    writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
+    writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
+    writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
+    writeARM(0xE1120003); // tst r2, r3
+    writeARM(0xE1320003); // teq r2, r3
+    writeARM(0xE1520003); // cmp r2, r3
+    writeARM(0xE1720003); // cmn r2, r3
+    writeARM(0xE1921473); // orrs r1, r2, r3, ror r4
+    writeARM(0xE1B01002); // movs r1, r2
+    writeARM(0xE1D21063); // bics r1, r2, r3, rrx
+    writeARM(0xE1E01003); // mvn r1, r3
+    writeARM(0xEAFFFFFE); // b $
+
+    // Create allocator
+    armajitto::memory::Allocator alloc{};
+    auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
+        alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
+
+    // Translate code from memory
+    armajitto::ir::Translator::Parameters params{
+        .maxBlockSize = 32,
+    };
+    armajitto::ir::Translator translator{context, params};
+    translator.Translate(*block);
+
+    // Optimize code
+    armajitto::ir::Optimize(alloc, *block);
+
+    // Display IR code
+    printf("translated %u instructions:\n\n", block->InstructionCount());
+    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+        auto str = op->ToString();
+        printf("%s\n", str.c_str());
+    }
+    printf("\n");
+
+    // Display ARM state
+    auto printState = [&] {
+        auto &state = context.GetARMState();
+        for (int j = 0; j < 4; j++) {
+            for (int i = 0; i < 4; i++) {
+                int index = i * 4 + j;
+                if (index >= 4 && index < 10) {
+                    printf("   R%d", index);
+                } else {
+                    printf("  R%d", index);
+                }
+                printf(" = %08X", state.GPR(index));
+            }
+            printf("\n");
+        }
+        printf("CPSR = %08X\n", state.CPSR().u32);
+    };
+
+    printf("state before execution:\n");
+    printState();
+
+    // Compile and execute code
+    armajitto::x86_64::x64Compiler compiler;
+    printf("\ncompiling code...\n");
+    auto hostCode = compiler.Compile(*block);
+    printf("done; invoking\n");
+    hostCode(context);
+    printf("\n");
+
+    printf("state after execution:\n");
+    printState();
+}
+
 int main() {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testBasic();
     // testCPUID();
-    testTranslator();
+    // testTranslatorAndOptimizer();
+    testCompiler();
 
     return EXIT_SUCCESS;
 }

@@ -60,4 +60,9 @@ ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
     }
 }
 
+template <typename Visitor, typename ReturnType = std::invoke_result_t<Visitor, const IROp *>>
+ReturnType VisitIROp(const IROp *op, Visitor &&visitor) {
+    return VisitIROp(const_cast<IROp *>(op), visitor);
+}
+
 } // namespace armajitto::ir
