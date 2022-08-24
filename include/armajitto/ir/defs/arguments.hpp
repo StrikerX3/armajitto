@@ -135,6 +135,14 @@ struct VarOrImmArg {
         operator=(imm);
     }
 
+    VarOrImmArg(const VariableArg &var) {
+        operator=(var);
+    }
+
+    VarOrImmArg(const ImmediateArg &imm) {
+        operator=(imm);
+    }
+
     VarOrImmArg &operator=(Variable var) {
         immediate = false;
         this->var = var;
@@ -142,6 +150,18 @@ struct VarOrImmArg {
     }
 
     VarOrImmArg &operator=(uint32_t imm) {
+        immediate = true;
+        this->imm = imm;
+        return *this;
+    }
+
+    VarOrImmArg &operator=(const VariableArg &var) {
+        immediate = false;
+        this->var = var;
+        return *this;
+    }
+
+    VarOrImmArg &operator=(const ImmediateArg &imm) {
         immediate = true;
         this->imm = imm;
         return *this;

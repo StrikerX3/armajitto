@@ -44,7 +44,7 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
             dirty |= alloc.AllocateNonTrivial<BitwiseOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
         if (bmPasses.AllOf(OptimizerPasses::ArithmeticOpsCoalescence)) {
-            dirty |= alloc.Allocate<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
+            dirty |= alloc.AllocateNonTrivial<ArithmeticOpsCoalescenceOptimizerPass>(emitter)->Optimize();
         }
         if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();

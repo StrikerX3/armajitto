@@ -18,23 +18,23 @@ public:
         return false;
     }
 
-    uint32_t LoadRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) final {
+    uint32_t LoadRegister(CopRegister reg) final {
         return 0;
     }
 
-    void StoreRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, uint32_t value) final {}
+    void StoreRegister(CopRegister reg, uint32_t value) final {}
 
-    bool RegStoreHasSideEffects(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) final {
+    bool RegStoreHasSideEffects(CopRegister reg) final {
         return false;
     }
 
-    uint32_t LoadExtRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) final {
+    uint32_t LoadExtRegister(CopRegister reg) final {
         return 0;
     }
 
-    void StoreExtRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, uint32_t value) final {}
+    void StoreExtRegister(CopRegister reg, uint32_t value) final {}
 
-    bool ExtRegStoreHasSideEffects(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) final {
+    bool ExtRegStoreHasSideEffects(CopRegister reg) final {
         return false;
     }
 

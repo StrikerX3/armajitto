@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/guest/arm/coprocessor.hpp"
 #include "armajitto/guest/arm/exceptions.hpp"
 #include "armajitto/guest/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
@@ -94,9 +95,25 @@ public:
         m_erased.clear();
     }
 
-    // Moves the cursor to the specified IR opcode.
-    void GoTo(IROp *op) {
+    struct GoToGuard {
+        GoToGuard(IROp *prev, IROp *&currOpRef)
+            : m_prev(prev)
+            , m_currOpRef(currOpRef) {}
+
+        ~GoToGuard() {
+            m_currOpRef = m_prev;
+        }
+
+    private:
+        IROp *m_prev;
+        IROp *&m_currOpRef;
+    };
+
+    // Temporarily moves the cursor to the specified IR opcode.
+    GoToGuard GoTo(IROp *op) {
+        IROp *prev = m_currOp;
         m_currOp = op;
+        return {prev, m_currOp};
     }
 
     // Retrieves the current IR opcode.
@@ -216,17 +233,60 @@ public:
     void Branch(VarOrImmArg address);
     void BranchExchange(VarOrImmArg address);
 
-    Variable LoadCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext);
-    void StoreCopRegister(uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, bool ext,
-                          VarOrImmArg srcValue);
+    Variable LoadCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext);
+    void StoreCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext, VarOrImmArg srcValue);
 
-    void Constant(VariableArg dst, uint32_t value);
     Variable Constant(uint32_t value);
-    void CopyVar(VariableArg dst, VariableArg var);
     Variable CopyVar(VariableArg var);
     Variable GetBaseVectorAddress();
 
-    // -----------------------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Basic IR instruction emitters with destination variables
+
+    void GetRegister(VariableArg dst, GPRArg src);
+    void GetRegister(VariableArg dst, arm::GPR src); // using current mode
+
+    void GetCPSR(VariableArg dst);
+    void GetSPSR(VariableArg dst);
+
+    void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
+
+    void LogicalShiftLeft(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    void LogicalShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    void ArithmeticShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    void RotateRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
+    void RotateRightExtended(VariableArg dst, VarOrImmArg value, bool setFlags);
+
+    void BitwiseAnd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void BitwiseOr(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void BitwiseXor(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void BitClear(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void CountLeadingZeros(VariableArg dst, VarOrImmArg value);
+
+    void Add(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void AddCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void Subtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+    void SubtractCarry(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags);
+
+    void Move(VariableArg dst, VarOrImmArg value, bool setFlags);
+    void MoveNegated(VariableArg dst, VarOrImmArg value, bool setFlags);
+
+    void SaturatingAdd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);
+    void SaturatingSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);
+
+    void Multiply(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags);
+    void MultiplyLong(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul,
+                      bool shiftDownHalf, bool setFlags);
+    void AddLong(VariableArg dstLo, VariableArg dstHi, VarOrImmArg lhsLo, VarOrImmArg lhsHi, VarOrImmArg rhsLo,
+                 VarOrImmArg rhsHi, bool setFlags);
+
+    void LoadCopRegister(VariableArg dstValue, uint8_t cpnum, arm::CopRegister reg, bool ext);
+
+    void Constant(VariableArg dst, uint32_t value);
+    void CopyVar(VariableArg dst, VariableArg var);
+    void GetBaseVectorAddress(VariableArg dst);
+
+    // -------------------------------------------------------------------------
     // Complex IR instruction sequence emitters
 
     Variable GetOffsetFromCurrentInstructionAddress(int32_t offset);
@@ -273,8 +333,6 @@ private:
         }
         m_dirty = true;
     }
-
-    // --- Variables -----------------------------------------------------------
 
     Variable Var();
 };

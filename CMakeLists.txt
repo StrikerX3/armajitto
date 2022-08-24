@@ -29,6 +29,7 @@ add_library(armajitto
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/memory_access.hpp
     include/armajitto/guest/arm/arithmetic.hpp
+    include/armajitto/guest/arm/cop_register.hpp
     include/armajitto/guest/arm/coprocessor.hpp
     include/armajitto/guest/arm/exceptions.hpp
     include/armajitto/guest/arm/flags.hpp

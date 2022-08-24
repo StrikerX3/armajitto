@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/guest/arm/cop_register.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 
@@ -15,24 +16,17 @@ namespace armajitto::ir {
 struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
     VariableArg dstValue;
     uint8_t cpnum;
-    uint8_t opcode1;
-    uint8_t crn;
-    uint8_t crm;
-    uint8_t opcode2;
+    arm::CopRegister reg;
     bool ext;
-    IRLoadCopRegisterOp(VariableArg dstValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2,
-                        bool ext)
+    IRLoadCopRegisterOp(VariableArg dstValue, uint8_t cpnum, arm::CopRegister reg, bool ext)
         : dstValue(dstValue)
         , cpnum(cpnum)
-        , opcode1(opcode1)
-        , crn(crn)
-        , crm(crm)
-        , opcode2(opcode2)
+        , reg(reg)
         , ext(ext) {}
 
     std::string ToString() const final {
-        return std::format("mrc{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), dstValue.ToString(), cpnum, opcode1, crn,
-                           crm, opcode2);
+        return std::format("mrc{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), dstValue.ToString(), cpnum, reg.opcode1,
+                           reg.crn, reg.crm, reg.opcode2);
     }
 };
 
@@ -43,25 +37,18 @@ struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
 struct IRStoreCopRegisterOp : public IROpBase<IROpcodeType::StoreCopRegister> {
     VarOrImmArg srcValue;
     uint8_t cpnum;
-    uint8_t opcode1;
-    uint8_t crn;
-    uint8_t crm;
-    uint8_t opcode2;
+    arm::CopRegister reg;
     bool ext;
 
-    IRStoreCopRegisterOp(VarOrImmArg srcValue, uint8_t cpnum, uint8_t opcode1, uint8_t crn, uint8_t crm,
-                         uint8_t opcode2, bool ext)
+    IRStoreCopRegisterOp(VarOrImmArg srcValue, uint8_t cpnum, arm::CopRegister reg, bool ext)
         : srcValue(srcValue)
         , cpnum(cpnum)
-        , opcode1(opcode1)
-        , crn(crn)
-        , crm(crm)
-        , opcode2(opcode2)
+        , reg(reg)
         , ext(ext) {}
 
     std::string ToString() const final {
-        return std::format("mcr{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), srcValue.ToString(), cpnum, opcode1, crn,
-                           crm, opcode2);
+        return std::format("mcr{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), srcValue.ToString(), cpnum, reg.opcode1,
+                           reg.crn, reg.crm, reg.opcode2);
     }
 };
 

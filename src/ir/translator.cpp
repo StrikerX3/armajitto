@@ -1050,13 +1050,12 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
 
     if (instr.store) {
         auto value = emitter.GetRegister(instr.rd);
-        emitter.StoreCopRegister(instr.cpnum, instr.opcode1, instr.crn, instr.crm, instr.opcode2, instr.ext, value);
-        if (cop.RegStoreHasSideEffects(instr.opcode1, instr.crn, instr.crm, instr.opcode2)) {
+        emitter.StoreCopRegister(instr.cpnum, instr.reg, instr.ext, value);
+        if (cop.RegStoreHasSideEffects(instr.reg)) {
             m_endBlock = true;
         }
     } else {
-        auto value =
-            emitter.LoadCopRegister(instr.cpnum, instr.opcode1, instr.crn, instr.crm, instr.opcode2, instr.ext);
+        auto value = emitter.LoadCopRegister(instr.cpnum, instr.reg, instr.ext);
 
         if (instr.rd == GPR::PC) {
             // Update NZCV flags instead

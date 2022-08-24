@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cop_register.hpp"
+
 #include <cstdint>
 
 namespace armajitto::arm {
@@ -10,13 +12,13 @@ public:
 
     virtual bool SupportsExtendedRegTransfers() = 0;
 
-    virtual uint32_t LoadRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) = 0;
-    virtual void StoreRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, uint32_t value) = 0;
-    virtual bool RegStoreHasSideEffects(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) = 0;
+    virtual uint32_t LoadRegister(CopRegister reg) = 0;
+    virtual void StoreRegister(CopRegister reg, uint32_t value) = 0;
+    virtual bool RegStoreHasSideEffects(CopRegister reg) = 0;
 
-    virtual uint32_t LoadExtRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) = 0;
-    virtual void StoreExtRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2, uint32_t value) = 0;
-    virtual bool ExtRegStoreHasSideEffects(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2) = 0;
+    virtual uint32_t LoadExtRegister(CopRegister reg) = 0;
+    virtual void StoreExtRegister(CopRegister reg, uint32_t value) = 0;
+    virtual bool ExtRegStoreHasSideEffects(CopRegister reg) = 0;
 };
 
 } // namespace armajitto::arm

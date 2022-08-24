@@ -337,12 +337,12 @@ inline auto CopRegTransfer(uint32_t opcode, bool ext) {
     arm::instrs::CopRegTransfer instr{};
 
     instr.store = bit::test<20>(opcode);
-    instr.opcode1 = bit::extract<21, 3>(opcode);
-    instr.crn = bit::extract<16, 4>(opcode);
+    instr.reg.opcode1 = bit::extract<21, 3>(opcode);
+    instr.reg.crn = bit::extract<16, 4>(opcode);
     instr.rd = static_cast<GPR>(bit::extract<12, 4>(opcode));
     instr.cpnum = bit::extract<8, 4>(opcode);
-    instr.opcode2 = bit::extract<5, 3>(opcode);
-    instr.crm = bit::extract<0, 4>(opcode);
+    instr.reg.opcode2 = bit::extract<5, 3>(opcode);
+    instr.reg.crm = bit::extract<0, 4>(opcode);
     instr.ext = ext;
 
     return instr;

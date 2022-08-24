@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cop_register.hpp"
 #include "gpr.hpp"
 
 #include <cstdint>
@@ -304,12 +305,9 @@ namespace instrs {
     //   +    +   MRC2
     struct CopRegTransfer {
         bool store;
-        uint8_t opcode1;
-        uint8_t crn;
         GPR rd;
         uint8_t cpnum;
-        uint8_t opcode2;
-        uint8_t crm;
+        CopRegister reg;
         bool ext; // false = MCR/MRC; true = MCR2/MRC2
     };
 

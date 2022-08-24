@@ -478,7 +478,7 @@ void testTranslator() {
     emitter.SetCPSR(r5);                                    // st cpsr, $v4*/
 
     // Identity operation elimination test
-    auto var = emitter.GetRegister(armajitto::arm::GPR::R0);
+    /*auto var = emitter.GetRegister(armajitto::arm::GPR::R0);
     var = emitter.LogicalShiftLeft(var, 0, false);     // lsl <var>, <var>, 0
     var = emitter.LogicalShiftRight(var, 0, false);    // lsr <var>, <var>, 0
     var = emitter.ArithmeticShiftRight(var, 0, false); // asr <var>, <var>, 0
@@ -523,7 +523,15 @@ void testTranslator() {
     emitter.SetRegister(armajitto::arm::GPR::R9, dual5.lo);
     emitter.SetRegister(armajitto::arm::GPR::R10, dual5.hi);
     emitter.SetRegister(armajitto::arm::GPR::R11, dual6.lo);
-    emitter.SetRegister(armajitto::arm::GPR::R12, dual6.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R12, dual6.hi);*/
+
+    // Arithmetic ops coalescence test
+    auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
+    val = emitter.Add(val, 3, false);                        // add $v1, $v0, 3
+    val = emitter.Subtract(5, val, false);                   // sub $v2, 5, $v1
+    val = emitter.Add(val, 6, false);                        // add $v3, $v2, 6
+    val = emitter.Subtract(5, val, false);                   // sub $v4, 5, $v3
+    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v4
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
