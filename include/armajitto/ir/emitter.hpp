@@ -188,8 +188,8 @@ public:
     void Compare(VarOrImmArg lhs, VarOrImmArg rhs);
     void CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs);
 
-    Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs);
-    Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs);
+    Variable SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);
+    Variable SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);
 
     Variable Multiply(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool setFlags);
     ALUVarPair MultiplyLong(VarOrImmArg lhs, VarOrImmArg rhs, bool signedMul, bool shiftDownHalf, bool setFlags);

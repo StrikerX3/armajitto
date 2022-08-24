@@ -387,11 +387,11 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator::Parameters params{
+    /*armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);
+    translator.Translate(*block);*/
 
     // Emit IR code manually
     armajitto::ir::Emitter emitter{*block};
@@ -478,6 +478,53 @@ void testTranslator() {
     auto r5 = emitter.GetRegister(armajitto::arm::GPR::R5); // ld $v4, r5
     emitter.SetCPSR(r5);                                    // st cpsr, $v4*/
 
+    auto var = emitter.GetRegister(armajitto::arm::GPR::R0);
+    var = emitter.LogicalShiftLeft(var, 0, false);     // lsl <var>, <var>, 0
+    var = emitter.LogicalShiftRight(var, 0, false);    // lsr <var>, <var>, 0
+    var = emitter.ArithmeticShiftRight(var, 0, false); // asr <var>, <var>, 0
+    var = emitter.RotateRight(var, 0, false);          // ror <var>, <var>, 0
+    var = emitter.BitwiseAnd(var, ~0, false);          // and <var>, <var>, 0xFFFFFFFF
+    var = emitter.BitwiseAnd(~0, var, false);          // and <var>, 0xFFFFFFFF, <var>
+    var = emitter.BitwiseOr(var, 0, false);            // orr <var>, <var>, 0
+    var = emitter.BitwiseOr(0, var, false);            // orr <var>, 0, <var>
+    var = emitter.BitwiseXor(var, 0, false);           // eor <var>, <var>, 0
+    var = emitter.BitwiseXor(0, var, false);           // eor <var>, 0, <var>
+    var = emitter.BitClear(var, 0, false);             // bic <var>, <var>, 0
+    var = emitter.BitClear(0, var, false);             // bic <var>, 0, <var>
+    var = emitter.Add(var, 0, false);                  // add <var>, <var>, 0
+    var = emitter.Add(0, var, false);                  // add <var>, 0, <var>
+    var = emitter.Subtract(0, var, false);             // sub <var>, <var>, 0
+    // emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::None);
+    // var = emitter.AddCarry(var, 0, false); // adc <var>, <var>, 0 (with known ~C)
+    // var = emitter.AddCarry(0, var, false); // adc <var>, 0, <var> (with known ~C)
+    // emitter.StoreFlags(armajitto::arm::Flags::C, armajitto::arm::Flags::C);
+    // var = emitter.SubtractCarry(var, 0, false);                     // sbc  <var>, <var>, 0 (with known  C)
+    var = emitter.SaturatingAdd(var, 0, false);                     // qadd <var>, <var>, 0
+    var = emitter.SaturatingAdd(0, var, false);                     // qadd <var>, 0, <var>
+    var = emitter.SaturatingSubtract(var, 0, false);                // qsub <var>, <var>, 0
+    var = emitter.Multiply(var, 1, false, false);                   // umul <var>, <var>, 1
+    var = emitter.Multiply(1, var, false, false);                   // umul <var>, 1, <var>
+    var = emitter.Multiply(var, 1, true, false);                    // smul <var>, <var>, 1
+    var = emitter.Multiply(1, var, true, false);                    // smul <var>, 1, <var>
+    auto dual1 = emitter.MultiplyLong(var, 1, false, false, false); // umull <var>, <var>:<var>, 0:1
+    auto dual2 = emitter.MultiplyLong(1, var, false, false, false); // umull <var>, 0:1, <var>:<var>
+    auto dual3 = emitter.MultiplyLong(var, 1, true, false, false);  // smull <var>, <var>:<var>, 0:1
+    auto dual4 = emitter.MultiplyLong(1, var, true, false, false);  // smull <var>, 0:1, <var>:<var>
+    auto dual5 = emitter.AddLong(var, var, 0, 0, false);            // addl <var>:<var>, <var>:<var>, 0:0
+    auto dual6 = emitter.AddLong(0, 0, var, var, false);            // addl <var>:<var>, 0:0, <var>:<var>
+    emitter.SetRegister(armajitto::arm::GPR::R1, dual1.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R2, dual1.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R3, dual2.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R4, dual2.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R5, dual3.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R6, dual3.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R7, dual4.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R8, dual4.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R9, dual5.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R10, dual5.hi);
+    emitter.SetRegister(armajitto::arm::GPR::R11, dual6.lo);
+    emitter.SetRegister(armajitto::arm::GPR::R12, dual6.hi);
+
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
             auto str = op->ToString();
@@ -519,15 +566,16 @@ void testTranslator() {
         printf("  iteration %d\n", i);
         printf("==================================================\n\n");
 
-        optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
-        optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
-        optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
-        optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
-        optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
-        optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
-        optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
-        optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
-        optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
+        // optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
+        // optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
+        // optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
+        // optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
+        // optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
+        // optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
+        // optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
+        // optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
+        // optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
+        optimized |= runOptimizer(OptPass::IdentityOpsElimination, "identity operations elimination");
     } while (optimized);
 
     printf("\n==================================================\n");

@@ -175,7 +175,7 @@ struct VarOrImmArg {
 };
 
 // Helper function to split a pair of VarOrImmArgs into an immediate and a variable
-inline std::optional<std::pair<uint32_t, Variable>> SplitImmVarPair(VarOrImmArg &lhs, VarOrImmArg &rhs) {
+inline std::optional<std::pair<uint32_t, Variable>> SplitImmVarPair(const VarOrImmArg &lhs, const VarOrImmArg &rhs) {
     // Requires that the two arguments be of different types
     if (lhs.immediate == rhs.immediate) {
         return std::nullopt;

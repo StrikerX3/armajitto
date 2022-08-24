@@ -493,15 +493,15 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
     auto lhs = emitter.GetRegister(instr.lhsReg);
     auto rhs = emitter.GetRegister(instr.rhsReg);
     if (instr.dbl) {
-        rhs = emitter.SaturatingAdd(rhs, rhs);
+        rhs = emitter.SaturatingAdd(rhs, rhs, true);
         emitter.LoadStickyOverflow();
     }
 
     Variable result;
     if (instr.sub) {
-        result = emitter.SaturatingSubtract(lhs, rhs);
+        result = emitter.SaturatingSubtract(lhs, rhs, true);
     } else {
-        result = emitter.SaturatingAdd(lhs, rhs);
+        result = emitter.SaturatingAdd(lhs, rhs, true);
     }
     emitter.LoadStickyOverflow();
     emitter.SetRegisterExceptPC(instr.dstReg, result);

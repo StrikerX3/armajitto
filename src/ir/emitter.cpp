@@ -189,15 +189,15 @@ void Emitter::CompareNegated(VarOrImmArg lhs, VarOrImmArg rhs) {
     Write<IRAddOp>(lhs, rhs);
 }
 
-Variable Emitter::SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs) {
+Variable Emitter::SaturatingAdd(VarOrImmArg lhs, VarOrImmArg rhs, bool setQ) {
     auto dst = Var();
-    Write<IRSaturatingAddOp>(dst, lhs, rhs);
+    Write<IRSaturatingAddOp>(dst, lhs, rhs, setQ);
     return dst;
 }
 
-Variable Emitter::SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs) {
+Variable Emitter::SaturatingSubtract(VarOrImmArg lhs, VarOrImmArg rhs, bool setQ) {
     auto dst = Var();
-    Write<IRSaturatingSubtractOp>(dst, lhs, rhs);
+    Write<IRSaturatingSubtractOp>(dst, lhs, rhs, setQ);
     return dst;
 }
 

@@ -309,8 +309,8 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated>
 // Computes <lhs> + <rhs> (signed) with saturation and stores the result in <dst>.
 // Updates the Q host flag if the addition saturates and [q] is specified.
 struct IRSaturatingAddOp : public detail::IRBinaryOpBase<IROpcodeType::SaturatingAdd> {
-    IRSaturatingAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(dst, lhs, rhs, arm::Flags::Q, "qadd") {}
+    IRSaturatingAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ)
+        : IRBinaryOpBase(dst, lhs, rhs, (setQ ? arm::Flags::Q : arm::Flags::None), "qadd") {}
 };
 
 // Saturating subtract
@@ -319,8 +319,8 @@ struct IRSaturatingAddOp : public detail::IRBinaryOpBase<IROpcodeType::Saturatin
 // Computes <lhs> - <rhs> (signed) with saturation and stores the result in <dst>.
 // Updates the Q host flag if the subtraction saturates and [q] is specified.
 struct IRSaturatingSubtractOp : public detail::IRBinaryOpBase<IROpcodeType::SaturatingSubtract> {
-    IRSaturatingSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs)
-        : IRBinaryOpBase(dst, lhs, rhs, arm::Flags::Q, "qsub") {}
+    IRSaturatingSubtractOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ)
+        : IRBinaryOpBase(dst, lhs, rhs, (setQ ? arm::Flags::Q : arm::Flags::None), "qsub") {}
 };
 
 // Multiply
