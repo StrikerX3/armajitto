@@ -10,8 +10,8 @@ enum class OptimizerPasses {
     None = 0,
 
     ConstantPropagation = (1 << 0),
-    DeadGPRStoreElimination = (1 << 1),
-    DeadPSRStoreElimination = (1 << 2),
+    DeadRegisterStoreElimination = (1 << 1),
+    DeadGPRStoreElimination = (1 << 2),
     DeadHostFlagStoreElimination = (1 << 3),
     DeadFlagValueStoreElimination = (1 << 4),
     DeadVarStoreElimination = (1 << 5),
@@ -19,7 +19,7 @@ enum class OptimizerPasses {
     ArithmeticOpsCoalescence = (1 << 7),
     HostFlagsOpsCoalescence = (1 << 8),
 
-    DeadStoreElimination = DeadGPRStoreElimination | DeadPSRStoreElimination | DeadHostFlagStoreElimination |
+    DeadStoreElimination = DeadRegisterStoreElimination | DeadGPRStoreElimination | DeadHostFlagStoreElimination |
                            DeadFlagValueStoreElimination | DeadVarStoreElimination,
 
     All = ConstantPropagation | DeadStoreElimination | BitwiseOpsCoalescence | ArithmeticOpsCoalescence |

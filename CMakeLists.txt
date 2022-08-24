@@ -79,8 +79,8 @@ add_library(armajitto
     src/ir/optimizer/dead_gpr_store_elimination.hpp
     src/ir/optimizer/dead_host_flag_store_elimination.cpp
     src/ir/optimizer/dead_host_flag_store_elimination.hpp
-    src/ir/optimizer/dead_psr_store_elimination.cpp
-    src/ir/optimizer/dead_psr_store_elimination.hpp
+    src/ir/optimizer/dead_reg_store_elimination.cpp
+    src/ir/optimizer/dead_reg_store_elimination.hpp
     src/ir/optimizer/dead_store_elimination_base.cpp
     src/ir/optimizer/dead_store_elimination_base.hpp
     src/ir/optimizer/dead_var_store_elimination.cpp

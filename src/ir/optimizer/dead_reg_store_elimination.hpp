@@ -7,22 +7,23 @@
 
 namespace armajitto::ir {
 
-// Performs dead store elimination for PSRs.
+// Performs dead store elimination for GPRs and PSRs.
 //
-// This algorithm tracks CPSR changes by tagging variables with the CPSR "version" and incrementing it on every change.
-// When CPSR is loaded into a variable, it is tagged with the current CPSR version. Operations that take a tagged
-// variable, modify the value, and return a new variable tag the output variable with a new version. When a tagged
-// variable is stored into CPSR, the CPSR version is updated to that of the variable.
+// This algorithm tracks GPR and PSR changes by tagging variables with the GPR or PSR "version" and incrementing it on
+// every change. When the GPR or PSR is loaded into a variable, it is tagged with the current version. Operations that
+// take a tagged variable, modify the value, and return a new variable tag the output variable with a new version. When
+// a tagged variable is stored into GPR or PSR, its version is updated to that of the variable.
 //
-// Once the algorithm detects an attempt to store an unmodified CPSR value (that is, storing a tagged variable with the
-// same version as the CPSR), the store is removed. Additionally, every subsequent load from CPSR will create a variable
-// mapping from the output variable of the ld cpsr instruction to the variable that contains the current version of the
-// CPSR value, eliminating several redundant sequences of loads and stores.
+// Once the algorithm detects an attempt to store an unmodified GPR/PSR value (that is, storing a tagged variable with
+// the same version as the GPR/PSR), the store is removed. Additionally, every subsequent load from the GPR/PSR will
+// create a variable mapping from the output variable of the load PSR or GPR instruction to the variable that contains
+// the current version of the GPR/PSR value, eliminating several redundant sequences of loads and stores.
 //
-// The same algorithm is applied to SPSRs in every mode, with a separate version for each.
+// The same algorithm is applied to CPSR, SPSRs and GPRs in every mode, with a separate version for each individual
+// instance of the registers.
 //
 // Assuming the following IR code fragment:
-//                                  CPSR version
+//                                  PSR version
 //  #  instruction                  curr   next    tags ($v<x>=<version>) or substitutions ($v<x>->$v<y>)
 //  1  ld $v0, cpsr                 1      2       $v0=1
 //  2  add $v1, $v0, #0x4           1      3       $v1=2
@@ -60,12 +61,12 @@ namespace armajitto::ir {
 //     st cpsr, $v4
 //
 // Note that the BIC instruction is now a dead store and should be eliminated by the dead variable store pass.
-class DeadPSRStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
+class DeadRegisterStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
-    DeadPSRStoreEliminationOptimizerPass(Emitter &emitter);
+    DeadRegisterStoreEliminationOptimizerPass(Emitter &emitter);
 
 private:
-    // void Process(IRGetRegisterOp *op) final;
+    void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     void Process(IRGetCPSROp *op) final;
     void Process(IRSetCPSROp *op) final;
@@ -107,9 +108,9 @@ private:
     // void Process(IRGetBaseVectorAddressOp *op) final;
 
     // -------------------------------------------------------------------------
-    // PSR read and write tracking
+    // GPR/PSR read and write tracking
 
-    struct PSRVar {
+    struct VarWrite {
         Variable var;
         IROp *writeOp = nullptr;
     };
@@ -118,14 +119,20 @@ private:
     std::array<uintmax_t, 1 + arm::kNumNormalizedModeIndices> m_psrVersions;
     std::array<IROp *, 1 + arm::kNumNormalizedModeIndices> m_psrWrites;
 
-    uintmax_t m_nextPSRVersion;
+    std::array<uintmax_t, 16 * arm::kNumNormalizedModeIndices> m_gprVersions;
+    std::array<IROp *, 16 * arm::kNumNormalizedModeIndices> m_gprWrites;
 
-    std::vector<PSRVar> m_psrToVarMap;
-    std::vector<uintmax_t> m_varToPSRVersionMap;
+    std::vector<VarWrite> m_versionToVarMap;
+    std::vector<uintmax_t> m_varToVersionMap;
+
+    uintmax_t m_nextVersion;
 
     static inline size_t SPSRIndex(arm::Mode mode) {
         return arm::NormalizedIndex(mode) + 1;
     }
+
+    void RecordGPRRead(GPRArg gpr, VariableArg var, IROp *loadOp);
+    void RecordGPRWrite(GPRArg gpr, VariableArg src, IROp *op);
 
     void RecordCPSRRead(VariableArg var, IROp *loadOp);
     void RecordCPSRWrite(VariableArg src, IROp *op);
@@ -135,18 +142,17 @@ private:
 
     void RecordPSRRead(size_t index, VariableArg var, IROp *loadOp);
     void RecordPSRWrite(size_t index, VariableArg src, IROp *op);
-    void EraseDeadPSRLoadStore(size_t index, IROp *loadOp);
 
-    bool HasVersion(VariableArg var);
-    bool HasVersion(VarOrImmArg var);
+    bool IsTagged(VariableArg var);
+    bool IsTagged(VarOrImmArg var);
     void AssignNewVersion(VariableArg var);
     void CopyVersion(VariableArg dst, VariableArg src);
 
     void SubstituteVar(VariableArg &var);
     void SubstituteVar(VarOrImmArg &var);
 
-    void ResizePSRToVarMap(size_t index);
-    void ResizeVarToPSRVersionMap(size_t swindexize);
+    void ResizeVersionToVarMap(size_t index);
+    void ResizeVarToVersionMap(size_t index);
 };
 
 } // namespace armajitto::ir

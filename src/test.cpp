@@ -387,14 +387,14 @@ void testTranslator() {
         alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    /*armajitto::ir::Translator::Parameters params{
+    armajitto::ir::Translator::Parameters params{
         .maxBlockSize = 32,
     };
     armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);*/
+    translator.Translate(*block);
 
     // Emit IR code manually
-    armajitto::ir::Emitter emitter{*block};
+    // armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -526,7 +526,7 @@ void testTranslator() {
     emitter.SetRegister(armajitto::arm::GPR::R12, dual6.hi);*/
 
     // Arithmetic ops coalescence test
-    constexpr auto flgNone = armajitto::arm::Flags::None;
+    /*constexpr auto flgNone = armajitto::arm::Flags::None;
     constexpr auto flgC = armajitto::arm::Flags::C;
     auto val = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     val = emitter.Add(val, 3, false);                        // add $v1, $v0, 3        $v0 + 3
@@ -555,7 +555,14 @@ void testTranslator() {
     val = emitter.Move(val, false);                          // mov $v16, $v15         5 - $v0
     val = emitter.MoveNegated(val, false);                   // mvn $v17, $v16         $v0 - 6
     val = emitter.BitwiseXor(val, ~0, false);                // eor $v18, $v17, ~0     5 - $v0
-    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v18
+    emitter.SetRegister(armajitto::arm::GPR::R0, val);       // st r0, $v18*/
+
+    // GPR and PSR optimization edge cases
+    // These should be completely erased
+    /*auto cpsr = emitter.GetCPSR();                          // ld $v0, cpsr
+    emitter.SetCPSR(cpsr);                                  // st cpsr, $v0
+    auto r0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v1, r0
+    emitter.SetRegister(armajitto::arm::GPR::R0, r0);       // st r0, $v1*/
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
@@ -599,8 +606,8 @@ void testTranslator() {
         printf("==================================================\n\n");
 
         optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
+        optimized |= runOptimizer(OptPass::DeadRegisterStoreElimination, "dead register store elimination");
         optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
-        optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
         optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
         optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
         optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
