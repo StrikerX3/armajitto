@@ -127,7 +127,13 @@ void testBasic() {
 }
 
 void testCPUID() {
+    using Vendor = armajitto::x86_64::CPUID::Vendor;
     auto &cpuid = armajitto::x86_64::CPUID::Instance();
+    switch (cpuid.GetVendor()) {
+    case Vendor::Intel: printf("Intel CPU\n"); break;
+    case Vendor::AMD: printf("AMD CPU\n"); break;
+    default: printf("Unknown x86-64 CPU\n"); break;
+    }
     if (cpuid.HasBMI2()) {
         printf("BMI2 available\n");
     }
@@ -396,7 +402,7 @@ void testTranslatorAndOptimizer() {
     translator.Translate(*block);
 
     // Emit IR code manually
-    // armajitto::ir::Emitter emitter{*block};
+    armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -566,6 +572,15 @@ void testTranslatorAndOptimizer() {
     auto r0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v1, r0
     emitter.SetRegister(armajitto::arm::GPR::R0, r0);       // st r0, $v1*/
 
+    // Multiply long with half shift
+    /*// auto r0 = emitter.GetRegister(armajitto::arm::GPR::R0);           // ld $v0, r0
+    auto r0 = emitter.Constant(0x10000);                    // const $v0, #0x10000
+    auto r1 = emitter.GetRegister(armajitto::arm::GPR::R1); // ld $v1, r1
+    // auto r1 = emitter.Constant(0x1234);                               // const $v1, #0x1234
+    auto [lo, hi] = emitter.MultiplyLong(r0, r1, true, true, false); // smullh $v3:$v2, $v0, $v1
+    emitter.SetRegister(armajitto::arm::GPR::R2, lo);                // st r2, $v2
+    emitter.SetRegister(armajitto::arm::GPR::R3, hi);                // st r3, $v3*/
+
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
             auto str = op->ToString();
@@ -729,8 +744,8 @@ void testCompiler() {
 int main() {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    // testBasic();
     // testCPUID();
+    // testBasic();
     // testTranslatorAndOptimizer();
     testCompiler();
 
