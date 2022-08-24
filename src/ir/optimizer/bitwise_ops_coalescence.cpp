@@ -57,7 +57,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -86,7 +86,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -115,7 +115,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -144,7 +144,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -173,7 +173,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -206,7 +206,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
             auto [imm, var] = *pair;
 
             // Must derive from existing value
-            auto *value = DeriveKnownBits(op->dst, var, op);
+            auto *value = DeriveValue(op->dst, var, op);
             if (value == nullptr) {
                 return false;
             }
@@ -238,7 +238,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
             auto [imm, var] = *pair;
 
             // Must derive from existing value
-            auto *value = DeriveKnownBits(op->dst, var, op);
+            auto *value = DeriveValue(op->dst, var, op);
             if (value == nullptr) {
                 return false;
             }
@@ -270,7 +270,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
             auto [imm, var] = *pair;
 
             // Must derive from existing value
-            auto *value = DeriveKnownBits(op->dst, var, op);
+            auto *value = DeriveValue(op->dst, var, op);
             if (value == nullptr) {
                 return false;
             }
@@ -302,7 +302,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
             auto [imm, var] = *pair;
 
             // Must derive from existing value
-            auto *value = DeriveKnownBits(op->dst, var, op);
+            auto *value = DeriveValue(op->dst, var, op);
             if (value == nullptr) {
                 return false;
             }
@@ -358,7 +358,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
             return false;
         }
 
-        CopyVariable(op->dst, op->value.var, op);
+        // MOV simply copies the value
+        CopyValue(op->dst, op->value.var, op);
         return true;
     }();
 
@@ -380,7 +381,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
         }
 
         // Must derive from existing value
-        auto *value = DeriveKnownBits(op->dst, op->value.var, op);
+        auto *value = DeriveValue(op->dst, op->value.var, op);
         if (value == nullptr) {
             return false;
         }
@@ -451,7 +452,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRConstantOp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRCopyVarOp *op) {
-    CopyVariable(op->dst, op->var, op);
+    CopyValue(op->dst, op->var, op);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -476,7 +477,7 @@ void BitwiseOpsCoalescenceOptimizerPass::AssignConstant(VariableArg var, uint32_
     dstValue.rotateOffset = 0;
 }
 
-void BitwiseOpsCoalescenceOptimizerPass::CopyVariable(VariableArg var, VariableArg src, IROp *op) {
+void BitwiseOpsCoalescenceOptimizerPass::CopyValue(VariableArg var, VariableArg src, IROp *op) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -498,7 +499,7 @@ void BitwiseOpsCoalescenceOptimizerPass::CopyVariable(VariableArg var, VariableA
     dstValue.writerOp = op;
 }
 
-auto BitwiseOpsCoalescenceOptimizerPass::DeriveKnownBits(VariableArg var, VariableArg src, IROp *op) -> Value * {
+auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableArg src, IROp *op) -> Value * {
     if (!var.var.IsPresent()) {
         return nullptr;
     }
@@ -573,12 +574,10 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         // Replace the sequence if it doesn't match
         if (!match) {
             // Replace the last instruction with a const definition
-            IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
-                m_emitter.GoTo(value->writerOp);
+                auto _ = m_emitter.GoTo(value->writerOp);
                 m_emitter.Overwrite().Constant(var, value->knownBitsValue);
-                m_emitter.GoTo(currPos);
             }
         }
     } else if (value->knownBitsMask != 0) {
@@ -594,10 +593,9 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         match = BitwiseOpsMatchState{*value, var.var, m_values}.Check(value);
         if (!match) {
             // Replace the last instruction with ROR for rotation, ORR for ones, BIC for zeros and EOR for flips
-            IROp *currPos = m_emitter.GetCurrentOp();
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
-                m_emitter.GoTo(value->writerOp);
+                auto _ = m_emitter.GoTo(value->writerOp);
                 m_emitter.Overwrite();
 
                 Variable result = value->source;
@@ -638,8 +636,6 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                 }
                 m_varSubst.Assign(var, result);
                 var = result;
-
-                m_emitter.GoTo(currPos);
             }
         }
     } else {

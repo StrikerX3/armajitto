@@ -13,23 +13,23 @@ namespace armajitto::ir {
 //
 // This optimization simplifies sequences of bitwise operations on a chain of variables.
 //
-// The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, XOR, LSL, LSR, ASR, ROR, RRX)
+// The algorithm keeps track of the bits changed by each bitwise operation (AND, OR, BIC, EOR, LSL, LSR, ASR, ROR, RRX)
 // that operates on a variable and an immediate, or basic move and copy operations (MOV, COPY, MVN), as long as these
 // are the only operations to be applied to a value and they output no flags.
 //
 // Certain instructions have additional requirements for this optimization:
-// - The MVN and XOR operations require all affected bits to be known. MVN affects all bits, while XOR only affects bits
+// - The MVN and EOR operations require all affected bits to be known. MVN affects all bits, while EOR only affects bits
 //   set in the immediate value.
 // - ASR requires the most significant bit to be known.
 // - RRX requires the carry flag to be known.
 //
 // Assuming the following IR code fragment:
 //     instruction
-//  1  mov $v0, r0  (r0 is an unknown value)
+//  1  ld $v0, r0  (r0 is an unknown value)
 //  2  and $v1, $v0, #0x0000ffff
 //  3  orr $v2, $v1, #0xdead0000
 //  4  bic $v3, $v2, #0x0000ffff
-//  5  xor $v4, $v3, #0x0000beef
+//  5  eor $v4, $v3, #0x0000beef
 //  6  mov $v5, $v4
 //  7  mvn $v6, $v5
 //
@@ -46,7 +46,7 @@ namespace armajitto::ir {
 //  2  and $v1, $v0, #0xfff0000f   $v1  0xFFF0000F  0x000....0    0
 //  3  orr $v2, $v1, #0xead0000d   $v2  0xFFF0000F  0xEAD....D    0
 //  4  bic $v3, $v2, #0x000ffff0   $v3  0xFFFFFFFF  0xEAD0000D    0
-//  5  xor $v4, $v3, #0x000beef0   $v4  0xFFFFFFFF  0xEADBEEFD    0
+//  5  eor $v4, $v3, #0x000beef0   $v4  0xFFFFFFFF  0xEADBEEFD    0
 //  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xEADBEEFD    0
 //  7  mvn $v6, $v5                $v6  0xFFFFFFFF  0x15241102    0
 //  8  ror $v7, $v6, #0x4          $v7  0xFFFFFFFF  0x21524110    4
@@ -56,7 +56,7 @@ namespace armajitto::ir {
 //
 //     instruction                 var  known mask  known values  action
 // ... ...                         ...  ...         ...
-//  5  xor $v4, $v3, #0x0000beef   $v4  0xFFFFFFFF  0xEADBEEFD    replace -> const $v4, #0xeadbeefd
+//  5  eor $v4, $v3, #0x0000beef   $v4  0xFFFFFFFF  0xEADBEEFD    replace -> const $v4, #0xeadbeefd
 //  6  mov $v5, $v4                $v5  0xFFFFFFFF  0xEADBEEFD    replace -> const $v5, #0xeadbeefd
 //  7  mvn $v6, $v5, #0x0000beef   $v5  0xFFFFFFFF  0x15241102    replace -> const $v6, #0x15241102
 //  8  ror $v7, $v6, #0x4          $v7  0xFFFFFFFF  0x21524110    replace -> const $v7, #0x21524110
@@ -145,7 +145,7 @@ private:
         bool valid = false;
         uint32_t knownBitsMask = 0;
         uint32_t knownBitsValue = 0;
-        uint32_t flippedBits = 0;  // XOR or MVN; for unknown bits only
+        uint32_t flippedBits = 0;  // EOR or MVN; for unknown bits only
         uint32_t rotateOffset = 0; // LSL, LSR, ASR, ROR and RRX; rotate right, clamped to 0..31
 
         IROp *writerOp = nullptr; // pointer to the instruction that produced this variable
@@ -265,20 +265,22 @@ private:
     void ResizeValues(size_t index);
 
     void AssignConstant(VariableArg var, uint32_t value);
-    void CopyVariable(VariableArg var, VariableArg src, IROp *op);
-    Value *DeriveKnownBits(VariableArg var, VariableArg src, IROp *op);
+    void CopyValue(VariableArg var, VariableArg src, IROp *op);
+    Value *DeriveValue(VariableArg var, VariableArg src, IROp *op);
 
     Value *GetValue(VariableArg var);
 
     void ConsumeValue(VariableArg &var);
     void ConsumeValue(VarOrImmArg &var);
 
-    // Helper struct to evaluate a sequence of values to check if they contain ROR, ORR, BIC and XOR instructions
+    // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, BIC and EOR instructions
     // matching the ones, zeros and flip bits as well as the rotation offset and input and output variables from the
     // given value.
     struct BitwiseOpsMatchState {
         bool valid = true;
 
+        // true when ones, zeros and flips all have bits set.
+        // This allows for an optimized BIC/EOR sequence -- one instruction shorten than the naïve ORR/BIC/EOR.
         bool trifecta;
 
         // These are checked when trifecta == false
