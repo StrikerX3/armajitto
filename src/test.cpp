@@ -566,16 +566,16 @@ void testTranslator() {
         printf("  iteration %d\n", i);
         printf("==================================================\n\n");
 
-        // optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
-        // optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
-        // optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
-        // optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
-        // optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
-        // optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
-        // optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
-        // optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
-        // optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
         optimized |= runOptimizer(OptPass::IdentityOpsElimination, "identity operations elimination");
+        optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
+        optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
+        optimized |= runOptimizer(OptPass::DeadPSRStoreElimination, "dead PSR store elimination");
+        optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
+        optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
+        optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
+        optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
+        optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
+        optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
     } while (optimized);
 
     printf("\n==================================================\n");

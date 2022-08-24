@@ -23,6 +23,9 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
     bool dirty;
     do {
         dirty = false;
+        if (bmPasses.AllOf(OptimizerPasses::IdentityOpsElimination)) {
+            dirty |= alloc.AllocateNonTrivial<IdentityOpsEliminationOptimizerPass>(emitter)->Optimize();
+        }
         if (bmPasses.AllOf(OptimizerPasses::ConstantPropagation)) {
             dirty |= alloc.AllocateNonTrivial<ConstPropagationOptimizerPass>(emitter)->Optimize();
         }
@@ -49,9 +52,6 @@ bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passe
         }
         if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
             dirty |= alloc.Allocate<HostFlagsOpsCoalescenceOptimizerPass>(emitter)->Optimize();
-        }
-        if (bmPasses.AllOf(OptimizerPasses::IdentityOpsElimination)) {
-            dirty |= alloc.AllocateNonTrivial<IdentityOpsEliminationOptimizerPass>(emitter)->Optimize();
         }
         optimized |= dirty;
     } while (repeatWhileDirty && dirty);
