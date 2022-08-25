@@ -1,18 +1,29 @@
 #pragma once
 
-#include "armajitto/host/compiler.hpp"
+#include "armajitto/host/host.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 
 #include <xbyak/xbyak.h>
 
 namespace armajitto::x86_64 {
 
-class x64Compiler final : public Compiler {
+class x64Host final : public Host {
 public:
-    x64Compiler(Context &context);
+    x64Host(Context &context);
     HostCode Compile(const ir::BasicBlock &block) final;
 
+    void Call(HostCode code) {
+        m_prolog(code.GetPtr());
+    }
+
 private:
+    using PrologFn = void (*)(uintptr_t blockFn);
+    PrologFn m_prolog;
+    HostCode m_epilog;
+
+    PrologFn CompileProlog();
+    HostCode CompileEpilog();
+
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>
     void CompileOp(const T *op) {}

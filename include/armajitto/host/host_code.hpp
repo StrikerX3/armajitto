@@ -1,15 +1,26 @@
 #pragma once
 
+#include "armajitto/util/pointer_cast.hpp"
+
 namespace armajitto {
 
 struct HostCode {
     using Fn = void (*)();
 
-    HostCode(Fn fn)
-        : fn((fn == nullptr) ? NullFn : fn) {}
+    HostCode()
+        : fn(NullFn) {}
 
-    void operator()() {
-        fn();
+    HostCode(Fn fn) {
+        operator=(fn);
+    }
+
+    HostCode &operator=(Fn fn) {
+        this->fn = (fn == nullptr) ? NullFn : fn;
+        return *this;
+    }
+
+    uintptr_t GetPtr() const {
+        return CastUintPtr(fn);
     }
 
 private:

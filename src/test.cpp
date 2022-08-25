@@ -1,6 +1,6 @@
 #include <armajitto/armajitto.hpp>
 #include <armajitto/host/x86_64/cpuid.hpp>
-#include <armajitto/host/x86_64/x86_64_compiler.hpp>
+#include <armajitto/host/x86_64/x86_64_host.hpp>
 #include <armajitto/ir/optimizer.hpp>
 #include <armajitto/ir/translator.hpp>
 
@@ -730,11 +730,11 @@ void testCompiler() {
     printState();
 
     // Compile and execute code
-    armajitto::x86_64::x64Compiler compiler{context};
+    armajitto::x86_64::x64Host host{context};
     printf("\ncompiling code...\n");
-    auto hostCode = compiler.Compile(*block);
+    auto hostCode = host.Compile(*block);
     printf("done; invoking\n");
-    hostCode();
+    host.Call(hostCode);
     printf("\n");
 
     printf("state after execution:\n");

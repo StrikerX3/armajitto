@@ -39,10 +39,10 @@ add_library(armajitto
     include/armajitto/guest/arm/psr.hpp
     include/armajitto/guest/arm/state.hpp
     include/armajitto/guest/arm/coprocessors/coproc_null.hpp
-    include/armajitto/host/compiler.hpp
+    include/armajitto/host/host.hpp
     include/armajitto/host/host_code.hpp
     include/armajitto/host/x86_64/cpuid.hpp
-    include/armajitto/host/x86_64/x86_64_compiler.hpp
+    include/armajitto/host/x86_64/x86_64_host.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
     include/armajitto/ir/ir_ops.hpp
@@ -69,7 +69,7 @@ add_library(armajitto
     src/guest/arm/state.cpp
     src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
-    src/host/x86_64/x86_64_compiler.cpp
+    src/host/x86_64/x86_64_host.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
     src/ir/optimizer.cpp

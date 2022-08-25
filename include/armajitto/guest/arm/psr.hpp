@@ -21,5 +21,6 @@ union PSR {
         uint32_t n : 1; // 31     N - Sign Flag       (0=Not Signed, 1=Signed)
     };
 };
+static_assert(sizeof(PSR) == sizeof(uint32_t), "PSR must be an uint32");
 
 } // namespace armajitto::arm
