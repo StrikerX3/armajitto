@@ -10,7 +10,8 @@ namespace armajitto {
 class Host {
 public:
     Host(Context &context)
-        : m_context(context) {}
+        : m_context(context)
+        , m_armState(context.GetARMState()) {}
 
     virtual ~Host() = default;
 
@@ -22,6 +23,7 @@ public:
 
 protected:
     Context &m_context;
+    arm::State &m_armState;
 
     // Helper method that gives implementors access to BasicBlock::GetHostCode().
     HostCode GetHostCode(const ir::BasicBlock &block) const {

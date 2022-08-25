@@ -68,7 +68,7 @@ void x64Host::CompileProlog() {
     code.sub(rsp, abi::kStackReserveSize);
 
     // Copy CPSR NZCV flags to ah/al
-    code.mov(eax, dword[CastUintPtr(&m_context.GetARMState().CPSR())]);
+    code.mov(eax, dword[CastUintPtr(&m_armState.CPSR())]);
     if (CPUID::Instance().HasFastPDEPAndPEXT()) {
         // AH       AL
         // SZ0A0P1C -------V
@@ -86,9 +86,9 @@ void x64Host::CompileProlog() {
     }
 
     // Setup static registers and call block function
-    code.mov(scratchReg, abi::kIntArgRegs[0]);            // Get block code pointer from 1st arg
-    code.mov(rcx, CastUintPtr(&m_context.GetARMState())); // rcx = ARM state pointer
-    code.jmp(scratchReg);                                 // Jump to block code
+    code.mov(scratchReg, abi::kIntArgRegs[0]); // Get block code pointer from 1st arg
+    code.mov(rcx, CastUintPtr(&m_armState));   // rcx = ARM state pointer
+    code.jmp(scratchReg);                      // Jump to block code
 
     code.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_prolog), code.getCurr<uintptr_t>(), "__prolog");
@@ -113,10 +113,19 @@ void x64Host::CompileEpilog() {
     vtune::ReportCode(m_epilog.GetPtr(), code.getCurr<uintptr_t>(), "__epilog");
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {
+    if (!op->dst.var.IsPresent()) {
+        // TODO: raise error: no destination variable for GetRegister
+        return;
+    }
+
+    auto dstReg = compiler.regAlloc.Get(op->dst.var);
+    auto offset = m_armState.GPROffset(op->src.gpr, op->src.Mode());
+    code.mov(dstReg, dword[rcx + offset]);
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
-    auto offset = m_context.GetARMState().GPROffset(op->dst.gpr, op->dst.Mode());
+    auto offset = m_armState.GPROffset(op->dst.gpr, op->dst.Mode());
     if (op->src.immediate) {
         code.mov(dword[rcx + offset], op->src.imm.value);
     } else {

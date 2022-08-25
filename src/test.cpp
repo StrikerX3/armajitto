@@ -732,10 +732,9 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.CPSR().n = 1;
-    armState.CPSR().z = 1;
-    armState.CPSR().c = 1;
-    armState.CPSR().v = 1;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x12;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x3400;
+    armState.GPR(armajitto::arm::GPR::R4) = 4;
 
     // Compile and execute code
     armajitto::x86_64::x64Host host{context};
