@@ -392,7 +392,7 @@ void testTranslatorAndOptimizer() {
     armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
+        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -688,7 +688,7 @@ void testCompiler() {
     // Create allocator
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{0x0100, armajitto::arm::Mode::User, thumb});
+        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{

@@ -24,7 +24,7 @@ public:
         , m_currOp(block.Tail()) {
 
         auto loc = block.Location();
-        m_baseAddress = loc.BaseAddress();
+        m_basePC = loc.PC();
         m_thumb = loc.IsThumbMode();
         m_mode = loc.Mode();
         m_instrSize = m_thumb ? sizeof(uint16_t) : sizeof(uint32_t);
@@ -35,11 +35,11 @@ public:
     }
 
     uint32_t BaseAddress() const {
-        return m_baseAddress;
+        return m_basePC - m_instrSize * 2;
     }
 
     uint32_t BasePC() const {
-        return m_baseAddress + m_instrSize * 2;
+        return m_basePC;
     }
 
     uint32_t InstructionSize() const {
@@ -306,7 +306,7 @@ public:
 private:
     BasicBlock &m_block;
 
-    uint32_t m_baseAddress;
+    uint32_t m_basePC;
     bool m_thumb;
     arm::Mode m_mode;
     uint32_t m_instrSize;

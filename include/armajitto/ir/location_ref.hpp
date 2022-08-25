@@ -8,16 +8,16 @@
 namespace armajitto::ir {
 
 struct LocationRef {
-    LocationRef(uint32_t baseAddress, uint32_t cpsr)
-        : m_baseAddress(baseAddress)
+    LocationRef(uint32_t pc, uint32_t cpsr)
+        : m_pc(pc)
         , m_cpsr(cpsr & kCPSRMask) {}
 
-    LocationRef(uint32_t baseAddress, arm::Mode mode, bool thumb)
-        : m_baseAddress(baseAddress)
+    LocationRef(uint32_t pc, arm::Mode mode, bool thumb)
+        : m_pc(pc)
         , m_cpsr(static_cast<uint32_t>(mode) | (static_cast<uint32_t>(thumb) << 5)) {}
 
-    uint32_t BaseAddress() const {
-        return m_baseAddress;
+    uint32_t PC() const {
+        return m_pc;
     }
 
     arm::Mode Mode() const {
@@ -31,7 +31,7 @@ struct LocationRef {
 private:
     static constexpr uint32_t kCPSRMask = 0x0000003F; // T bit and mode
 
-    uint32_t m_baseAddress;
+    uint32_t m_pc;
     uint32_t m_cpsr;
 };
 

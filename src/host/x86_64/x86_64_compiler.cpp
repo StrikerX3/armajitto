@@ -10,6 +10,7 @@ namespace armajitto::x86_64 {
 Xbyak::Allocator g_alloc;
 void *ptr = g_alloc.alloc(4096);
 Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
+// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
 
 using namespace Xbyak::util;
 

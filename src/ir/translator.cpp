@@ -48,7 +48,7 @@ void Translator::Translate(BasicBlock &block) {
         }
     };
 
-    uint32_t address = block.Location().BaseAddress();
+    uint32_t address = block.Location().PC() - opcodeSize * 2;
     for (uint32_t i = 0; i < m_params.maxBlockSize; i++) {
         if (thumb) {
             const uint16_t opcode = m_context.CodeReadHalf(address);
