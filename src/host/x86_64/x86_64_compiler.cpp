@@ -1,6 +1,8 @@
 #include "armajitto/host/x86_64/x86_64_compiler.hpp"
 
+#include "abi.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "armajitto/util/pointer_cast.hpp"
 
 #include <cstdio>
 
@@ -12,7 +14,7 @@ void *ptr = g_alloc.alloc(4096);
 Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
 // FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
 
-using namespace Xbyak::util;
+// ---------------------------------------------------------------------------------------------------------------------
 
 x64Compiler::x64Compiler(Context &context)
     : Compiler(context) {}
@@ -20,7 +22,7 @@ x64Compiler::x64Compiler(Context &context)
 HostCode x64Compiler::Compile(const ir::BasicBlock &block) {
     auto *op = block.Head();
 
-    code.mov(rcx, uintptr_t(&m_context.GetARMState()));
+    code.mov(rcx, CastUintPtr(&m_context.GetARMState()));
 
     while (op != nullptr) {
         auto opStr = op->ToString();

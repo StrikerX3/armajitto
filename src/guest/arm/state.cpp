@@ -1,5 +1,7 @@
 #include "armajitto/guest/arm/state.hpp"
 
+#include "armajitto/util/pointer_cast.hpp"
+
 namespace armajitto::arm {
 
 State::State() {
@@ -43,10 +45,10 @@ State::State() {
     }
 
     for (size_t i = 0; i < kNumGPREntries; i++) {
-        m_gprOffsets[i] = uintptr_t(m_gprPtrs[i]) - uintptr_t(this);
+        m_gprOffsets[i] = CastUintPtr(m_gprPtrs[i]) - CastUintPtr(this);
     }
     for (size_t i = 0; i < kNumPSREntries; i++) {
-        m_psrOffsets[i] = uintptr_t(m_psrPtrs[i]) - uintptr_t(this);
+        m_psrOffsets[i] = CastUintPtr(m_psrPtrs[i]) - CastUintPtr(this);
     }
 
     Reset();

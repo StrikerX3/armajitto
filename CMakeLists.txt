@@ -64,8 +64,10 @@ add_library(armajitto
     include/armajitto/ir/ops/impl/ir_reg_ops.hpp
     include/armajitto/util/bitmask_enum.hpp
     include/armajitto/util/bit_ops.hpp
+    include/armajitto/util/pointer_cast.hpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
+    src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
     src/host/x86_64/x86_64_compiler.cpp
     src/ir/basic_block.cpp
