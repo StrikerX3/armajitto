@@ -4,6 +4,7 @@
 #include "armajitto/host/x86_64/cpuid.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 #include "armajitto/util/pointer_cast.hpp"
+#include "vtune.hpp"
 
 #include <cstdio>
 
@@ -20,8 +21,8 @@ Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
 x64Host::x64Host(Context &context)
     : Host(context) {
 
-    m_prolog = CompileProlog();
-    m_epilog = CompileEpilog();
+    CompileProlog();
+    CompileEpilog();
 }
 
 void x64Host::Compile(ir::BasicBlock &block) {
@@ -44,12 +45,12 @@ void x64Host::Compile(ir::BasicBlock &block) {
     code.jmp(abi::kNonvolatileRegs[0]);
 
     code.setProtectModeRE();
-
     SetHostCode(block, fnPtr);
+    vtune::ReportBasicBlock(CastUintPtr(fnPtr), code.getCurr<uintptr_t>(), block.Location());
 }
 
-auto x64Host::CompileProlog() -> PrologFn {
-    auto fnPtr = code.getCurr<PrologFn>();
+void x64Host::CompileProlog() {
+    m_prolog = code.getCurr<PrologFn>();
     code.setProtectModeRW();
 
     // Push all nonvolatile registers
@@ -87,11 +88,11 @@ auto x64Host::CompileProlog() -> PrologFn {
     code.jmp(scratchReg);                                 // Jump to block code
 
     code.setProtectModeRE();
-    return fnPtr;
+    vtune::ReportCode(CastUintPtr(m_prolog), code.getCurr<uintptr_t>(), "__prolog");
 }
 
-HostCode x64Host::CompileEpilog() {
-    auto fnPtr = code.getCurr<HostCode::Fn>();
+void x64Host::CompileEpilog() {
+    m_epilog = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();
 
     // Cleanup stack
@@ -106,7 +107,7 @@ HostCode x64Host::CompileEpilog() {
     code.ret();
 
     code.setProtectModeRE();
-    return fnPtr;
+    vtune::ReportCode(m_epilog.GetPtr(), code.getCurr<uintptr_t>(), "__epilog");
 }
 
 void x64Host::CompileOp(const ir::IRGetRegisterOp *op) {}

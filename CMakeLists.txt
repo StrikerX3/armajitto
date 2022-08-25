@@ -5,6 +5,8 @@ project(armajitto VERSION 1.0.0)
 # GitHub: https://github.com/alexreinking/SharedStaticStarter
 # Blog: https://alexreinking.com/blog/building-a-dual-shared-and-static-library-with-cmake.html
 
+option(ARMAJITTO_USE_VTUNE "Use VTune JIT Profiling API if available" OFF)
+
 ## C++ language configuration boilerplate
 if (NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET AND
     NOT DEFINED CMAKE_VISIBILITY_INLINES_HIDDEN)
@@ -69,6 +71,7 @@ add_library(armajitto
     src/guest/arm/state.cpp
     src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
+    src/host/x86_64/vtune.hpp
     src/host/x86_64/x86_64_host.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
@@ -117,6 +120,16 @@ target_compile_features(armajitto PUBLIC cxx_std_20)
 # TODO: include on x86_64 systems only
 find_package(xbyak CONFIG REQUIRED)
 target_link_libraries(armajitto PUBLIC xbyak::xbyak)
+
+## Add VTune
+# TODO: include on x86_64 systems only
+include(cmake/FindVTune.cmake)
+if (VTune_FOUND AND ARMAJITTO_USE_VTUNE)
+  message(STATUS "Adding VTune JIT Profiling API from ${VTune_LIBRARIES}")
+  target_include_directories(armajitto PRIVATE ${VTune_INCLUDE_DIRS})
+  target_link_libraries(armajitto PRIVATE ${VTune_LIBRARIES})
+  target_compile_definitions(armajitto PRIVATE ARMAJITTO_USE_VTUNE=1)
+endif()
 
 ## Build precompiled header
 target_precompile_headers(armajitto

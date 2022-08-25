@@ -21,8 +21,8 @@ private:
     PrologFn m_prolog;
     HostCode m_epilog;
 
-    PrologFn CompileProlog();
-    HostCode CompileEpilog();
+    void CompileProlog();
+    void CompileEpilog();
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>

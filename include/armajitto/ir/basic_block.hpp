@@ -185,14 +185,6 @@ private:
 
     void RenameVariables();
 
-    HostCode GetHostCode() const {
-        return m_hostCode;
-    }
-
-    void SetHostCode(HostCode code) {
-        m_hostCode = code;
-    }
-
     // -------------------------------------------------------------------------
     // Host accessors
     // Allows compilation of host code
@@ -200,6 +192,14 @@ private:
     friend class ::armajitto::Host;
 
     HostCode m_hostCode;
+
+    const HostCode &GetHostCode() const {
+        return m_hostCode;
+    }
+
+    void SetHostCode(HostCode code) {
+        m_hostCode = code;
+    }
 };
 
 static_assert(std::is_trivially_destructible_v<BasicBlock>,
