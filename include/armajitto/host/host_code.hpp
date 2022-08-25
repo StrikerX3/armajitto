@@ -1,23 +1,21 @@
 #pragma once
 
-#include "armajitto/core/context.hpp"
-
 namespace armajitto {
 
 struct HostCode {
-    using Fn = void (*)(Context &context, arm::State &state);
+    using Fn = void (*)();
 
     HostCode(Fn fn)
         : fn((fn == nullptr) ? NullFn : fn) {}
 
-    void operator()(Context &context) {
-        fn(context, context.GetARMState());
+    void operator()() {
+        fn();
     }
 
 private:
     Fn fn;
 
-    static void NullFn(Context &, arm::State &) {
+    static void NullFn() {
         // TODO: error handling
     }
 };

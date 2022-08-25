@@ -107,10 +107,10 @@ void testBasic() {
     // Start execution at the specified address and execution state
     armState.JumpTo(0x0100, thumb);
     // The above is equivalent to:
-    // armState.GPR(15) = 0x0100 + (thumb ? 4 : 8);
+    // armState.GPR(armajitto::arm::GPR::PC) = 0x0100 + (thumb ? 4 : 8);
     // armState.CPSR().t = thumb;
 
-    printf("PC = %08X  T = %u\n", armState.GPR(15), armState.CPSR().t);
+    printf("PC = %08X  T = %u\n", armState.GPR(armajitto::arm::GPR::PC), armState.CPSR().t);
 
     // Run for at least 32 cycles
     uint64_t cyclesExecuted = jit.Run(32);
@@ -719,7 +719,7 @@ void testCompiler() {
                 } else {
                     printf("  R%d", index);
                 }
-                printf(" = %08X", state.GPR(index));
+                printf(" = %08X", state.GPR(static_cast<armajitto::arm::GPR>(index)));
             }
             printf("\n");
         }
@@ -730,11 +730,11 @@ void testCompiler() {
     printState();
 
     // Compile and execute code
-    armajitto::x86_64::x64Compiler compiler;
+    armajitto::x86_64::x64Compiler compiler{context};
     printf("\ncompiling code...\n");
     auto hostCode = compiler.Compile(*block);
     printf("done; invoking\n");
-    hostCode(context);
+    hostCode();
     printf("\n");
 
     printf("state after execution:\n");

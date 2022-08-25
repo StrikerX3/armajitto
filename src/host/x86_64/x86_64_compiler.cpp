@@ -13,8 +13,14 @@ Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
 
 using namespace Xbyak::util;
 
+x64Compiler::x64Compiler(Context &context)
+    : Compiler(context) {}
+
 HostCode x64Compiler::Compile(const ir::BasicBlock &block) {
     auto *op = block.Head();
+
+    code.mov(rcx, uintptr_t(&m_context.GetARMState()));
+
     while (op != nullptr) {
         auto opStr = op->ToString();
         printf("  compiling '%s'\n", opStr.c_str());
@@ -31,10 +37,9 @@ HostCode x64Compiler::Compile(const ir::BasicBlock &block) {
 void x64Compiler::CompileOp(const ir::IRGetRegisterOp *op) {}
 
 void x64Compiler::CompileOp(const ir::IRSetRegisterOp *op) {
-    auto index = static_cast<size_t>(op->dst.gpr);
-    // op->src.Mode();
     if (op->src.immediate) {
-        code.mov(dword[rdx + index * 4], op->src.imm.value);
+        auto offset = m_context.GetARMState().GPROffset(op->dst.gpr, op->dst.Mode());
+        code.mov(dword[rcx + offset], op->src.imm.value);
     }
 }
 

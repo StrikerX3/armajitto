@@ -116,11 +116,11 @@ private:
     };
 
     // 0=CPSR, 1..6=SPSR by mode
-    std::array<uintmax_t, 1 + arm::kNumNormalizedModeIndices> m_psrVersions;
-    std::array<IROp *, 1 + arm::kNumNormalizedModeIndices> m_psrWrites;
+    std::array<uintmax_t, 1 + arm::kNumBankedModes> m_psrVersions;
+    std::array<IROp *, 1 + arm::kNumBankedModes> m_psrWrites;
 
-    std::array<uintmax_t, 16 * arm::kNumNormalizedModeIndices> m_gprVersions;
-    std::array<IROp *, 16 * arm::kNumNormalizedModeIndices> m_gprWrites;
+    std::array<uintmax_t, 16 * arm::kNumBankedModes> m_gprVersions;
+    std::array<IROp *, 16 * arm::kNumBankedModes> m_gprWrites;
 
     std::vector<VarWrite> m_versionToVarMap;
     std::vector<uintmax_t> m_varToVersionMap;

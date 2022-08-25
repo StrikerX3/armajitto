@@ -65,6 +65,7 @@ add_library(armajitto
     include/armajitto/util/bitmask_enum.hpp
     include/armajitto/util/bit_ops.hpp
     src/core/recompiler.cpp
+    src/guest/arm/state.cpp
     src/host/x86_64/cpuid.cpp
     src/host/x86_64/x86_64_compiler.cpp
     src/ir/basic_block.cpp

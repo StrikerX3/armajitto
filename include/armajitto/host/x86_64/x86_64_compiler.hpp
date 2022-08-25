@@ -9,6 +9,7 @@ namespace armajitto::x86_64 {
 
 class x64Compiler final : public Compiler {
 public:
+    x64Compiler(Context &context);
     HostCode Compile(const ir::BasicBlock &block) final;
 
 private:

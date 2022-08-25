@@ -49,7 +49,7 @@ private:
     // -------------------------------------------------------------------------
     // GPR read and write tracking
 
-    std::array<IROp *, 16 * arm::kNumNormalizedModeIndices> m_gprWrites;
+    std::array<IROp *, 16 * arm::kNumBankedModes> m_gprWrites;
 
     void RecordGPRRead(GPRArg gpr);
     void RecordGPRWrite(GPRArg gpr, IROp *op);

@@ -54,6 +54,6 @@ inline size_t NormalizedIndex(Mode mode) {
     return indices[static_cast<size_t>(mode)];
 }
 
-inline constexpr size_t kNumNormalizedModeIndices = 6;
+inline constexpr size_t kNumBankedModes = 6;
 
 } // namespace armajitto::arm
