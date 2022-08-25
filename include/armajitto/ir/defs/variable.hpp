@@ -26,7 +26,7 @@ struct Variable {
         if (IsPresent()) {
             return std::format("$v{}", index);
         } else {
-            return std::string("$v?");
+            return std::string("(null)");
         }
     }
 

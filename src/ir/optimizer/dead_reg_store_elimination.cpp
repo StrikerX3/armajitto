@@ -467,9 +467,9 @@ void DeadRegisterStoreEliminationOptimizerPass::CopyVersion(VariableArg dst, Var
     ResizeVarToVersionMap(dstIndex);
     m_varToVersionMap[dstIndex] = m_varToVersionMap[srcIndex];
 
-    const auto versionIndex = m_varToVersionMap[dstIndex] - 1;
+    /*const auto versionIndex = m_varToVersionMap[dstIndex] - 1;
     ResizeVersionToVarMap(versionIndex);
-    m_versionToVarMap[versionIndex].var = dst.var;
+    m_versionToVarMap[versionIndex].var = dst.var;*/
 }
 
 void DeadRegisterStoreEliminationOptimizerPass::SubstituteVar(VariableArg &var) {

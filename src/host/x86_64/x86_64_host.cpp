@@ -5,6 +5,7 @@
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 #include "armajitto/util/pointer_cast.hpp"
 #include "vtune.hpp"
+#include "x86_64_compiler.hpp"
 
 #include <cstdio>
 
@@ -26,6 +27,8 @@ x64Host::x64Host(Context &context)
 }
 
 void x64Host::Compile(ir::BasicBlock &block) {
+    Compiler compiler{};
+
     auto fnPtr = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();
 
@@ -36,7 +39,7 @@ void x64Host::Compile(ir::BasicBlock &block) {
     while (op != nullptr) {
         auto opStr = op->ToString();
         printf("  compiling '%s'\n", opStr.c_str());
-        ir::VisitIROp(op, [this](const auto *op) -> void { CompileOp(op); });
+        ir::VisitIROp(op, [this, &compiler](const auto *op) -> void { CompileOp(compiler, op); });
         op = op->Next();
     }
 
@@ -110,89 +113,92 @@ void x64Host::CompileEpilog() {
     vtune::ReportCode(m_epilog.GetPtr(), code.getCurr<uintptr_t>(), "__epilog");
 }
 
-void x64Host::CompileOp(const ir::IRGetRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {}
 
-void x64Host::CompileOp(const ir::IRSetRegisterOp *op) {
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
+    auto offset = m_context.GetARMState().GPROffset(op->dst.gpr, op->dst.Mode());
     if (op->src.immediate) {
-        auto offset = m_context.GetARMState().GPROffset(op->dst.gpr, op->dst.Mode());
         code.mov(dword[rcx + offset], op->src.imm.value);
+    } else {
+        auto srcReg = compiler.regAlloc.Get(op->src.var.var);
+        code.mov(dword[rcx + offset], srcReg);
     }
 }
 
-void x64Host::CompileOp(const ir::IRGetCPSROp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetCPSROp *op) {}
 
-void x64Host::CompileOp(const ir::IRSetCPSROp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {}
 
-void x64Host::CompileOp(const ir::IRGetSPSROp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetSPSROp *op) {}
 
-void x64Host::CompileOp(const ir::IRSetSPSROp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {}
 
-void x64Host::CompileOp(const ir::IRMemReadOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {}
 
-void x64Host::CompileOp(const ir::IRMemWriteOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {}
 
-void x64Host::CompileOp(const ir::IRPreloadOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {}
 
-void x64Host::CompileOp(const ir::IRLogicalShiftLeftOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) {}
 
-void x64Host::CompileOp(const ir::IRLogicalShiftRightOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op) {}
 
-void x64Host::CompileOp(const ir::IRArithmeticShiftRightOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *op) {}
 
-void x64Host::CompileOp(const ir::IRRotateRightOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {}
 
-void x64Host::CompileOp(const ir::IRRotateRightExtendedOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBitwiseAndOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBitwiseOrOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBitwiseXorOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBitClearOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {}
 
-void x64Host::CompileOp(const ir::IRCountLeadingZerosOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRCountLeadingZerosOp *op) {}
 
-void x64Host::CompileOp(const ir::IRAddOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {}
 
-void x64Host::CompileOp(const ir::IRAddCarryOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {}
 
-void x64Host::CompileOp(const ir::IRSubtractOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {}
 
-void x64Host::CompileOp(const ir::IRSubtractCarryOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {}
 
-void x64Host::CompileOp(const ir::IRMoveOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {}
 
-void x64Host::CompileOp(const ir::IRMoveNegatedOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {}
 
-void x64Host::CompileOp(const ir::IRSaturatingAddOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {}
 
-void x64Host::CompileOp(const ir::IRSaturatingSubtractOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op) {}
 
-void x64Host::CompileOp(const ir::IRMultiplyOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {}
 
-void x64Host::CompileOp(const ir::IRMultiplyLongOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {}
 
-void x64Host::CompileOp(const ir::IRAddLongOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {}
 
-void x64Host::CompileOp(const ir::IRStoreFlagsOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {}
 
-void x64Host::CompileOp(const ir::IRLoadFlagsOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {}
 
-void x64Host::CompileOp(const ir::IRLoadStickyOverflowOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBranchOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {}
 
-void x64Host::CompileOp(const ir::IRBranchExchangeOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {}
 
-void x64Host::CompileOp(const ir::IRLoadCopRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {}
 
-void x64Host::CompileOp(const ir::IRStoreCopRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {}
 
-void x64Host::CompileOp(const ir::IRConstantOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {}
 
-void x64Host::CompileOp(const ir::IRCopyVarOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {}
 
-void x64Host::CompileOp(const ir::IRGetBaseVectorAddressOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {}
 
 } // namespace armajitto::x86_64

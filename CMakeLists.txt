@@ -71,7 +71,10 @@ add_library(armajitto
     src/guest/arm/state.cpp
     src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
+    src/host/x86_64/reg_alloc.cpp
+    src/host/x86_64/reg_alloc.hpp
     src/host/x86_64/vtune.hpp
+    src/host/x86_64/x86_64_compiler.hpp
     src/host/x86_64/x86_64_host.cpp
     src/ir/basic_block.cpp
     src/ir/emitter.cpp
