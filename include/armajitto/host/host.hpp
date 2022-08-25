@@ -23,10 +23,12 @@ public:
 protected:
     Context &m_context;
 
+    // Helper method that gives implementors access to BasicBlock::GetHostCode().
     HostCode GetHostCode(const ir::BasicBlock &block) const {
         return block.GetHostCode();
     }
 
+    // Helper method that gives implementors access to BasicBlock::SetHostCode(HostCode).
     void SetHostCode(ir::BasicBlock &block, HostCode code) {
         block.SetHostCode(code);
     }

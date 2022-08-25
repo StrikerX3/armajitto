@@ -84,7 +84,11 @@ private:
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
     uint32_t m_nextVarID = 0;
 
-    HostCode m_hostCode;
+    // -------------------------------------------------------------------------
+    // Emitter accessors
+    // Allows modification of the IR code inside the block
+
+    friend class Emitter;
 
     void NextInstruction() {
         ++m_instrCount;
@@ -189,8 +193,13 @@ private:
         m_hostCode = code;
     }
 
-    friend class Emitter;
+    // -------------------------------------------------------------------------
+    // Host accessors
+    // Allows compilation of host code
+
     friend class ::armajitto::Host;
+
+    HostCode m_hostCode;
 };
 
 static_assert(std::is_trivially_destructible_v<BasicBlock>,

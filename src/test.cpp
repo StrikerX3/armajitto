@@ -729,6 +729,14 @@ void testCompiler() {
     printf("state before execution:\n");
     printState();
 
+    // Setup initial ARM state
+    auto &armState = context.GetARMState();
+    armState.JumpTo(baseAddress, thumb);
+    armState.CPSR().n = 1;
+    armState.CPSR().z = 1;
+    armState.CPSR().c = 1;
+    armState.CPSR().v = 1;
+
     // Compile and execute code
     armajitto::x86_64::x64Host host{context};
     printf("\ncompiling code...\n");
