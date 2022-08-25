@@ -2,6 +2,7 @@
 
 #include "armajitto/core/allocator.hpp"
 #include "armajitto/guest/arm/instructions.hpp"
+#include "armajitto/host/host_code.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 #include "defs/variable.hpp"
 #include "location_ref.hpp"
@@ -10,6 +11,12 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
+
+namespace armajitto {
+
+class Host;
+
+} // namespace armajitto
 
 namespace armajitto::ir {
 
@@ -76,6 +83,8 @@ private:
     IROp *m_opsTail = nullptr;
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
     uint32_t m_nextVarID = 0;
+
+    HostCode m_hostCode;
 
     void NextInstruction() {
         ++m_instrCount;
@@ -172,7 +181,16 @@ private:
 
     void RenameVariables();
 
+    HostCode GetHostCode() const {
+        return m_hostCode;
+    }
+
+    void SetHostCode(HostCode code) {
+        m_hostCode = code;
+    }
+
     friend class Emitter;
+    friend class ::armajitto::Host;
 };
 
 static_assert(std::is_trivially_destructible_v<BasicBlock>,

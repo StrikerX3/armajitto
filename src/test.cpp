@@ -732,9 +732,9 @@ void testCompiler() {
     // Compile and execute code
     armajitto::x86_64::x64Host host{context};
     printf("\ncompiling code...\n");
-    auto hostCode = host.Compile(*block);
+    host.Compile(*block);
     printf("done; invoking\n");
-    host.Call(hostCode);
+    host.Call(*block);
     printf("\n");
 
     printf("state after execution:\n");

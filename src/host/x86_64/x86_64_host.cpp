@@ -24,7 +24,7 @@ x64Host::x64Host(Context &context)
     m_epilog = CompileEpilog();
 }
 
-HostCode x64Host::Compile(const ir::BasicBlock &block) {
+void x64Host::Compile(ir::BasicBlock &block) {
     auto fnPtr = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();
 
@@ -44,7 +44,8 @@ HostCode x64Host::Compile(const ir::BasicBlock &block) {
     code.jmp(abi::kNonvolatileRegs[0]);
 
     code.setProtectModeRE();
-    return {fnPtr};
+
+    SetHostCode(block, fnPtr);
 }
 
 auto x64Host::CompileProlog() -> PrologFn {

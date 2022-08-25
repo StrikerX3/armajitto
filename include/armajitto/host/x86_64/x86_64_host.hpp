@@ -10,10 +10,10 @@ namespace armajitto::x86_64 {
 class x64Host final : public Host {
 public:
     x64Host(Context &context);
-    HostCode Compile(const ir::BasicBlock &block) final;
+    void Compile(ir::BasicBlock &block) final;
 
-    void Call(HostCode code) {
-        m_prolog(code.GetPtr());
+    void Call(const ir::BasicBlock &block) {
+        m_prolog(GetHostCode(block).GetPtr());
     }
 
 private:

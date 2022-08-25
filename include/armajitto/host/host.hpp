@@ -15,15 +15,21 @@ public:
     virtual ~Host() = default;
 
     // Compiles the given basic block into callable host code.
-    // TODO: move HostCode into BasicBlock
-    virtual HostCode Compile(const ir::BasicBlock &block) = 0;
+    virtual void Compile(ir::BasicBlock &block) = 0;
 
     // Calls the compiled code.
-    // TODO: pass in BasicBlock as argument
-    virtual void Call(HostCode code) = 0;
+    virtual void Call(const ir::BasicBlock &block) = 0;
 
 protected:
     Context &m_context;
+
+    HostCode GetHostCode(const ir::BasicBlock &block) const {
+        return block.GetHostCode();
+    }
+
+    void SetHostCode(ir::BasicBlock &block, HostCode code) {
+        block.SetHostCode(code);
+    }
 };
 
 } // namespace armajitto
