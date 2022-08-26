@@ -490,6 +490,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
 
         // Emit ADD <dst>, <runningSum>, <source>  when negated == false
         // Emit SUB <dst>, <runningSum>, <source> when negated == true
+        // Emit MVN <dst>, <source> when negated == true and runningSum == -1
 
         // Check if the sequence of instructions contains exactly one of the instructions above
         if (value->prev == value->source) {
@@ -502,6 +503,13 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                     const bool paramsMatch = (fwdMatch || revMatch);
                     const bool flagsMatch = (subOp->flags == arm::Flags::None);
                     match = dstMatch && paramsMatch && flagsMatch;
+                }
+                if (auto maybeMvnOp = Cast<IRMoveNegatedOp>(value->writerOp)) {
+                    auto *mvnOp = *maybeMvnOp;
+                    const bool dstMatch = (mvnOp->dst == var);
+                    const bool srcMatch = (mvnOp->value == value->source);
+                    const bool flagsMatch = (mvnOp->flags == arm::Flags::None);
+                    match = dstMatch && srcMatch && flagsMatch;
                 }
             } else {
                 if (auto maybeAddOp = Cast<IRAddOp>(value->writerOp)) {
@@ -522,7 +530,11 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
             if (value->writerOp != nullptr) {
                 auto _ = m_emitter.GoTo(value->writerOp);
                 if (value->negated) {
-                    m_emitter.Overwrite().Subtract(var, value->runningSum, value->source, false);
+                    if (value->runningSum == -1) {
+                        m_emitter.Overwrite().MoveNegated(var, value->source, false);
+                    } else {
+                        m_emitter.Overwrite().Subtract(var, value->runningSum, value->source, false);
+                    }
                 } else {
                     m_emitter.Overwrite().Add(var, value->runningSum, value->source, false);
                 }

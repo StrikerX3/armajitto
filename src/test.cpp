@@ -680,9 +680,9 @@ void testCompiler() {
     // writeARM(0xE1520003); // cmp r2, r3
     // writeARM(0xE1720003); // cmn r2, r3
     // writeARM(0xE1921473); // orrs r1, r2, r3, ror r4
-    writeARM(0xE1B01002); // movs r1, r2
+    // writeARM(0xE1B01002); // movs r1, r2
     // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
-    // writeARM(0xE1E01003); // mvn r1, r3
+    writeARM(0xE1E01003); // mvn r1, r3
     writeARM(0xEAFFFFFE); // b $
 
     // Create allocator
