@@ -16,6 +16,7 @@ struct x64Host::Compiler {
         regAlloc.Analyze(block);
     }
 
+    void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
     RegisterAllocator regAlloc;

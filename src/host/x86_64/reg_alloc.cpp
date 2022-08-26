@@ -20,6 +20,10 @@ void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
     m_varLifetimes.Analyze(block);
 }
 
+void RegisterAllocator::SetInstruction(const ir::IROp *op) {
+    m_currOp = op;
+}
+
 Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
     if (!var.IsPresent()) {
         throw std::runtime_error("attempted to allocate a register to an absent variable");
@@ -54,13 +58,44 @@ Xbyak::Reg32 RegisterAllocator::GetTemporary() {
     return reg;
 }
 
+bool RegisterAllocator::TryReuse(ir::Variable dst, ir::Variable src) {
+    // Both variables must be present
+    if (!dst.IsPresent() || !src.IsPresent()) {
+        return false;
+    }
+
+    // Source variable is still used elsewhere
+    if (!m_varLifetimes.IsEndOfLife(src, m_currOp)) {
+        return false;
+    }
+
+    const auto srcIndex = src.Index();
+    const auto dstIndex = dst.Index();
+    auto &srcEntry = m_varAllocStates[srcIndex];
+    auto &dstEntry = m_varAllocStates[dstIndex];
+
+    // src must be allocated and dst must be deallocated for the copy to happen
+    if (!srcEntry.allocated || dstEntry.allocated) {
+        return false;
+    }
+
+    // Copy allocation and mark src as deallocated
+    dstEntry = srcEntry;
+    srcEntry.allocated = false;
+
+    auto _dstStr = dst.ToString();
+    auto _srcStr = src.ToString();
+    printf("    reassigned %s <- %s\n", _dstStr.c_str(), _srcStr.c_str());
+    return true;
+}
+
 Xbyak::Reg64 RegisterAllocator::GetRCX() {
     // TODO: implement
     return rcx;
 }
 
-void RegisterAllocator::ReleaseVars(const ir::IROp *op) {
-    ir::VisitIROpVars(op, [this](const auto *op, ir::Variable var, bool) -> void { Release(var, op); });
+void RegisterAllocator::ReleaseVars() {
+    ir::VisitIROpVars(m_currOp, [this](const auto *op, ir::Variable var, bool) -> void { Release(var, op); });
 }
 
 void RegisterAllocator::ReleaseTemporaries() {
@@ -92,20 +127,19 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
 void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
     if (m_varLifetimes.IsEndOfLife(var, op)) {
         auto _varStr = var.ToString();
-        auto _opStr = op->ToString();
-        printf("    var %s expired at op %s\n", _varStr.c_str(), _opStr.c_str());
+        printf("    var %s expired\n", _varStr.c_str());
 
+        // Deallocate if allocated
         const auto varIndex = var.Index();
         auto &entry = m_varAllocStates[varIndex];
-        if (!entry.allocated) {
-            // This shouldn't happen
-            printf("      ...uh oh\n");
-        } else {
+        if (entry.allocated) {
             entry.allocated = false;
             if (entry.spillSlot == ~0) {
                 m_freeRegs.push_back(entry.reg);
                 printf("      returned register %d\n", entry.reg.getIdx());
             }
+        } else {
+            printf("      not currently allocated\n");
         }
     }
 }

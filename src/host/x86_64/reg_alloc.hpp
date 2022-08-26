@@ -17,7 +17,11 @@ class RegisterAllocator {
 public:
     RegisterAllocator(Xbyak::CodeGenerator &code);
 
+    // Analyzes the given basic block, building the variable lifetime table.
     void Analyze(const ir::BasicBlock &block);
+
+    // Sets the current instruction being compiled.
+    void SetInstruction(const ir::IROp *op);
 
     // Retrieves the register allocated to the specified variable, or allocates one if the variable was never assigned
     // to a register.
@@ -28,11 +32,15 @@ public:
     // Retrieves a temporary register without assigning it to any variable.
     Xbyak::Reg32 GetTemporary();
 
+    // Attempts to reassign the source variable's register or spill slot to the destination variable. This is only
+    // possible if the source variable is at the end of its lifetime.
+    bool TryReuse(ir::Variable dst, ir::Variable src);
+
     // Retrieves the RCX register, spilling out any associated variables if necessary.
     Xbyak::Reg64 GetRCX();
 
     // Releases the variables whose lifetimes expired at the specified IR instruction.
-    void ReleaseVars(const ir::IROp *op);
+    void ReleaseVars();
 
     // Releases all temporarily allocated registers.
     void ReleaseTemporaries();
@@ -40,6 +48,8 @@ public:
 private:
     Xbyak::CodeGenerator &m_code;
     VarLifetimeTracker m_varLifetimes;
+
+    const ir::IROp *m_currOp = nullptr;
 
     // -------------------------------------------------------------------------
     // Free registers

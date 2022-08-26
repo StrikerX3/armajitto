@@ -83,6 +83,7 @@ void x64Host::Compile(ir::BasicBlock &block) {
     while (op != nullptr) {
         auto opStr = op->ToString();
         printf("  compiling '%s'\n", opStr.c_str());
+        compiler.PreProcessOp(op);
         ir::VisitIROp(op, [this, &compiler](const auto *op) -> void { CompileOp(compiler, op); });
         compiler.PostProcessOp(op);
         op = op->Next();
@@ -476,15 +477,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
         if (setFlags) {
             CompileSetNZFromValue(op->value.imm.value);
         }
-    } else {
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-        if (op->dst.var.IsPresent()) {
+    } else if (op->dst.var.IsPresent()) {
+        if (!compiler.regAlloc.TryReuse(op->dst.var, op->value.var.var)) {
+            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
             code.mov(dstReg, valueReg);
         }
         if (setFlags) {
-            CompileSetNZFromReg(compiler, valueReg);
+            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+            CompileSetNZFromReg(compiler, dstReg);
         }
+    } else if (setFlags) {
+        auto valueReg = compiler.regAlloc.Get(op->value.var.var);
+        CompileSetNZFromReg(compiler, valueReg);
     }
 }
 
@@ -530,11 +535,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {}
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
-    auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
-    // Get value from srcCPSR
+    // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
     if (op->srcCPSR.immediate) {
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
         code.mov(dstReg, op->srcCPSR.imm.value);
-    } else {
+    } else if (!compiler.regAlloc.TryReuse(op->dstCPSR.var, op->srcCPSR.var.var)) {
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
         auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
         code.mov(dstReg, srcReg);
     }
@@ -542,6 +548,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
     // Apply flags to dstReg
     if (BitmaskEnum(op->flags).Any()) {
         const uint32_t cpsrMask = static_cast<uint32_t>(op->flags);
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
 
         // Extract the host flags we need from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();
