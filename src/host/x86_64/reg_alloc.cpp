@@ -1,5 +1,9 @@
 #include "reg_alloc.hpp"
 
+#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+
+#include <cstdio>
+
 namespace armajitto::x86_64 {
 
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code)
@@ -43,13 +47,17 @@ Xbyak::Reg64 RegisterAllocator::GetRCX() {
     return rcx;
 }
 
-Xbyak::Reg32 RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
-    // TODO: implement
-    return r8d;
+void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
+    if (m_varLifetimes.IsEndOfLife(var, op)) {
+        // TODO: implement
+        auto _varStr = var.ToString();
+        auto _opStr = op->ToString();
+        printf("    var %s expired at op %s\n", _varStr.c_str(), _opStr.c_str());
+    }
 }
 
-void RegisterAllocator::Release(ir::Variable var) {
-    // TODO: implement
+void RegisterAllocator::ReleaseVars(const ir::IROp *op) {
+    ir::VisitIROpVars(op, [this](const auto *op, ir::Variable var, bool) -> void { Release(var, op); });
 }
 
 } // namespace armajitto::x86_64

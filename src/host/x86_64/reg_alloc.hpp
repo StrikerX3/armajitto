@@ -29,11 +29,8 @@ public:
     // Retrieves the RCX register, spilling out any associated variables if necessary.
     Xbyak::Reg64 GetRCX();
 
-    // Reuses the register allocated to src, assigning it to dst and releasing from src.
-    Xbyak::Reg32 Reuse(ir::Variable dst, ir::Variable src);
-
-    // Release the register assigned to var, allowing it to be used with other variables.
-    void Release(ir::Variable var);
+    // Releases the variables whose lifetimes expired at the specified IR instruction.
+    void ReleaseVars(const ir::IROp *op);
 
 private:
     Xbyak::CodeGenerator &m_code;
@@ -44,6 +41,8 @@ private:
     // FIXME: this is a HACK to get things going
     size_t m_next = 0;
     std::unordered_map<size_t, Xbyak::Reg32> m_allocatedRegs;
+
+    void Release(ir::Variable var, const ir::IROp *op);
 };
 
 } // namespace armajitto::x86_64

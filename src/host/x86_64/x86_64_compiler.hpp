@@ -12,6 +12,12 @@ struct x64Host::Compiler {
     Compiler(Xbyak::CodeGenerator &code)
         : regAlloc(code) {}
 
+    void Analyze(const ir::BasicBlock &block) {
+        regAlloc.Analyze(block);
+    }
+
+    void PostProcessOp(const ir::IROp *op);
+
     RegisterAllocator regAlloc;
 };
 

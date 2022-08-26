@@ -1,11 +1,12 @@
 #include "armajitto/host/x86_64/x86_64_host.hpp"
 
-#include "abi.hpp"
 #include "armajitto/guest/arm/arithmetic.hpp"
 #include "armajitto/host/x86_64/cpuid.hpp"
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 #include "armajitto/util/bit_ops.hpp"
 #include "armajitto/util/pointer_cast.hpp"
+
+#include "abi.hpp"
 #include "vtune.hpp"
 #include "x86_64_compiler.hpp"
 
@@ -69,7 +70,7 @@ x64Host::x64Host(Context &context)
 void x64Host::Compile(ir::BasicBlock &block) {
     Compiler compiler{code};
 
-    compiler.regAlloc.Analyze(block);
+    compiler.Analyze(block);
 
     auto fnPtr = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();
@@ -83,6 +84,7 @@ void x64Host::Compile(ir::BasicBlock &block) {
         auto opStr = op->ToString();
         printf("  compiling '%s'\n", opStr.c_str());
         ir::VisitIROp(op, [this, &compiler](const auto *op) -> void { CompileOp(compiler, op); });
+        compiler.PostProcessOp(op);
         op = op->Next();
     }
 

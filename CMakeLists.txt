@@ -76,6 +76,7 @@ add_library(armajitto
     src/host/x86_64/var_lifetime.cpp
     src/host/x86_64/var_lifetime.hpp
     src/host/x86_64/vtune.hpp
+    src/host/x86_64/x86_64_compiler.cpp
     src/host/x86_64/x86_64_compiler.hpp
     src/host/x86_64/x86_64_host.cpp
     src/ir/basic_block.cpp

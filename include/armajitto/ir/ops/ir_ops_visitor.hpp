@@ -65,4 +65,406 @@ ReturnType VisitIROp(const IROp *op, Visitor &&visitor) {
     return VisitIROp(const_cast<IROp *>(op), visitor);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+namespace detail {
+    template <typename Visitor>
+    void VisitVar(IROp *op, const ir::VariableArg &arg, bool read, Visitor &&visitor) {
+        if (arg.var.IsPresent()) {
+            visitor(op, arg.var, read);
+        }
+    }
+
+    template <typename Visitor>
+    void VisitVar(IROp *op, const ir::VarOrImmArg &arg, bool read, Visitor &&visitor) {
+        if (!arg.immediate) {
+            VisitVar(op, arg.var, read, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename T, typename Visitor>
+    void VisitIROpVars(T *op, Visitor &&visitor) {}
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRGetRegisterOp *op, Visitor &&visitor) {
+        VisitVar(op, op->dst, false, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSetRegisterOp *op, Visitor &&visitor) {
+        VisitVar(op, op->src, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRGetCPSROp *op, Visitor &&visitor) {
+        VisitVar(op, op->dst, false, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSetCPSROp *op, Visitor &&visitor) {
+        VisitVar(op, op->src, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRGetSPSROp *op, Visitor &&visitor) {
+        VisitVar(op, op->dst, false, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSetSPSROp *op, Visitor &&visitor) {
+        VisitVar(op, op->src, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMemReadOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->address, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMemWriteOp *op, Visitor &&visitor) {
+        VisitVar(op, op->src, false, visitor);
+        VisitVar(op, op->address, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRPreloadOp *op, Visitor &&visitor) {
+        VisitVar(op, op->address, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRLogicalShiftLeftOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        VisitVar(op, op->amount, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRLogicalShiftRightOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        VisitVar(op, op->amount, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRArithmeticShiftRightOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        VisitVar(op, op->amount, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRRotateRightOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        VisitVar(op, op->amount, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRRotateRightExtendedOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBitwiseAndOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBitwiseOrOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBitwiseXorOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBitClearOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRCountLeadingZerosOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRAddOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRAddCarryOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSubtractOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSubtractCarryOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMoveOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMoveNegatedOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSaturatingAddOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSaturatingSubtractOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMultiplyOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRMultiplyLongOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dstLo, false, visitor);
+            VisitVar(op, op->dstHi, false, visitor);
+        }
+        VisitVar(op, op->lhs, true, visitor);
+        VisitVar(op, op->rhs, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dstLo, false, visitor);
+            VisitVar(op, op->dstHi, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRAddLongOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dstLo, false, visitor);
+            VisitVar(op, op->dstHi, false, visitor);
+        }
+        VisitVar(op, op->lhsLo, true, visitor);
+        VisitVar(op, op->lhsHi, true, visitor);
+        VisitVar(op, op->rhsLo, true, visitor);
+        VisitVar(op, op->rhsHi, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dstLo, false, visitor);
+            VisitVar(op, op->dstHi, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRStoreFlagsOp *op, Visitor &&visitor) {
+        VisitVar(op, op->values, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRLoadFlagsOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dstCPSR, false, visitor);
+        }
+        VisitVar(op, op->srcCPSR, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dstCPSR, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRLoadStickyOverflowOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dstCPSR, false, visitor);
+        }
+        VisitVar(op, op->srcCPSR, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dstCPSR, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBranchOp *op, Visitor &&visitor) {
+        VisitVar(op, op->address, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRBranchExchangeOp *op, Visitor &&visitor) {
+        VisitVar(op, op->address, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRLoadCopRegisterOp *op, Visitor &&visitor) {
+        VisitVar(op, op->dstValue, false, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRStoreCopRegisterOp *op, Visitor &&visitor) {
+        VisitVar(op, op->srcValue, true, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRCopyVarOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->var, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRGetBaseVectorAddressOp *op, Visitor &&visitor) {
+        VisitVar(op, op->dst, false, visitor);
+    }
+
+} // namespace detail
+
+// Visitor signature: void(<IROp subclass> *op, Variable var, bool read)
+template <bool writesFirst = true, typename Visitor>
+void VisitIROpVars(IROp *op, Visitor &&visitor) {
+    VisitIROp(op, [visitor](auto *op) { detail::VisitIROpVars<writesFirst>(op, visitor); });
+}
+
+template <bool writesFirst = true, typename Visitor>
+void VisitIROpVars(const IROp *op, Visitor &&visitor) {
+    VisitIROpVars<writesFirst>(const_cast<IROp *>(op), visitor);
+}
+
 } // namespace armajitto::ir
