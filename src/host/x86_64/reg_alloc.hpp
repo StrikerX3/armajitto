@@ -1,7 +1,11 @@
 #pragma once
 
 #include "abi.hpp"
-#include "armajitto/ir/defs/variable.hpp"
+#include "armajitto/ir/basic_block.hpp"
+#include "armajitto/ir/ir_ops.hpp"
+#include "var_lifetime.hpp"
+
+#include <xbyak/xbyak.h>
 
 #include <unordered_map>
 
@@ -9,6 +13,10 @@ namespace armajitto::x86_64 {
 
 class RegisterAllocator {
 public:
+    RegisterAllocator(Xbyak::CodeGenerator &code);
+
+    void Analyze(const ir::BasicBlock &block);
+
     // Retrieves the register allocated to the specified variable, or allocates one if the variable was never assigned
     // to a register.
     // If the variable is absent, throws an exception.
@@ -28,6 +36,9 @@ public:
     void Release(ir::Variable var);
 
 private:
+    Xbyak::CodeGenerator &m_code;
+    VarLifetimeTracker m_varLifetimes;
+
     static constexpr std::array<Xbyak::Reg32, 10> kFreeRegs = {/*ecx,*/ edi, esi,  r8d,  r9d,  r10d,
                                                                r11d,         r12d, r13d, r14d, r15d};
     // FIXME: this is a HACK to get things going

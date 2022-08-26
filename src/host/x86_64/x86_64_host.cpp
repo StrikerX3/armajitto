@@ -67,7 +67,9 @@ x64Host::x64Host(Context &context)
 }
 
 void x64Host::Compile(ir::BasicBlock &block) {
-    Compiler compiler{};
+    Compiler compiler{code};
+
+    compiler.regAlloc.Analyze(block);
 
     auto fnPtr = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();

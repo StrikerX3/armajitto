@@ -2,6 +2,13 @@
 
 namespace armajitto::x86_64 {
 
+RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code)
+    : m_code(code) {}
+
+void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
+    m_varLifetimes.Analyze(block);
+}
+
 Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
     if (!var.IsPresent()) {
         throw std::runtime_error("attempted to allocate a register to an absent variable");

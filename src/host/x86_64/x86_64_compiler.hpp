@@ -4,9 +4,14 @@
 
 #include "reg_alloc.hpp"
 
+#include <xbyak/xbyak.h>
+
 namespace armajitto::x86_64 {
 
 struct x64Host::Compiler {
+    Compiler(Xbyak::CodeGenerator &code)
+        : regAlloc(code) {}
+
     RegisterAllocator regAlloc;
 };
 

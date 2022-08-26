@@ -73,6 +73,8 @@ add_library(armajitto
     src/host/x86_64/cpuid.cpp
     src/host/x86_64/reg_alloc.cpp
     src/host/x86_64/reg_alloc.hpp
+    src/host/x86_64/var_lifetime.cpp
+    src/host/x86_64/var_lifetime.hpp
     src/host/x86_64/vtune.hpp
     src/host/x86_64/x86_64_compiler.hpp
     src/host/x86_64/x86_64_host.cpp
