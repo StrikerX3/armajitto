@@ -627,21 +627,21 @@ void x64Host::CompileSetNZFromValue(uint32_t value) {
 }
 
 void x64Host::CompileSetNZFromReg(Compiler &compiler, Xbyak::Reg32 value) {
-    auto tmp = compiler.regAlloc.GetTemporary().changeBit(8);
+    auto tmp = compiler.regAlloc.GetTemporary();
     code.test(value, value); // Updates NZ, clears CV; V won't be changed here
-    code.mov(tmp, ah);       // Copy current flags to preserve C later
+    code.mov(tmp, eax);      // Copy current flags to preserve C later
     code.lahf();             // Load NZC; C is 0
-    code.and_(tmp, 1);       // Keep previous C only
-    code.or_(ah, tmp);       // Put previous C into AH; NZ is now updated and C is preserved
+    code.and_(tmp, x64flgC); // Keep previous C only
+    code.or_(eax, tmp);      // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::CompileSetNZFromFlags(Compiler &compiler) {
-    auto tmp = compiler.regAlloc.GetTemporary().changeBit(8);
-    code.clc();        // Clear C to make way for the previous C
-    code.mov(tmp, ah); // Copy current flags to preserve C later
-    code.lahf();       // Load NZC; C is 0
-    code.and_(tmp, 1); // Keep previous C only
-    code.or_(ah, tmp); // Put previous C into AH; NZ is now updated and C is preserved
+    auto tmp = compiler.regAlloc.GetTemporary();
+    code.clc();              // Clear C to make way for the previous C
+    code.mov(tmp, eax);      // Copy current flags to preserve C later
+    code.lahf();             // Load NZC; C is 0
+    code.and_(tmp, x64flgC); // Keep previous C only
+    code.or_(eax, tmp);      // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::CompileSetNZCVFromValue(uint32_t value, bool carry, bool overflow) {
