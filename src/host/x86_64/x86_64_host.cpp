@@ -69,7 +69,7 @@ void x64Host::CompileProlog() {
 
     // Copy CPSR NZCV flags to ah/al
     code.mov(eax, dword[CastUintPtr(&m_armState.CPSR())]);
-    if (CPUID::Instance().HasFastPDEPAndPEXT()) {
+    if (CPUID::HasFastPDEPAndPEXT()) {
         // AH       AL
         // SZ0A0P1C -------V
         // NZ.....C .......V
@@ -119,24 +119,41 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {
         return;
     }
 
-    auto dstReg = compiler.regAlloc.Get(op->dst.var);
-    auto offset = m_armState.GPROffset(op->src.gpr, op->src.Mode());
-    code.mov(dstReg, dword[rcx + offset]);
+    if (auto dstReg = compiler.regAlloc.Get(op->dst.var)) {
+        auto offset = m_armState.GPROffset(op->src.gpr, op->src.Mode());
+        code.mov(*dstReg, dword[rcx + offset]);
+    } // else: invalid GetRegister op, no dst
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
     auto offset = m_armState.GPROffset(op->dst.gpr, op->dst.Mode());
     if (op->src.immediate) {
         code.mov(dword[rcx + offset], op->src.imm.value);
-    } else {
-        auto srcReg = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[rcx + offset], srcReg);
+    } else if (auto srcReg = compiler.regAlloc.Get(op->src.var.var)) {
+        code.mov(dword[rcx + offset], *srcReg);
+    } // else: invalid SetRegister op, no src
+}
+
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetCPSROp *op) {
+    if (!op->dst.var.IsPresent()) {
+        // TODO: raise error: no destination variable for GetCPSR
+        return;
+    }
+
+    if (auto dstReg = compiler.regAlloc.Get(op->dst.var)) {
+        auto offset = m_armState.CPSROffset();
+        code.mov(*dstReg, dword[rcx + offset]);
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRGetCPSROp *op) {}
-
-void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {
+    auto offset = m_armState.CPSROffset();
+    if (op->src.immediate) {
+        code.mov(dword[rcx + offset], op->src.imm.value);
+    } else if (auto srcReg = compiler.regAlloc.Get(op->src.var.var)) {
+        code.mov(dword[rcx + offset], *srcReg);
+    } // else: invalid SetCPSR op, no src
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetSPSROp *op) {}
 
@@ -176,7 +193,65 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
+    // dst is optional
+    if (auto dstReg = compiler.regAlloc.Get(op->dst.var)) {
+        if (op->value.immediate) {
+            code.mov(*dstReg, op->value.imm.value);
+        } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
+            code.mov(*dstReg, *valueReg);
+        } // else: invalid mov instruction (no src)
+    }
+
+    // Update host flags if applicable
+    auto bmFlags = BitmaskEnum(op->flags);
+    if (bmFlags.Any()) {
+        if (op->value.immediate) {
+            const bool sign = (op->value.imm.value >> 31);
+            const bool zero = (op->value.imm.value == 0);
+            if (sign && zero) {
+                code.or_(eax, (1 << 15) | (1 << 14));
+            } else if (sign) {
+                code.or_(eax, (1 << 15));
+                code.and_(eax, ~(1 << 14));
+            } else if (zero) {
+                code.and_(eax, ~(1 << 15));
+                code.or_(eax, (1 << 14));
+            } else {
+                code.or_(eax, ~((1 << 15) | (1 << 14)));
+            }
+        } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
+            auto tmp = compiler.regAlloc.GetTemporary();
+
+            // Clear flags
+            uint32_t mask = 0;
+            if (bmFlags.AnyOf(arm::Flags::N)) {
+                mask |= (1 << 15);
+            }
+            if (bmFlags.AnyOf(arm::Flags::Z)) {
+                mask |= (1 << 14);
+            }
+            code.and_(eax, ~mask);
+
+            // Sign flag
+            if (bmFlags.AnyOf(arm::Flags::N)) {
+                code.mov(tmp, *valueReg);
+                code.shr(tmp, 31);
+                code.shl(tmp, 15);
+                code.or_(eax, tmp);
+            }
+
+            // Zero flag
+            if (bmFlags.AnyOf(arm::Flags::Z)) {
+                code.test(*valueReg, *valueReg);
+                code.sete(tmp.cvt8());
+                code.shl(tmp, 14);
+                code.and_(tmp, (1 << 14));
+                code.or_(eax, tmp);
+            }
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {}
 
@@ -192,7 +267,47 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
+    if (auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var)) {
+        if (op->srcCPSR.immediate) {
+            code.mov(*dstReg, op->srcCPSR.imm.value);
+        } else if (auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var)) {
+            code.mov(*dstReg, *srcReg);
+        } // else: invalid LoadFlags op, no srcCPSR
+
+        // Apply flags to dstReg
+        auto bmFlags = BitmaskEnum(op->flags);
+        if (bmFlags.Any()) {
+            uint32_t hostMask = 0;
+            uint32_t cpsrMask = static_cast<uint32_t>(op->flags);
+            if (bmFlags.AnyOf(arm::Flags::N)) {
+                hostMask |= (1u << 15u);
+            }
+            if (bmFlags.AnyOf(arm::Flags::Z)) {
+                hostMask |= (1u << 14u);
+            }
+            if (bmFlags.AnyOf(arm::Flags::C)) {
+                hostMask |= (1u << 8u);
+            }
+            if (bmFlags.AnyOf(arm::Flags::V)) {
+                hostMask |= (1u << 0u);
+            }
+            auto tmp = compiler.regAlloc.GetTemporary();
+            code.mov(tmp, eax);
+            code.and_(tmp, hostMask);
+            code.and_(*dstReg, ~cpsrMask);
+            if (CPUID::HasFastPDEPAndPEXT()) {
+                code.mov(r10d, (1 << 15) | (1 << 14) | (1 << 8) | (1 << 0)); // TODO: need another temporary
+                code.pext(tmp, tmp, r10d);
+                code.shl(tmp, 28);
+            } else {
+                // TODO: not sure how to go about this
+                printf("uh oh\n");
+            }
+            code.or_(*dstReg, tmp);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op) {}
 

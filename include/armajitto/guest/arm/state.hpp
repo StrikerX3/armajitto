@@ -60,6 +60,10 @@ public:
         return m_gprOffsets[index];
     }
 
+    uintptr_t CPSROffset() const {
+        return m_psrOffsets[0];
+    }
+
     uintptr_t PSROffset(enum Mode mode) const {
         const auto index = static_cast<size_t>(mode);
         assert(index < kNumPSREntries);

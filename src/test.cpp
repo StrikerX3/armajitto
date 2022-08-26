@@ -127,20 +127,20 @@ void testBasic() {
 }
 
 void testCPUID() {
+    using CPUID = armajitto::x86_64::CPUID;
     using Vendor = armajitto::x86_64::CPUID::Vendor;
-    auto &cpuid = armajitto::x86_64::CPUID::Instance();
-    switch (cpuid.GetVendor()) {
+    switch (CPUID::GetVendor()) {
     case Vendor::Intel: printf("Intel CPU\n"); break;
     case Vendor::AMD: printf("AMD CPU\n"); break;
     default: printf("Unknown x86-64 CPU\n"); break;
     }
-    if (cpuid.HasBMI2()) {
+    if (CPUID::HasBMI2()) {
         printf("BMI2 available\n");
     }
-    if (cpuid.HasLZCNT()) {
+    if (CPUID::HasLZCNT()) {
         printf("LZCNT available\n");
     }
-    if (cpuid.HasFastPDEPAndPEXT()) {
+    if (CPUID::HasFastPDEPAndPEXT()) {
         printf("Fast PDEP/PEXT available\n");
     }
 }
@@ -708,7 +708,7 @@ void testCompiler() {
     }
     printf("\n");
 
-    // Display ARM state
+    // Define function to display ARM state
     auto printState = [&] {
         auto &state = context.GetARMState();
         for (int j = 0; j < 4; j++) {
@@ -723,18 +723,42 @@ void testCompiler() {
             }
             printf("\n");
         }
-        printf("CPSR = %08X\n", state.CPSR().u32);
-    };
 
-    printf("state before execution:\n");
-    printState();
+        auto &cpsr = state.CPSR();
+        printf("CPSR = %08X   ", cpsr.u32);
+        switch (cpsr.mode) {
+        case armajitto::arm::Mode::User: printf("USR"); break;
+        case armajitto::arm::Mode::FIQ: printf("FIQ"); break;
+        case armajitto::arm::Mode::IRQ: printf("IRQ"); break;
+        case armajitto::arm::Mode::Supervisor: printf("SVC"); break;
+        case armajitto::arm::Mode::Abort: printf("ABT"); break;
+        case armajitto::arm::Mode::Undefined: printf("UND"); break;
+        case armajitto::arm::Mode::System: printf("SYS"); break;
+        default: printf("%02Xh", static_cast<uint8_t>(cpsr.mode)); break;
+        }
+        if (cpsr.t) {
+            printf("  THUMB");
+        } else {
+            printf("  ARM  ");
+        }
+        printf("%c%c%c%c%c%c%c\n", (cpsr.n ? 'N' : '.'), (cpsr.z ? 'Z' : '.'), (cpsr.c ? 'C' : '.'),
+               (cpsr.v ? 'V' : '.'), (cpsr.q ? 'Q' : '.'), (cpsr.i ? 'I' : '.'), (cpsr.f ? 'F' : '.'));
+    };
 
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.GPR(armajitto::arm::GPR::R2) = 0x12;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x3400;
-    armState.GPR(armajitto::arm::GPR::R4) = 4;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x12;
+    armState.GPR(armajitto::arm::GPR::R2) = -1;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x3400;
+    // armState.GPR(armajitto::arm::GPR::R4) = 4;
+    armState.CPSR().n = 1;
+    armState.CPSR().z = 1;
+    armState.CPSR().c = 1;
+    armState.CPSR().v = 1;
+
+    printf("state before execution:\n");
+    printState();
 
     // Compile and execute code
     armajitto::x86_64::x64Host host{context};
