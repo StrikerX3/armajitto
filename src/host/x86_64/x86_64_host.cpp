@@ -253,7 +253,66 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
+    // dst is optional
+    if (auto dstReg = compiler.regAlloc.Get(op->dst.var)) {
+        if (op->value.immediate) {
+            code.mov(*dstReg, ~op->value.imm.value);
+        } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
+            code.mov(*dstReg, *valueReg);
+            code.not_(*dstReg);
+        } // else: invalid mov instruction (no src)
+    }
+
+    // Update host flags if applicable
+    auto bmFlags = BitmaskEnum(op->flags);
+    if (bmFlags.Any()) {
+        if (op->value.immediate) {
+            const bool sign = (op->value.imm.value >> 31);
+            const bool zero = (op->value.imm.value == 0);
+            if (sign && zero) {
+                code.or_(eax, (1 << 15) | (1 << 14));
+            } else if (sign) {
+                code.or_(eax, (1 << 15));
+                code.and_(eax, ~(1 << 14));
+            } else if (zero) {
+                code.and_(eax, ~(1 << 15));
+                code.or_(eax, (1 << 14));
+            } else {
+                code.or_(eax, ~((1 << 15) | (1 << 14)));
+            }
+        } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
+            auto tmp = compiler.regAlloc.GetTemporary();
+
+            // Clear flags
+            uint32_t mask = 0;
+            if (bmFlags.AnyOf(arm::Flags::N)) {
+                mask |= (1 << 15);
+            }
+            if (bmFlags.AnyOf(arm::Flags::Z)) {
+                mask |= (1 << 14);
+            }
+            code.and_(eax, ~mask);
+
+            // Sign flag
+            if (bmFlags.AnyOf(arm::Flags::N)) {
+                code.mov(tmp, *valueReg);
+                code.shr(tmp, 31);
+                code.shl(tmp, 15);
+                code.or_(eax, tmp);
+            }
+
+            // Zero flag
+            if (bmFlags.AnyOf(arm::Flags::Z)) {
+                code.test(*valueReg, *valueReg);
+                code.sete(tmp.cvt8());
+                code.shl(tmp, 14);
+                code.and_(tmp, (1 << 14));
+                code.or_(eax, tmp);
+            }
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {}
 
@@ -297,8 +356,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
             code.and_(tmp, hostMask);
             code.and_(*dstReg, ~cpsrMask);
             if (CPUID::HasFastPDEPAndPEXT()) {
-                code.mov(r10d, (1 << 15) | (1 << 14) | (1 << 8) | (1 << 0)); // TODO: need another temporary
-                code.pext(tmp, tmp, r10d);
+                auto tmp2 = compiler.regAlloc.GetTemporary();
+                code.mov(tmp2, (1 << 15) | (1 << 14) | (1 << 8) | (1 << 0));
+                code.pext(tmp, tmp, tmp2);
                 code.shl(tmp, 28);
             } else {
                 // TODO: not sure how to go about this

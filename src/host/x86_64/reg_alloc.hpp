@@ -26,6 +26,7 @@ public:
 private:
     // FIXME: this is a HACK to get things going
     size_t m_next = 0;
+    size_t m_nextTmp = 0;
     std::unordered_map<size_t, Xbyak::Reg32> m_allocatedRegs;
 };
 
