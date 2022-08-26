@@ -1,8 +1,12 @@
 #pragma once
 
 #include "armajitto/host/host.hpp"
+#include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 
+#ifdef _WIN32
+    #define NOMINMAX
+#endif
 #include <xbyak/xbyak.h>
 
 namespace armajitto::x86_64 {
@@ -71,6 +75,19 @@ private:
     void CompileOp(Compiler &compiler, const ir::IRConstantOp *op);
     void CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op);
     void CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op);
+
+    // -------------------------------------------------------------------------
+    // Common operations
+
+    void CompileSetCFromValue(bool carry);
+    void CompileSetCFromFlags(Compiler &compiler);
+
+    void CompileSetNZFromValue(uint32_t value);
+    void CompileSetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
+    void CompileSetNZFromFlags(Compiler &compiler);
+
+    void CompileSetNZCVFromValue(uint32_t value, bool carry, bool overflow);
+    void CompileSetNZCVFromFlags();
 };
 
 } // namespace armajitto::x86_64

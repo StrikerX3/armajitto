@@ -1,5 +1,8 @@
 #pragma once
 
+#ifdef _WIN32
+    #define NOMINMAX
+#endif
 #include <xbyak/xbyak.h>
 
 #include <array>

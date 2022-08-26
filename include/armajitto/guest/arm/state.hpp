@@ -43,7 +43,7 @@ public:
         return const_cast<State *>(this)->CPSR();
     }
 
-    PSR &PSR(Mode mode) {
+    PSR &SPSR(Mode mode) {
         const auto index = static_cast<size_t>(mode);
         assert(index < 32);
         return *m_psrPtrs[index];
@@ -64,7 +64,7 @@ public:
         return m_psrOffsets[0];
     }
 
-    uintptr_t PSROffset(enum Mode mode) const {
+    uintptr_t SPSROffset(enum Mode mode) const {
         const auto index = static_cast<size_t>(mode);
         assert(index < kNumPSREntries);
         return m_psrOffsets[index];

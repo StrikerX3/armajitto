@@ -749,9 +749,9 @@ void testCompiler() {
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;
-    // armState.GPR(armajitto::arm::GPR::R2) = -1;
+    armState.GPR(armajitto::arm::GPR::R2) = -1;
     armState.GPR(armajitto::arm::GPR::R3) = 0x3400;
-    // armState.GPR(armajitto::arm::GPR::R4) = 4;
+    armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 0;

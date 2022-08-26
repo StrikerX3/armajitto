@@ -2,9 +2,9 @@
 
 namespace armajitto::x86_64 {
 
-std::optional<Xbyak::Reg32> RegisterAllocator::Get(ir::Variable var) {
+Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
     if (!var.IsPresent()) {
-        return std::nullopt;
+        throw std::runtime_error("attempted to allocate a register to an absent variable");
     }
 
     auto it = m_allocatedRegs.find(var.Index());
@@ -29,6 +29,11 @@ Xbyak::Reg32 RegisterAllocator::GetTemporary() {
         m_next = 0;
     }
     return reg.cvt32();
+}
+
+Xbyak::Reg64 RegisterAllocator::GetRCX() {
+    // TODO: implement
+    return rcx;
 }
 
 Xbyak::Reg32 RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
