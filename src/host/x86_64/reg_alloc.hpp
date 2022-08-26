@@ -7,7 +7,9 @@
 
 #include <xbyak/xbyak.h>
 
-#include <unordered_map>
+#include <deque>
+#include <optional>
+#include <vector>
 
 namespace armajitto::x86_64 {
 
@@ -32,15 +34,31 @@ public:
     // Releases the variables whose lifetimes expired at the specified IR instruction.
     void ReleaseVars(const ir::IROp *op);
 
+    // Releases all temporarily allocated registers.
+    void ReleaseTemporaries();
+
 private:
     Xbyak::CodeGenerator &m_code;
     VarLifetimeTracker m_varLifetimes;
 
-    static constexpr std::array<Xbyak::Reg32, 10> kFreeRegs = {/*ecx,*/ edi, esi,  r8d,  r9d,  r10d,
-                                                               r11d,         r12d, r13d, r14d, r15d};
-    // FIXME: this is a HACK to get things going
-    size_t m_next = 0;
-    std::unordered_map<size_t, Xbyak::Reg32> m_allocatedRegs;
+    // -------------------------------------------------------------------------
+    // Free registers
+
+    std::deque<Xbyak::Reg32> m_freeRegs;
+    std::deque<Xbyak::Reg32> m_tempRegs;
+
+    Xbyak::Reg32 AllocateRegister();
+
+    // -------------------------------------------------------------------------
+    // Variable allocation states
+
+    struct VarAllocState {
+        bool allocated = false;
+        Xbyak::Reg32 reg;
+
+        size_t spillSlot = ~0; // ~0 means "not spilled"
+    };
+    std::vector<VarAllocState> m_varAllocStates;
 
     void Release(ir::Variable var, const ir::IROp *op);
 };

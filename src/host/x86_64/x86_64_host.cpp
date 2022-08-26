@@ -546,9 +546,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
         // Extract the host flags we need from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();
         if (CPUID::HasFastPDEPAndPEXT()) {
-            auto flagBits = compiler.regAlloc.GetTemporary();
-            code.mov(flagBits, x64FlagsMask);
-            code.pext(flags, eax, flagBits);
+            code.mov(flags, x64FlagsMask);
+            code.pext(flags, eax, flags);
             code.shl(flags, 28);
         } else {
             code.imul(flags, eax, x64ToARMFlagsMultiplier);
