@@ -29,7 +29,12 @@ struct GPRArg {
     }
 
     std::string ToString() const {
-        return arm::ToString(gpr) + "_" + arm::ToString(mode);
+        if (static_cast<uint32_t>(gpr) < 7 || gpr == arm::GPR::PC) {
+            // Mode doesn't matter for R0..R7 and PC
+            return arm::ToString(gpr);
+        } else {
+            return arm::ToString(gpr) + "_" + arm::ToString(mode);
+        }
     }
 
     size_t Index() const {
