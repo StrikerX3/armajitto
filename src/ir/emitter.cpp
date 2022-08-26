@@ -246,45 +246,42 @@ void Emitter::LoadStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
-arm::Flags Emitter::SetNZ(arm::Flags mask, uint32_t value) {
+arm::Flags Emitter::SetNZ(uint32_t value) {
     arm::Flags flags = arm::Flags::None;
-    auto bmMask = BitmaskEnum(mask);
-    if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
+    if (value >> 31) {
         flags |= arm::Flags::N;
     }
-    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+    if (value == 0) {
         flags |= arm::Flags::Z;
     }
     StoreFlags(arm::Flags::NZ, static_cast<uint32_t>(flags));
     return flags;
 }
 
-arm::Flags Emitter::SetNZ(arm::Flags mask, uint64_t value) {
+arm::Flags Emitter::SetNZ(uint64_t value) {
     arm::Flags flags = arm::Flags::None;
-    auto bmMask = BitmaskEnum(mask);
-    if (bmMask.AnyOf(arm::Flags::N) && value >> 63ull) {
+    if (value >> 63ull) {
         flags |= arm::Flags::N;
     }
-    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+    if (value == 0) {
         flags |= arm::Flags::Z;
     }
     StoreFlags(arm::Flags::NZ, static_cast<uint32_t>(flags));
     return flags;
 }
 
-arm::Flags Emitter::SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow) {
+arm::Flags Emitter::SetNZCV(uint32_t value, bool carry, bool overflow) {
     arm::Flags flags = arm::Flags::None;
-    auto bmMask = BitmaskEnum(mask);
-    if (bmMask.AnyOf(arm::Flags::N) && value >> 31) {
+    if (value >> 31) {
         flags |= arm::Flags::N;
     }
-    if (bmMask.AnyOf(arm::Flags::Z) && value == 0) {
+    if (value == 0) {
         flags |= arm::Flags::Z;
     }
-    if (bmMask.AnyOf(arm::Flags::C) && carry) {
+    if (carry) {
         flags |= arm::Flags::C;
     }
-    if (bmMask.AnyOf(arm::Flags::V) && overflow) {
+    if (overflow) {
         flags |= arm::Flags::V;
     }
     StoreFlags(arm::Flags::NZCV, static_cast<uint32_t>(flags));

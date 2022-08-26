@@ -46,7 +46,7 @@ void DeadFlagValueStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
 
 void DeadFlagValueStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     if (!op->srcCPSR.immediate && op->setQ) {
-        RecordFlagWrites(op->dstCPSR, op->srcCPSR.var, arm::Flags::Q, op);
+        RecordFlagWrites(op->dstCPSR, op->srcCPSR.var, arm::Flags::V, op);
     }
 }
 
@@ -102,7 +102,6 @@ void DeadFlagValueStoreEliminationOptimizerPass::RecordFlagWrites(VariableArg ds
     updateWrite(arm::Flags::Z, srcEntry.writerOpZ, dstEntry.writerOpZ);
     updateWrite(arm::Flags::C, srcEntry.writerOpC, dstEntry.writerOpC);
     updateWrite(arm::Flags::V, srcEntry.writerOpV, dstEntry.writerOpV);
-    updateWrite(arm::Flags::Q, srcEntry.writerOpQ, dstEntry.writerOpQ);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -138,7 +137,7 @@ void DeadFlagValueStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag,
 }
 
 void DeadFlagValueStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRLoadStickyOverflowOp *op) {
-    if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::Q)) {
+    if (op->setQ && BitmaskEnum(flag).AnyOf(arm::Flags::V)) {
         op->setQ = false;
         MarkDirty();
     }

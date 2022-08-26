@@ -105,7 +105,6 @@ private:
         IROp *writerOpZ = nullptr; // last instruction that wrote to Z
         IROp *writerOpC = nullptr; // last instruction that wrote to C
         IROp *writerOpV = nullptr; // last instruction that wrote to V
-        IROp *writerOpQ = nullptr; // last instruction that wrote to Q
     };
 
     std::vector<FlagWrites> m_flagWritesPerVar;

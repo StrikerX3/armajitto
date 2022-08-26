@@ -95,10 +95,10 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
+        const bool setCarry = op->setCarry;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const bool setCarry = op->setCarry;
         if (setCarry) {
             if (carry.has_value()) {
                 m_emitter.StoreFlags(arm::Flags::C, static_cast<uint32_t>((*carry) ? arm::Flags::C : arm::Flags::None));
@@ -126,10 +126,10 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::ASR(op->value.imm.value, op->amount.imm.value);
+        const bool setCarry = op->setCarry;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const bool setCarry = op->setCarry;
         if (setCarry) {
             if (carry.has_value()) {
                 m_emitter.StoreFlags(arm::Flags::C, static_cast<uint32_t>((*carry) ? arm::Flags::C : arm::Flags::None));
@@ -157,10 +157,10 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->amount);
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::ROR(op->value.imm.value, op->amount.imm.value);
+        const bool setCarry = op->setCarry;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const bool setCarry = op->setCarry;
         if (setCarry) {
             if (carry.has_value()) {
                 m_emitter.StoreFlags(arm::Flags::C, static_cast<uint32_t>((*carry) ? arm::Flags::C : arm::Flags::None));
@@ -188,10 +188,10 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     auto carryFlag = GetCarryFlag();
     if (op->value.immediate && carryFlag.has_value()) {
         auto [result, carry] = arm::RRX(op->value.imm.value, *carryFlag);
+        const bool setCarry = op->setCarry;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const bool setCarry = op->setCarry;
         if (setCarry) {
             m_emitter.StoreFlags(arm::Flags::C, static_cast<uint32_t>(carry ? arm::Flags::C : arm::Flags::None));
             if (carry) {
@@ -210,13 +210,13 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & op->rhs.imm.value;
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -242,13 +242,13 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseOrOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value | op->rhs.imm.value;
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -274,13 +274,13 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value ^ op->rhs.imm.value;
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -302,13 +302,13 @@ void ConstPropagationOptimizerPass::Process(IRBitClearOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & ~op->rhs.imm.value;
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -343,13 +343,13 @@ void ConstPropagationOptimizerPass::Process(IRAddOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto [result, carry, overflow] = arm::ADD(op->lhs.imm.value, op->rhs.imm.value);
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZCV)) {
-            const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZCV(result, carry, overflow);
+            SetKnownHostFlags(arm::Flags::NZCV, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -372,13 +372,13 @@ void ConstPropagationOptimizerPass::Process(IRAddCarryOp *op) {
     auto carryFlag = GetCarryFlag();
     if (op->lhs.immediate && op->rhs.immediate && carryFlag.has_value()) {
         auto [result, carry, overflow] = arm::ADC(op->lhs.imm.value, op->rhs.imm.value, *carryFlag);
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZCV)) {
-            const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZCV(result, carry, overflow);
+            SetKnownHostFlags(arm::Flags::NZCV, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -400,13 +400,13 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         auto [result, carry, overflow] = arm::SUB(op->lhs.imm.value, op->rhs.imm.value);
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZCV)) {
-            const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZCV(result, carry, overflow);
+            SetKnownHostFlags(arm::Flags::NZCV, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -429,13 +429,13 @@ void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
     auto carryFlag = GetCarryFlag();
     if (op->lhs.immediate && op->rhs.immediate && carryFlag.has_value()) {
         auto [result, carry, overflow] = arm::SBC(op->lhs.imm.value, op->rhs.imm.value, *carryFlag);
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZCV)) {
-            const arm::Flags setFlags = m_emitter.SetNZCV(flags, result, carry, overflow);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZCV(result, carry, overflow);
+            SetKnownHostFlags(arm::Flags::NZCV, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(op->flags);
@@ -456,12 +456,13 @@ void ConstPropagationOptimizerPass::Process(IRMoveOp *op) {
     Substitute(op->value);
     Assign(op->dst, op->value);
     if (op->value.immediate) {
-        const arm::Flags flags = op->flags;
         const uint32_t value = op->value.imm.value;
+        const arm::Flags flags = op->flags;
         m_emitter.Erase(op);
+
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, value);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(value);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (BitmaskEnum(op->flags).NoneOf(arm::Flags::NZ)) {
         m_emitter.Erase(op);
@@ -474,13 +475,13 @@ void ConstPropagationOptimizerPass::Process(IRMoveNegatedOp *op) {
     Substitute(op->value);
     if (op->value.immediate) {
         auto result = ~op->value.imm.value;
+        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else {
         ClearKnownHostFlags(op->flags);
@@ -496,10 +497,10 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
         m_emitter.Erase(op);
 
         if (q) {
-            m_emitter.StoreFlags(arm::Flags::Q, static_cast<uint32_t>(arm::Flags::Q));
-            SetKnownHostFlags(arm::Flags::Q, arm::Flags::Q);
+            m_emitter.StoreFlags(arm::Flags::V, static_cast<uint32_t>(arm::Flags::V));
+            SetKnownHostFlags(arm::Flags::V, arm::Flags::V);
         } else {
-            SetKnownHostFlags(arm::Flags::Q, arm::Flags::None);
+            SetKnownHostFlags(arm::Flags::V, arm::Flags::None);
         }
     } else if (op->lhs.immediate != op->rhs.immediate) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -512,7 +513,7 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
             }
         }
     } else {
-        ClearKnownHostFlags(arm::Flags::Q);
+        ClearKnownHostFlags(arm::Flags::V);
     }
 }
 
@@ -525,10 +526,10 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
         m_emitter.Erase(op);
 
         if (q) {
-            m_emitter.StoreFlags(arm::Flags::Q, static_cast<uint32_t>(arm::Flags::Q));
-            SetKnownHostFlags(arm::Flags::Q, arm::Flags::Q);
+            m_emitter.StoreFlags(arm::Flags::V, static_cast<uint32_t>(arm::Flags::V));
+            SetKnownHostFlags(arm::Flags::V, arm::Flags::V);
         } else {
-            SetKnownHostFlags(arm::Flags::Q, arm::Flags::None);
+            SetKnownHostFlags(arm::Flags::V, arm::Flags::None);
         }
     } else if (op->lhs.immediate != op->rhs.immediate) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -541,7 +542,7 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
             }
         }
     } else {
-        ClearKnownHostFlags(arm::Flags::Q);
+        ClearKnownHostFlags(arm::Flags::V);
     }
 }
 
@@ -551,23 +552,23 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyOp *op) {
     if (op->lhs.immediate && op->rhs.immediate) {
         if (op->signedMul) {
             auto result = (int32_t)op->lhs.imm.value * (int32_t)op->rhs.imm.value;
+            const arm::Flags flags = op->flags;
             Assign(op->dst, result);
             m_emitter.Erase(op);
 
-            const arm::Flags flags = op->flags;
             if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-                const arm::Flags setFlags = m_emitter.SetNZ(flags, (uint32_t)result);
-                SetKnownHostFlags(flags, setFlags);
+                const arm::Flags setFlags = m_emitter.SetNZ((uint32_t)result);
+                SetKnownHostFlags(arm::Flags::NZ, setFlags);
             }
         } else {
             auto result = op->lhs.imm.value * op->rhs.imm.value;
+            const arm::Flags flags = op->flags;
             Assign(op->dst, result);
             m_emitter.Erase(op);
 
-            const arm::Flags flags = op->flags;
             if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-                const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-                SetKnownHostFlags(flags, setFlags);
+                const arm::Flags setFlags = m_emitter.SetNZ(result);
+                SetKnownHostFlags(arm::Flags::NZ, setFlags);
             }
         }
     } else if (op->flags != arm::Flags::None) {
@@ -594,28 +595,28 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
             if (op->shiftDownHalf) {
                 result >>= 16ll;
             }
+            const arm::Flags flags = op->flags;
             Assign(op->dstLo, result >> 0ll);
             Assign(op->dstHi, result >> 32ll);
             m_emitter.Erase(op);
 
-            const arm::Flags flags = op->flags;
             if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-                const arm::Flags setFlags = m_emitter.SetNZ(flags, (uint64_t)result);
-                SetKnownHostFlags(flags, setFlags);
+                const arm::Flags setFlags = m_emitter.SetNZ((uint64_t)result);
+                SetKnownHostFlags(arm::Flags::NZ, setFlags);
             }
         } else {
             auto result = (uint64_t)op->lhs.imm.value * (uint64_t)op->rhs.imm.value;
             if (op->shiftDownHalf) {
                 result >>= 16ull;
             }
+            const arm::Flags flags = op->flags;
             Assign(op->dstLo, result >> 0ull);
             Assign(op->dstHi, result >> 32ull);
             m_emitter.Erase(op);
 
-            const arm::Flags flags = op->flags;
             if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-                const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-                SetKnownHostFlags(flags, setFlags);
+                const arm::Flags setFlags = m_emitter.SetNZ(result);
+                SetKnownHostFlags(arm::Flags::NZ, setFlags);
             }
         }
     } else if (op->flags != arm::Flags::None) {
@@ -653,14 +654,14 @@ void ConstPropagationOptimizerPass::Process(IRAddLongOp *op) {
         uint64_t lhs = make64(op->lhsLo.imm.value, op->lhsHi.imm.value);
         uint64_t rhs = make64(op->rhsLo.imm.value, op->rhsHi.imm.value);
         uint64_t result = lhs + rhs;
+        const arm::Flags flags = op->flags;
         Assign(op->dstLo, result >> 0ull);
         Assign(op->dstHi, result >> 32ull);
         m_emitter.Erase(op);
 
-        const arm::Flags flags = op->flags;
         if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(flags, result);
-            SetKnownHostFlags(flags, setFlags);
+            const arm::Flags setFlags = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, setFlags);
         }
     } else if (op->flags != arm::Flags::None) {
         ClearKnownHostFlags(arm::Flags::NZ);
@@ -729,14 +730,14 @@ void ConstPropagationOptimizerPass::Process(IRLoadFlagsOp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
-    const arm::Flags mask = op->setQ ? arm::Flags::Q : arm::Flags::None;
+    const arm::Flags mask = op->setQ ? arm::Flags::V : arm::Flags::None;
     if (op->srcCPSR.immediate && BitmaskEnum(m_knownHostFlagsMask).AllOf(mask)) {
         auto hostFlags = m_knownHostFlagsValues & mask;
         const auto srcCPSR = op->srcCPSR;
         const auto dstCPSR = op->dstCPSR;
 
-        if (BitmaskEnum(hostFlags).AnyOf(arm::Flags::Q)) {
-            auto cpsr = m_emitter.BitwiseOr(srcCPSR, static_cast<uint32_t>(arm::Flags::Q), false);
+        if (BitmaskEnum(hostFlags).AnyOf(arm::Flags::V)) {
+            auto cpsr = m_emitter.BitwiseOr(srcCPSR, static_cast<uint32_t>(arm::Flags::V), false);
             Assign(dstCPSR, cpsr);
         } else if (srcCPSR.immediate) {
             Assign(dstCPSR, srcCPSR.imm.value);

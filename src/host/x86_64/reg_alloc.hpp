@@ -24,9 +24,10 @@ public:
     void Release(ir::Variable var);
 
 private:
+    static constexpr std::array<Xbyak::Reg32, 11> kFreeRegs = {ebx,  edi,  esi,  r8d,  r9d, r10d,
+                                                               r11d, r12d, r13d, r14d, r15d};
     // FIXME: this is a HACK to get things going
     size_t m_next = 0;
-    size_t m_nextTmp = 0;
     std::unordered_map<size_t, Xbyak::Reg32> m_allocatedRegs;
 };
 

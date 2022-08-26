@@ -44,10 +44,6 @@ public:
         return Test(arm::Flags::V);
     }
 
-    std::optional<bool> StickyOverflow() const {
-        return Test(arm::Flags::Q);
-    }
-
 private:
     arm::Flags m_known = arm::Flags::None; // known flag states
     arm::Flags m_state = arm::Flags::None; // current state of known flags; unknown flags are always unset

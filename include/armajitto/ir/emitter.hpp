@@ -226,9 +226,9 @@ public:
     void LoadFlags(arm::Flags flags);
     void LoadStickyOverflow();
 
-    arm::Flags SetNZ(arm::Flags mask, uint32_t value);
-    arm::Flags SetNZ(arm::Flags mask, uint64_t value);
-    arm::Flags SetNZCV(arm::Flags mask, uint32_t value, bool carry, bool overflow);
+    arm::Flags SetNZ(uint32_t value);
+    arm::Flags SetNZ(uint64_t value);
+    arm::Flags SetNZCV(uint32_t value, bool carry, bool overflow);
 
     void Branch(VarOrImmArg address);
     void BranchExchange(VarOrImmArg address);

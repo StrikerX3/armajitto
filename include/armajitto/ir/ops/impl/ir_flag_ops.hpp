@@ -9,9 +9,9 @@
 namespace armajitto::ir {
 
 // Store flags
-//   stflg.[n][z][c][v][q] <var/imm:values>
+//   stflg.[n][z][c][v] <var/imm:values>
 //
-// Sets the host flags specified by [n][z][c][v][q] to <values>.
+// Sets the host flags specified by [n][z][c][v] to <values>.
 // The position of the bits in <values> must match those in CPSR -- bit 31 is N, bit 30 is Z, and so on.
 struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
     arm::Flags flags;
@@ -22,9 +22,10 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
         , values(values) {}
 
     std::string ToString() const final {
-        auto flagsSuffix = arm::FlagsSuffixStr(flags);
+        auto flagsSuffix = arm::FlagsSuffixStr(flags, flags);
         if (values.immediate) {
-            auto flagsStr = arm::FlagsStr(static_cast<arm::Flags>(values.imm.value));
+            auto flagsVal = static_cast<arm::Flags>(values.imm.value);
+            auto flagsStr = arm::FlagsStr(flagsVal, flagsVal);
             return std::format("stflg{} {{{}}}", flagsSuffix, flagsStr);
         } else {
             return std::format("stflg{} {}", flagsSuffix, values.var.ToString());
@@ -42,12 +43,12 @@ struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
     VarOrImmArg srcCPSR;
 
     IRLoadFlagsOp(arm::Flags flags, VariableArg dstCPSR, VarOrImmArg srcCPSR)
-        : flags(flags & ~arm::Flags::Q)
+        : flags(flags)
         , dstCPSR(dstCPSR)
         , srcCPSR(srcCPSR) {}
 
     std::string ToString() const final {
-        auto flagsSuffix = arm::FlagsSuffixStr(flags);
+        auto flagsSuffix = arm::FlagsSuffixStr(flags, flags);
         return std::format("ldflg{} {}, {}", flagsSuffix, dstCPSR.ToString(), srcCPSR.ToString());
     }
 };
@@ -55,7 +56,7 @@ struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
 // Load sticky overflow flag
 //   ldflg.q <var:dst_cpsr>, <var:src_cpsr>
 //
-// Load the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
+// Loads the Q flag in <src_cpsr> if the host overflow flag is set and stores the result in <dst_cpsr>.
 struct IRLoadStickyOverflowOp : public IROpBase<IROpcodeType::LoadStickyOverflow> {
     bool setQ;
     VariableArg dstCPSR;

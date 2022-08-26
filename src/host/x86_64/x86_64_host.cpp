@@ -19,6 +19,21 @@ Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// From Dynarmic:
+
+// This is a constant used to create the x64 flags format from the ARM format.
+// NZCV * multiplier: NZCV0NZCV000NZCV
+// x64_flags format:  NZ-----C-------V
+constexpr uint32_t kARMTox64FlagsMultiplier = 0x1081;
+
+// This is a constant used to create the ARM format from the x64 flags format.
+constexpr uint32_t kx64ToARMFlagsMultiplier = 0x1021'0000;
+
+constexpr uint32_t kARMFlagsMask = 0xF000'0000;
+constexpr uint32_t kx64FlagsMask = 0xC101;
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 x64Host::x64Host(Context &context)
     : Host(context) {
 
@@ -33,6 +48,7 @@ void x64Host::Compile(ir::BasicBlock &block) {
     code.setProtectModeRW();
 
     // TODO: check condition code
+    // TODO: update PC if condition fails
 
     // Compile block code
     auto *op = block.Head();
@@ -42,6 +58,9 @@ void x64Host::Compile(ir::BasicBlock &block) {
         ir::VisitIROp(op, [this, &compiler](const auto *op) -> void { CompileOp(compiler, op); });
         op = op->Next();
     }
+
+    // TODO: block linking
+    // TODO: cycle counting
 
     // Go to epilog
     code.mov(abi::kNonvolatileRegs[0], m_epilog.GetPtr());
@@ -152,7 +171,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {
         code.mov(dword[rcx + offset], op->src.imm.value);
     } else if (auto srcReg = compiler.regAlloc.Get(op->src.var.var)) {
         code.mov(dword[rcx + offset], *srcReg);
-    } // else: invalid SetCPSR op, no src
+    } else {
+        // TODO: raise error: invalid st cpsr, no src
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetSPSROp *op) {}
@@ -200,7 +221,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
             code.mov(*dstReg, op->value.imm.value);
         } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
             code.mov(*dstReg, *valueReg);
-        } // else: invalid mov instruction (no src)
+        } else {
+            // TODO: raise error: invalid mov, no src
+        }
     }
 
     // Update host flags if applicable
@@ -221,34 +244,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
                 code.or_(eax, ~((1 << 15) | (1 << 14)));
             }
         } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
-            auto tmp = compiler.regAlloc.GetTemporary();
-
-            // Clear flags
-            uint32_t mask = 0;
-            if (bmFlags.AnyOf(arm::Flags::N)) {
-                mask |= (1 << 15);
-            }
-            if (bmFlags.AnyOf(arm::Flags::Z)) {
-                mask |= (1 << 14);
-            }
-            code.and_(eax, ~mask);
-
-            // Sign flag
-            if (bmFlags.AnyOf(arm::Flags::N)) {
-                code.mov(tmp, *valueReg);
-                code.shr(tmp, 31);
-                code.shl(tmp, 15);
-                code.or_(eax, tmp);
-            }
-
-            // Zero flag
-            if (bmFlags.AnyOf(arm::Flags::Z)) {
-                code.test(*valueReg, *valueReg);
-                code.sete(tmp.cvt8());
-                code.shl(tmp, 14);
-                code.and_(tmp, (1 << 14));
-                code.or_(eax, tmp);
-            }
+            auto tmp = compiler.regAlloc.GetTemporary().cvt8();
+            code.test(*valueReg, *valueReg); // Updates NZ, clears CV; V won't be changed here
+            code.mov(tmp, ah);               // Copy current flags to preserve C later
+            code.lahf();                     // Load NZC; C is 0
+            code.and_(tmp, 1);               // Keep C
+            code.or_(ah, tmp);               // Put old C into AH; NZ is now updated and C is preserved
         }
     }
 }
@@ -261,7 +262,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
         } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
             code.mov(*dstReg, *valueReg);
             code.not_(*dstReg);
-        } // else: invalid mov instruction (no src)
+        } else {
+            // TODO: raise error: invalid mvn, no src
+        }
     }
 
     // Update host flags if applicable
@@ -282,34 +285,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
                 code.or_(eax, ~((1 << 15) | (1 << 14)));
             }
         } else if (auto valueReg = compiler.regAlloc.Get(op->value.var.var)) {
-            auto tmp = compiler.regAlloc.GetTemporary();
-
-            // Clear flags
-            uint32_t mask = 0;
-            if (bmFlags.AnyOf(arm::Flags::N)) {
-                mask |= (1 << 15);
-            }
-            if (bmFlags.AnyOf(arm::Flags::Z)) {
-                mask |= (1 << 14);
-            }
-            code.and_(eax, ~mask);
-
-            // Sign flag
-            if (bmFlags.AnyOf(arm::Flags::N)) {
-                code.mov(tmp, *valueReg);
-                code.shr(tmp, 31);
-                code.shl(tmp, 15);
-                code.or_(eax, tmp);
-            }
-
-            // Zero flag
-            if (bmFlags.AnyOf(arm::Flags::Z)) {
-                code.test(*valueReg, *valueReg);
-                code.sete(tmp.cvt8());
-                code.shl(tmp, 14);
-                code.and_(tmp, (1 << 14));
-                code.or_(eax, tmp);
-            }
+            auto tmp = compiler.regAlloc.GetTemporary().cvt8();
+            code.test(*valueReg, *valueReg); // Updates NZ, clears CV; V won't be changed here
+            code.mov(tmp, ah);               // Copy current flags to preserve C later
+            code.lahf();                     // Load NZC; C is 0
+            code.and_(tmp, 1);               // Keep C
+            code.or_(ah, tmp);               // Put old C into AH; NZ is now updated and C is preserved
         }
     }
 }
@@ -332,39 +313,30 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
             code.mov(*dstReg, op->srcCPSR.imm.value);
         } else if (auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var)) {
             code.mov(*dstReg, *srcReg);
-        } // else: invalid LoadFlags op, no srcCPSR
+        } else {
+            // TODO: raise error: invalid ldflg, no srcCPSR
+            return;
+        }
 
         // Apply flags to dstReg
         auto bmFlags = BitmaskEnum(op->flags);
         if (bmFlags.Any()) {
-            uint32_t hostMask = 0;
             uint32_t cpsrMask = static_cast<uint32_t>(op->flags);
-            if (bmFlags.AnyOf(arm::Flags::N)) {
-                hostMask |= (1u << 15u);
-            }
-            if (bmFlags.AnyOf(arm::Flags::Z)) {
-                hostMask |= (1u << 14u);
-            }
-            if (bmFlags.AnyOf(arm::Flags::C)) {
-                hostMask |= (1u << 8u);
-            }
-            if (bmFlags.AnyOf(arm::Flags::V)) {
-                hostMask |= (1u << 0u);
-            }
-            auto tmp = compiler.regAlloc.GetTemporary();
-            code.mov(tmp, eax);
-            code.and_(tmp, hostMask);
-            code.and_(*dstReg, ~cpsrMask);
+
+            // Extract the host flags we need from EAX into flags
+            auto flags = compiler.regAlloc.GetTemporary();
             if (CPUID::HasFastPDEPAndPEXT()) {
-                auto tmp2 = compiler.regAlloc.GetTemporary();
-                code.mov(tmp2, (1 << 15) | (1 << 14) | (1 << 8) | (1 << 0));
-                code.pext(tmp, tmp, tmp2);
-                code.shl(tmp, 28);
+                auto flagBits = compiler.regAlloc.GetTemporary();
+                code.mov(flagBits, kx64FlagsMask);
+                code.pext(flags, eax, flagBits);
+                code.shl(flags, 28);
             } else {
-                // TODO: not sure how to go about this
-                printf("uh oh\n");
+                code.imul(flags, eax, kx64ToARMFlagsMultiplier);
+                code.and_(flags, kARMFlagsMask);
             }
-            code.or_(*dstReg, tmp);
+            code.and_(flags, cpsrMask);    // Keep only the affected bits
+            code.and_(*dstReg, ~cpsrMask); // Clear affected bits from dst value
+            code.or_(*dstReg, flags);      // Store new bits into dst value
         }
     }
 }

@@ -101,14 +101,14 @@ void HostFlagsOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
     if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::Q))) {
+        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
         m_storeFlagsOp = nullptr;
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::Q))) {
+        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
         m_storeFlagsOp = nullptr;
     }
 }
@@ -151,7 +151,7 @@ void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    if (op->setQ || (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::Q))) {
+    if (op->setQ || (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
         m_storeFlagsOp = nullptr;
     }
 }

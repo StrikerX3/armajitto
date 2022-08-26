@@ -14,11 +14,9 @@ enum class Flags : uint32_t {
     Z = (1u << 30),
     C = (1u << 29),
     V = (1u << 28),
-    Q = (1u << 27),
 
     NZ = N | Z,
     NZCV = N | Z | C | V,
-    NZCVQ = N | Z | C | V | Q,
 };
 
 } // namespace armajitto::arm
@@ -27,21 +25,26 @@ ENABLE_BITMASK_OPERATORS(armajitto::arm::Flags);
 
 namespace armajitto::arm {
 
-inline std::string FlagsStr(Flags flags) {
-    auto flg = [](bool value, const char *letter) { return value ? std::string(letter) : std::string(""); };
+inline std::string FlagsStr(Flags flags, Flags affectedFlags) {
+    auto flg = [](bool value, bool affected, const char *letter) {
+        return value ? std::string(letter) : (affected ? std::format("({})", letter) : std::string(""));
+    };
+    if (flags == Flags::None) {
+        return "";
+    }
     auto bmFlags = BitmaskEnum(flags);
-    auto n = flg(bmFlags.AnyOf(Flags::N), "n");
-    auto z = flg(bmFlags.AnyOf(Flags::Z), "z");
-    auto c = flg(bmFlags.AnyOf(Flags::C), "c");
-    auto v = flg(bmFlags.AnyOf(Flags::V), "v");
-    auto q = flg(bmFlags.AnyOf(Flags::Q), "q");
-    return std::format("{}{}{}{}{}", n, z, c, v, q);
+    auto bmAffFlags = BitmaskEnum(affectedFlags);
+    auto n = flg(bmFlags.AnyOf(Flags::N), bmAffFlags.AnyOf(Flags::N), "n");
+    auto z = flg(bmFlags.AnyOf(Flags::Z), bmAffFlags.AnyOf(Flags::Z), "z");
+    auto c = flg(bmFlags.AnyOf(Flags::C), bmAffFlags.AnyOf(Flags::C), "c");
+    auto v = flg(bmFlags.AnyOf(Flags::V), bmAffFlags.AnyOf(Flags::V), "v");
+    return std::format("{}{}{}{}", n, z, c, v);
 }
 
-inline std::string FlagsSuffixStr(Flags flags) {
+inline std::string FlagsSuffixStr(Flags flags, Flags affectedFlags) {
     auto bmFlags = BitmaskEnum(flags);
     auto dot = bmFlags.Any() ? "." : "";
-    auto flagsStr = FlagsStr(flags);
+    auto flagsStr = FlagsStr(flags, affectedFlags);
     return std::format("{}{}", dot, flagsStr);
 }
 
