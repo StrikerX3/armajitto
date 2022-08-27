@@ -1580,6 +1580,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
 
+    // Contains the value 32 to be used in shifts
+    Xbyak::Reg64 shiftBy32Reg64{};
+    if (CPUID::HasBMI2()) {
+        shiftBy32Reg64 = compiler.regAlloc.GetTemporary().cvt64();
+        code.mov(shiftBy32Reg64, 32);
+    }
+
     // Compose two input variables (lo and hi) into a single 64-bit register
     auto compose64 = [&](const ir::VarOrImmArg &lo, const ir::VarOrImmArg &hi) {
         auto outReg64 = compiler.regAlloc.GetTemporary().cvt64();
@@ -1592,22 +1599,34 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
             auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
             auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
 
-            code.mov(outReg64, hiReg64);
-            code.shl(outReg64, 32);
+            if (CPUID::HasBMI2()) {
+                code.shlx(outReg64, hiReg64, shiftBy32Reg64);
+            } else {
+                code.mov(outReg64, hiReg64);
+                code.shl(outReg64, 32);
+            }
             code.or_(outReg64, loReg64);
         } else if (lo.immediate) {
             // lo is immediate, hi is variable
             auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
 
-            CopyIfDifferent(outReg64, hiReg64);
-            code.shl(outReg64, 32);
+            if (outReg64 != hiReg64 && CPUID::HasBMI2()) {
+                code.shlx(outReg64, hiReg64, shiftBy32Reg64);
+            } else {
+                CopyIfDifferent(outReg64, hiReg64);
+                code.shl(outReg64, 32);
+            }
             code.or_(outReg64, lo.imm.value);
         } else {
             // lo is variable, hi is immediate
             auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
 
-            CopyIfDifferent(outReg64, loReg64);
-            code.shl(outReg64, 32);
+            if (outReg64 != loReg64 && CPUID::HasBMI2()) {
+                code.shlx(outReg64, loReg64, shiftBy32Reg64);
+            } else {
+                CopyIfDifferent(outReg64, loReg64);
+                code.shl(outReg64, 32);
+            }
             code.or_(outReg64, hi.imm.value);
             code.ror(outReg64, 32);
         }
@@ -1639,8 +1658,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
     // Put top half of the result into dstHi if it is present
     if (op->dstHi.var.IsPresent()) {
         auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
-        code.mov(dstHiReg64, dstLoReg64);
-        code.shr(dstHiReg64, 32);
+        if (CPUID::HasBMI2()) {
+            code.shrx(dstHiReg64, dstLoReg64, shiftBy32Reg64);
+        } else {
+            code.mov(dstHiReg64, dstLoReg64);
+            code.shr(dstHiReg64, 32);
+        }
     }
 }
 
