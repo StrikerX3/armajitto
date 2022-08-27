@@ -601,8 +601,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                 Variable result = value->source;
 
                 // Emit a ROR or LSR for rotation
+                const uint32_t rotateMask = ~(~0u >> rotate);
                 if (rotate != 0) {
-                    const uint32_t rotateMask = ~(~0 >> rotate);
                     if ((value->knownBitsMask & rotateMask) == rotateMask) {
                         // Emit LSR when all <rotate> most significant bits are known
                         result = m_emitter.LogicalShiftRight(result, rotate, false);
@@ -624,8 +624,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                         result = m_emitter.BitwiseOr(result, ones, false);
                     }
 
-                    // Emit BIC for all known zero bits
-                    if (zeros != 0) {
+                    // Emit BIC for all known zero bits, unless all of those zero bits are covered by LSR
+                    if (zeros != 0 && zeros != rotateMask) {
                         result = m_emitter.BitClear(result, zeros, false);
                     }
 
@@ -680,8 +680,11 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
     // When we have the trifecta, only look for BIC and EOR
     trifecta = (ones != 0) && (zeros != 0) && (flips != 0);
 
+    // When LSR is used and the only zero bits are the most significant <rotate> bits, we can omit BIC.
+    // This happens when all zeros are covered by the rotation mask and no other zeros exist.
+    const uint32_t rotateMask = ~(~0u >> rotate);
     hasOnes = (ones == 0);
-    hasZeros = (zeros == 0);
+    hasZeros = (zeros == 0) || (zeros == rotateMask);
     hasFlips = (flips == 0);
     hasRotate = (rotate == 0);
 }
