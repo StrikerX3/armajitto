@@ -206,11 +206,17 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {
+    // TODO: implement
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) {
     const bool valueImm = op->value.immediate;
@@ -1406,9 +1412,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
+    // TODO: implement
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {
     if (op->flags != arm::Flags::None) {
@@ -1487,13 +1497,21 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {
+    // TODO: implement
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {
+    // TODO: implement
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
     // This instruction should be optimized away, but here's an implementation anyway
@@ -1513,7 +1531,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {
     CopyIfDifferent(dstReg32, varReg32);
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {
+    // TODO: implement
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 
