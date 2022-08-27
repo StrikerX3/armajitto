@@ -290,38 +290,37 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
         code.shr(dstReg64, 32); // Shift value back down to the bottom half
     } else {
         // value is variable, amount is immediate
-        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
         auto amount = op->amount.imm.value;
 
         if (amount < 32) {
             // Get destination register
-            Xbyak::Reg64 dstReg64{};
+            Xbyak::Reg32 dstReg32{};
             if (op->dst.var.IsPresent()) {
-                dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-                CopyIfDifferent(dstReg64, valueReg64);
+                dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                CopyIfDifferent(dstReg32, valueReg32);
             } else {
-                dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
+                dstReg32 = compiler.regAlloc.GetTemporary();
             }
 
             // Compute shift and update flags
-            code.shl(dstReg64, amount + 32);
+            code.shl(dstReg32, amount);
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
-            code.shr(dstReg64, 32); // Shift value back down to the bottom half
         } else {
             if (amount == 32) {
                 if (op->dst.var.IsPresent()) {
                     // Update carry flag before zeroing out the register
                     if (op->setCarry) {
-                        code.bt(valueReg64, 0);
+                        code.bt(valueReg32, 0);
                         SetCFromFlags(compiler);
                     }
 
                     auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                     code.xor_(dstReg32, dstReg32);
                 } else if (op->setCarry) {
-                    code.bt(valueReg64, 0);
+                    code.bt(valueReg32, 0);
                     SetCFromFlags(compiler);
                 }
             } else {

@@ -798,7 +798,7 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
     armState.GPR(armajitto::arm::GPR::R2) = 0x82000705;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x111;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x02220111;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;
