@@ -811,7 +811,7 @@ void ConstPropagationOptimizerPass::Process(IRLoadFlagsOp *op) {
 void ConstPropagationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
     Substitute(op->srcCPSR);
     const arm::Flags mask = op->setQ ? arm::Flags::V : arm::Flags::None;
-    if (op->srcCPSR.immediate && BitmaskEnum(m_knownHostFlagsMask).AllOf(mask)) {
+    if (BitmaskEnum(m_knownHostFlagsMask).AllOf(mask)) {
         auto hostFlags = m_knownHostFlagsValues & mask;
         const auto srcCPSR = op->srcCPSR;
         const auto dstCPSR = op->dstCPSR;
