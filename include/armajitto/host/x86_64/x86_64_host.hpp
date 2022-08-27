@@ -77,17 +77,23 @@ private:
     void CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op);
 
     // -------------------------------------------------------------------------
-    // Common operations
+    // Building blocks
 
-    void CompileSetCFromValue(bool carry);
-    void CompileSetCFromFlags(Compiler &compiler);
+    void SetCFromValue(bool carry);
+    void SetCFromFlags(Compiler &compiler);
 
-    void CompileSetNZFromValue(uint32_t value);
-    void CompileSetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
-    void CompileSetNZFromFlags(Compiler &compiler);
+    void SetNZFromValue(uint32_t value);
+    void SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
+    void SetNZFromFlags(Compiler &compiler);
 
-    void CompileSetNZCVFromValue(uint32_t value, bool carry, bool overflow);
-    void CompileSetNZCVFromFlags();
+    void SetNZCVFromValue(uint32_t value, bool carry, bool overflow);
+    void SetNZCVFromFlags();
+
+    // Compiles a MOV <reg>, <value> if <value> != 0, or XOR <reg>, <reg> if 0
+    void MOVImmediate(Xbyak::Reg32 reg, uint32_t value);
+
+    // Compiles a MOV <dst>, <src> if the registers are different
+    void CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src);
 };
 
 } // namespace armajitto::x86_64
