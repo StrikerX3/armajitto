@@ -883,7 +883,33 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRCountLeadingZerosOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRCountLeadingZerosOp *op) {
+    if (op->dst.var.IsPresent()) {
+        Xbyak::Reg32 valReg32{};
+        Xbyak::Reg32 dstReg32{};
+        if (op->value.immediate) {
+            valReg32 = compiler.regAlloc.GetTemporary();
+            dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.mov(valReg32, op->value.imm.value);
+        } else {
+            valReg32 = compiler.regAlloc.Get(op->value.var.var);
+            dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            CopyIfDifferent(dstReg32, valReg32);
+        }
+
+        if (CPUID::HasLZCNT()) {
+            code.lzcnt(dstReg32, valReg32);
+        } else {
+            // BSR unhelpfully returns the bit offset from the right, not left
+            auto valIfZero32 = compiler.regAlloc.GetTemporary();
+            code.mov(valIfZero32, 0xFFFFFFFF);
+            code.bsr(dstReg32, valReg32);
+            code.cmovz(dstReg32, valIfZero32);
+            code.neg(dstReg32);
+            code.add(dstReg32, 31);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
     const bool lhsImm = op->lhs.immediate;

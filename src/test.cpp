@@ -674,7 +674,7 @@ void testCompiler() {
     // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
     // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
     // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
-    writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7  <-- test this rscs and ror
+    // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
     // writeARM(0xE1120003); // tst r2, r3
     // writeARM(0xE1320003); // teq r2, r3
     // writeARM(0xE1520003); // cmp r2, r3
@@ -683,6 +683,7 @@ void testCompiler() {
     // writeARM(0xE1B01002); // movs r1, r2
     // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
     // writeARM(0xE1E01003); // mvn r1, r3
+    writeARM(0xE16F1F13); // clz r1, r3
     writeARM(0xEAFFFFFE); // b $
 
     // TODO: test CLZ
@@ -761,8 +762,8 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.GPR(armajitto::arm::GPR::R2) = 0x12;       // 0x7FFFFFFF; // -1;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x0000340F; // 1;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
     armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
