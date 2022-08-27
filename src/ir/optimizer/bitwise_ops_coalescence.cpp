@@ -607,9 +607,10 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                 // Emit a ROR, LSR or LSL for rotation
                 const uint32_t rightShiftMask = ~(~0u >> rotate);
                 const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
-                const bool rightShiftMatch = (value->knownBitsMask & rightShiftMask) == rightShiftMask &&
+                const bool rightShiftMatch = (rotate != 0) &&
+                                             (value->knownBitsMask & rightShiftMask) == rightShiftMask &&
                                              (value->knownBitsValue & rightShiftMask) == 0;
-                const bool leftShiftMatch = (value->knownBitsMask & leftShiftMask) == leftShiftMask &&
+                const bool leftShiftMatch = (rotate != 0) && (value->knownBitsMask & leftShiftMask) == leftShiftMask &&
                                             (value->knownBitsValue & leftShiftMask) == 0;
                 if (rotate != 0) {
                     if (rightShiftMatch) {
@@ -696,10 +697,10 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
     // This happens when all zeros are covered by the rotation mask and no other zeros exist.
     const uint32_t rightShiftMask = ~(~0u >> rotate);
     const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
-    const bool rightShiftMatch =
-        (value.knownBitsMask & rightShiftMask) == rightShiftMask && (value.knownBitsValue & rightShiftMask) == 0;
-    const bool leftShiftMatch =
-        (value.knownBitsMask & leftShiftMask) == leftShiftMask && (value.knownBitsValue & leftShiftMask) == 0;
+    const bool rightShiftMatch = (rotate != 0) && (value.knownBitsMask & rightShiftMask) == rightShiftMask &&
+                                 (value.knownBitsValue & rightShiftMask) == 0;
+    const bool leftShiftMatch = (rotate != 0) && (value.knownBitsMask & leftShiftMask) == leftShiftMask &&
+                                (value.knownBitsValue & leftShiftMask) == 0;
     hasOnes = (ones == 0);
     hasZeros = (zeros == 0) || leftShiftMatch || rightShiftMatch;
     hasFlips = (flips == 0);
