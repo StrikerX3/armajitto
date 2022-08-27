@@ -489,10 +489,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
                 CopyIfDifferent(dstReg, varReg);
                 code.and_(dstReg, imm);
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
-
-                code.mov(tmpReg, varReg);
-                code.and_(tmpReg, imm);
+                code.test(varReg, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -513,10 +510,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
                     code.and_(dstReg, rhsReg);
                 }
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
-
-                code.mov(tmpReg, lhsReg);
-                code.and_(tmpReg, rhsReg);
+                code.test(lhsReg, rhsReg);
             }
         }
 
