@@ -82,6 +82,9 @@ private:
     void SetCFromValue(bool carry);
     void SetCFromFlags(Compiler &compiler);
 
+    void SetVFromValue(bool overflow);
+    void SetVFromFlags();
+
     void SetNZFromValue(uint32_t value);
     void SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
     void SetNZFromFlags(Compiler &compiler);
@@ -96,11 +99,13 @@ private:
     void CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src);
     void CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src);
 
-    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags);
-    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, std::optional<bool> carry,
-                         bool setFlags);
-    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry, bool overflow,
-                         bool setFlags);
+    void AssignImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags);
+    void AssignImmResultWirdNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
+                                 bool overflow, bool setFlags);
+    void AssignImmResultWithCarry(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
+                                  std::optional<bool> carry, bool setFlags);
+    void AssignImmResultWithOverflow(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool overflow,
+                                     bool setFlags);
 };
 
 } // namespace armajitto::x86_64

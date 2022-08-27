@@ -11,6 +11,7 @@
 #include "x86_64_compiler.hpp"
 
 #include <cstdio>
+#include <limits>
 
 namespace armajitto::x86_64 {
 
@@ -222,7 +223,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
     if (valueImm && amountImm) {
         // Both are immediates
         auto [result, carry] = arm::LSL(op->value.imm.value, op->amount.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+        AssignImmResultWithCarry(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
         auto shiftReg64 = compiler.regAlloc.GetRCX();
@@ -342,7 +343,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
     if (valueImm && amountImm) {
         // Both are immediates
         auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+        AssignImmResultWithCarry(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
         auto shiftReg64 = compiler.regAlloc.GetRCX();
@@ -450,7 +451,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
     if (valueImm && amountImm) {
         // Both are immediates
         auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+        AssignImmResultWithCarry(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
         auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
@@ -528,7 +529,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
     if (valueImm && amountImm) {
         // Both are immediates
         auto [result, carry] = arm::ROR(op->value.imm.value, op->amount.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+        AssignImmResultWithCarry(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
         auto shiftReg8 = compiler.regAlloc.GetRCX().cvt8();
@@ -645,7 +646,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         const uint32_t result = op->lhs.imm.value & op->rhs.imm.value;
-        AssignImmResult(compiler, op->dst, result, setFlags);
+        AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
     } else {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -696,7 +697,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         const uint32_t result = op->lhs.imm.value | op->rhs.imm.value;
-        AssignImmResult(compiler, op->dst, result, setFlags);
+        AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
     } else {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -752,7 +753,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         const uint32_t result = op->lhs.imm.value ^ op->rhs.imm.value;
-        AssignImmResult(compiler, op->dst, result, setFlags);
+        AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
     } else {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -808,7 +809,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         const uint32_t result = op->lhs.imm.value & ~op->rhs.imm.value;
-        AssignImmResult(compiler, op->dst, result, setFlags);
+        AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
     } else {
         // At least one of the operands is a variable
         if (!rhsImm) {
@@ -892,7 +893,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         auto [result, carry, overflow] = arm::ADD(op->lhs.imm.value, op->rhs.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, overflow, setFlags);
+        AssignImmResultWirdNZCV(compiler, op->dst, result, carry, overflow, setFlags);
     } else {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -1016,7 +1017,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         auto [result, carry, overflow] = arm::SUB(op->lhs.imm.value, op->rhs.imm.value);
-        AssignImmResult(compiler, op->dst, result, carry, overflow, setFlags);
+        AssignImmResultWirdNZCV(compiler, op->dst, result, carry, overflow, setFlags);
     } else {
         // At least one of the operands is a variable
         if (!lhsImm) {
@@ -1194,9 +1195,149 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op) {}
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        const int64_t lhsVal = bit::sign_extend<32, int64_t>(op->lhs.imm.value);
+        const int64_t rhsVal = bit::sign_extend<32, int64_t>(op->rhs.imm.value);
+        const auto [result, overflow] = arm::Saturate(lhsVal + rhsVal);
+        AssignImmResultWithOverflow(compiler, op->dst, result, overflow, setFlags);
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg32 = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.add(dstReg32, imm);
+                if (setFlags) {
+                    SetVFromFlags();
+                }
+
+                // Clamp on overflow
+                auto maxValReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(maxValReg32, std::numeric_limits<int32_t>::max());
+                code.cmovo(dstReg32, maxValReg32);
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, varReg32);
+                code.add(tmpReg32, imm);
+                SetVFromFlags();
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+
+                if (dstReg32 == lhsReg32) {
+                    code.add(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.add(dstReg32, lhsReg32);
+                } else {
+                    code.mov(dstReg32, lhsReg32);
+                    code.add(dstReg32, rhsReg32);
+                }
+
+                if (setFlags) {
+                    SetVFromFlags();
+                }
+
+                // Clamp on overflow
+                auto maxValReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(maxValReg32, std::numeric_limits<int32_t>::max());
+                code.cmovo(dstReg32, maxValReg32);
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, lhsReg32);
+                code.add(tmpReg32, rhsReg32);
+                SetVFromFlags();
+            }
+        }
+    }
+}
+
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        const int64_t lhsVal = bit::sign_extend<32, int64_t>(op->lhs.imm.value);
+        const int64_t rhsVal = bit::sign_extend<32, int64_t>(op->rhs.imm.value);
+        const auto [result, overflow] = arm::Saturate(lhsVal - rhsVal);
+        AssignImmResultWithOverflow(compiler, op->dst, result, overflow, setFlags);
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg32 = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.sub(dstReg32, imm);
+                if (setFlags) {
+                    SetVFromFlags();
+                }
+
+                // Clamp on overflow
+                auto maxValReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(maxValReg32, std::numeric_limits<int32_t>::min());
+                code.cmovo(dstReg32, maxValReg32);
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, varReg32);
+                code.sub(tmpReg32, imm);
+                SetVFromFlags();
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+
+                if (dstReg32 == lhsReg32) {
+                    code.sub(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.sub(dstReg32, lhsReg32);
+                } else {
+                    code.mov(dstReg32, lhsReg32);
+                    code.sub(dstReg32, rhsReg32);
+                }
+
+                if (setFlags) {
+                    SetVFromFlags();
+                }
+
+                // Clamp on overflow
+                auto maxValReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(maxValReg32, std::numeric_limits<int32_t>::min());
+                code.cmovo(dstReg32, maxValReg32);
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, lhsReg32);
+                code.sub(tmpReg32, rhsReg32);
+                SetVFromFlags();
+            }
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {}
 
@@ -1239,28 +1380,21 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op) {
-    // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
-    if (op->srcCPSR.immediate) {
+    if (op->setQ) {
+        auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
+        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
+
+        // Apply overflow flag in the Q position
+        code.mov(dstReg32, al);         // Copy overflow flag into destination register
+        code.shl(dstReg32, ARMflgQPos); // Move Q into position
+        code.or_(dstReg32, srcReg32);   // OR with srcCPSR
+    } else if (op->srcCPSR.immediate) {
         auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
         code.mov(dstReg32, op->srcCPSR.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
         auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
         CopyIfDifferent(dstReg32, srcReg32);
-    }
-
-    // Apply overflow flag to dstReg32 in the Q position
-    if (op->setQ) {
-        const uint32_t cpsrMask = ARMflgQ;
-        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
-
-        // Extract the overflow from EAX into flags
-        auto flags = compiler.regAlloc.GetTemporary();
-        code.movzx(flags, al);          // Get host overflow flag
-        code.shl(flags, ARMflgQPos);    // Move flag into the Q position
-        code.and_(flags, cpsrMask);     // Keep only the affected bits
-        code.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
-        code.or_(dstReg32, flags);      // Store new bits into dst value
     }
 }
 
@@ -1309,6 +1443,18 @@ void x64Host::SetCFromFlags(Compiler &compiler) {
     code.shl(tmp32, x64flgCPos);     // Move it to the correct position
     code.and_(eax, ~x64flgC);        // Clear existing C flag from EAX
     code.or_(eax, tmp32);            // Write new C flag into EAX
+}
+
+void x64Host::SetVFromValue(bool overflow) {
+    if (overflow) {
+        code.mov(al, 1);
+    } else {
+        code.xor_(al, al);
+    }
+}
+
+void x64Host::SetVFromFlags() {
+    code.seto(al);
 }
 
 void x64Host::SetNZFromValue(uint32_t value) {
@@ -1381,7 +1527,7 @@ void x64Host::CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src) {
     }
 }
 
-void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags) {
+void x64Host::AssignImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags) {
     if (dst.var.IsPresent()) {
         auto dstReg32 = compiler.regAlloc.Get(dst.var);
         MOVImmediate(dstReg32, result);
@@ -1392,8 +1538,20 @@ void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, ui
     }
 }
 
-void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
-                              std::optional<bool> carry, bool setCarry) {
+void x64Host::AssignImmResultWirdNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
+                                      bool overflow, bool setFlags) {
+    if (dst.var.IsPresent()) {
+        auto dstReg32 = compiler.regAlloc.Get(dst.var);
+        MOVImmediate(dstReg32, result);
+    }
+
+    if (setFlags) {
+        SetNZCVFromValue(result, carry, overflow);
+    }
+}
+
+void x64Host::AssignImmResultWithCarry(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
+                                       std::optional<bool> carry, bool setCarry) {
     if (dst.var.IsPresent()) {
         auto dstReg32 = compiler.regAlloc.Get(dst.var);
         MOVImmediate(dstReg32, result);
@@ -1404,15 +1562,15 @@ void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, ui
     }
 }
 
-void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
-                              bool overflow, bool setFlags) {
+void x64Host::AssignImmResultWithOverflow(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
+                                          bool overflow, bool setFlags) {
     if (dst.var.IsPresent()) {
         auto dstReg32 = compiler.regAlloc.Get(dst.var);
         MOVImmediate(dstReg32, result);
     }
 
     if (setFlags) {
-        SetNZCVFromValue(result, carry, overflow);
+        SetVFromValue(overflow);
     }
 }
 

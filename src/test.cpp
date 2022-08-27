@@ -192,7 +192,7 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
     // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
     // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
-    writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
+    // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
     // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
     // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
     // writeARM(0xE1120003); // tst r2, r3
@@ -203,7 +203,7 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE1B01002); // movs r1, r2
     // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
     // writeARM(0xE1E01003); // mvn r1, r3
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEAFFFFFE); // b $
 
     // ARM ALU comparisons
     // writeARM(0xE0021003); // and r1, r2, r3
@@ -219,9 +219,9 @@ void testTranslatorAndOptimizer() {
     // QADD, QSUB, QDADD, QDSUB
     // writeARM(0xE1031052); // qadd r1, r2, r3
     // writeARM(0xE1231052); // qsub r1, r2, r3
-    // writeARM(0xE1431052); // qdadd r1, r2, r3
+    writeARM(0xE1431052); // qdadd r1, r2, r3
     // writeARM(0xE1631052); // qdsub r1, r2, r3
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xEAFFFFFE); // b $
 
     // MUL, MLA
     // writeARM(0xE0110392); // muls r1, r2, r3
@@ -683,12 +683,13 @@ void testCompiler() {
     // writeARM(0xE1B01002); // movs r1, r2
     // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
     // writeARM(0xE1E01003); // mvn r1, r3
-    writeARM(0xE16F1F13); // clz r1, r3
+    // writeARM(0xE16F1F13); // clz r1, r3
+    // writeARM(0xE1031052); // qadd r1, r2, r3
+    // writeARM(0xE1231052); // qsub r1, r2, r3
+    // writeARM(0xE1431052); // qdadd r1, r2, r3
+    writeARM(0xE1631052); // qdsub r1, r2, r3
     writeARM(0xEAFFFFFE); // b $
 
-    // TODO: test CLZ
-    // TODO: test QADD
-    // TODO: test QSUB
     // TODO: test MUL (signed and unsigned)
     // TODO: test MULL (signed and unsigned, half shift)
     // TODO: test ADDL
@@ -762,8 +763,10 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x80000010;
+    armState.GPR(armajitto::arm::GPR::R3) = 8;
     armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
