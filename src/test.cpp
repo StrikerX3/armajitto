@@ -673,8 +673,8 @@ void testCompiler() {
     // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
     // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
     // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
-    writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4  <-- test this sbcs and asr
-    // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7  <-- test this rscs and ror
+    // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
+    writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7  <-- test this rscs and ror
     // writeARM(0xE1120003); // tst r2, r3
     // writeARM(0xE1320003); // teq r2, r3
     // writeARM(0xE1520003); // cmp r2, r3

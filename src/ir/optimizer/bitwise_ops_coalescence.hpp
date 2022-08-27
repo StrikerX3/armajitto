@@ -259,7 +259,7 @@ private:
 
         void RotateRight(uint32_t amount) {
             amount &= 31u;
-            if (amount != 0) {
+            if (amount != 0 && knownBitsMask != 0) {
                 valid = true;
             }
             knownBitsMask = std::rotr(knownBitsMask, amount);
