@@ -32,9 +32,11 @@ public:
     // Retrieves a temporary register without assigning it to any variable.
     Xbyak::Reg32 GetTemporary();
 
-    // Attempts to reassign the source variable's register or spill slot to the destination variable. This is only
-    // possible if the source variable is at the end of its lifetime.
-    bool TryReuse(ir::Variable dst, ir::Variable src);
+    // Attempts to reassign the source variable's register or spill slot to the destination variable.
+    // This is only possible if the source variable is at the end of its lifetime and the destination variable is yet to
+    // be assigned a register.
+    // This method must be invoked after Get(src) and before Get(dst)
+    void Reuse(ir::Variable dst, ir::Variable src);
 
     // Retrieves the RCX register, spilling out any associated variables if necessary.
     Xbyak::Reg64 GetRCX();

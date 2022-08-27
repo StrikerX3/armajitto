@@ -349,7 +349,77 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *o
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        const uint32_t result = op->lhs.imm.value & op->rhs.imm.value;
+
+        if (op->dst.var.IsPresent()) {
+            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+            if (result == 0) {
+                code.xor_(dstReg, dstReg);
+            } else {
+                code.mov(dstReg, result);
+            }
+        }
+
+        if (setFlags) {
+            CompileSetNZFromValue(result);
+        }
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, var);
+                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+
+                if (dstReg != varReg) {
+                    code.mov(dstReg, varReg);
+                }
+                code.and_(dstReg, imm);
+            } else if (setFlags) {
+                auto tmpReg = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg, varReg);
+                code.and_(tmpReg, imm);
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+
+                if (dstReg == lhsReg) {
+                    code.and_(dstReg, rhsReg);
+                } else if (dstReg == rhsReg) {
+                    code.and_(dstReg, lhsReg);
+                } else {
+                    code.mov(dstReg, lhsReg);
+                    code.and_(dstReg, rhsReg);
+                }
+            } else if (setFlags) {
+                auto tmpReg = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg, lhsReg);
+                code.and_(tmpReg, rhsReg);
+            }
+        }
+
+        if (setFlags) {
+            CompileSetNZFromFlags(compiler);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {}
 
@@ -359,14 +429,17 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
     if (lhsImm && rhsImm) {
         // Both are immediates
         const uint32_t result = op->lhs.imm.value & ~op->rhs.imm.value;
+
         if (op->dst.var.IsPresent()) {
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
             code.mov(dstReg, result);
         }
-        if (BitmaskEnum(op->flags).Any()) {
+
+        if (setFlags) {
             CompileSetNZFromValue(result);
         }
     } else {
@@ -374,10 +447,16 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
         if (!rhsImm) {
             // lhs is var or imm, rhs is variable
             auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+
             if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg, rhsReg);
+
+                if (dstReg != rhsReg) {
+                    code.mov(dstReg, rhsReg);
+                }
                 code.not_(dstReg);
+
                 if (lhsImm) {
                     code.and_(dstReg, op->lhs.imm.value);
                 } else {
@@ -386,8 +465,10 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
                 }
             } else if (setFlags) {
                 auto tmpReg = compiler.regAlloc.GetTemporary();
+
                 code.mov(tmpReg, rhsReg);
                 code.not_(tmpReg);
+
                 if (lhsImm) {
                     code.test(tmpReg, op->lhs.imm.value);
                 } else {
@@ -399,13 +480,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             // lhs is variable, rhs is immediate
             auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
             if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg, lhsReg);
+
+                if (dstReg != lhsReg) {
+                    code.mov(dstReg, lhsReg);
+                }
                 code.and_(dstReg, ~op->rhs.imm.value);
             } else if (setFlags) {
                 code.test(lhsReg, ~op->rhs.imm.value);
             }
         }
+
         if (setFlags) {
             CompileSetNZFromFlags(compiler);
         }
@@ -418,12 +504,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
     if (lhsImm && rhsImm) {
         auto [result, carry, overflow] = arm::ADD(op->lhs.imm.value, op->rhs.imm.value);
+
         if (op->dst.var.IsPresent()) {
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, result);
+            if (result == 0) {
+                code.xor_(dstReg, dstReg);
+            } else {
+                code.mov(dstReg, result);
+            }
         }
+
         if (setFlags) {
             CompileSetNZCVFromValue(result, carry, overflow);
         }
@@ -432,12 +525,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [imm, var] = *split;
             auto varReg = compiler.regAlloc.Get(var);
+
             if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, var);
                 auto dstReg = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg, varReg);
+
+                if (dstReg != varReg) {
+                    code.mov(dstReg, varReg);
+                }
                 code.add(dstReg, imm);
             } else if (setFlags) {
                 auto tmpReg = compiler.regAlloc.GetTemporary();
+
                 code.mov(tmpReg, varReg);
                 code.add(tmpReg, imm);
             }
@@ -445,16 +544,28 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
             // lhs and rhs are vars
             auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
             auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+
             if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg, lhsReg);
-                code.add(dstReg, rhsReg);
+
+                if (dstReg == lhsReg) {
+                    code.add(dstReg, rhsReg);
+                } else if (dstReg == rhsReg) {
+                    code.add(dstReg, lhsReg);
+                } else {
+                    code.mov(dstReg, lhsReg);
+                    code.add(dstReg, rhsReg);
+                }
             } else if (setFlags) {
                 auto tmpReg = compiler.regAlloc.GetTemporary();
+
                 code.mov(tmpReg, lhsReg);
                 code.add(tmpReg, rhsReg);
             }
         }
+
         if (setFlags) {
             CompileSetNZCVFromFlags();
         }
@@ -469,52 +580,69 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
-    if (op->value.immediate) {
-        if (op->dst.var.IsPresent()) {
+    if (op->dst.var.IsPresent()) {
+        if (op->value.immediate) {
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, op->value.imm.value);
-        }
-        if (setFlags) {
-            CompileSetNZFromValue(op->value.imm.value);
-        }
-    } else if (op->dst.var.IsPresent()) {
-        if (!compiler.regAlloc.TryReuse(op->dst.var, op->value.var.var)) {
-            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
+            if (op->value.imm.value == 0) {
+                code.xor_(dstReg, dstReg);
+            } else {
+                code.mov(dstReg, op->value.imm.value);
+            }
+        } else {
+            auto valReg = compiler.regAlloc.Get(op->value.var.var);
+            compiler.regAlloc.Reuse(op->dst.var, op->value.var.var);
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, valueReg);
+
+            if (dstReg != valReg) {
+                code.mov(dstReg, valReg);
+            }
         }
+
         if (setFlags) {
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
             CompileSetNZFromReg(compiler, dstReg);
         }
     } else if (setFlags) {
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-        CompileSetNZFromReg(compiler, valueReg);
+        if (op->value.immediate) {
+            CompileSetNZFromValue(op->value.imm.value);
+        } else {
+            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
+            CompileSetNZFromReg(compiler, valueReg);
+        }
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
-    if (op->value.immediate) {
-        auto value = ~op->value.imm.value;
-        if (op->dst.var.IsPresent()) {
+    if (op->dst.var.IsPresent()) {
+        if (op->value.immediate) {
             auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, value);
-        }
-        if (setFlags) {
-            CompileSetNZFromValue(value);
-        }
-    } else {
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-        if (op->dst.var.IsPresent()) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, valueReg);
-            code.not_(dstReg);
-            if (setFlags) {
-                CompileSetNZFromReg(compiler, dstReg);
+            if (op->value.imm.value == ~0) {
+                code.xor_(dstReg, dstReg);
+            } else {
+                code.mov(dstReg, ~op->value.imm.value);
             }
-        } else if (setFlags) {
-            auto tmpReg = compiler.regAlloc.Get(op->dst.var);
+        } else {
+            auto valReg = compiler.regAlloc.Get(op->value.var.var);
+            compiler.regAlloc.Reuse(op->dst.var, op->value.var.var);
+            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+
+            if (dstReg != valReg) {
+                code.mov(dstReg, valReg);
+                code.not_(dstReg);
+            }
+        }
+
+        if (setFlags) {
+            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+            CompileSetNZFromReg(compiler, dstReg);
+        }
+    } else if (setFlags) {
+        if (op->value.immediate) {
+            CompileSetNZFromValue(~op->value.imm.value);
+        } else {
+            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
+            auto tmpReg = compiler.regAlloc.GetTemporary();
             code.mov(tmpReg, valueReg);
             code.not_(tmpReg);
             CompileSetNZFromReg(compiler, tmpReg);
@@ -539,10 +667,14 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
     if (op->srcCPSR.immediate) {
         auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
         code.mov(dstReg, op->srcCPSR.imm.value);
-    } else if (!compiler.regAlloc.TryReuse(op->dstCPSR.var, op->srcCPSR.var.var)) {
+    } else {
         auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
+        compiler.regAlloc.Reuse(op->dstCPSR.var, op->srcCPSR.var.var);
         auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
-        code.mov(dstReg, srcReg);
+
+        if (dstReg != srcReg) {
+            code.mov(dstReg, srcReg);
+        }
     }
 
     // Apply flags to dstReg
@@ -567,18 +699,24 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op) {
-    auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
-    // Get value from srcCPSR
+    // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
     if (op->srcCPSR.immediate) {
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
         code.mov(dstReg, op->srcCPSR.imm.value);
     } else {
         auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
-        code.mov(dstReg, srcReg);
+        compiler.regAlloc.Reuse(op->dstCPSR.var, op->srcCPSR.var.var);
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
+
+        if (dstReg != srcReg) {
+            code.mov(dstReg, srcReg);
+        }
     }
 
     // Apply overflow flag to dstReg in the Q position
     if (op->setQ) {
         const uint32_t cpsrMask = ARMflgQ;
+        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
 
         // Extract the overflow from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();

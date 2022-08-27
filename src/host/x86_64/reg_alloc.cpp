@@ -58,15 +58,15 @@ Xbyak::Reg32 RegisterAllocator::GetTemporary() {
     return reg;
 }
 
-bool RegisterAllocator::TryReuse(ir::Variable dst, ir::Variable src) {
+void RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
     // Both variables must be present
     if (!dst.IsPresent() || !src.IsPresent()) {
-        return false;
+        return;
     }
 
     // Source variable is still used elsewhere
     if (!m_varLifetimes.IsEndOfLife(src, m_currOp)) {
-        return false;
+        return;
     }
 
     const auto srcIndex = src.Index();
@@ -76,7 +76,7 @@ bool RegisterAllocator::TryReuse(ir::Variable dst, ir::Variable src) {
 
     // src must be allocated and dst must be deallocated for the copy to happen
     if (!srcEntry.allocated || dstEntry.allocated) {
-        return false;
+        return;
     }
 
     // Copy allocation and mark src as deallocated
@@ -86,7 +86,6 @@ bool RegisterAllocator::TryReuse(ir::Variable dst, ir::Variable src) {
     auto _dstStr = dst.ToString();
     auto _srcStr = src.ToString();
     printf("    reassigned %s <- %s\n", _dstStr.c_str(), _srcStr.c_str());
-    return true;
 }
 
 Xbyak::Reg64 RegisterAllocator::GetRCX() {
