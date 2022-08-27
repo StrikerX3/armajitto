@@ -368,9 +368,6 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
         auto value = op->value.imm.value;
         auto amountReg = compiler.regAlloc.Get(op->amount.var.var);
 
-        // x86 masks the shift amount to 31 or 63.
-        // ARM does not -- larger amounts simply output zero. The carry flag is set to bit <amount-1>.
-
         // Get shift amount, clamped to 0..63
         code.mov(shiftReg, 63);
         code.cmp(amountReg, 63);
@@ -392,25 +389,20 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
         }
     } else {
         // value is variable, amount is immediate
-        auto shiftReg = compiler.regAlloc.GetRCX();
         auto valueReg = compiler.regAlloc.Get(op->value.var.var);
         auto amount = op->amount.imm.value;
-
-        // x86 masks the shift amount to 31 or 63.
-        // ARM does not -- larger amounts simply output zero. The carry flag is set to bit <amount-1>.
 
         if (amount < 32) {
             // Compute the shift
             if (op->dst.var.IsPresent()) {
                 auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 CopyIfDifferent(dstReg, valueReg);
-                code.shr(dstReg, shiftReg.cvt8());
+                code.shr(dstReg, amount);
                 if (op->setCarry) {
                     SetCFromFlags(compiler);
                 }
             } else if (op->setCarry) {
-                code.dec(shiftReg);
-                code.bt(valueReg.cvt64(), shiftReg);
+                code.bt(valueReg.cvt64(), amount - 1);
                 SetCFromFlags(compiler);
             }
         } else {
