@@ -38,6 +38,14 @@ public:
     // This method must be invoked after Get(src) and before Get(dst)
     void Reuse(ir::Variable dst, ir::Variable src);
 
+    // Attempts to reassign the source variable to the destination variable and returns either the reassigned register
+    // or a newly assigned register.
+    // Shorthand for Reuse(dst, src) followed by Get(dst).
+    Xbyak::Reg32 ReuseAndGet(ir::Variable dst, ir::Variable src) {
+        Reuse(dst, src);
+        return Get(dst);
+    }
+
     // Retrieves the RCX register, spilling out any associated variables if necessary.
     Xbyak::Reg64 GetRCX();
 

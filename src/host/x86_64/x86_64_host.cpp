@@ -375,8 +375,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
             auto varReg = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                compiler.regAlloc.Reuse(op->dst.var, var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
                 CopyIfDifferent(dstReg, varReg);
                 code.and_(dstReg, imm);
@@ -446,8 +445,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
-                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
 
                 CopyIfDifferent(dstReg, rhsReg);
                 code.not_(dstReg);
@@ -475,8 +473,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             // lhs is variable, rhs is immediate
             auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
             if (op->dst.var.IsPresent()) {
-                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
 
                 CopyIfDifferent(dstReg, lhsReg);
                 code.and_(dstReg, ~op->rhs.imm.value);
@@ -516,8 +513,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
             auto varReg = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                compiler.regAlloc.Reuse(op->dst.var, var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
                 CopyIfDifferent(dstReg, varReg);
                 code.add(dstReg, imm);
@@ -573,8 +569,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
             MOVImmediate(dstReg, op->value.imm.value);
         } else {
             auto valReg = compiler.regAlloc.Get(op->value.var.var);
-            compiler.regAlloc.Reuse(op->dst.var, op->value.var.var);
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+            auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
             CopyIfDifferent(dstReg, valReg);
         }
 
@@ -600,8 +595,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
             MOVImmediate(dstReg, ~op->value.imm.value);
         } else {
             auto valReg = compiler.regAlloc.Get(op->value.var.var);
-            compiler.regAlloc.Reuse(op->dst.var, op->value.var.var);
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
+            auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
 
             CopyIfDifferent(dstReg, valReg);
             code.not_(dstReg);
@@ -643,8 +637,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
         code.mov(dstReg, op->srcCPSR.imm.value);
     } else {
         auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
-        compiler.regAlloc.Reuse(op->dstCPSR.var, op->srcCPSR.var.var);
-        auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
+        auto srcReg = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
         CopyIfDifferent(dstReg, srcReg);
     }
 
@@ -676,8 +669,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op
         code.mov(dstReg, op->srcCPSR.imm.value);
     } else {
         auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
-        compiler.regAlloc.Reuse(op->dstCPSR.var, op->srcCPSR.var.var);
-        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
+        auto dstReg = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
         CopyIfDifferent(dstReg, srcReg);
     }
 
