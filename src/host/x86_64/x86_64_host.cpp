@@ -520,7 +520,63 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        const uint32_t result = op->lhs.imm.value | op->rhs.imm.value;
+        AssignImmResult(compiler, op->dst, result, setFlags);
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+
+                CopyIfDifferent(dstReg, varReg);
+                code.or_(dstReg, imm);
+            } else if (setFlags) {
+                auto tmpReg = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg, varReg);
+                code.or_(tmpReg, imm);
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+
+                if (dstReg == lhsReg) {
+                    code.or_(dstReg, rhsReg);
+                } else if (dstReg == rhsReg) {
+                    code.or_(dstReg, lhsReg);
+                } else {
+                    code.mov(dstReg, lhsReg);
+                    code.or_(dstReg, rhsReg);
+                }
+            } else if (setFlags) {
+                auto tmpReg = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg, lhsReg);
+                code.or_(tmpReg, rhsReg);
+            }
+        }
+
+        if (setFlags) {
+            SetNZFromFlags(compiler);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {
     const bool lhsImm = op->lhs.immediate;
