@@ -685,6 +685,19 @@ void testCompiler() {
     // writeARM(0xE1E01003); // mvn r1, r3
     writeARM(0xEAFFFFFE); // b $
 
+    // TODO: test CLZ
+    // TODO: test QADD
+    // TODO: test QSUB
+    // TODO: test MUL (signed and unsigned)
+    // TODO: test MULL (signed and unsigned, half shift)
+    // TODO: test ADDL
+    // TODO: test stflg
+
+    // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
+    // TODO: implement coprocessors
+    // TODO: implement branching, block linking, block lookups, etc.
+    // TODO: implement cycle counting
+
     // Create allocator
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
@@ -750,7 +763,7 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
     armState.GPR(armajitto::arm::GPR::R2) = 0x12;
     // armState.GPR(armajitto::arm::GPR::R2) = -1;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x3400;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x340F;
     armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;

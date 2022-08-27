@@ -158,9 +158,9 @@ void x64Host::CompileEpilog() {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {
-    auto dstReg = compiler.regAlloc.Get(op->dst.var);
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.GPROffset(op->src.gpr, op->src.Mode());
-    code.mov(dstReg, dword[rbx + offset]);
+    code.mov(dstReg32, dword[rbx + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
@@ -168,15 +168,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
     if (op->src.immediate) {
         code.mov(dword[rbx + offset], op->src.imm.value);
     } else {
-        auto srcReg = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[rbx + offset], srcReg);
+        auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
+        code.mov(dword[rbx + offset], srcReg32);
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetCPSROp *op) {
-    auto dstReg = compiler.regAlloc.Get(op->dst.var);
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.CPSROffset();
-    code.mov(dstReg, dword[rbx + offset]);
+    code.mov(dstReg32, dword[rbx + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {
@@ -184,15 +184,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {
     if (op->src.immediate) {
         code.mov(dword[rbx + offset], op->src.imm.value);
     } else {
-        auto srcReg = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[rbx + offset], srcReg);
+        auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
+        code.mov(dword[rbx + offset], srcReg32);
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetSPSROp *op) {
-    auto dstReg = compiler.regAlloc.Get(op->dst.var);
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.SPSROffset(op->mode);
-    code.mov(dstReg, dword[rbx + offset]);
+    code.mov(dstReg32, dword[rbx + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
@@ -200,8 +200,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
     if (op->src.immediate) {
         code.mov(dword[rbx + offset], op->src.imm.value);
     } else {
-        auto srcReg = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[rbx + offset], srcReg);
+        auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
+        code.mov(dword[rbx + offset], srcReg32);
     }
 }
 
@@ -225,98 +225,103 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
         AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
-        auto shiftReg = compiler.regAlloc.GetRCX();
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var).cvt64();
-        auto amountReg = compiler.regAlloc.Get(op->amount.var.var);
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg, 63);
-        code.cmp(amountReg, 63);
-        code.cmovbe(shiftReg.cvt32(), amountReg);
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Get destination register
-        Xbyak::Reg64 dstReg{};
-        if (op->dst.var.IsPresent()) {
-            dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            CopyIfDifferent(dstReg, valueReg);
+        if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
+            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            code.shlx(dstReg64, valueReg64, shiftReg64);
         } else {
-            dstReg = compiler.regAlloc.GetTemporary().cvt64();
-        }
-
-        // Compute the shift
-        code.shl(dstReg, 32); // Shift value to the top half of the 64-bit register
-        code.shl(dstReg, shiftReg.cvt8());
-        if (op->setCarry) {
-            SetCFromFlags(compiler);
-        }
-        code.shr(dstReg, 32); // Shift value back down to the bottom half
-    } else if (valueImm) {
-        // value is immediate, amount is variable
-        auto shiftReg = compiler.regAlloc.GetRCX();
-        auto value = op->value.imm.value;
-        auto amountReg = compiler.regAlloc.Get(op->amount.var.var);
-
-        // Get shift amount, clamped to 0..63
-        code.mov(shiftReg, 63);
-        code.cmp(amountReg, 63);
-        code.cmovbe(shiftReg.cvt32(), amountReg);
-
-        // Get destination register
-        Xbyak::Reg64 dstReg{};
-        if (op->dst.var.IsPresent()) {
-            dstReg = compiler.regAlloc.Get(op->dst.var).cvt64();
-        } else {
-            dstReg = compiler.regAlloc.GetTemporary().cvt64();
-        }
-
-        // Compute the shift
-        code.mov(dstReg, static_cast<uint64_t>(value) << 32ull);
-        code.shl(dstReg, shiftReg.cvt8());
-        if (op->setCarry) {
-            SetCFromFlags(compiler);
-        }
-        code.shr(dstReg, 32); // Shift value back down to the bottom half
-    } else {
-        // value is variable, amount is immediate
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var).cvt64();
-        auto amount = op->amount.imm.value;
-
-        if (amount < 32) {
-            // Get destination register
             Xbyak::Reg64 dstReg{};
             if (op->dst.var.IsPresent()) {
                 dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-                CopyIfDifferent(dstReg, valueReg);
+                CopyIfDifferent(dstReg, valueReg64);
             } else {
                 dstReg = compiler.regAlloc.GetTemporary().cvt64();
             }
 
-            // Compute shift and update flags
-            code.shl(dstReg, amount + 32);
+            // Compute the shift
+            code.shl(dstReg, 32); // Shift value to the top half of the 64-bit register
+            code.shl(dstReg, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
             code.shr(dstReg, 32); // Shift value back down to the bottom half
+        }
+    } else if (valueImm) {
+        // value is immediate, amount is variable
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto value = op->value.imm.value;
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
+
+        // Get shift amount, clamped to 0..63
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+
+        // Get destination register
+        Xbyak::Reg64 dstReg64{};
+        if (op->dst.var.IsPresent()) {
+            dstReg64 = compiler.regAlloc.Get(op->dst.var).cvt64();
+        } else {
+            dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
+        }
+
+        // Compute the shift
+        code.mov(dstReg64, static_cast<uint64_t>(value) << 32ull);
+        code.shl(dstReg64, shiftReg64.cvt8());
+        if (op->setCarry) {
+            SetCFromFlags(compiler);
+        }
+        code.shr(dstReg64, 32); // Shift value back down to the bottom half
+    } else {
+        // value is variable, amount is immediate
+        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto amount = op->amount.imm.value;
+
+        if (amount < 32) {
+            // Get destination register
+            Xbyak::Reg64 dstReg64{};
+            if (op->dst.var.IsPresent()) {
+                dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+                CopyIfDifferent(dstReg64, valueReg64);
+            } else {
+                dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
+            }
+
+            // Compute shift and update flags
+            code.shl(dstReg64, amount + 32);
+            if (op->setCarry) {
+                SetCFromFlags(compiler);
+            }
+            code.shr(dstReg64, 32); // Shift value back down to the bottom half
         } else {
             if (amount == 32) {
                 if (op->dst.var.IsPresent()) {
                     // Update carry flag before zeroing out the register
                     if (op->setCarry) {
-                        code.bt(valueReg, 0);
+                        code.bt(valueReg64, 0);
                         SetCFromFlags(compiler);
                     }
 
-                    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg, dstReg);
+                    auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                    code.xor_(dstReg32, dstReg32);
                 } else if (op->setCarry) {
-                    code.bt(valueReg, 0);
+                    code.bt(valueReg64, 0);
                     SetCFromFlags(compiler);
                 }
             } else {
                 // Zero out destination
                 if (op->dst.var.IsPresent()) {
-                    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg, dstReg);
+                    auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                    code.xor_(dstReg32, dstReg32);
                 }
                 if (op->setCarry) {
                     SetCFromValue(false);
@@ -340,119 +345,313 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
         AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
-        auto shiftReg = compiler.regAlloc.GetRCX();
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var).cvt64();
-        auto amountReg = compiler.regAlloc.Get(op->amount.var.var);
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg, 63);
-        code.cmp(amountReg, 63);
-        code.cmovbe(shiftReg.cvt32(), amountReg);
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Compute the shift
-        if (op->dst.var.IsPresent()) {
-            auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            CopyIfDifferent(dstReg, valueReg);
-            code.shr(dstReg, shiftReg.cvt8());
+        if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
+            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            code.shrx(dstReg64, valueReg64, shiftReg64);
+        } else if (op->dst.var.IsPresent()) {
+            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            CopyIfDifferent(dstReg64, valueReg64);
+            code.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            code.dec(shiftReg);
-            code.bt(valueReg, shiftReg);
+            code.dec(shiftReg64);
+            code.bt(valueReg64, shiftReg64);
             SetCFromFlags(compiler);
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
-        auto shiftReg = compiler.regAlloc.GetRCX();
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
         auto value = op->value.imm.value;
-        auto amountReg = compiler.regAlloc.Get(op->amount.var.var);
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg, 63);
-        code.cmp(amountReg, 63);
-        code.cmovbe(shiftReg.cvt32(), amountReg);
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var).cvt64();
-            code.mov(dstReg, value);
-            code.shr(dstReg, shiftReg.cvt8());
+            auto dstReg64 = compiler.regAlloc.Get(op->dst.var).cvt64();
+            code.mov(dstReg64, value);
+            code.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            auto valueReg = compiler.regAlloc.GetTemporary().cvt64();
-            code.mov(valueReg, (static_cast<uint64_t>(value) << 1ull));
-            code.bt(valueReg, shiftReg);
+            auto valueReg64 = compiler.regAlloc.GetTemporary().cvt64();
+            code.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
+            code.bt(valueReg64, shiftReg64);
             SetCFromFlags(compiler);
         }
     } else {
         // value is variable, amount is immediate
-        auto valueReg = compiler.regAlloc.Get(op->value.var.var);
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
         auto amount = op->amount.imm.value;
 
         if (amount < 32) {
             // Compute the shift
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                CopyIfDifferent(dstReg, valueReg);
-                code.shr(dstReg, amount);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                CopyIfDifferent(dstReg32, valueReg32);
+                code.shr(dstReg32, amount);
                 if (op->setCarry) {
                     SetCFromFlags(compiler);
                 }
             } else if (op->setCarry) {
-                code.bt(valueReg.cvt64(), amount - 1);
+                code.bt(valueReg32.cvt64(), amount - 1);
+                SetCFromFlags(compiler);
+            }
+        } else if (amount == 32) {
+            if (op->dst.var.IsPresent()) {
+                // Update carry flag before zeroing out the register
+                if (op->setCarry) {
+                    code.bt(valueReg32, 31);
+                    SetCFromFlags(compiler);
+                }
+
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                code.xor_(dstReg32, dstReg32);
+            } else if (op->setCarry) {
+                code.bt(valueReg32, 31);
                 SetCFromFlags(compiler);
             }
         } else {
-            if (amount == 32) {
-                if (op->dst.var.IsPresent()) {
-                    // Update carry flag before zeroing out the register
-                    if (op->setCarry) {
-                        code.bt(valueReg, 31);
-                        SetCFromFlags(compiler);
-                    }
-
-                    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg, dstReg);
-                } else if (op->setCarry) {
-                    code.bt(valueReg, 31);
-                    SetCFromFlags(compiler);
-                }
-            } else {
-                // Zero out destination
-                if (op->dst.var.IsPresent()) {
-                    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg, dstReg);
-                }
-                if (op->setCarry) {
-                    SetCFromValue(false);
-                }
+            // Zero out destination
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                code.xor_(dstReg32, dstReg32);
+            }
+            if (op->setCarry) {
+                SetCFromValue(false);
             }
         }
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *op) {
+    const bool valueImm = op->value.immediate;
+    const bool amountImm = op->amount.immediate;
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {}
+    // x86 masks the shift amount to 31 or 63.
+    // ARM does not -- larger amounts simply output zero.
+    // For offset == 32, the carry flag is set to bit 31.
+
+    if (valueImm && amountImm) {
+        // Both are immediates
+        auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
+        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+    } else if (!valueImm && !amountImm) {
+        // Both are variables
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
+
+        // Get shift amount, clamped to 0..63
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+
+        // Compute the shift
+        if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
+            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            code.sarx(dstReg64, valueReg64, shiftReg64);
+        } else if (op->dst.var.IsPresent()) {
+            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            CopyIfDifferent(dstReg64, valueReg64);
+            code.sar(dstReg64, shiftReg64.cvt8());
+            if (op->setCarry) {
+                SetCFromFlags(compiler);
+            }
+        } else if (op->setCarry) {
+            code.dec(shiftReg64);
+            code.bt(valueReg64, shiftReg64);
+            SetCFromFlags(compiler);
+        }
+    } else if (valueImm) {
+        // value is immediate, amount is variable
+        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto value = op->value.imm.value;
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
+
+        // Get shift amount, clamped to 0..63
+        code.mov(shiftReg64, 63);
+        code.cmp(amountReg32, 63);
+        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+
+        // Compute the shift
+        if (op->dst.var.IsPresent()) {
+            auto dstReg64 = compiler.regAlloc.Get(op->dst.var).cvt64();
+            code.mov(dstReg64, value);
+            code.sar(dstReg64, shiftReg64.cvt8());
+            if (op->setCarry) {
+                SetCFromFlags(compiler);
+            }
+        } else if (op->setCarry) {
+            auto valueReg64 = compiler.regAlloc.GetTemporary().cvt64();
+            code.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
+            code.bt(valueReg64, shiftReg64);
+            SetCFromFlags(compiler);
+        }
+    } else {
+        // value is variable, amount is immediate
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
+        auto amount = op->amount.imm.value;
+
+        if (amount < 32) {
+            // Compute the shift
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                CopyIfDifferent(dstReg32, valueReg32);
+                code.sar(dstReg32, amount);
+                if (op->setCarry) {
+                    SetCFromFlags(compiler);
+                }
+            } else if (op->setCarry) {
+                code.bt(valueReg32.cvt64(), amount - 1);
+                SetCFromFlags(compiler);
+            }
+        } else if (amount == 32) {
+            if (op->dst.var.IsPresent()) {
+                // Update carry flag before zeroing out the register
+                if (op->setCarry) {
+                    code.bt(valueReg32, 31);
+                    SetCFromFlags(compiler);
+                }
+
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                code.xor_(dstReg32, dstReg32);
+            } else if (op->setCarry) {
+                code.bt(valueReg32, 31);
+                SetCFromFlags(compiler);
+            }
+        } else {
+            // Zero out destination
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                code.xor_(dstReg32, dstReg32);
+            }
+            if (op->setCarry) {
+                SetCFromValue(false);
+            }
+        }
+    }
+}
+
+void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
+    const bool valueImm = op->value.immediate;
+    const bool amountImm = op->amount.immediate;
+
+    // ARM ROR works exactly the same as x86 ROR, including carry flag behavior.
+
+    if (valueImm && amountImm) {
+        // Both are immediates
+        auto [result, carry] = arm::ROR(op->value.imm.value, op->amount.imm.value);
+        AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
+    } else if (!valueImm && !amountImm) {
+        // Both are variables
+        auto shiftReg8 = compiler.regAlloc.GetRCX().cvt8();
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
+
+        // Put shift amount into CL
+        code.mov(shiftReg8, amountReg32.cvt8());
+
+        // Put value to shift into the result register
+        Xbyak::Reg32 dstReg32{};
+        if (op->dst.var.IsPresent()) {
+            dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            CopyIfDifferent(dstReg32, valueReg32);
+        } else {
+            dstReg32 = compiler.regAlloc.GetTemporary();
+            code.mov(dstReg32, valueReg32);
+        }
+
+        // Compute the shift
+        code.ror(dstReg32, shiftReg8);
+        if (op->setCarry) {
+            SetCFromFlags(compiler);
+        }
+    } else if (valueImm) {
+        // value is immediate, amount is variable
+        auto shiftReg8 = compiler.regAlloc.GetRCX().cvt8();
+        auto value = op->value.imm.value;
+        auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
+
+        // Put shift amount into CL
+        code.mov(shiftReg8, amountReg32.cvt8());
+
+        // Put value to shift into the result register
+        Xbyak::Reg32 dstReg32{};
+        if (op->dst.var.IsPresent()) {
+            dstReg32 = compiler.regAlloc.Get(op->dst.var);
+        } else if (op->setCarry) {
+            dstReg32 = compiler.regAlloc.GetTemporary();
+        }
+
+        // Compute the shift
+        code.mov(dstReg32, value);
+        code.ror(dstReg32, shiftReg8);
+        if (op->setCarry) {
+            SetCFromFlags(compiler);
+        }
+    } else {
+        // value is variable, amount is immediate
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
+        auto amount = op->amount.imm.value & 31;
+
+        if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
+            // Compute the shift directly into the result register
+            auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            code.rorx(dstReg32, valueReg32, amount);
+        } else {
+            // Put value to shift into the result register
+            Xbyak::Reg32 dstReg32{};
+            if (op->dst.var.IsPresent()) {
+                dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                CopyIfDifferent(dstReg32, valueReg32);
+            } else {
+                dstReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(dstReg32, valueReg32);
+            }
+
+            // Compute the shift
+            code.ror(dstReg32, amount);
+            if (op->setCarry) {
+                SetCFromFlags(compiler);
+            }
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *op) {
+    // ARM RRX works exactly the same as x86 RRX, including carry flag behavior.
+
     if (op->dst.var.IsPresent()) {
-        Xbyak::Reg32 dstReg{};
+        Xbyak::Reg32 dstReg32{};
 
         if (op->value.immediate) {
-            dstReg = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg, op->value.imm.value);
+            dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.mov(dstReg32, op->value.imm.value);
         } else {
-            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-            dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-            CopyIfDifferent(dstReg, valueReg);
+            auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
+            dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            CopyIfDifferent(dstReg32, valueReg32);
         }
 
         code.bt(eax, x64flgCPos); // Refresh carry flag
-        code.rcr(dstReg, 1);      // Perform RRX
+        code.rcr(dstReg32, 1);    // Perform RRX
 
         if (op->setCarry) {
             SetCFromFlags(compiler);
@@ -461,8 +660,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *o
         if (op->value.immediate) {
             SetCFromValue(bit::test<0>(op->value.imm.value));
         } else {
-            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-            code.bt(valueReg, 0);
+            auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
+            code.bt(valueReg32, 0);
             SetCFromFlags(compiler);
         }
     }
@@ -481,36 +680,36 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [imm, var] = *split;
-            auto varReg = compiler.regAlloc.Get(var);
+            auto varReg32 = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
-                CopyIfDifferent(dstReg, varReg);
-                code.and_(dstReg, imm);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.and_(dstReg32, imm);
             } else if (setFlags) {
-                code.test(varReg, imm);
+                code.test(varReg32, imm);
             }
         } else {
             // lhs and rhs are vars
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
                 compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                if (dstReg == lhsReg) {
-                    code.and_(dstReg, rhsReg);
-                } else if (dstReg == rhsReg) {
-                    code.and_(dstReg, lhsReg);
+                if (dstReg32 == lhsReg32) {
+                    code.and_(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.and_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg, lhsReg);
-                    code.and_(dstReg, rhsReg);
+                    code.mov(dstReg32, lhsReg32);
+                    code.and_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
-                code.test(lhsReg, rhsReg);
+                code.test(lhsReg32, rhsReg32);
             }
         }
 
@@ -533,42 +732,42 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [imm, var] = *split;
-            auto varReg = compiler.regAlloc.Get(var);
+            auto varReg32 = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
-                CopyIfDifferent(dstReg, varReg);
-                code.or_(dstReg, imm);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.or_(dstReg32, imm);
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, varReg);
-                code.or_(tmpReg, imm);
+                code.mov(tmpReg32, varReg32);
+                code.or_(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
                 compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                if (dstReg == lhsReg) {
-                    code.or_(dstReg, rhsReg);
-                } else if (dstReg == rhsReg) {
-                    code.or_(dstReg, lhsReg);
+                if (dstReg32 == lhsReg32) {
+                    code.or_(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.or_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg, lhsReg);
-                    code.or_(dstReg, rhsReg);
+                    code.mov(dstReg32, lhsReg32);
+                    code.or_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, lhsReg);
-                code.or_(tmpReg, rhsReg);
+                code.mov(tmpReg32, lhsReg32);
+                code.or_(tmpReg32, rhsReg32);
             }
         }
 
@@ -591,42 +790,42 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [imm, var] = *split;
-            auto varReg = compiler.regAlloc.Get(var);
+            auto varReg32 = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
-                CopyIfDifferent(dstReg, varReg);
-                code.xor_(dstReg, imm);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.xor_(dstReg32, imm);
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, varReg);
-                code.xor_(tmpReg, imm);
+                code.mov(tmpReg32, varReg32);
+                code.xor_(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
                 compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                if (dstReg == lhsReg) {
-                    code.xor_(dstReg, rhsReg);
-                } else if (dstReg == rhsReg) {
-                    code.xor_(dstReg, lhsReg);
+                if (dstReg32 == lhsReg32) {
+                    code.xor_(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.xor_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg, lhsReg);
-                    code.xor_(dstReg, rhsReg);
+                    code.mov(dstReg32, lhsReg32);
+                    code.xor_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, lhsReg);
-                code.xor_(tmpReg, rhsReg);
+                code.mov(tmpReg32, lhsReg32);
+                code.xor_(tmpReg32, rhsReg32);
             }
         }
 
@@ -649,43 +848,43 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
         // At least one of the operands is a variable
         if (!rhsImm) {
             // lhs is var or imm, rhs is variable
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
 
-                CopyIfDifferent(dstReg, rhsReg);
-                code.not_(dstReg);
+                CopyIfDifferent(dstReg32, rhsReg32);
+                code.not_(dstReg32);
 
                 if (lhsImm) {
-                    code.and_(dstReg, op->lhs.imm.value);
+                    code.and_(dstReg32, op->lhs.imm.value);
                 } else {
-                    auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-                    code.and_(dstReg, lhsReg);
+                    auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+                    code.and_(dstReg32, lhsReg32);
                 }
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, rhsReg);
-                code.not_(tmpReg);
+                code.mov(tmpReg32, rhsReg32);
+                code.not_(tmpReg32);
 
                 if (lhsImm) {
-                    code.test(tmpReg, op->lhs.imm.value);
+                    code.test(tmpReg32, op->lhs.imm.value);
                 } else {
-                    auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-                    code.test(tmpReg, lhsReg);
+                    auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+                    code.test(tmpReg32, lhsReg32);
                 }
             }
         } else {
             // lhs is variable, rhs is immediate
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
 
-                CopyIfDifferent(dstReg, lhsReg);
-                code.and_(dstReg, ~op->rhs.imm.value);
+                CopyIfDifferent(dstReg32, lhsReg32);
+                code.and_(dstReg32, ~op->rhs.imm.value);
             } else if (setFlags) {
-                code.test(lhsReg, ~op->rhs.imm.value);
+                code.test(lhsReg32, ~op->rhs.imm.value);
             }
         }
 
@@ -710,42 +909,42 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [imm, var] = *split;
-            auto varReg = compiler.regAlloc.Get(var);
+            auto varReg32 = compiler.regAlloc.Get(var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
 
-                CopyIfDifferent(dstReg, varReg);
-                code.add(dstReg, imm);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.add(dstReg32, imm);
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, varReg);
-                code.add(tmpReg, imm);
+                code.mov(tmpReg32, varReg32);
+                code.add(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
 
             if (op->dst.var.IsPresent()) {
                 compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                if (dstReg == lhsReg) {
-                    code.add(dstReg, rhsReg);
-                } else if (dstReg == rhsReg) {
-                    code.add(dstReg, lhsReg);
+                if (dstReg32 == lhsReg32) {
+                    code.add(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.add(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg, lhsReg);
-                    code.add(dstReg, rhsReg);
+                    code.mov(dstReg32, lhsReg32);
+                    code.add(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
-                auto tmpReg = compiler.regAlloc.GetTemporary();
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg, lhsReg);
-                code.add(tmpReg, rhsReg);
+                code.mov(tmpReg32, lhsReg32);
+                code.add(tmpReg32, rhsReg32);
             }
         }
 
@@ -770,37 +969,37 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
         // At least one of the operands is a variable
         if (!lhsImm) {
             // lhs is variable, rhs is var or imm
-            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
-                CopyIfDifferent(dstReg, lhsReg);
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                CopyIfDifferent(dstReg32, lhsReg32);
 
                 if (rhsImm) {
-                    code.sub(dstReg, op->rhs.imm.value);
+                    code.sub(dstReg32, op->rhs.imm.value);
                 } else {
-                    auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
-                    code.sub(dstReg, rhsReg);
+                    auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+                    code.sub(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
                 if (rhsImm) {
-                    code.cmp(lhsReg, op->rhs.imm.value);
+                    code.cmp(lhsReg32, op->rhs.imm.value);
                 } else {
-                    auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
-                    code.cmp(lhsReg, rhsReg);
+                    auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+                    code.cmp(lhsReg32, rhsReg32);
                 }
             }
         } else {
             // lhs is immediate, rhs is variable
-            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg, op->lhs.imm.value);
-                code.sub(dstReg, rhsReg);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+                code.mov(dstReg32, op->lhs.imm.value);
+                code.sub(dstReg32, rhsReg32);
             } else if (setFlags) {
-                auto lhsReg = compiler.regAlloc.GetTemporary();
-                code.mov(lhsReg, op->lhs.imm.value);
-                code.cmp(lhsReg, rhsReg);
+                auto lhsReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(lhsReg32, op->lhs.imm.value);
+                code.cmp(lhsReg32, rhsReg32);
             }
         }
 
@@ -817,24 +1016,24 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
     if (op->dst.var.IsPresent()) {
         if (op->value.immediate) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            MOVImmediate(dstReg, op->value.imm.value);
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            MOVImmediate(dstReg32, op->value.imm.value);
         } else {
-            auto valReg = compiler.regAlloc.Get(op->value.var.var);
-            auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-            CopyIfDifferent(dstReg, valReg);
+            auto valReg32 = compiler.regAlloc.Get(op->value.var.var);
+            auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            CopyIfDifferent(dstReg32, valReg32);
         }
 
         if (setFlags) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            SetNZFromReg(compiler, dstReg);
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            SetNZFromReg(compiler, dstReg32);
         }
     } else if (setFlags) {
         if (op->value.immediate) {
             SetNZFromValue(op->value.imm.value);
         } else {
-            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-            SetNZFromReg(compiler, valueReg);
+            auto valReg32 = compiler.regAlloc.Get(op->value.var.var);
+            SetNZFromReg(compiler, valReg32);
         }
     }
 }
@@ -843,29 +1042,29 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
     if (op->dst.var.IsPresent()) {
         if (op->value.immediate) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            MOVImmediate(dstReg, ~op->value.imm.value);
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            MOVImmediate(dstReg32, ~op->value.imm.value);
         } else {
-            auto valReg = compiler.regAlloc.Get(op->value.var.var);
-            auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            auto valReg32 = compiler.regAlloc.Get(op->value.var.var);
+            auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
 
-            CopyIfDifferent(dstReg, valReg);
-            code.not_(dstReg);
+            CopyIfDifferent(dstReg32, valReg32);
+            code.not_(dstReg32);
         }
 
         if (setFlags) {
-            auto dstReg = compiler.regAlloc.Get(op->dst.var);
-            SetNZFromReg(compiler, dstReg);
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            SetNZFromReg(compiler, dstReg32);
         }
     } else if (setFlags) {
         if (op->value.immediate) {
             SetNZFromValue(~op->value.imm.value);
         } else {
-            auto valueReg = compiler.regAlloc.Get(op->value.var.var);
-            auto tmpReg = compiler.regAlloc.GetTemporary();
-            code.mov(tmpReg, valueReg);
-            code.not_(tmpReg);
-            SetNZFromReg(compiler, tmpReg);
+            auto valReg32 = compiler.regAlloc.Get(op->value.var.var);
+            auto tmpReg32 = compiler.regAlloc.GetTemporary();
+            code.mov(tmpReg32, valReg32);
+            code.not_(tmpReg32);
+            SetNZFromReg(compiler, tmpReg32);
         }
     }
 }
@@ -885,18 +1084,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {}
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
     // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
     if (op->srcCPSR.immediate) {
-        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
-        code.mov(dstReg, op->srcCPSR.imm.value);
+        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
+        code.mov(dstReg32, op->srcCPSR.imm.value);
     } else {
-        auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
-        auto dstReg = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
-        CopyIfDifferent(dstReg, srcReg);
+        auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
+        auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
+        CopyIfDifferent(dstReg32, srcReg32);
     }
 
-    // Apply flags to dstReg
+    // Apply flags to dstReg32
     if (BitmaskEnum(op->flags).Any()) {
         const uint32_t cpsrMask = static_cast<uint32_t>(op->flags);
-        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
+        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
 
         // Extract the host flags we need from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();
@@ -908,35 +1107,35 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
             code.imul(flags, eax, x64ToARMFlagsMultiplier);
             code.and_(flags, ARMFlagsMask);
         }
-        code.and_(flags, cpsrMask);   // Keep only the affected bits
-        code.and_(dstReg, ~cpsrMask); // Clear affected bits from dst value
-        code.or_(dstReg, flags);      // Store new bits into dst value
+        code.and_(flags, cpsrMask);     // Keep only the affected bits
+        code.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
+        code.or_(dstReg32, flags);      // Store new bits into dst value
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op) {
     // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
     if (op->srcCPSR.immediate) {
-        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
-        code.mov(dstReg, op->srcCPSR.imm.value);
+        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
+        code.mov(dstReg32, op->srcCPSR.imm.value);
     } else {
-        auto srcReg = compiler.regAlloc.Get(op->srcCPSR.var.var);
-        auto dstReg = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
-        CopyIfDifferent(dstReg, srcReg);
+        auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
+        auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
+        CopyIfDifferent(dstReg32, srcReg32);
     }
 
-    // Apply overflow flag to dstReg in the Q position
+    // Apply overflow flag to dstReg32 in the Q position
     if (op->setQ) {
         const uint32_t cpsrMask = ARMflgQ;
-        auto dstReg = compiler.regAlloc.Get(op->dstCPSR.var);
+        auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
 
         // Extract the overflow from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();
-        code.movzx(flags, al);        // Get host overflow flag
-        code.shl(flags, ARMflgQPos);  // Move flag into the Q position
-        code.and_(flags, cpsrMask);   // Keep only the affected bits
-        code.and_(dstReg, ~cpsrMask); // Clear affected bits from dst value
-        code.or_(dstReg, flags);      // Store new bits into dst value
+        code.movzx(flags, al);          // Get host overflow flag
+        code.shl(flags, ARMflgQPos);    // Move flag into the Q position
+        code.and_(flags, cpsrMask);     // Keep only the affected bits
+        code.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
+        code.or_(dstReg32, flags);      // Store new bits into dst value
     }
 }
 
@@ -951,8 +1150,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
     // This instruction should be optimized away, but here's an implementation anyway
     if (op->dst.var.IsPresent()) {
-        auto dstReg = compiler.regAlloc.Get(op->dst.var);
-        code.mov(dstReg, op->value);
+        auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+        code.mov(dstReg32, op->value);
     }
 }
 
@@ -961,9 +1160,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {
     if (!op->var.var.IsPresent() || !op->dst.var.IsPresent()) {
         return;
     }
-    auto varReg = compiler.regAlloc.Get(op->var.var);
-    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->var.var);
-    CopyIfDifferent(dstReg, varReg);
+    auto varReg32 = compiler.regAlloc.Get(op->var.var);
+    auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->var.var);
+    CopyIfDifferent(dstReg32, varReg32);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {}
@@ -979,12 +1178,12 @@ void x64Host::SetCFromValue(bool carry) {
 }
 
 void x64Host::SetCFromFlags(Compiler &compiler) {
-    auto tmp = compiler.regAlloc.GetTemporary();
-    code.setc(tmp.cvt8());       // Put new C into a temporary register
-    code.movzx(tmp, tmp.cvt8()); // Zero-extend to 32 bits
-    code.shl(tmp, x64flgCPos);   // Move it to the correct position
-    code.and_(eax, ~x64flgC);    // Clear existing C flag from EAX
-    code.or_(eax, tmp);          // Write new C flag into EAX
+    auto tmp32 = compiler.regAlloc.GetTemporary();
+    code.setc(tmp32.cvt8());         // Put new C into a temporary register
+    code.movzx(tmp32, tmp32.cvt8()); // Zero-extend to 32 bits
+    code.shl(tmp32, x64flgCPos);     // Move it to the correct position
+    code.and_(eax, ~x64flgC);        // Clear existing C flag from EAX
+    code.or_(eax, tmp32);            // Write new C flag into EAX
 }
 
 void x64Host::SetNZFromValue(uint32_t value) {
@@ -1001,21 +1200,21 @@ void x64Host::SetNZFromValue(uint32_t value) {
 }
 
 void x64Host::SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value) {
-    auto tmp = compiler.regAlloc.GetTemporary();
-    code.test(value, value); // Updates NZ, clears CV; V won't be changed here
-    code.mov(tmp, eax);      // Copy current flags to preserve C later
-    code.lahf();             // Load NZC; C is 0
-    code.and_(tmp, x64flgC); // Keep previous C only
-    code.or_(eax, tmp);      // Put previous C into AH; NZ is now updated and C is preserved
+    auto tmp32 = compiler.regAlloc.GetTemporary();
+    code.test(value, value);   // Updates NZ, clears CV; V won't be changed here
+    code.mov(tmp32, eax);      // Copy current flags to preserve C later
+    code.lahf();               // Load NZC; C is 0
+    code.and_(tmp32, x64flgC); // Keep previous C only
+    code.or_(eax, tmp32);      // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::SetNZFromFlags(Compiler &compiler) {
-    auto tmp = compiler.regAlloc.GetTemporary();
-    code.clc();              // Clear C to make way for the previous C
-    code.mov(tmp, eax);      // Copy current flags to preserve C later
-    code.lahf();             // Load NZC; C is 0
-    code.and_(tmp, x64flgC); // Keep previous C only
-    code.or_(eax, tmp);      // Put previous C into AH; NZ is now updated and C is preserved
+    auto tmp32 = compiler.regAlloc.GetTemporary();
+    code.clc();                // Clear C to make way for the previous C
+    code.mov(tmp32, eax);      // Copy current flags to preserve C later
+    code.lahf();               // Load NZC; C is 0
+    code.and_(tmp32, x64flgC); // Keep previous C only
+    code.or_(eax, tmp32);      // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::SetNZCVFromValue(uint32_t value, bool carry, bool overflow) {
@@ -1059,8 +1258,8 @@ void x64Host::CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src) {
 
 void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags) {
     if (dst.var.IsPresent()) {
-        auto dstReg = compiler.regAlloc.Get(dst.var);
-        MOVImmediate(dstReg, result);
+        auto dstReg32 = compiler.regAlloc.Get(dst.var);
+        MOVImmediate(dstReg32, result);
     }
 
     if (setFlags) {
@@ -1071,8 +1270,8 @@ void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, ui
 void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
                               std::optional<bool> carry, bool setCarry) {
     if (dst.var.IsPresent()) {
-        auto dstReg = compiler.regAlloc.Get(dst.var);
-        MOVImmediate(dstReg, result);
+        auto dstReg32 = compiler.regAlloc.Get(dst.var);
+        MOVImmediate(dstReg32, result);
     }
 
     if (setCarry && carry) {
@@ -1083,8 +1282,8 @@ void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, ui
 void x64Host::AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
                               bool overflow, bool setFlags) {
     if (dst.var.IsPresent()) {
-        auto dstReg = compiler.regAlloc.Get(dst.var);
-        MOVImmediate(dstReg, result);
+        auto dstReg32 = compiler.regAlloc.Get(dst.var);
+        MOVImmediate(dstReg32, result);
     }
 
     if (setFlags) {
