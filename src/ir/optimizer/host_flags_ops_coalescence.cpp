@@ -9,126 +9,97 @@ HostFlagsOpsCoalescenceOptimizerPass::HostFlagsOpsCoalescenceOptimizerPass(Emitt
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     if (op->setCarry) {
-        m_storeFlagsOp = nullptr;
+        UpdateFlags(arm::Flags::C);
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     if (op->setCarry) {
-        m_storeFlagsOp = nullptr;
+        UpdateFlags(arm::Flags::C);
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     if (op->setCarry) {
-        m_storeFlagsOp = nullptr;
+        UpdateFlags(arm::Flags::C);
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
     if (op->setCarry) {
-        m_storeFlagsOp = nullptr;
+        UpdateFlags(arm::Flags::C);
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    if (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::C)) {
-        m_storeFlagsOp = nullptr;
+    ConsumeFlags(arm::Flags::C);
+    if (op->setCarry) {
+        UpdateFlags(arm::Flags::C);
     }
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
-    if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::C))) {
-        m_storeFlagsOp = nullptr;
-    }
+    ConsumeFlags(arm::Flags::C);
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
-    if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::C))) {
-        m_storeFlagsOp = nullptr;
-    }
+    ConsumeFlags(arm::Flags::C);
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
-    if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
-        m_storeFlagsOp = nullptr;
-    }
+    ConsumeFlags(arm::Flags::V);
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    if (op->flags != arm::Flags::None ||
-        (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
-        m_storeFlagsOp = nullptr;
-    }
+    ConsumeFlags(arm::Flags::V);
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    UpdateFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
@@ -145,13 +116,64 @@ void HostFlagsOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
-    if (op->flags != arm::Flags::None) {
-        m_storeFlagsOp = nullptr;
-    }
+    // Merge previous flags into this instruction, otherwise point to this instruction
+    auto bmFlags = BitmaskEnum(op->flags);
+    auto update = [this, &bmFlags, &op](arm::Flags flag, IRLoadFlagsOp *&loadOp) {
+        // If another ldflg instruction wrote to this flag, move the flag update to the current instruction
+        if (loadOp != nullptr) {
+            // Only if the two instruction are in the same chain of operations
+            if (loadOp->dstCPSR == op->srcCPSR) {
+                op->flags |= flag;
+                loadOp->flags &= ~flag;
+
+                // If the previous load instruction no longer updates any flags, erase it and repoint the current
+                // instruction's source CPSR to the previous instruction's
+                if (loadOp->flags == arm::Flags::None) {
+                    op->srcCPSR = loadOp->srcCPSR;
+                    m_emitter.Erase(loadOp);
+                }
+            }
+        } else if (bmFlags.AnyOf(flag)) {
+            // Track new write to the flag
+            loadOp = op;
+        }
+    };
+    update(arm::Flags::N, m_loadFlagsOpN);
+    update(arm::Flags::Z, m_loadFlagsOpZ);
+    update(arm::Flags::C, m_loadFlagsOpC);
+    update(arm::Flags::V, m_loadFlagsOpV);
+
+    ConsumeFlags(op->flags);
 }
 
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    if (op->setQ || (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(arm::Flags::V))) {
+    ConsumeFlags(arm::Flags::V);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+void HostFlagsOpsCoalescenceOptimizerPass::UpdateFlags(arm::Flags flags) {
+    auto bmFlags = BitmaskEnum(flags);
+    if (bmFlags.Any()) {
+        m_storeFlagsOp = nullptr;
+    }
+
+    if (bmFlags.AllOf(arm::Flags::N)) {
+        m_loadFlagsOpN = nullptr;
+    }
+    if (bmFlags.AllOf(arm::Flags::Z)) {
+        m_loadFlagsOpZ = nullptr;
+    }
+    if (bmFlags.AllOf(arm::Flags::C)) {
+        m_loadFlagsOpC = nullptr;
+    }
+    if (bmFlags.AllOf(arm::Flags::V)) {
+        m_loadFlagsOpV = nullptr;
+    }
+}
+
+void HostFlagsOpsCoalescenceOptimizerPass::ConsumeFlags(arm::Flags flags) {
+    if (m_storeFlagsOp != nullptr && BitmaskEnum(m_storeFlagsOp->flags).AnyOf(flags)) {
         m_storeFlagsOp = nullptr;
     }
 }

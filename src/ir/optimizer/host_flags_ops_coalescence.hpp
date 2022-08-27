@@ -10,7 +10,7 @@ namespace armajitto::ir {
 
 // Coalesces host flags manipulation instructions.
 //
-// This optimization simplifies sequences of stflg instructions.
+// This optimization simplifies sequences of stflg and ldflg instructions.
 //
 // The algorithm processes instructions that consume and store host flags and coalesces stflg instructions whenever
 // possible.
@@ -78,12 +78,18 @@ namespace armajitto::ir {
 //  1  stflg.nz {nz}      nz     nz
 //  2  stflg.zc {}        nzc    n
 //  3  stflg.nv {v}       nzcv      v
-//  4  stflg.cq {cq}      nzcvq    cvq
+//  4  stflg.c {c}        nzcv     cv
 //
 // These instructions are merged into a single instruction:
 //
 //  #  instruction        mask     values
-//  1  stflg.nzcvq {cvq}  nzcvq    cvq
+//  1  stflg.nzcv {cv}    nzcv     cv
+//
+// For the load flags instruction, instead of coalescing into the earliest instruction, the flags are coalesced into the
+// most recent instruction. The algorithm tracks the last ldflg instruction that wrote to each flag separately. When a
+// host flag is updated by any other instruction (including stflg), the ldflg pointers for the affected flags are reset.
+// When another ldflg instruction is encountered, all tracked ldflg flags are merged into it and the corresponding flags
+// are removed from the previous instructions, which are then erased if they update no more flags.
 class HostFlagsOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
     HostFlagsOpsCoalescenceOptimizerPass(Emitter &emitter);
@@ -131,10 +137,19 @@ private:
     // void Process(IRGetBaseVectorAddressOp *op) final;
 
     // -------------------------------------------------------------------------
-    // StoreFlags flags tracking
+    // Flag instructions tracking
 
     // Pointer to StoreFlags instruction that is being updated
     IRStoreFlagsOp *m_storeFlagsOp = nullptr;
+
+    // Pointers to last LoadFlags instructions that wrote to each flag
+    IRLoadFlagsOp *m_loadFlagsOpN = nullptr;
+    IRLoadFlagsOp *m_loadFlagsOpZ = nullptr;
+    IRLoadFlagsOp *m_loadFlagsOpC = nullptr;
+    IRLoadFlagsOp *m_loadFlagsOpV = nullptr;
+
+    void UpdateFlags(arm::Flags flags);
+    void ConsumeFlags(arm::Flags flags);
 };
 
 } // namespace armajitto::ir
