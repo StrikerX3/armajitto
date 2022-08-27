@@ -86,6 +86,7 @@ private:
     void SetVFromFlags();
 
     void SetNZFromValue(uint32_t value);
+    void SetNZFromValue(uint64_t value);
     void SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
     void SetNZFromFlags(Compiler &compiler);
 
@@ -106,6 +107,9 @@ private:
                                   std::optional<bool> carry, bool setFlags);
     void AssignImmResultWithOverflow(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool overflow,
                                      bool setFlags);
+
+    void AssignLongImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dstLo, const ir::VariableArg &dstHi,
+                                   uint64_t result, bool setFlags);
 };
 
 } // namespace armajitto::x86_64

@@ -1413,7 +1413,161 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
-    // TODO: implement
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        if (op->signedMul) {
+            auto result =
+                bit::sign_extend<32, int64_t>(op->lhs.imm.value) * bit::sign_extend<32, int64_t>(op->rhs.imm.value);
+            if (op->shiftDownHalf) {
+                result >>= 16ll;
+            }
+            AssignLongImmResultWithNZ(compiler, op->dstLo, op->dstHi, result, setFlags);
+        } else {
+            auto result = static_cast<uint64_t>(op->lhs.imm.value) * static_cast<uint64_t>(op->rhs.imm.value);
+            if (op->shiftDownHalf) {
+                result >>= 16ull;
+            }
+            AssignLongImmResultWithNZ(compiler, op->dstLo, op->dstHi, result, setFlags);
+        }
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg32 = compiler.regAlloc.Get(var);
+
+            if (op->dstLo.var.IsPresent() || op->dstHi.var.IsPresent()) {
+                // Use dstLo or a temporary register for the 64-bit multiplication
+                Xbyak::Reg64 dstReg64{};
+                if (op->dstLo.var.IsPresent()) {
+                    dstReg64 = compiler.regAlloc.ReuseAndGet(op->dstLo.var, var).cvt64();
+                } else {
+                    dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
+                }
+                if (op->signedMul) {
+                    code.movsxd(dstReg64, varReg32);
+                } else if (dstReg64.cvt32() != varReg32) {
+                    code.mov(dstReg64.cvt32(), varReg32);
+                }
+
+                // Multiply and shift down if needed
+                // If dstLo is present, the result is already in place
+                if (op->signedMul) {
+                    code.imul(dstReg64, dstReg64, static_cast<int32_t>(imm));
+                } else {
+                    code.imul(dstReg64, dstReg64, imm);
+                }
+                if (op->shiftDownHalf) {
+                    if (op->signedMul) {
+                        code.sar(dstReg64, 16);
+                    } else {
+                        code.shr(dstReg64, 16);
+                    }
+                }
+
+                // Store high result
+                if (op->dstHi.var.IsPresent()) {
+                    auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
+                    code.mov(dstHiReg64, dstReg64);
+                    code.shr(dstHiReg64, 32);
+                }
+
+                if (setFlags) {
+                    code.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
+                }
+            } else if (setFlags) {
+                auto tmpReg64 = compiler.regAlloc.GetTemporary().cvt64();
+                if (op->signedMul) {
+                    code.movsxd(tmpReg64, varReg32);
+                    code.imul(tmpReg64, tmpReg64, static_cast<int32_t>(imm));
+                } else {
+                    code.mov(tmpReg64.cvt32(), varReg32);
+                    code.imul(tmpReg64, tmpReg64, imm);
+                }
+                if (op->shiftDownHalf) {
+                    if (op->signedMul) {
+                        code.sar(tmpReg64, 16);
+                    } else {
+                        code.shr(tmpReg64, 16);
+                    }
+                }
+                code.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dstLo.var.IsPresent() || op->dstHi.var.IsPresent()) {
+                // Use dstLo or a temporary register for the 64-bit multiplication
+                Xbyak::Reg64 dstReg64{};
+                if (op->dstLo.var.IsPresent()) {
+                    compiler.regAlloc.Reuse(op->dstLo.var, op->lhs.var.var);
+                    compiler.regAlloc.Reuse(op->dstLo.var, op->rhs.var.var);
+                    dstReg64 = compiler.regAlloc.Get(op->dstLo.var).cvt64();
+                } else {
+                    dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
+                }
+
+                auto op2Reg32 = (dstReg64.cvt32() == rhsReg32) ? lhsReg32 : rhsReg32;
+                if (dstReg64.cvt32() != lhsReg32 && dstReg64.cvt32() != rhsReg32) {
+                    if (op->signedMul) {
+                        code.movsxd(dstReg64, lhsReg32);
+                    } else {
+                        code.mov(dstReg64.cvt32(), lhsReg32);
+                    }
+                } else if (op->signedMul) {
+                    code.movsxd(dstReg64, dstReg64.cvt32());
+                }
+
+                if (op->signedMul) {
+                    code.movsxd(op2Reg32.cvt64(), op2Reg32);
+                    code.imul(dstReg64, op2Reg32.cvt64());
+                } else {
+                    code.imul(dstReg64, op2Reg32.cvt64());
+                }
+                if (op->shiftDownHalf) {
+                    if (op->signedMul) {
+                        code.sar(dstReg64, 16);
+                    } else {
+                        code.shr(dstReg64, 16);
+                    }
+                }
+
+                // Store high result
+                if (op->dstHi.var.IsPresent()) {
+                    auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
+                    code.mov(dstHiReg64, dstReg64);
+                    code.shr(dstHiReg64, 32);
+                }
+
+                if (setFlags) {
+                    code.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
+                }
+            } else if (setFlags) {
+                auto tmpReg64 = compiler.regAlloc.GetTemporary().cvt64();
+                auto op2Reg64 = compiler.regAlloc.GetTemporary().cvt64();
+
+                if (op->signedMul) {
+                    code.movsxd(tmpReg64, lhsReg32);
+                    code.movsxd(op2Reg64, rhsReg32);
+                    code.imul(tmpReg64, op2Reg64);
+                } else {
+                    code.mov(tmpReg64.cvt32(), lhsReg32);
+                    code.mov(op2Reg64.cvt32(), rhsReg32);
+                    code.imul(tmpReg64, op2Reg64);
+                }
+                code.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
+            }
+        }
+
+        if (setFlags) {
+            SetNZFromFlags(compiler);
+        }
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
@@ -1579,6 +1733,19 @@ void x64Host::SetNZFromValue(uint32_t value) {
     }
 }
 
+void x64Host::SetNZFromValue(uint64_t value) {
+    const bool n = (value >> 63ull);
+    const bool z = (value == 0);
+    const uint32_t ones = (n * x64flgN) | (z * x64flgZ);
+    const uint32_t zeros = (!n * x64flgN) | (!z * x64flgZ);
+    if (ones != 0) {
+        code.or_(eax, ones);
+    }
+    if (zeros != 0) {
+        code.and_(eax, ~zeros);
+    }
+}
+
 void x64Host::SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value) {
     auto tmp32 = compiler.regAlloc.GetTemporary();
     code.test(value, value);   // Updates NZ, clears CV; V won't be changed here
@@ -1680,6 +1847,22 @@ void x64Host::AssignImmResultWithOverflow(Compiler &compiler, const ir::Variable
 
     if (setFlags) {
         SetVFromValue(overflow);
+    }
+}
+
+void x64Host::AssignLongImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dstLo, const ir::VariableArg &dstHi,
+                                        uint64_t result, bool setFlags) {
+    if (dstLo.var.IsPresent()) {
+        auto dstReg32 = compiler.regAlloc.Get(dstLo.var);
+        MOVImmediate(dstReg32, result);
+    }
+    if (dstHi.var.IsPresent()) {
+        auto dstReg32 = compiler.regAlloc.Get(dstHi.var);
+        MOVImmediate(dstReg32, result >> 32ull);
+    }
+
+    if (setFlags) {
+        SetNZFromValue(result);
     }
 }
 

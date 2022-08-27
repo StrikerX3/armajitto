@@ -694,19 +694,19 @@ void testCompiler() {
     // writeARM(0xE0110392); // muls r1, r2, r3
     // writeARM(0xE0314392); // mlas r1, r2, r3, r4
     // writeARM(0xE0010392); // mul r1, r2, r3
-    writeARM(0xE0214392); // mla r1, r2, r3, r4
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE0214392); // mla r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
 
     // UMULL, UMLAL, SMULL, SMLAL
     // writeARM(0xE0821493); // umull r1, r2, r3, r4
-    // writeARM(0xE0C21493); // smull r1, r2, r3, r4
-    // writeARM(0xE0A21493); // umlal r1, r2, r3, r4
-    // writeARM(0xE0E21493); // smlal r1, r2, r3, r4
+    writeARM(0xE0C21493); // smull r1, r2, r3, r4
+    // writeARM(0xE0A21493); // umlal r1, r2, r3, r4    <-- test this after implementing ADDL
+    // writeARM(0xE0E21493); // smlal r1, r2, r3, r4    <-- test this after implementing ADDL
     // writeARM(0xE0921493); // umulls r1, r2, r3, r4
     // writeARM(0xE0D21493); // smulls r1, r2, r3, r4
-    // writeARM(0xE0B21493); // umlals r1, r2, r3, r4
-    // writeARM(0xE0F21493); // smlals r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE0B21493); // umlals r1, r2, r3, r4   <-- test this after implementing ADDL
+    // writeARM(0xE0F21493); // smlals r1, r2, r3, r4   <-- test this after implementing ADDL
+    writeARM(0xEAFFFFFE); // b $
 
     // SMUL<x><y>, SMLA<x><y>
     // writeARM(0xE1610382); // smulbb r1, r2, r3
@@ -796,9 +796,11 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
-    armState.GPR(armajitto::arm::GPR::R2) = -1;
-    armState.GPR(armajitto::arm::GPR::R3) = -2;
-    armState.GPR(armajitto::arm::GPR::R4) = 4;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x40000000;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x111;
+    // armState.GPR(armajitto::arm::GPR::R4) = 4;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
+    armState.GPR(armajitto::arm::GPR::R4) = 0x111;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;
