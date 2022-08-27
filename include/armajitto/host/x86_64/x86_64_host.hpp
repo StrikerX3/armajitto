@@ -94,6 +94,13 @@ private:
 
     // Compiles a MOV <dst>, <src> if the registers are different
     void CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src);
+    void CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src);
+
+    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags);
+    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, std::optional<bool> carry,
+                         bool setFlags);
+    void AssignImmResult(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry, bool overflow,
+                         bool setFlags);
 };
 
 } // namespace armajitto::x86_64
