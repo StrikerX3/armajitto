@@ -638,7 +638,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             // lhs is variable, rhs is immediate
             auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
             if (op->dst.var.IsPresent()) {
-                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
 
                 CopyIfDifferent(dstReg, lhsReg);
                 code.and_(dstReg, ~op->rhs.imm.value);
@@ -715,7 +715,59 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        auto [result, carry, overflow] = arm::SUB(op->lhs.imm.value, op->rhs.imm.value);
+        AssignImmResult(compiler, op->dst, result, carry, overflow, setFlags);
+    } else {
+        // At least one of the operands is a variable
+        if (!lhsImm) {
+            // lhs is variable, rhs is var or imm
+            auto lhsReg = compiler.regAlloc.Get(op->lhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                CopyIfDifferent(dstReg, lhsReg);
+
+                if (rhsImm) {
+                    code.sub(dstReg, op->rhs.imm.value);
+                } else {
+                    auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+                    code.sub(dstReg, rhsReg);
+                }
+            } else if (setFlags) {
+                if (rhsImm) {
+                    code.cmp(lhsReg, op->rhs.imm.value);
+                } else {
+                    auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+                    code.cmp(lhsReg, rhsReg);
+                }
+            }
+        } else {
+            // lhs is immediate, rhs is variable
+            auto rhsReg = compiler.regAlloc.Get(op->rhs.var.var);
+            if (op->dst.var.IsPresent()) {
+                auto dstReg = compiler.regAlloc.Get(op->dst.var);
+                code.mov(dstReg, op->lhs.imm.value);
+                code.sub(dstReg, rhsReg);
+            } else if (setFlags) {
+                auto lhsReg = compiler.regAlloc.GetTemporary();
+                code.mov(lhsReg, op->lhs.imm.value);
+                code.cmp(lhsReg, rhsReg);
+            }
+        }
+
+        if (setFlags) {
+            code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+            SetNZCVFromFlags();
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {}
 
