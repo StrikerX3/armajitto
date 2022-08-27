@@ -949,6 +949,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
+    // This instruction should be optimized away, but here's an implementation anyway
     if (op->dst.var.IsPresent()) {
         auto dstReg = compiler.regAlloc.Get(op->dst.var);
         code.mov(dstReg, op->value);
@@ -956,7 +957,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {
-    compiler.regAlloc.Reuse(op->dst.var, op->var.var);
+    // This instruction should be optimized away, but here's an implementation anyway
+    if (!op->var.var.IsPresent() || !op->dst.var.IsPresent()) {
+        return;
+    }
+    auto varReg = compiler.regAlloc.Get(op->var.var);
+    auto dstReg = compiler.regAlloc.ReuseAndGet(op->dst.var, op->var.var);
+    CopyIfDifferent(dstReg, varReg);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {}
