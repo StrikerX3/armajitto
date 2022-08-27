@@ -464,12 +464,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
         code.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Compute the shift
-        if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
+        if (op->dst.var.IsPresent()) {
             auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            code.sarx(dstReg64, valueReg64, shiftReg64);
-        } else if (op->dst.var.IsPresent()) {
-            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            CopyIfDifferent(dstReg64, valueReg64);
+            code.movsxd(dstReg64, valueReg64.cvt32());
             code.sar(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
@@ -482,7 +479,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
     } else if (valueImm) {
         // value is immediate, amount is variable
         auto shiftReg64 = compiler.regAlloc.GetRCX();
-        auto value = op->value.imm.value;
+        auto value = static_cast<int32_t>(op->value.imm.value);
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
@@ -971,7 +968,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
                 code.bt(eax, x64flgCPos); // Load carry flag
-                code.add(dstReg32, imm);
+                code.adc(dstReg32, imm);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
                 code.mov(tmpReg32, varReg32);
@@ -1001,6 +998,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
                 code.mov(tmpReg32, lhsReg32);
+                code.bt(eax, x64flgCPos); // Load carry flag
                 code.adc(tmpReg32, rhsReg32);
             }
         }
@@ -1065,7 +1063,80 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        if (op->dst.var.IsPresent()) {
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.mov(dstReg32, op->lhs.imm.value);
+
+            code.bt(eax, x64flgCPos); // Load carry flag
+            code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+            code.sbb(dstReg32, op->rhs.imm.value);
+            if (setFlags) {
+                code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+                SetNZCVFromFlags();
+            }
+        }
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg32 = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                CopyIfDifferent(dstReg32, varReg32);
+                code.bt(eax, x64flgCPos); // Load carry flag
+                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+                code.sbb(dstReg32, imm);
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, varReg32);
+                code.bt(eax, x64flgCPos); // Load carry flag
+                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+                code.sbb(tmpReg32, imm);
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+
+                code.bt(eax, x64flgCPos); // Load carry flag
+                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+                if (dstReg32 == lhsReg32) {
+                    code.sbb(dstReg32, rhsReg32);
+                } else if (dstReg32 == rhsReg32) {
+                    code.sbb(dstReg32, lhsReg32);
+                } else {
+                    code.mov(dstReg32, lhsReg32);
+                    code.sbb(dstReg32, rhsReg32);
+                }
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg32, lhsReg32);
+                code.bt(eax, x64flgCPos); // Load carry flag
+                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+                code.sbb(tmpReg32, rhsReg32);
+            }
+        }
+
+        if (setFlags) {
+            code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+            SetNZCVFromFlags();
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
