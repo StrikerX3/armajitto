@@ -1345,7 +1345,31 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {
+    if (op->flags != arm::Flags::None) {
+        const auto mask = static_cast<uint32_t>(op->flags) >> ARMflgNZCVShift;
+        if (op->values.immediate) {
+            const auto value = op->values.imm.value >> ARMflgNZCVShift;
+            const auto ones = ((value & mask) * ARMTox64FlagsMultiplier) & x64FlagsMask;
+            const auto zeros = ((~value & mask) * ARMTox64FlagsMultiplier) & x64FlagsMask;
+            if (ones != 0) {
+                code.or_(eax, ones);
+            }
+            if (zeros != 0) {
+                code.and_(eax, ~zeros);
+            }
+        } else {
+            auto valReg32 = compiler.regAlloc.Get(op->values.var.var);
+            auto maskReg32 = compiler.regAlloc.GetTemporary();
+            code.shr(valReg32, ARMflgNZCVShift);
+            code.imul(valReg32, valReg32, ARMTox64FlagsMultiplier);
+            code.and_(valReg32, x64FlagsMask);
+            code.mov(maskReg32, (~mask * ARMTox64FlagsMultiplier) & x64FlagsMask);
+            code.and_(eax, maskReg32);
+            code.or_(eax, valReg32);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
     // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible

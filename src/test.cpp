@@ -664,10 +664,10 @@ void testCompiler() {
         thumb = false;
     };
 
-    // writeARM(0xE3A02012); // mov r2, #0x12
-    // writeARM(0xE3A03B0D); // mov r3, #0x3400
+    writeARM(0xE3A02012); // mov r2, #0x12
+    writeARM(0xE3A03B0D); // mov r3, #0x3400
     // writeARM(0xE3A04004); // mov r4, #0x4
-    // writeARM(0xE0121003); // ands r1, r2, r3
+    writeARM(0xE0121003); // ands r1, r2, r3
     // writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
     // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
     // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
@@ -687,13 +687,44 @@ void testCompiler() {
     // writeARM(0xE1031052); // qadd r1, r2, r3
     // writeARM(0xE1231052); // qsub r1, r2, r3
     // writeARM(0xE1431052); // qdadd r1, r2, r3
-    writeARM(0xE1631052); // qdsub r1, r2, r3
+    // writeARM(0xE1631052); // qdsub r1, r2, r3
     writeARM(0xEAFFFFFE); // b $
+
+    // MUL, MLA
+    // writeARM(0xE0110392); // muls r1, r2, r3
+    // writeARM(0xE0314392); // mlas r1, r2, r3, r4
+    // writeARM(0xE0010392); // mul r1, r2, r3
+    // writeARM(0xE0214392); // mla r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // UMULL, UMLAL, SMULL, SMLAL
+    // writeARM(0xE0821493); // umull r1, r2, r3, r4
+    // writeARM(0xE0C21493); // smull r1, r2, r3, r4
+    // writeARM(0xE0A21493); // umlal r1, r2, r3, r4
+    // writeARM(0xE0E21493); // smlal r1, r2, r3, r4
+    // writeARM(0xE0921493); // umulls r1, r2, r3, r4
+    // writeARM(0xE0D21493); // smulls r1, r2, r3, r4
+    // writeARM(0xE0B21493); // umlals r1, r2, r3, r4
+    // writeARM(0xE0F21493); // smlals r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // SMUL<x><y>, SMLA<x><y>
+    // writeARM(0xE1610382); // smulbb r1, r2, r3
+    // writeARM(0xE10143E2); // smlatt r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // SMULW<y>, SMLAW<y>
+    // writeARM(0xE12103A2); // smulwb r1, r2, r3
+    // writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
+
+    // SMLAL<x><y>
+    // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4
+    // writeARM(0xEAFFFFFE); // b $
 
     // TODO: test MUL (signed and unsigned)
     // TODO: test MULL (signed and unsigned, half shift)
     // TODO: test ADDL
-    // TODO: test stflg
 
     // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
     // TODO: implement coprocessors
