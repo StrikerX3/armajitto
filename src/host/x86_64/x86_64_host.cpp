@@ -948,9 +948,16 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
+    if (op->dst.var.IsPresent()) {
+        auto dstReg = compiler.regAlloc.Get(op->dst.var);
+        code.mov(dstReg, op->value);
+    }
+}
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {
+    compiler.regAlloc.Reuse(op->dst.var, op->var.var);
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {}
 
