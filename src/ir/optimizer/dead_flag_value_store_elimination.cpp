@@ -44,12 +44,6 @@ void DeadFlagValueStoreEliminationOptimizerPass::Process(IRLoadFlagsOp *op) {
     }
 }
 
-void DeadFlagValueStoreEliminationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    if (!op->srcCPSR.immediate && op->setQ) {
-        RecordFlagWrites(op->dstCPSR, op->srcCPSR.var, arm::Flags::V, op);
-    }
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 // Flags tracking
 

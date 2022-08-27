@@ -9,7 +9,7 @@ namespace armajitto::ir {
 
 // Performs dead store elimination for flag values in variables.
 //
-// The algorithm tracks the last instructions that wrote to each one of the NZCVQ flags in variables.
+// The algorithm tracks the last instructions that wrote to each one of the NZCV flags in variables.
 // It only tracks the AND, ORR, BIC bitwise operations with a variable and an immediate argument and the load CPSR, load
 // flags and load sticky overflow flag instructions.
 //
@@ -31,9 +31,8 @@ namespace armajitto::ir {
 //  1. Records $v0 as the base of a series of flag value modifications.
 //  2. Stores this instruction as the writer for flags NZ (corresponding to #0xc0000000) into the base variable $v0.
 //  3. Erases the Z write from instruction 2, modifying its immediate value to #0x80000000.
-//     Stores this instruction as the writer for flags ZCVQ into the base variable $v0.
-//  4. Erases the Q write from instruction 3, modifying its immediate value to #0x70000000.
-//     Stores this instruction as the writer for flag Q into the base variable $v0.
+//     Stores this instruction as the writer for flags ZCV into the base variable $v0.
+//  4. No action taken.
 //  5. Erases the N write from instruction 2, modifying its immediate value to #0x00000000.
 //     Erases the C write from instruction 3, modifying its immediate value to #0x50000000.
 //     Stores this instruction as the writer for flags NZ into the base variable $v0.
@@ -43,7 +42,7 @@ namespace armajitto::ir {
 //  #  instruction
 //  1  ld $v0, cpsr
 //  2  bic $v1, $v0, #0x00000000
-//  3  orr $v2, $v1, #0x50000000
+//  3  orr $v2, $v1, #0x58000000
 //  4  ldflg.q $v3, $v2
 //  5  ldflg.nc $v4, $v3
 //  6  st cpsr, $v4
@@ -86,7 +85,7 @@ private:
     // void Process(IRAddLongOp *op) final;
     // void Process(IRStoreFlagsOp *op) final;
     void Process(IRLoadFlagsOp *op) final;
-    void Process(IRLoadStickyOverflowOp *op) final;
+    // void Process(IRLoadStickyOverflowOp *op) final;
     // void Process(IRBranchOp *op) final;
     // void Process(IRBranchExchangeOp *op) final;
     // void Process(IRLoadCopRegisterOp *op) final;
