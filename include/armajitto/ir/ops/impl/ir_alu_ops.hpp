@@ -397,7 +397,7 @@ struct IRMultiplyLongOp : public IROpBase<IROpcodeType::MultiplyLong> {
 };
 
 // Add long
-//   addl.[n][z] <var:dstHi>:<var:dstLo>, <var/imm:lhsHi>:<var/immLohsHi>, <var/imm:rhsHi>:<var/immLohsHi>
+//   addl.[n][z] <var:dstHi>:<var:dstLo>, <var/imm:lhsHi>:<var/imm:lhsLo>, <var/imm:rhsHi>:<var/imm:rhsLo>
 //
 // Adds the 64-bit values <lhsHi>:<lhsLo> + <rhsHi>:<rhsLo> and stores the result in <dstHi>:<dstLo>.
 // Updates the host flags specified by [n][z].

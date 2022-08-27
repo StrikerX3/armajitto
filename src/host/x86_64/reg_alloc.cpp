@@ -88,6 +88,32 @@ void RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
     printf("    reassigned %s <- %s\n", _dstStr.c_str(), _srcStr.c_str());
 }
 
+bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
+    // Do nothing if there is no variable
+    if (!var.IsPresent()) {
+        return false;
+    }
+
+    // Can't assign to a variable if already was assigned a register
+    const auto varIndex = var.Index();
+    auto &entry = m_varAllocStates[varIndex];
+    if (entry.allocated) {
+        return false;
+    }
+
+    // Check if the register was temporarily allocated
+    auto it = std::find(m_tempRegs.begin(), m_tempRegs.end(), tmpReg);
+    if (it == m_tempRegs.end()) {
+        return false;
+    }
+
+    // Turn temporary register into "permanent" by assigning it to the variable
+    m_tempRegs.erase(it);
+    entry.allocated = true;
+    entry.reg = tmpReg;
+    return true;
+}
+
 Xbyak::Reg64 RegisterAllocator::GetRCX() {
     // TODO: implement
     return rcx;

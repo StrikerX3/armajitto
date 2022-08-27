@@ -46,6 +46,10 @@ public:
         return Get(dst);
     }
 
+    // Assigns the specified temporary register to the variable.
+    // Returns true if successful.
+    bool AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg);
+
     // Retrieves the RCX register, spilling out any associated variables if necessary.
     Xbyak::Reg64 GetRCX();
 

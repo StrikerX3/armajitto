@@ -699,8 +699,8 @@ void testCompiler() {
     // UMULL, UMLAL, SMULL, SMLAL
     // writeARM(0xE0821493); // umull r1, r2, r3, r4
     // writeARM(0xE0C21493); // smull r1, r2, r3, r4
-    // writeARM(0xE0A21493); // umlal r1, r2, r3, r4    <-- test this after implementing ADDL
-    // writeARM(0xE0E21493); // smlal r1, r2, r3, r4    <-- test this after implementing ADDL
+    // writeARM(0xE0A21493); // umlal r1, r2, r3, r4
+    writeARM(0xE0E21493); // smlal r1, r2, r3, r4
     // writeARM(0xE0921493); // umulls r1, r2, r3, r4
     // writeARM(0xE0D21493); // smulls r1, r2, r3, r4
     // writeARM(0xE0B21493); // umlals r1, r2, r3, r4   <-- test this after implementing ADDL
@@ -712,14 +712,15 @@ void testCompiler() {
 
     // SMULW<y>, SMLAW<y>
     // writeARM(0xE12103A2); // smulwb r1, r2, r3
-    writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
+    // writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
 
     // SMLAL<x><y>
-    // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4  <-- test this after implementing ADDL
+    // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4
+    // writeARM(0xE14114C3); // smlalbt r1, r1, r3, r4
 
     writeARM(0xEAFFFFFE); // b $
 
-    // TODO: test MULL (signed and unsigned, half shift)
+    // TODO: test MULL with the same register as dstLo and dstHi
     // TODO: test ADDL
 
     // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
@@ -797,7 +798,8 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
-    armState.GPR(armajitto::arm::GPR::R2) = 0x80000001;
+    armState.GPR(armajitto::arm::GPR::R1) = 0x76543210;
+    armState.GPR(armajitto::arm::GPR::R2) = 0xFEDCBA98;
     armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
     armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
     armState.CPSR().n = 1;

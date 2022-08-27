@@ -1470,8 +1470,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                 // Store high result
                 if (op->dstHi.var.IsPresent()) {
                     auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
-                    code.mov(dstHiReg64, dstReg64);
-                    code.shr(dstHiReg64, 32);
+                    if (CPUID::HasBMI2()) {
+                        code.rorx(dstHiReg64, dstReg64, 32);
+                    } else {
+                        code.mov(dstHiReg64, dstReg64);
+                        code.shr(dstHiReg64, 32);
+                    }
                 }
 
                 if (setFlags) {
@@ -1539,8 +1543,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                 // Store high result
                 if (op->dstHi.var.IsPresent()) {
                     auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
-                    code.mov(dstHiReg64, dstReg64);
-                    code.shr(dstHiReg64, 32);
+                    if (CPUID::HasBMI2()) {
+                        code.rorx(dstHiReg64, dstReg64, 32);
+                    } else {
+                        code.mov(dstHiReg64, dstReg64);
+                        code.shr(dstHiReg64, 32);
+                    }
                 }
 
                 if (setFlags) {
@@ -1570,7 +1578,70 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
-    // TODO: implement
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Compose two input variables (lo and hi) into a single 64-bit register
+    auto compose64 = [&](const ir::VarOrImmArg &lo, const ir::VarOrImmArg &hi) {
+        auto outReg64 = compiler.regAlloc.GetTemporary().cvt64();
+        if (lo.immediate && hi.immediate) {
+            // Both are immediates
+            const uint64_t value = static_cast<uint64_t>(lo.imm.value) | (static_cast<uint64_t>(hi.imm.value) << 32ull);
+            code.mov(outReg64, value);
+        } else if (!lo.immediate && !hi.immediate) {
+            // Both are variables
+            auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
+            auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
+
+            code.mov(outReg64, hiReg64);
+            code.shl(outReg64, 32);
+            code.or_(outReg64, loReg64);
+        } else if (lo.immediate) {
+            // lo is immediate, hi is variable
+            auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
+
+            CopyIfDifferent(outReg64, hiReg64);
+            code.shl(outReg64, 32);
+            code.or_(outReg64, lo.imm.value);
+        } else {
+            // lo is variable, hi is immediate
+            auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
+
+            CopyIfDifferent(outReg64, loReg64);
+            code.shl(outReg64, 32);
+            code.or_(outReg64, hi.imm.value);
+            code.ror(outReg64, 32);
+        }
+        return outReg64;
+    };
+
+    // Build 64-bit values out of the 32-bit register/immediate pairs
+    // dstLo will be assigned to the first variable out of this set if possible
+    auto lhsReg64 = compose64(op->lhsLo, op->lhsHi);
+    auto rhsReg64 = compose64(op->rhsLo, op->rhsHi);
+
+    // Perform the 64-bit addition into dstLo if present, or into a temporary variable otherwise
+    Xbyak::Reg64 dstLoReg64{};
+    if (op->dstLo.var.IsPresent() && compiler.regAlloc.AssignTemporary(op->dstLo.var, lhsReg64.cvt32())) {
+        // Assign one of the temporary variables to dstLo
+        dstLoReg64 = compiler.regAlloc.Get(op->dstLo.var).cvt64();
+    } else {
+        // Create a new temporary variable if dstLo is absent or the temporary register assignment failed
+        dstLoReg64 = compiler.regAlloc.GetTemporary().cvt64();
+        code.mov(dstLoReg64, lhsReg64);
+    }
+    code.add(dstLoReg64, rhsReg64);
+
+    // Update flags if requested
+    if (setFlags) {
+        SetNZFromFlags(compiler);
+    }
+
+    // Put top half of the result into dstHi if it is present
+    if (op->dstHi.var.IsPresent()) {
+        auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
+        code.mov(dstHiReg64, dstLoReg64);
+        code.shr(dstHiReg64, 32);
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {
