@@ -208,31 +208,52 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightExtendedOp *op) {
 void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
+    const bool setFlags = BitmaskEnum(op->flags).AnyOf(arm::Flags::NZ);
+
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & op->rhs.imm.value;
-        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(result);
-            SetKnownHostFlags(arm::Flags::NZ, setFlags);
+        if (setFlags) {
+            const arm::Flags flagsSet = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, flagsSet);
         }
-    } else if (op->flags != arm::Flags::None) {
-        ClearKnownHostFlags(op->flags);
-    } else if (op->lhs.immediate != op->rhs.immediate) {
-        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [immValue, var] = *optPair;
+    } else {
+        if (op->lhs.immediate != op->rhs.immediate) {
+            if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+                auto [immValue, var] = *optPair;
 
-            // Replace AND by 0xFFFFFFFF with a copy of the other variable
-            // Replace AND by 0x00000000 with the constant 0
-            if (immValue == ~0) {
-                Assign(op->dst, var);
-                m_emitter.Erase(op);
-            } else if (immValue == 0) {
-                Assign(op->dst, 0);
+                // Replace AND by 0xFFFFFFFF with a copy of the variable
+                // Replace AND by 0x00000000 with the constant 0
+                if (immValue == ~0) {
+                    Assign(op->dst, var);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, var, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                } else if (immValue == 0) {
+                    Assign(op->dst, 0);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, 0, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                }
+            }
+        } else if (op->lhs.var == op->rhs.var) {
+            // Replace AND between the same variables with a copy of the variable
+            Assign(op->dst, op->lhs.var);
+            if (setFlags) {
+                m_emitter.Overwrite().Move(op->dst, op->lhs.var, true);
+            } else {
                 m_emitter.Erase(op);
             }
+        }
+
+        if (setFlags) {
+            ClearKnownHostFlags(op->flags);
         }
     }
 }
@@ -240,31 +261,52 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseAndOp *op) {
 void ConstPropagationOptimizerPass::Process(IRBitwiseOrOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
+    const bool setFlags = BitmaskEnum(op->flags).AnyOf(arm::Flags::NZ);
+
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value | op->rhs.imm.value;
-        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(result);
-            SetKnownHostFlags(arm::Flags::NZ, setFlags);
+        if (setFlags) {
+            const arm::Flags flagsSet = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, flagsSet);
         }
-    } else if (op->flags != arm::Flags::None) {
-        ClearKnownHostFlags(op->flags);
-    } else if (op->lhs.immediate != op->rhs.immediate) {
-        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [immValue, var] = *optPair;
+    } else {
+        if (op->lhs.immediate != op->rhs.immediate) {
+            if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+                auto [immValue, var] = *optPair;
 
-            // Replace OR by 0xFFFFFFFF with the constant 0xFFFFFFFF
-            // Replace OR by 0x00000000 with a copy of the other variable
-            if (immValue == 0) {
-                Assign(op->dst, var);
-                m_emitter.Erase(op);
-            } else if (immValue == ~0) {
-                Assign(op->dst, ~0);
+                // Replace OR by 0xFFFFFFFF with the constant 0xFFFFFFFF
+                // Replace OR by 0x00000000 with a copy of the variable
+                if (immValue == 0) {
+                    Assign(op->dst, var);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, var, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                } else if (immValue == ~0) {
+                    Assign(op->dst, ~0);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, ~0, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                }
+            }
+        } else if (op->lhs.var == op->rhs.var) {
+            // Replace OR between the same variables with a copy of the variable
+            Assign(op->dst, op->lhs.var);
+            if (setFlags) {
+                m_emitter.Overwrite().Move(op->dst, op->lhs.var, true);
+            } else {
                 m_emitter.Erase(op);
             }
+        }
+
+        if (setFlags) {
+            ClearKnownHostFlags(op->flags);
         }
     }
 }
@@ -272,27 +314,44 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseOrOp *op) {
 void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
+    const bool setFlags = BitmaskEnum(op->flags).AnyOf(arm::Flags::NZ);
+
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value ^ op->rhs.imm.value;
-        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(result);
-            SetKnownHostFlags(arm::Flags::NZ, setFlags);
+        if (setFlags) {
+            const arm::Flags flagsSet = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, flagsSet);
         }
-    } else if (op->flags != arm::Flags::None) {
-        ClearKnownHostFlags(op->flags);
-    } else if (op->lhs.immediate != op->rhs.immediate) {
-        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [immValue, var] = *optPair;
+    } else {
+        if (op->lhs.immediate != op->rhs.immediate) {
+            if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+                auto [immValue, var] = *optPair;
 
-            // Replace XOR by 0x00000000 with a copy of the other variable
-            if (immValue == 0) {
-                Assign(op->dst, var);
+                // Replace XOR by 0x00000000 with a copy of the variable
+                if (immValue == 0) {
+                    Assign(op->dst, var);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, var, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                }
+            }
+        } else if (op->lhs.var == op->rhs.var) {
+            // Replace XOR between the same variables with zero
+            Assign(op->dst, 0);
+            if (setFlags) {
+                m_emitter.Overwrite().Move(op->dst, 0, true);
+            } else {
                 m_emitter.Erase(op);
             }
+        }
+
+        if (setFlags) {
+            ClearKnownHostFlags(op->flags);
         }
     }
 }
@@ -300,31 +359,52 @@ void ConstPropagationOptimizerPass::Process(IRBitwiseXorOp *op) {
 void ConstPropagationOptimizerPass::Process(IRBitClearOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
+    const bool setFlags = BitmaskEnum(op->flags).AnyOf(arm::Flags::NZ);
+
     if (op->lhs.immediate && op->rhs.immediate) {
         auto result = op->lhs.imm.value & ~op->rhs.imm.value;
-        const arm::Flags flags = op->flags;
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
-        if (BitmaskEnum(flags).AnyOf(arm::Flags::NZ)) {
-            const arm::Flags setFlags = m_emitter.SetNZ(result);
-            SetKnownHostFlags(arm::Flags::NZ, setFlags);
+        if (setFlags) {
+            const arm::Flags flagsSet = m_emitter.SetNZ(result);
+            SetKnownHostFlags(arm::Flags::NZ, flagsSet);
         }
-    } else if (op->flags != arm::Flags::None) {
-        ClearKnownHostFlags(op->flags);
-    } else if (op->lhs.immediate != op->rhs.immediate) {
-        if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [immValue, var] = *optPair;
+    } else {
+        if (op->lhs.immediate != op->rhs.immediate) {
+            if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
+                auto [immValue, var] = *optPair;
 
-            // Replace BIC by 0x00000000 with a copy of the other variable
-            // Replace BIC by 0xFFFFFFFF with the constant 0
-            if (immValue == 0) {
-                Assign(op->dst, var);
-                m_emitter.Erase(op);
-            } else if (immValue == ~0) {
-                Assign(op->dst, 0);
+                // Replace BIC by 0x00000000 with a copy of the variable
+                // Replace BIC by 0xFFFFFFFF with the constant 0
+                if (immValue == 0) {
+                    Assign(op->dst, var);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, var, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                } else if (immValue == ~0) {
+                    Assign(op->dst, 0);
+                    if (setFlags) {
+                        m_emitter.Overwrite().Move(op->dst, 0, true);
+                    } else {
+                        m_emitter.Erase(op);
+                    }
+                }
+            }
+        } else if (op->lhs.var == op->rhs.var) {
+            // Replace BIC between the same variables with zero
+            Assign(op->dst, 0);
+            if (setFlags) {
+                m_emitter.Overwrite().Move(op->dst, 0, true);
+            } else {
                 m_emitter.Erase(op);
             }
+        }
+
+        if (setFlags) {
+            ClearKnownHostFlags(op->flags);
         }
     }
 }
