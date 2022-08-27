@@ -171,23 +171,35 @@ private:
         }
 
         void Set(uint32_t bits) {
+            if (bits != 0) {
+                valid = true;
+            }
             knownBitsMask |= bits;
             knownBitsValue |= bits;
             flippedBits &= ~bits;
         }
 
         void Clear(uint32_t bits) {
+            if (bits != 0) {
+                valid = true;
+            }
             knownBitsMask |= bits;
             knownBitsValue &= ~bits;
             flippedBits &= ~bits;
         }
 
         void Flip(uint32_t bits) {
+            if (bits != 0) {
+                valid = true;
+            }
             knownBitsValue ^= bits & knownBitsMask;
             flippedBits ^= bits & ~knownBitsMask;
         }
 
         void LogicalShiftLeft(uint32_t amount) {
+            if (amount != 0) {
+                valid = true;
+            }
             if (amount >= 32u) {
                 knownBitsMask = ~0u;
                 knownBitsValue = 0u;
@@ -203,6 +215,9 @@ private:
         }
 
         void LogicalShiftRight(uint32_t amount) {
+            if (amount != 0) {
+                valid = true;
+            }
             if (amount >= 32u) {
                 knownBitsMask = ~0u;
                 knownBitsValue = 0u;
@@ -224,6 +239,9 @@ private:
                 return false;
             }
 
+            if (amount != 0) {
+                valid = true;
+            }
             if (amount >= 32u) {
                 knownBitsMask = ~0u;
                 knownBitsValue = static_cast<int32_t>(knownBitsValue) >> 31;
@@ -241,6 +259,9 @@ private:
 
         void RotateRight(uint32_t amount) {
             amount &= 31u;
+            if (amount != 0) {
+                valid = true;
+            }
             knownBitsMask = std::rotr(knownBitsMask, amount);
             knownBitsValue = std::rotr(knownBitsValue, amount);
             flippedBits = std::rotr(flippedBits, amount);
@@ -248,6 +269,7 @@ private:
         }
 
         void RotateRightExtended(bool carry) {
+            valid = true;
             const uint32_t msb = (1u << 31u);
             knownBitsMask = std::rotr(knownBitsMask, 1u) | msb;
             knownBitsValue = std::rotr(knownBitsValue, 1u);

@@ -190,9 +190,9 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE0121003); // ands r1, r2, r3
     // writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
     // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
-    writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
+    // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
     // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
-    // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
+    writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7
     // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4
     // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7
     // writeARM(0xE1120003); // tst r2, r3
@@ -672,14 +672,14 @@ void testCompiler() {
     // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
     // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
     // writeARM(0xE0921433); // adds r1, r2, r3, lsr r4
-    // writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7  <-- test this adcs and asr
+    writeARM(0xE0B213C3); // adcs r1, r2, r3, asr #7  <-- test this adcs and asr
     // writeARM(0xE0D21453); // sbcs r1, r2, r3, asr r4  <-- test this sbcs and asr
     // writeARM(0xE0F213E3); // rscs r1, r2, r3, ror #7  <-- test this rscs and ror
     // writeARM(0xE1120003); // tst r2, r3
     // writeARM(0xE1320003); // teq r2, r3
     // writeARM(0xE1520003); // cmp r2, r3
     // writeARM(0xE1720003); // cmn r2, r3
-    writeARM(0xE1921473); // orrs r1, r2, r3, ror r4  <-- test this ror
+    // writeARM(0xE1921473); // orrs r1, r2, r3, ror r4
     // writeARM(0xE1B01002); // movs r1, r2
     // writeARM(0xE1D21063); // bics r1, r2, r3, rrx
     // writeARM(0xE1E01003); // mvn r1, r3
@@ -761,14 +761,13 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.GPR(armajitto::arm::GPR::R2) = 0x12;
-    // armState.GPR(armajitto::arm::GPR::R2) = -1;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x340F;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x340F; // 1;
     armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
-    armState.CPSR().c = 0;
-    armState.CPSR().v = 0;
+    armState.CPSR().c = 1;
+    armState.CPSR().v = 1;
 
     printf("state before execution:\n");
     printState();

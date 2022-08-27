@@ -512,17 +512,18 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
     ResizeValues(dstIndex);
 
     auto &dstValue = m_values[dstIndex];
-    dstValue.valid = true;
     dstValue.prev = src.var;
     dstValue.writerOp = op;
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
         auto &srcValue = m_values[srcIndex];
+        dstValue.valid = srcValue.valid;
         dstValue.source = srcValue.source;
         dstValue.knownBitsMask = srcValue.knownBitsMask;
         dstValue.knownBitsValue = srcValue.knownBitsValue;
         dstValue.flippedBits = srcValue.flippedBits;
         dstValue.rotateOffset = srcValue.rotateOffset;
     } else {
+        dstValue.valid = false; // Not yet valid
         dstValue.source = src.var;
     }
     return &dstValue;
