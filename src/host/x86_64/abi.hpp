@@ -22,6 +22,10 @@ namespace armajitto::abi {
 inline constexpr size_t kMaxSpilledRegs = 32;
 inline constexpr size_t kRegSpillStackSize = kMaxSpilledRegs * sizeof(uint32_t);
 
+// Statically allocaated registers
+inline constexpr Xbyak::Reg32 kHostFlagsReg = eax; // rax = host flags (ah = NZC, al = V)
+inline constexpr Xbyak::Reg64 kARMStateReg = rbx;  // rbx = pointer to ARM state struct
+
 template <size_t alignmentShift, typename T>
 inline constexpr T Align(T value) {
     constexpr size_t alignment = static_cast<size_t>(1) << static_cast<size_t>(alignmentShift);
@@ -35,6 +39,8 @@ inline constexpr std::array<Xbyak::Reg64, 7> kVolatileRegs = {rax, rcx, rdx, r8,
 inline constexpr std::array<Xbyak::Reg64, 8> kNonvolatileRegs = {rbx, rdi, rsi, rbp,
                                                                  r12, r13, r14, r15}; // rsp, unusable
 
+inline constexpr Xbyak::Reg64 kRetValReg = rax;
+
 // Windows x64 ABI requires the caller to always allocate space for 4 64-bit registers
 inline constexpr size_t kMinStackReserveSize = 4 * sizeof(uint64_t);
 inline constexpr size_t kStackReserveSize =
@@ -45,6 +51,8 @@ inline constexpr size_t kStackReserveSize =
 inline constexpr std::array<Xbyak::Reg64, 6> kIntArgRegs = {rdi, rsi, rdx, rcx, r8, r9};
 inline constexpr std::array<Xbyak::Reg64, 9> kVolatileRegs = {rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11};
 inline constexpr std::array<Xbyak::Reg64, 6> kNonvolatileRegs = {rbx, rbp, r12, r13, r14, r15}; // rsp, unusable
+
+inline constexpr Xbyak::Reg64 kRetValReg = rax;
 
 inline constexpr size_t kStackReserveSize = Align<4>(kRegSpillStackSize);
 

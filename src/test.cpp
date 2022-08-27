@@ -700,11 +700,11 @@ void testCompiler() {
     // writeARM(0xE0821493); // umull r1, r2, r3, r4
     // writeARM(0xE0C21493); // smull r1, r2, r3, r4
     // writeARM(0xE0A21493); // umlal r1, r2, r3, r4
-    writeARM(0xE0E21493); // smlal r1, r2, r3, r4
+    // writeARM(0xE0E21493); // smlal r1, r2, r3, r4
     // writeARM(0xE0921493); // umulls r1, r2, r3, r4
     // writeARM(0xE0D21493); // smulls r1, r2, r3, r4
-    // writeARM(0xE0B21493); // umlals r1, r2, r3, r4   <-- test this after implementing ADDL
-    // writeARM(0xE0F21493); // smlals r1, r2, r3, r4   <-- test this after implementing ADDL
+    // writeARM(0xE0B21493); // umlals r1, r2, r3, r4
+    // writeARM(0xE0F21493); // smlals r1, r2, r3, r4
 
     // SMUL<x><y>, SMLA<x><y>
     // writeARM(0xE1610382); // smulbb r1, r2, r3
@@ -719,9 +719,6 @@ void testCompiler() {
     // writeARM(0xE14114C3); // smlalbt r1, r1, r3, r4
 
     writeARM(0xEAFFFFFE); // b $
-
-    // TODO: test MULL with the same register as dstLo and dstHi
-    // TODO: test ADDL
 
     // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
     // TODO: implement coprocessors
