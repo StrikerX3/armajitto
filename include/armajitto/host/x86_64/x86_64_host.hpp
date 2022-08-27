@@ -100,7 +100,7 @@ private:
     void CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src);
 
     void AssignImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags);
-    void AssignImmResultWirdNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
+    void AssignImmResultWithNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
                                  bool overflow, bool setFlags);
     void AssignImmResultWithCarry(Compiler &compiler, const ir::VariableArg &dst, uint32_t result,
                                   std::optional<bool> carry, bool setFlags);

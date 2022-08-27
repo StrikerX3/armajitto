@@ -893,7 +893,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         auto [result, carry, overflow] = arm::ADD(op->lhs.imm.value, op->rhs.imm.value);
-        AssignImmResultWirdNZCV(compiler, op->dst, result, carry, overflow, setFlags);
+        AssignImmResultWithNZCV(compiler, op->dst, result, carry, overflow, setFlags);
     } else {
         // At least one of the operands is a variable
         if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
@@ -919,14 +919,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                if (dstReg32 == lhsReg32) {
-                    code.add(dstReg32, rhsReg32);
-                } else if (dstReg32 == rhsReg32) {
-                    code.add(dstReg32, lhsReg32);
-                } else {
+                auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
+                if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
                     code.mov(dstReg32, lhsReg32);
-                    code.add(dstReg32, rhsReg32);
                 }
+                code.add(dstReg32, op2Reg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
@@ -986,14 +983,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 code.bt(eax, x64flgCPos); // Load carry flag
-                if (dstReg32 == lhsReg32) {
-                    code.adc(dstReg32, rhsReg32);
-                } else if (dstReg32 == rhsReg32) {
-                    code.adc(dstReg32, lhsReg32);
-                } else {
+
+                auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
+                if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
                     code.mov(dstReg32, lhsReg32);
-                    code.adc(dstReg32, rhsReg32);
                 }
+                code.adc(dstReg32, op2Reg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
@@ -1017,7 +1012,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
     if (lhsImm && rhsImm) {
         // Both are immediates
         auto [result, carry, overflow] = arm::SUB(op->lhs.imm.value, op->rhs.imm.value);
-        AssignImmResultWirdNZCV(compiler, op->dst, result, carry, overflow, setFlags);
+        AssignImmResultWithNZCV(compiler, op->dst, result, carry, overflow, setFlags);
     } else {
         // At least one of the operands is a variable
         if (!lhsImm) {
@@ -1068,6 +1063,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
 
+    // Note: x86 and ARM have inverted borrow bits
+
     if (lhsImm && rhsImm) {
         // Both are immediates
         if (op->dst.var.IsPresent()) {
@@ -1075,7 +1072,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
             code.mov(dstReg32, op->lhs.imm.value);
 
             code.bt(eax, x64flgCPos); // Load carry flag
-            code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
+            code.cmc();               // Complement it
             code.sbb(dstReg32, op->rhs.imm.value);
             if (setFlags) {
                 code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
@@ -1084,55 +1081,43 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
         }
     } else {
         // At least one of the operands is a variable
-        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [imm, var] = *split;
-            auto varReg32 = compiler.regAlloc.Get(var);
+        if (!lhsImm) {
+            // lhs is variable, rhs is var or imm
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
 
+            Xbyak::Reg32 dstReg32{};
             if (op->dst.var.IsPresent()) {
-                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
-                CopyIfDifferent(dstReg32, varReg32);
-                code.bt(eax, x64flgCPos); // Load carry flag
-                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
-                code.sbb(dstReg32, imm);
-            } else if (setFlags) {
-                auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.bt(eax, x64flgCPos); // Load carry flag
-                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
-                code.sbb(tmpReg32, imm);
+                dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                CopyIfDifferent(dstReg32, lhsReg32);
+            } else {
+                dstReg32 = compiler.regAlloc.GetTemporary();
+            }
+
+            code.bt(eax, x64flgCPos); // Load carry flag
+            code.cmc();               // Complement it
+            if (rhsImm) {
+                code.sbb(dstReg32, op->rhs.imm.value);
+            } else {
+                auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+                code.sbb(dstReg32, rhsReg32);
             }
         } else {
-            // lhs and rhs are vars
-            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            // lhs is immediate, rhs is variable
             auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
-
+            Xbyak::Reg32 dstReg32{};
             if (op->dst.var.IsPresent()) {
-                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
-                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-
-                code.bt(eax, x64flgCPos); // Load carry flag
-                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
-                if (dstReg32 == lhsReg32) {
-                    code.sbb(dstReg32, rhsReg32);
-                } else if (dstReg32 == rhsReg32) {
-                    code.sbb(dstReg32, lhsReg32);
-                } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.sbb(dstReg32, rhsReg32);
-                }
-            } else if (setFlags) {
-                auto tmpReg32 = compiler.regAlloc.GetTemporary();
-
-                code.mov(tmpReg32, lhsReg32);
-                code.bt(eax, x64flgCPos); // Load carry flag
-                code.cmc();               // Complement it because x86 and ARM have inverted meanings for "borrow"
-                code.sbb(tmpReg32, rhsReg32);
+                dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            } else {
+                dstReg32 = compiler.regAlloc.GetTemporary();
             }
+            code.mov(dstReg32, op->lhs.imm.value);
+            code.bt(eax, x64flgCPos); // Load carry flag
+            code.cmc();               // Complement it
+            code.sbb(dstReg32, rhsReg32);
         }
 
         if (setFlags) {
-            code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+            code.cmc(); // Complement carry output
             SetNZCVFromFlags();
         }
     }
@@ -1339,7 +1324,87 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op
     }
 }
 
-void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {}
+void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {
+    const bool lhsImm = op->lhs.immediate;
+    const bool rhsImm = op->rhs.immediate;
+    const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    if (lhsImm && rhsImm) {
+        // Both are immediates
+        if (op->signedMul) {
+            auto result = static_cast<int32_t>(op->lhs.imm.value) * static_cast<int32_t>(op->rhs.imm.value);
+            AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
+        } else {
+            auto result = op->lhs.imm.value * op->rhs.imm.value;
+            AssignImmResultWithNZ(compiler, op->dst, result, setFlags);
+        }
+    } else {
+        // At least one of the operands is a variable
+        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
+            auto [imm, var] = *split;
+            auto varReg32 = compiler.regAlloc.Get(var);
+
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
+                CopyIfDifferent(dstReg32, varReg32);
+                if (op->signedMul) {
+                    code.imul(dstReg32, dstReg32, static_cast<int32_t>(imm));
+                } else {
+                    code.imul(dstReg32.cvt64(), dstReg32.cvt64(), imm);
+                }
+                if (setFlags) {
+                    code.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
+                }
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+                code.mov(tmpReg32, varReg32);
+                if (op->signedMul) {
+                    code.imul(tmpReg32, tmpReg32, static_cast<int32_t>(imm));
+                } else {
+                    code.imul(tmpReg32.cvt64(), tmpReg32.cvt64(), imm);
+                }
+                code.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
+            }
+        } else {
+            // lhs and rhs are vars
+            auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
+            auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
+
+            if (op->dst.var.IsPresent()) {
+                compiler.regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+                compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+
+                auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
+                if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
+                    code.mov(dstReg32, lhsReg32);
+                }
+                if (op->signedMul) {
+                    code.imul(dstReg32, op2Reg32);
+                } else {
+                    code.imul(dstReg32.cvt64(), op2Reg32.cvt64());
+                }
+                if (setFlags) {
+                    code.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
+                }
+            } else if (setFlags) {
+                auto tmpReg32 = compiler.regAlloc.GetTemporary();
+
+                code.mov(tmpReg32, lhsReg32);
+                if (op->signedMul) {
+                    code.imul(tmpReg32, rhsReg32);
+                } else {
+                    code.imul(tmpReg32.cvt64(), rhsReg32.cvt64());
+                }
+                code.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
+            }
+        }
+
+        if (setFlags) {
+            SetNZFromFlags(compiler);
+        }
+    }
+}
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {}
 
@@ -1562,7 +1627,7 @@ void x64Host::AssignImmResultWithNZ(Compiler &compiler, const ir::VariableArg &d
     }
 }
 
-void x64Host::AssignImmResultWirdNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
+void x64Host::AssignImmResultWithNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,
                                       bool overflow, bool setFlags) {
     if (dst.var.IsPresent()) {
         auto dstReg32 = compiler.regAlloc.Get(dst.var);

@@ -664,10 +664,10 @@ void testCompiler() {
         thumb = false;
     };
 
-    writeARM(0xE3A02012); // mov r2, #0x12
-    writeARM(0xE3A03B0D); // mov r3, #0x3400
+    // writeARM(0xE3A02012); // mov r2, #0x12
+    // writeARM(0xE3A03B0D); // mov r3, #0x3400
     // writeARM(0xE3A04004); // mov r4, #0x4
-    writeARM(0xE0121003); // ands r1, r2, r3
+    // writeARM(0xE0121003); // ands r1, r2, r3
     // writeARM(0xE0321383); // eors r1, r2, r3, lsl #7
     // writeARM(0xE0521413); // subs r1, r2, r3, lsl r4
     // writeARM(0xE07213A3); // rsbs r1, r2, r3, lsr #7
@@ -688,14 +688,14 @@ void testCompiler() {
     // writeARM(0xE1231052); // qsub r1, r2, r3
     // writeARM(0xE1431052); // qdadd r1, r2, r3
     // writeARM(0xE1631052); // qdsub r1, r2, r3
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEAFFFFFE); // b $
 
     // MUL, MLA
     // writeARM(0xE0110392); // muls r1, r2, r3
     // writeARM(0xE0314392); // mlas r1, r2, r3, r4
     // writeARM(0xE0010392); // mul r1, r2, r3
-    // writeARM(0xE0214392); // mla r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xE0214392); // mla r1, r2, r3, r4
+    writeARM(0xEAFFFFFE); // b $
 
     // UMULL, UMLAL, SMULL, SMLAL
     // writeARM(0xE0821493); // umull r1, r2, r3, r4
@@ -796,8 +796,8 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
-    armState.GPR(armajitto::arm::GPR::R2) = 0x80000010;
-    armState.GPR(armajitto::arm::GPR::R3) = 8;
+    armState.GPR(armajitto::arm::GPR::R2) = -1;
+    armState.GPR(armajitto::arm::GPR::R3) = -2;
     armState.GPR(armajitto::arm::GPR::R4) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
