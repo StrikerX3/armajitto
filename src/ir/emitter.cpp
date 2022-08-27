@@ -452,6 +452,12 @@ void Emitter::GetBaseVectorAddress(VariableArg dst) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Complex IR instruction sequence emitters
 
+Variable Emitter::AddQ(VarOrImmArg lhs, VarOrImmArg rhs) {
+    auto dst = Var();
+    Write<IRAddOp>(dst, lhs, rhs, arm::Flags::V);
+    return dst;
+}
+
 Variable Emitter::GetOffsetFromCurrentInstructionAddress(int32_t offset) {
     auto pc = GetRegister(arm::GPR::PC);
     return Add(pc, offset - m_instrSize * 2, false);

@@ -564,7 +564,7 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
     auto result = emitter.Multiply(lhs, rhs, true, false);
     if (instr.accumulate) {
         auto acc = emitter.GetRegister(instr.accReg);
-        result = emitter.Add(result, acc, true);
+        result = emitter.AddQ(result, acc);
         emitter.LoadStickyOverflow();
     }
     emitter.SetRegisterExceptPC(instr.dstReg, result);
@@ -588,7 +588,7 @@ void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &e
     auto result = mulResult.lo;
     if (instr.accumulate) {
         auto acc = emitter.GetRegister(instr.accReg);
-        result = emitter.Add(result, acc, true);
+        result = emitter.AddQ(result, acc);
         emitter.LoadStickyOverflow();
     }
     emitter.SetRegisterExceptPC(instr.dstReg, result);

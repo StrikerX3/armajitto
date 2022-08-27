@@ -287,7 +287,10 @@ public:
     void GetBaseVectorAddress(VariableArg dst);
 
     // -------------------------------------------------------------------------
-    // Complex IR instruction sequence emitters
+    // Complex IR instruction sequence emitters and special cases
+
+    // add.v <lhs>, <rhs> -- specifically for multiply-accumulate affecting Q flag
+    Variable AddQ(VarOrImmArg lhs, VarOrImmArg rhs);
 
     Variable GetOffsetFromCurrentInstructionAddress(int32_t offset);
 

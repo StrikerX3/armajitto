@@ -707,15 +707,15 @@ void testCompiler() {
     // writeARM(0xE0F21493); // smlals r1, r2, r3, r4   <-- test this after implementing ADDL
 
     // SMUL<x><y>, SMLA<x><y>
-    writeARM(0xE1610382); // smulbb r1, r2, r3
+    // writeARM(0xE1610382); // smulbb r1, r2, r3
     // writeARM(0xE10143E2); // smlatt r1, r2, r3, r4
 
     // SMULW<y>, SMLAW<y>
     // writeARM(0xE12103A2); // smulwb r1, r2, r3
-    // writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
+    writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
 
     // SMLAL<x><y>
-    // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4
+    // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4  <-- test this after implementing ADDL
 
     writeARM(0xEAFFFFFE); // b $
 
@@ -797,8 +797,9 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
-    armState.GPR(armajitto::arm::GPR::R2) = 0x82000705;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x02220111;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x80000001;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
+    armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;

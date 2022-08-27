@@ -248,6 +248,10 @@ struct IRAddOp : public detail::IRBinaryOpBase<IROpcodeType::Add, arm::Flags::NZ
     // Constructor for the ADD operation.
     IRAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setFlags)
         : IRBinaryOpBase(dst, lhs, rhs, (setFlags ? arm::Flags::NZCV : arm::Flags::None), "add") {}
+
+    // Constructor for the ADD operation with specific flags.
+    IRAddOp(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, arm::Flags flags)
+        : IRBinaryOpBase(dst, lhs, rhs, flags, "add") {}
 };
 
 // Add with carry
