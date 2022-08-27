@@ -445,8 +445,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
     const bool amountImm = op->amount.immediate;
 
     // x86 masks the shift amount to 31 or 63.
-    // ARM does not -- larger amounts simply output zero.
-    // For offset == 32, the carry flag is set to bit 31.
+    // ARM does not, though amounts larger than 31 behave exactly the same as a shift by 31.
 
     if (valueImm && amountImm) {
         // Both are immediates
@@ -454,94 +453,68 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
         AssignImmResult(compiler, op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
-        auto shiftReg64 = compiler.regAlloc.GetRCX();
-        auto valueReg64 = compiler.regAlloc.Get(op->value.var.var).cvt64();
+        auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
+        auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
-        // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        // Get shift amount, clamped to 0..31
+        code.mov(shiftReg32, 31);
+        code.cmp(amountReg32, 31);
+        code.cmovbe(shiftReg32.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
-            auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            code.movsxd(dstReg64, valueReg64.cvt32());
-            code.sar(dstReg64, shiftReg64.cvt8());
+            auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            code.sar(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            code.dec(shiftReg64);
-            code.bt(valueReg64, shiftReg64);
+            code.dec(shiftReg32);
+            code.bt(valueReg32, shiftReg32);
             SetCFromFlags(compiler);
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
-        auto shiftReg64 = compiler.regAlloc.GetRCX();
+        auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
         auto value = static_cast<int32_t>(op->value.imm.value);
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
-        // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        // Get shift amount, clamped to 0..31
+        code.mov(shiftReg32, 31);
+        code.cmp(amountReg32, 31);
+        code.cmovbe(shiftReg32.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
-            auto dstReg64 = compiler.regAlloc.Get(op->dst.var).cvt64();
-            code.mov(dstReg64, value);
-            code.sar(dstReg64, shiftReg64.cvt8());
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.mov(dstReg32, value);
+            code.sar(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            auto valueReg64 = compiler.regAlloc.GetTemporary().cvt64();
-            code.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
-            code.bt(valueReg64, shiftReg64);
+            auto valueReg32 = compiler.regAlloc.GetTemporary();
+            code.mov(valueReg32, (static_cast<uint64_t>(value) << 1ull));
+            code.bt(valueReg32, shiftReg32);
             SetCFromFlags(compiler);
         }
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
-        auto amount = op->amount.imm.value;
+        auto amount = std::min(op->amount.imm.value, 31u);
 
-        if (amount < 32) {
-            // Compute the shift
-            if (op->dst.var.IsPresent()) {
-                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                CopyIfDifferent(dstReg32, valueReg32);
-                code.sar(dstReg32, amount);
-                if (op->setCarry) {
-                    SetCFromFlags(compiler);
-                }
-            } else if (op->setCarry) {
-                code.bt(valueReg32.cvt64(), amount - 1);
-                SetCFromFlags(compiler);
-            }
-        } else if (amount == 32) {
-            if (op->dst.var.IsPresent()) {
-                // Update carry flag before zeroing out the register
-                if (op->setCarry) {
-                    code.bt(valueReg32, 31);
-                    SetCFromFlags(compiler);
-                }
-
-                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                code.xor_(dstReg32, dstReg32);
-            } else if (op->setCarry) {
-                code.bt(valueReg32, 31);
-                SetCFromFlags(compiler);
-            }
-        } else {
-            // Zero out destination
-            if (op->dst.var.IsPresent()) {
-                auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                code.xor_(dstReg32, dstReg32);
-            }
+        // Compute the shift
+        if (op->dst.var.IsPresent()) {
+            auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            CopyIfDifferent(dstReg32, valueReg32);
+            code.sar(dstReg32, amount);
             if (op->setCarry) {
-                SetCFromValue(false);
+                SetCFromFlags(compiler);
             }
+        } else if (op->setCarry) {
+            code.bt(valueReg32.cvt64(), amount - 1);
+            SetCFromFlags(compiler);
         }
     }
 }
