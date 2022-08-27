@@ -514,16 +514,15 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
     auto &dstValue = m_values[dstIndex];
     dstValue.prev = src.var;
     dstValue.writerOp = op;
+    dstValue.valid = false; // Not yet valid
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
         auto &srcValue = m_values[srcIndex];
-        dstValue.valid = srcValue.valid;
         dstValue.source = srcValue.source;
         dstValue.knownBitsMask = srcValue.knownBitsMask;
         dstValue.knownBitsValue = srcValue.knownBitsValue;
         dstValue.flippedBits = srcValue.flippedBits;
         dstValue.rotateOffset = srcValue.rotateOffset;
     } else {
-        dstValue.valid = false; // Not yet valid
         dstValue.source = src.var;
     }
     return &dstValue;
@@ -593,7 +592,11 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         // variable is var.
         match = BitwiseOpsMatchState{*value, var.var, m_values}.Check(value);
         if (!match) {
-            // Replace the last instruction with ROR for rotation, ORR for ones, BIC for zeros and EOR for flips
+            // Replace the last instruction with:
+            // - ROR, LSR or LSL for rotation or shifts
+            // - ORR for ones
+            // - BIC for zeros
+            // - EOR for flips
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
                 auto _ = m_emitter.GoTo(value->writerOp);
@@ -601,12 +604,20 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
 
                 Variable result = value->source;
 
-                // Emit a ROR or LSR for rotation
-                const uint32_t rotateMask = ~(~0u >> rotate);
+                // Emit a ROR, LSR or LSL for rotation
+                const uint32_t rightShiftMask = ~(~0u >> rotate);
+                const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
+                const bool rightShiftMatch = (value->knownBitsMask & rightShiftMask) == rightShiftMask &&
+                                             (value->knownBitsValue & rightShiftMask) == 0;
+                const bool leftShiftMatch = (value->knownBitsMask & leftShiftMask) == leftShiftMask &&
+                                            (value->knownBitsValue & leftShiftMask) == 0;
                 if (rotate != 0) {
-                    if ((value->knownBitsMask & rotateMask) == rotateMask) {
-                        // Emit LSR when all <rotate> most significant bits are known
+                    if (rightShiftMatch) {
+                        // Emit LSR when all <rotate> most significant bits are known to be zero
                         result = m_emitter.LogicalShiftRight(result, rotate, false);
+                    } else if (leftShiftMatch) {
+                        // Emit LSL when all <32 - rotate> least significant bits are known to be zero
+                        result = m_emitter.LogicalShiftLeft(result, 32 - rotate, false);
                     } else {
                         // Emit ROR otherwise
                         result = m_emitter.RotateRight(result, rotate, false);
@@ -625,8 +636,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                         result = m_emitter.BitwiseOr(result, ones, false);
                     }
 
-                    // Emit BIC for all known zero bits, unless all of those zero bits are covered by LSR
-                    if (zeros != 0 && zeros != rotateMask) {
+                    // Emit BIC for all known zero bits, unless all of those zero bits are covered by LSR or LSL
+                    if (zeros != 0 && !rightShiftMatch && !leftShiftMatch) {
                         result = m_emitter.BitClear(result, zeros, false);
                     }
 
@@ -683,9 +694,14 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
 
     // When LSR is used and the only zero bits are the most significant <rotate> bits, we can omit BIC.
     // This happens when all zeros are covered by the rotation mask and no other zeros exist.
-    const uint32_t rotateMask = ~(~0u >> rotate);
+    const uint32_t rightShiftMask = ~(~0u >> rotate);
+    const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
+    const bool rightShiftMatch =
+        (value.knownBitsMask & rightShiftMask) == rightShiftMask && (value.knownBitsValue & rightShiftMask) == 0;
+    const bool leftShiftMatch =
+        (value.knownBitsMask & leftShiftMask) == leftShiftMask && (value.knownBitsValue & leftShiftMask) == 0;
     hasOnes = (ones == 0);
-    hasZeros = (zeros == 0) || (zeros == rotateMask);
+    hasZeros = (zeros == 0) || leftShiftMatch || rightShiftMatch;
     hasFlips = (flips == 0);
     hasRotate = (rotate == 0);
 }
@@ -714,6 +730,10 @@ bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Valid() const {
     } else {
         return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
     }
+}
+
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftLeftOp *op) {
+    CommonShiftCheck(op->value, op->amount, op->dst);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRLogicalShiftRightOp *op) {

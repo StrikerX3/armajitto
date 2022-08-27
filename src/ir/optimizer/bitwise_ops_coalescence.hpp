@@ -343,6 +343,7 @@ private:
             valid = false;
         }
 
+        void operator()(IRLogicalShiftLeftOp *op);
         void operator()(IRLogicalShiftRightOp *op);
         void operator()(IRRotateRightOp *op);
         void operator()(IRBitwiseOrOp *op);

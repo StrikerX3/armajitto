@@ -664,6 +664,7 @@ void testCompiler() {
         thumb = false;
     };
 
+    // ALU ops, CLZ, QADD, QSUB
     // writeARM(0xE3A02012); // mov r2, #0x12
     // writeARM(0xE3A03B0D); // mov r3, #0x3400
     // writeARM(0xE3A04004); // mov r4, #0x4
@@ -688,41 +689,36 @@ void testCompiler() {
     // writeARM(0xE1231052); // qsub r1, r2, r3
     // writeARM(0xE1431052); // qdadd r1, r2, r3
     // writeARM(0xE1631052); // qdsub r1, r2, r3
-    // writeARM(0xEAFFFFFE); // b $
 
     // MUL, MLA
     // writeARM(0xE0110392); // muls r1, r2, r3
     // writeARM(0xE0314392); // mlas r1, r2, r3, r4
     // writeARM(0xE0010392); // mul r1, r2, r3
     // writeARM(0xE0214392); // mla r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
 
     // UMULL, UMLAL, SMULL, SMLAL
     // writeARM(0xE0821493); // umull r1, r2, r3, r4
-    writeARM(0xE0C21493); // smull r1, r2, r3, r4
+    // writeARM(0xE0C21493); // smull r1, r2, r3, r4
     // writeARM(0xE0A21493); // umlal r1, r2, r3, r4    <-- test this after implementing ADDL
     // writeARM(0xE0E21493); // smlal r1, r2, r3, r4    <-- test this after implementing ADDL
     // writeARM(0xE0921493); // umulls r1, r2, r3, r4
     // writeARM(0xE0D21493); // smulls r1, r2, r3, r4
     // writeARM(0xE0B21493); // umlals r1, r2, r3, r4   <-- test this after implementing ADDL
     // writeARM(0xE0F21493); // smlals r1, r2, r3, r4   <-- test this after implementing ADDL
-    writeARM(0xEAFFFFFE); // b $
 
     // SMUL<x><y>, SMLA<x><y>
-    // writeARM(0xE1610382); // smulbb r1, r2, r3
+    writeARM(0xE1610382); // smulbb r1, r2, r3
     // writeARM(0xE10143E2); // smlatt r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
 
     // SMULW<y>, SMLAW<y>
     // writeARM(0xE12103A2); // smulwb r1, r2, r3
     // writeARM(0xE12143C2); // smlawt r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
 
     // SMLAL<x><y>
     // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4
-    // writeARM(0xEAFFFFFE); // b $
 
-    // TODO: test MUL (signed and unsigned)
+    writeARM(0xEAFFFFFE); // b $
+
     // TODO: test MULL (signed and unsigned, half shift)
     // TODO: test ADDL
 
@@ -799,8 +795,10 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R2) = 0x40000000;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x111;
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
-    armState.GPR(armajitto::arm::GPR::R4) = 0x111;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
+    // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x82000705;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x111;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;
