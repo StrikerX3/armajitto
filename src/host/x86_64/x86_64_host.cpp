@@ -243,11 +243,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
-    // TODO: implement
-    // - implement free functions to delegate to ISystem
-    // - setup call and invoke with code.call(...)
-    // - process return code
-    // TODO: handle TCM, caches, etc.
+    // TODO: handle TCM, caches, permissions, etc.
+    // TODO: fast memory LUT
     // TODO: virtual memory, exception handling, rewriting accessors
 
     // Select parameters based on size
