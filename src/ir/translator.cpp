@@ -877,18 +877,30 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
     uint32_t firstReg;
     uint32_t lastReg;
     uint32_t size;
-    if (instr.regList == 0) {
-        // An empty list results in transferring nothing but incrementing the address as if we had a full list
-        firstReg = 15;
-        lastReg = 0;
-        size = 16 * 4;
+    uint16_t regList = instr.regList;
+    if (regList == 0) {
+        switch (m_context.GetCPUArch()) {
+        case CPUArch::ARMv4T:
+            // An empty list results in transferring PC only but incrementing the address as if we had a full list
+            regList = (1 << 15);
+            firstReg = 15;
+            lastReg = 15;
+            size = 16 * 4;
+            break;
+        case CPUArch::ARMv5TE:
+            // An empty list results in transferring nothing but incrementing the address as if we had a full list
+            firstReg = 15;
+            lastReg = 0;
+            size = 16 * 4;
+            break;
+        }
     } else {
-        firstReg = std::countr_zero(instr.regList);
-        lastReg = 15 - std::countl_zero(instr.regList);
-        size = std::popcount(instr.regList) * 4;
+        firstReg = std::countr_zero(regList);
+        lastReg = 15 - std::countl_zero(regList);
+        size = std::popcount(regList) * 4;
     }
 
-    const bool pcIncluded = instr.regList & (1 << 15);
+    const bool pcIncluded = regList & (1 << 15);
     const bool userModeTransfer = instr.userModeOrPSRTransfer && (!instr.load || !pcIncluded);
     const arm::Mode gprMode = (userModeTransfer ? arm::Mode::User : emitter.Mode());
 
@@ -914,7 +926,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
     // Execute transfer
     Variable pcValue{};
     for (uint32_t i = firstReg; i <= lastReg; i++) {
-        if (~instr.regList & (1 << i)) {
+        if (~regList & (1 << i)) {
             continue;
         }
 
@@ -960,8 +972,8 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
         if (!writeback) {
             auto rn = static_cast<uint32_t>(instr.baseReg);
             switch (m_context.GetCPUArch()) {
-            case CPUArch::ARMv4T: writeback = (~instr.regList & (1 << rn)); break;
-            case CPUArch::ARMv5TE: writeback = (lastReg != rn || instr.regList == (1 << rn)); break;
+            case CPUArch::ARMv4T: writeback = (~regList & (1 << rn)); break;
+            case CPUArch::ARMv5TE: writeback = (lastReg != rn || regList == (1 << rn)); break;
             default: util::unreachable();
             }
         }
