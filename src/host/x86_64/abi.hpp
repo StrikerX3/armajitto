@@ -50,10 +50,13 @@ inline constexpr std::array<Xbyak::Reg64, 8> kNonvolatileRegs = {rbx, rdi, rsi, 
 
 inline constexpr Xbyak::Reg64 kRetValReg = rax;
 
+inline constexpr uint64_t kStackAlignmentShift = 4ull;
+inline constexpr uint64_t kStackAlignment = (1ull << kStackAlignmentShift);
+
 // Windows x64 ABI requires the caller to always allocate space for 4 64-bit registers
 inline constexpr size_t kMinStackReserveSize = 4 * sizeof(uint64_t);
 inline constexpr size_t kStackReserveSize =
-    kRegSpillStackSize < kMinStackReserveSize ? kMinStackReserveSize : Align<4>(kRegSpillStackSize);
+    kRegSpillStackSize < kMinStackReserveSize ? kMinStackReserveSize : Align<kStackAlignmentShift>(kRegSpillStackSize);
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -66,7 +69,10 @@ inline constexpr std::array<Xbyak::Reg64, 6> kNonvolatileRegs = {rbx, rbp, r12, 
 
 inline constexpr Xbyak::Reg64 kRetValReg = rax;
 
-inline constexpr size_t kStackReserveSize = Align<4>(kRegSpillStackSize);
+inline constexpr uint64_t kStackAlignmentShift = 4ull;
+inline constexpr uint64_t kStackAlignment = (1ull << kStackAlignmentShift);
+
+inline constexpr size_t kStackReserveSize = Align<kStackAlignmentShift>(kRegSpillStackSize);
 
 #endif
 

@@ -25,6 +25,7 @@ private:
     using PrologFn = void (*)(uintptr_t blockFn);
     PrologFn m_prolog;
     HostCode m_epilog;
+    uint64_t m_stackAlignmentOffset;
 
     struct Compiler;
 

@@ -11,7 +11,8 @@ class Host {
 public:
     Host(Context &context)
         : m_context(context)
-        , m_armState(context.GetARMState()) {}
+        , m_armState(context.GetARMState())
+        , m_system(context.GetSystem()) {}
 
     virtual ~Host() = default;
 
@@ -24,6 +25,7 @@ public:
 protected:
     Context &m_context;
     arm::State &m_armState;
+    ISystem &m_system;
 
     // Helper method that gives implementors access to BasicBlock::GetHostCode().
     HostCode GetHostCode(const ir::BasicBlock &block) const {

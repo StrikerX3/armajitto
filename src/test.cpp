@@ -219,9 +219,9 @@ void testTranslatorAndOptimizer() {
     // QADD, QSUB, QDADD, QDSUB
     // writeARM(0xE1031052); // qadd r1, r2, r3
     // writeARM(0xE1231052); // qsub r1, r2, r3
-    writeARM(0xE1431052); // qdadd r1, r2, r3
+    // writeARM(0xE1431052); // qdadd r1, r2, r3
     // writeARM(0xE1631052); // qdsub r1, r2, r3
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEAFFFFFE); // b $
 
     // MUL, MLA
     // writeARM(0xE0110392); // muls r1, r2, r3
@@ -262,10 +262,10 @@ void testTranslatorAndOptimizer() {
 
     // MSR
     // writeARM(0xE12FF002); // msr cpsr_fxsc, r2
-    // writeARM(0xE126F001); // msr cpsr_xs, r1
-    // writeARM(0xE368F4A5); // msr spsr_f, 0xA5
-    // writeARM(0xE361F01F); // msr spsr_c, 0x1F
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xE126F001); // msr cpsr_xs, r1
+    writeARM(0xE368F4A5); // msr spsr_f, 0xA5
+    writeARM(0xE361F01F); // msr spsr_c, 0x1F
+    writeARM(0xEAFFFFFE); // b $
 
     // LDR, STR, LDRB, STRB
     // writeARM(0xE5921000); // ldr r1, [r2]
@@ -718,6 +718,97 @@ void testCompiler() {
     // writeARM(0xE14214C3); // smlalbt r1, r2, r3, r4
     // writeARM(0xE14114C3); // smlalbt r1, r1, r3, r4
 
+    // MRS
+    // writeARM(0xE10F1000); // mrs r1, cpsr
+    // writeARM(0xE14F2000); // mrs r2, spsr
+
+    // MSR
+    // writeARM(0xE12FF002); // msr cpsr_fxsc, r2
+    // writeARM(0xE126F001); // msr cpsr_xs, r1
+    // writeARM(0xE368F4A5); // msr spsr_f, 0xA5
+    // writeARM(0xE361F01F); // msr spsr_c, 0x1F
+
+    // LDR, STR, LDRB, STRB
+    writeARM(0xE5921000); // ldr r1, [r2]
+    // writeARM(0xE7921003); // ldr r1, [r2, r3]
+    // writeARM(0xE7821283); // str r1, [r2, r3, lsl #5]
+    // writeARM(0xE5A21004); // str r1, [r2, #4]!
+    // writeARM(0xE7721003); // ldrb r1, [r2, -r3]!
+    // writeARM(0xE7E21323); // strb r1, [r2, r3, lsr #6]!
+    // writeARM(0xE4521004); // ldrb r1, [r2], #-4
+    // writeARM(0xE6C21003); // strb r1, [r2], r3
+    // writeARM(0xE69212C3); // ldr r1, [r2], r3, asr #5
+    // writeARM(0xE4B21003); // ldrt r1, [r2], #3
+    // writeARM(0xE6A21003); // strt r1, [r2], r3
+    // writeARM(0xE6F212E3); // ldrbt r1, [r2], r3, ror #5
+    // writeARM(0xE59F1004); // ldr r1, [r15, #4]
+    // writeARM(0xE5BF1000); // ldr r1, [r15]!
+    // writeARM(0xE4BF1000); // ldrt r1, [r15]
+    // writeARM(0xE5B1F000); // ldr r15, [r1]!
+    // writeARM(0xE4B1F000); // ldrt r15, [r1]
+    // writeARM(0xE5A1F000); // str r15, [r1]!
+    // writeARM(0xE4A1F000); // strt r15, [r1]
+
+    // LDRH, STRH, LDRSB, LDRSH, LDRD, STRD
+    // writeARM(0xE1D010B0); // ldrh r1, [r0]
+    // writeARM(0xE1C010BA); // strh r1, [r0, #10]
+    // writeARM(0xE1D020D1); // ldrsb r2, [r0, #1]
+    // writeARM(0xE1D030F2); // ldrsh r3, [r0, #2]
+    // writeARM(0xE1C040D0); // ldrd r4, r5, [r0]
+    // writeARM(0xE1C041F0); // strd r4, r5, [r0, #16]
+    // writeARM(0xE1D060B2); // ldrh r6, [r0, #2]
+    // writeARM(0xE19070B5); // ldrh r7, [r0, r5]
+    // writeARM(0xE1F080B2); // ldrh r8, [r0, #2]!
+    // writeARM(0xE1B090B5); // ldrh r9, [r0, r5]!
+    // writeARM(0xE0D0A0B2); // ldrh r10, [r0], #2
+    // writeARM(0xE090B0B5); // ldrh r11, [r0], r5
+    // writeARM(0xE19F10B3); // ldrh r1, [r15, r3]
+    // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
+    // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
+    // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
+    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+
+    // PLD
+    // writeARM(0xF5D3F000); // pld [r3]
+
+    // SWP, SWPB
+    // writeARM(0xE1002091); // swp r2, r1, [r0]
+    // writeARM(0xE1402091); // swpb r2, r1, [r0]
+    // writeARM(0xE103109F); // swp r1, r15, [r3]
+    // writeARM(0xE10F1092); // swp r1, r2, [r15]
+    // writeARM(0xE103F092); // swp r15, r2, [r3]
+
+    // LDM, STM
+    // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
+    // writeARM(0xE8800018); // stmia r0, {r3-r4}
+    // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
+    // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
+    // writeARM(0xE9A00006); // stmib r0!, {r1-r2}
+    // writeARM(0xE9800018); // stmib r0, {r3-r4}
+    // writeARM(0xE8300600); // ldmda r0!, {r9-r10}
+    // writeARM(0xE8101800); // ldmda r0, {r11-r12}
+    // writeARM(0xE8FD4000); // ldmia r13!, {r14}^
+    // writeARM(0xE8ED4000); // stmia r13!, {r14}^
+    // writeARM(0xE8A00000); // stmia r0!, {}
+    // writeARM(0xE8AF0001); // stmia r15!, {r0}
+    // writeARM(0xE8BF0000); // ldmia r15!, {}
+    // writeARM(0xE9BF0000); // ldmib r15!, {}
+
+    // SWI, BKPT, UDF
+    // writeARM(0xEF123456); // swi #0x123456
+    // writeARM(0xE1200070); // bkpt
+    // writeARM(0xF0000000); // udf
+
+    // MRC, MCR, MRC2, MCR2
+    // writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE110E10); // mrc p14, 0, r0, c1, c0, 0
+    // writeARM(0xEE010E10); // mcr p14, 0, r0, c1, c0, 0
+    // writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
+    // writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
+    // writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
+    // writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
+
     writeARM(0xEAFFFFFE); // b $
 
     // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
@@ -795,10 +886,11 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
-    armState.GPR(armajitto::arm::GPR::R1) = 0x76543210;
-    armState.GPR(armajitto::arm::GPR::R2) = 0xFEDCBA98;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
-    armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
+    // armState.GPR(armajitto::arm::GPR::R1) = 0x76543210;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0xFEDCBA98;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
+    // armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
+    armState.GPR(armajitto::arm::GPR::R2) = baseAddress;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;

@@ -111,8 +111,16 @@ void x64Host::CompileProlog() {
         code.push(reg);
     }
 
+    // Calculate current stack size
+    uint64_t stackSize = abi::kNonvolatileRegs.size() * sizeof(uint64_t);
+    stackSize += sizeof(uint64_t); // +1 for RIP pushed by call
+
+    // Calculate offset needed to compensate for stack misalignment
+    m_stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(stackSize) - stackSize;
+
     // Setup stack -- make space for register spill area
-    code.sub(rsp, abi::kStackReserveSize);
+    // Also include the stack alignment offset
+    code.sub(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
 
     // Copy CPSR NZCV flags to ah/al
     code.mov(abi::kHostFlagsReg, dword[CastUintPtr(&m_armState.CPSR())]);
@@ -144,7 +152,7 @@ void x64Host::CompileEpilog() {
     code.setProtectModeRW();
 
     // Cleanup stack
-    code.add(rsp, abi::kStackReserveSize);
+    code.add(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
 
     // Pop all nonvolatile registers
     for (auto it = abi::kNonvolatileRegs.rbegin(); it != abi::kNonvolatileRegs.rend(); it++) {
@@ -206,8 +214,62 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
     }
 }
 
+static uint32_t SystemMemReadWord(ISystem &system, uint32_t address) {
+    return system.MemReadWord(address);
+}
+
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     // TODO: implement
+    // - implement free functions to delegate to ISystem
+    // - setup call and invoke with code.call(...)
+    // - process return code
+    // TODO: handle TCM, caches, etc.
+    // TODO: virtual memory, exception handling, rewriting accessors
+
+    // Save all used volatile registers
+    std::vector<Xbyak::Reg64> savedRegs;
+    for (auto reg : abi::kVolatileRegs) {
+        // TODO: only push allocated registers
+        code.push(reg);
+        savedRegs.push_back(reg);
+    }
+    // Save RAX
+    // code.push(rax);  // Already included in abi::kVolatileRegs; TODO: reenable this
+
+    const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
+    const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
+
+    // Put arguments in the appropriate registers
+    code.mov(abi::kIntArgRegs[0], CastUintPtr(&m_system));
+    if (op->address.immediate) {
+        code.mov(abi::kIntArgRegs[1], op->address.imm.value);
+    } else {
+        auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+        code.mov(abi::kIntArgRegs[1], addrReg32);
+    }
+
+    // Align stack to ABI requirement
+    if (stackAlignmentOffset != 0) {
+        code.sub(rsp, stackAlignmentOffset);
+    }
+
+    // Call appropriate trampoline function
+    code.mov(rax, CastUintPtr(&SystemMemReadWord));
+    code.call(rax);
+    // EAX now contains the read value
+
+    // Undo stack alignment
+    if (stackAlignmentOffset != 0) {
+        code.add(rsp, stackAlignmentOffset);
+    }
+
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+    code.mov(dstReg32, eax);
+
+    // Pop all saved registers
+    for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
+        code.pop(*it);
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
