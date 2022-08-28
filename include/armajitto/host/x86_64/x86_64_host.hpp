@@ -5,6 +5,8 @@
 #include "armajitto/ir/ir_ops.hpp"
 #include "armajitto/util/type_traits.hpp"
 
+#include "x86_64_type_traits.hpp"
+
 #ifdef _WIN32
     #define NOMINMAX
 #endif
@@ -118,12 +120,14 @@ private:
 
     template <typename... FnArgs, typename... Args>
     void CompileInvokeHostFunction(void (*fn)(FnArgs...), Args &&...args) {
-        static_assert(args_match_v<arg_list<FnArgs...>, arg_list<Args...>>, "Arguments mismatch");
-        CompileInvokeHostFunction(fn, std::forward<Args>(args)...);
+        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Arguments mismatch");
+        static constexpr Xbyak::Reg noReg{};
+        CompileInvokeHostFunctionImpl(noReg, fn, std::forward<Args>(args)...);
     }
 
     template <typename ReturnType, typename... FnArgs, typename... Args>
     void CompileInvokeHostFunction(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
+        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Arguments mismatch");
         CompileInvokeHostFunctionImpl(dstReg, fn, std::forward<Args>(args)...);
     }
 

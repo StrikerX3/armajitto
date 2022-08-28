@@ -1,6 +1,8 @@
 #include "armajitto/ir/translator.hpp"
 
 #include "armajitto/guest/arm/instructions.hpp"
+#include "armajitto/util/unreachable.hpp"
+
 #include "translator/decode_arm.hpp"
 #include "translator/decode_thumb.hpp"
 
@@ -798,7 +800,7 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Half, address);
         } else {
             // SWP/SWPB, not handled here
-            // TODO: unreachable
+            util::unreachable();
         }
         if (instr.reg == GPR::PC) {
             pcValue = value;
@@ -836,7 +838,7 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             writeback = true;
         } else {
             // SWP/SWPB, not handled here
-            // TODO: unreachable
+            util::unreachable();
         }
     }
 
@@ -960,7 +962,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             switch (m_context.GetCPUArch()) {
             case CPUArch::ARMv4T: writeback = (~instr.regList & (1 << rn)); break;
             case CPUArch::ARMv5TE: writeback = (lastReg != rn || instr.regList == (1 << rn)); break;
-            default: /* TODO: unreachable */ break;
+            default: util::unreachable();
             }
         }
         if (writeback) {

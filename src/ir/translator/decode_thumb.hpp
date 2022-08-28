@@ -2,6 +2,7 @@
 
 #include "armajitto/guest/arm/instructions.hpp"
 #include "armajitto/util/bit_ops.hpp"
+#include "armajitto/util/unreachable.hpp"
 
 namespace armajitto::arm::thumb_decoder {
 
@@ -32,7 +33,7 @@ inline auto ShiftByImm(uint16_t opcode) {
     case 0b00: instr.rhs.shift.type = arm::ShiftType::LSL; break;
     case 0b01: instr.rhs.shift.type = arm::ShiftType::LSR; break;
     case 0b10: instr.rhs.shift.type = arm::ShiftType::ASR; break;
-    default: break; // TODO: unreachable
+    default: util::unreachable();
     }
     instr.rhs.shift.immediate = true;
     instr.rhs.shift.srcReg = static_cast<GPR>(bit::extract<3, 3>(opcode));

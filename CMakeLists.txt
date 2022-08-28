@@ -45,6 +45,7 @@ add_library(armajitto
     include/armajitto/host/host_code.hpp
     include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/host/x86_64/x86_64_host.hpp
+    include/armajitto/host/x86_64/x86_64_type_traits.hpp
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
     include/armajitto/ir/ir_ops.hpp
@@ -68,6 +69,7 @@ add_library(armajitto
     include/armajitto/util/bit_ops.hpp
     include/armajitto/util/pointer_cast.hpp
     include/armajitto/util/type_traits.hpp
+    include/armajitto/util/unreachable.hpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
     src/host/x86_64/abi.hpp

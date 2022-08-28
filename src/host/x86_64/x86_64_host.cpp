@@ -5,6 +5,7 @@
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 #include "armajitto/util/bit_ops.hpp"
 #include "armajitto/util/pointer_cast.hpp"
+#include "armajitto/util/unreachable.hpp"
 
 #include "abi.hpp"
 #include "vtune.hpp"
@@ -329,7 +330,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
             readFn = SystemMemReadAlignedWord;
         }
         break;
-    default: return; // TODO: unreachable
+    default: util::unreachable();
     }
 
     auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
