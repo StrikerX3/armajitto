@@ -2211,7 +2211,7 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
     // Copy result to destination register if present
     if constexpr (!std::is_void_v<ReturnType>) {
         if (!dstReg.isNone()) {
-            code.mov(dstReg, rax.changeBit(dstReg.getBit()));
+            code.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
         }
     }
 
