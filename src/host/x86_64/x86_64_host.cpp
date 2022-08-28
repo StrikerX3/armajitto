@@ -61,6 +61,34 @@ constexpr uint32_t x64FlagsMask = x64flgN | x64flgZ | x64flgC | x64flgV;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// System method accessor trampolines
+
+static uint8_t SystemMemReadByte(ISystem &system, uint32_t address) {
+    return system.MemReadByte(address);
+}
+
+static uint16_t SystemMemReadHalf(ISystem &system, uint32_t address) {
+    return system.MemReadHalf(address);
+}
+
+static uint32_t SystemMemReadWord(ISystem &system, uint32_t address) {
+    return system.MemReadWord(address);
+}
+
+static void MemWriteByte(ISystem &system, uint32_t address, uint8_t value) {
+    system.MemWriteByte(address, value);
+}
+
+static void MemWriteHalf(ISystem &system, uint32_t address, uint16_t value) {
+    system.MemWriteHalf(address, value);
+}
+
+static void MemWriteWord(ISystem &system, uint32_t address, uint32_t value) {
+    system.MemWriteWord(address, value);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 x64Host::x64Host(Context &context)
     : Host(context) {
 
@@ -214,10 +242,6 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
     }
 }
 
-static uint32_t SystemMemReadWord(ISystem &system, uint32_t address) {
-    return system.MemReadWord(address);
-}
-
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     // TODO: implement
     // - implement free functions to delegate to ISystem
@@ -225,6 +249,25 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     // - process return code
     // TODO: handle TCM, caches, etc.
     // TODO: virtual memory, exception handling, rewriting accessors
+
+    // Select parameters based on size
+    uintptr_t readFn;
+    uint32_t addressAlignMask;
+    switch (op->size) {
+    case ir::MemAccessSize::Byte:
+        readFn = CastUintPtr(&SystemMemReadByte);
+        addressAlignMask = ~0;
+        break;
+    case ir::MemAccessSize::Half:
+        readFn = CastUintPtr(&SystemMemReadHalf);
+        addressAlignMask = ~1;
+        break;
+    case ir::MemAccessSize::Word:
+        readFn = CastUintPtr(&SystemMemReadWord);
+        addressAlignMask = ~3;
+        break;
+    default: return; // TODO: unreachable
+    }
 
     // Save all used volatile registers
     std::vector<Xbyak::Reg64> savedRegs;
@@ -239,13 +282,16 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
-    // Put arguments in the appropriate registers
+    // Put arguments in the corresponding argument registers
     code.mov(abi::kIntArgRegs[0], CastUintPtr(&m_system));
     if (op->address.immediate) {
-        code.mov(abi::kIntArgRegs[1], op->address.imm.value);
+        code.mov(abi::kIntArgRegs[1], op->address.imm.value & addressAlignMask);
     } else {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
         code.mov(abi::kIntArgRegs[1], addrReg32);
+        if (addressAlignMask != ~0) {
+            code.and_(abi::kIntArgRegs[1], addressAlignMask);
+        }
     }
 
     // Align stack to ABI requirement
@@ -253,23 +299,62 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
         code.sub(rsp, stackAlignmentOffset);
     }
 
-    // Call appropriate trampoline function
-    code.mov(rax, CastUintPtr(&SystemMemReadWord));
+    // Call trampoline function
+    code.mov(rax, readFn);
     code.call(rax);
-    // EAX now contains the read value
+    // EAX/AX/AL now contains the read value
 
     // Undo stack alignment
     if (stackAlignmentOffset != 0) {
         code.add(rsp, stackAlignmentOffset);
     }
 
-    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-    code.mov(dstReg32, eax);
-
-    // Pop all saved registers
+    // Pop all saved registers except RAX
     for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
-        code.pop(*it);
+        if (*it != rax) {
+            code.pop(*it);
+        }
     }
+
+    // Copy read value to destination register
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+    switch (op->size) {
+    case ir::MemAccessSize::Byte:
+        if (op->mode == ir::MemAccessMode::Signed) {
+            code.movsx(dstReg32, al);
+        } else {
+            code.movzx(dstReg32, al);
+        }
+        break;
+    case ir::MemAccessSize::Half:
+        if (op->mode == ir::MemAccessMode::Signed) {
+            code.movsx(dstReg32, ax);
+        } else {
+            code.movzx(dstReg32, ax);
+        }
+        break;
+    case ir::MemAccessSize::Word: code.mov(dstReg32, eax); break;
+    }
+
+    // Rotate value on unaligned word reads
+    if (op->size == ir::MemAccessSize::Word && op->mode == ir::MemAccessMode::Unaligned) {
+        if (op->address.immediate) {
+            const uint32_t offset = (op->address.imm.value & 3) * 8;
+            if (offset != 0) {
+                code.ror(dstReg32, offset);
+            }
+        } else {
+            auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+            auto offsetReg32 = compiler.regAlloc.GetRCX();
+            code.mov(offsetReg32, addrReg32);
+            code.and_(offsetReg32, 3);
+            code.shl(offsetReg32, 3);
+            code.ror(dstReg32, offsetReg32.cvt8());
+        }
+    }
+
+    // Pop RAX
+    code.pop(rax);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
