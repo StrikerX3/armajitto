@@ -729,8 +729,8 @@ void testCompiler() {
     // writeARM(0xE361F01F); // msr spsr_c, 0x1F
 
     // LDR, STR, LDRB, STRB
-    writeARM(0xE5921000); // ldr r1, [r2]
-    // writeARM(0xE7921003); // ldr r1, [r2, r3]
+    writeARM(0xE5920000); // ldr r0, [r2]
+    writeARM(0xE7921003); // ldr r1, [r2, r3]
     // writeARM(0xE7821283); // str r1, [r2, r3, lsl #5]
     // writeARM(0xE5A21004); // str r1, [r2, #4]!
     // writeARM(0xE7721003); // ldrb r1, [r2, -r3]!
@@ -891,6 +891,7 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
     armState.GPR(armajitto::arm::GPR::R2) = baseAddress;
+    armState.GPR(armajitto::arm::GPR::R3) = 4;
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;

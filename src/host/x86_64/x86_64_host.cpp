@@ -2163,15 +2163,21 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
                     std::is_pointer_v<FnArgs> || std::is_reference_v<FnArgs>)&&...),
                   "All FnArgs must be integral types, Xbyak operands, pointers or references");
 
+    // Save the return value register
+    code.push(abi::kIntReturnValueReg);
+
     // Save all used volatile registers
     std::vector<Xbyak::Reg64> savedRegs;
     for (auto reg : abi::kVolatileRegs) {
+        if (reg == abi::kIntReturnValueReg) {
+            // TODO: this is here only because RAX is in kVolatileRegs
+            // In practice it will never be allocated to a variable because it's used for flags
+            continue;
+        }
         // TODO: only push allocated registers
         code.push(reg);
         savedRegs.push_back(reg);
     }
-    // Save RAX
-    // code.push(rax);  // Already included in abi::kVolatileRegs; TODO: reenable this
 
     const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
@@ -2204,16 +2210,9 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
         code.sub(rsp, stackAlignmentOffset);
     }
 
-    // Call host function
-    code.mov(rax, CastUintPtr(fn));
-    code.call(rax);
-
-    // Copy result to destination register if present
-    if constexpr (!std::is_void_v<ReturnType>) {
-        if (!dstReg.isNone()) {
-            code.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
-        }
-    }
+    // Call host function using the return value register as a pointer
+    code.mov(abi::kIntReturnValueReg, CastUintPtr(fn));
+    code.call(abi::kIntReturnValueReg);
 
     // Undo stack alignment
     if (stackAlignmentOffset != 0) {
@@ -2224,6 +2223,16 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
     for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
         code.pop(*it);
     }
+
+    // Copy result to destination register if present
+    if constexpr (!std::is_void_v<ReturnType>) {
+        if (!dstReg.isNone()) {
+            code.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
+        }
+    }
+
+    // Pop the return value register
+    code.pop(abi::kIntReturnValueReg);
 }
 
 } // namespace armajitto::x86_64
