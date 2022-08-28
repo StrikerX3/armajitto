@@ -790,31 +790,50 @@ void testCompiler() {
     // writeARM(0xE8101800); // ldmda r0, {r11-r12}
     // writeARM(0xE8FD4000); // ldmia r13!, {r14}^
     // writeARM(0xE8ED4000); // stmia r13!, {r14}^
-    writeARM(0xE8A00000); // stmia r0!, {}
+    // writeARM(0xE8A00000); // stmia r0!, {}
     // writeARM(0xE8AF0001); // stmia r15!, {r0}
     // writeARM(0xE8BF0000); // ldmia r15!, {}
     // writeARM(0xE9BF0000); // ldmib r15!, {}
+
+    // MRC, MCR, MRC2, MCR2
+    writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE011F10); // mcr p15, 0, r1, c1, c0, 0
+    // writeARM(0xEE112E10); // mrc p14, 0, r2, c1, c0, 0
+    // writeARM(0xEE013E10); // mcr p14, 0, r3, c1, c0, 0
+    // writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
+    // writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
+    // writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
+    // writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
+
+    // ARM branches
+    // writeARM(0xE16F2F13); // clz r2, r3
+    // writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEBFFFFFE); // bl $
+    // writeARM(0xFAFFFFFE); // blx $
+    // writeARM(0xE12FFF11); // bx r1
+    // writeARM(0xE12FFF31); // blx r1
+
+    // Thumb branches
+    // writeThumb(0xF7FF); // bl $ (prefix)
+    // writeThumb(0xFFFE); // bl $ (suffix)
+    // writeThumb(0xF7FF); // blx $ (prefix)
+    // writeThumb(0xEFFE); // blx $ (suffix)
+    // writeThumb(0xD0FE); // beq $
+    // writeThumb(0xE7FE); // b $
+    // writeThumb(0x4708); // bx r1
+    // writeThumb(0x4788); // blx r1
 
     // SWI, BKPT, UDF
     // writeARM(0xEF123456); // swi #0x123456
     // writeARM(0xE1200070); // bkpt
     // writeARM(0xF0000000); // udf
 
-    // MRC, MCR, MRC2, MCR2
-    // writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
-    // writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
-    // writeARM(0xEE110E10); // mrc p14, 0, r0, c1, c0, 0
-    // writeARM(0xEE010E10); // mcr p14, 0, r0, c1, c0, 0
-    // writeARM(0xEE5431D5); // mrc p1, 2, r3, c4, c5, 6
-    // writeARM(0xEE4431D5); // mcr p1, 2, r3, c4, c5, 6
-    // writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
-    // writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
-
     writeARM(0xEAFFFFFE); // b $
 
-    // TODO: implement memory accessors, region descriptors, virtual memory, optimizations, etc.
+    // TODO: implement branches and exceptions
     // TODO: implement coprocessors
     // TODO: implement branching, block linking, block lookups, etc.
+    // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
     // TODO: implement cycle counting
 
     // Create allocator
