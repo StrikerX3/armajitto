@@ -67,6 +67,7 @@ add_library(armajitto
     include/armajitto/util/bitmask_enum.hpp
     include/armajitto/util/bit_ops.hpp
     include/armajitto/util/pointer_cast.hpp
+    include/armajitto/util/type_traits.hpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
     src/host/x86_64/abi.hpp

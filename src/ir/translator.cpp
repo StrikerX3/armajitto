@@ -706,9 +706,9 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     Variable value{};
     if (instr.load) {
         if (instr.byte) {
-            value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Byte, address);
+            value = emitter.MemRead(MemAccessMode::Aligned, MemAccessSize::Byte, address);
         } else if (isPC) {
-            value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Word, address);
+            value = emitter.MemRead(MemAccessMode::Aligned, MemAccessSize::Word, address);
         } else {
             value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);
         }
@@ -924,7 +924,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
 
         // Transfer data
         if (instr.load) {
-            auto value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Word, address);
+            auto value = emitter.MemRead(MemAccessMode::Aligned, MemAccessSize::Word, address);
             if (gpr == GPR::PC) {
                 if (instr.userModeOrPSRTransfer) {
                     emitter.CopySPSRToCPSR();
@@ -995,7 +995,7 @@ void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
     // Perform the swap
     Variable value{};
     if (instr.byte) {
-        value = emitter.MemRead(MemAccessMode::Raw, MemAccessSize::Byte, address);
+        value = emitter.MemRead(MemAccessMode::Aligned, MemAccessSize::Byte, address);
         emitter.MemWrite(MemAccessSize::Byte, src, address);
     } else {
         value = emitter.MemRead(MemAccessMode::Unaligned, MemAccessSize::Word, address);

@@ -63,26 +63,71 @@ constexpr uint32_t x64FlagsMask = x64flgN | x64flgZ | x64flgC | x64flgV;
 
 // System method accessor trampolines
 
-static uint8_t SystemMemReadByte(ISystem &system, uint32_t address) {
+// ARMv4T and ARMv5TE LDRB
+static uint32_t SystemMemReadByte(ISystem &system, uint32_t address) {
     return system.MemReadByte(address);
 }
 
-static uint16_t SystemMemReadHalf(ISystem &system, uint32_t address) {
-    return system.MemReadHalf(address);
+// ARMv4T and ARMv5TE LDRSB
+static uint32_t SystemMemReadSignedByte(ISystem &system, uint32_t address) {
+    return bit::sign_extend<8, int32_t>(system.MemReadByte(address));
 }
 
-static uint32_t SystemMemReadWord(ISystem &system, uint32_t address) {
-    return system.MemReadWord(address);
+// ARMv4T LDRSH
+static uint32_t SystemMemReadSignedHalfOrByte(ISystem &system, uint32_t address) {
+    if (address & 1) {
+        return bit::sign_extend<8, int32_t>(system.MemReadByte(address));
+    } else {
+        return bit::sign_extend<16, int32_t>(system.MemReadHalf(address));
+    }
 }
 
+// ARMv5TE LDRSH
+static uint32_t SystemMemReadSignedHalf(ISystem &system, uint32_t address) {
+    return bit::sign_extend<16, int32_t>(system.MemReadHalf(address & ~1));
+}
+
+// ARMv4T LDRH
+static uint32_t SystemMemReadUnalignedRotatedHalf(ISystem &system, uint32_t address) {
+    uint32_t value = system.MemReadHalf(address & ~1);
+    if (address & 1) {
+        value = std::rotr(value, 8);
+    }
+    return value;
+}
+
+// ARMv5TE LDRH
+static uint32_t SystemMemReadUnalignedHalf(ISystem &system, uint32_t address) {
+    return system.MemReadHalf(address & ~1);
+}
+
+// ARMv5TE LDRH
+static uint32_t SystemMemReadAlignedHalf(ISystem &system, uint32_t address) {
+    return system.MemReadHalf(address & ~1);
+}
+
+// ARMv4T and ARMv5TE LDR r15
+static uint32_t SystemMemReadAlignedWord(ISystem &system, uint32_t address) {
+    return system.MemReadWord(address & ~3);
+}
+
+// ARMv4T and ARMv5TE LDR
+static uint32_t SystemMemReadUnalignedWord(ISystem &system, uint32_t address) {
+    uint32_t value = system.MemReadWord(address & ~3);
+    return std::rotr(value, (address & 3) * 8);
+}
+
+// ARMv4T and ARMv5TE STRB
 static void MemWriteByte(ISystem &system, uint32_t address, uint8_t value) {
     system.MemWriteByte(address, value);
 }
 
+// ARMv4T and ARMv5TE STRH
 static void MemWriteHalf(ISystem &system, uint32_t address, uint16_t value) {
     system.MemWriteHalf(address, value);
 }
 
+// ARMv4T and ARMv5TE STR
 static void MemWriteWord(ISystem &system, uint32_t address, uint32_t value) {
     system.MemWriteWord(address, value);
 }
@@ -248,110 +293,52 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     // TODO: virtual memory, exception handling, rewriting accessors
 
     // Select parameters based on size
-    uintptr_t readFn;
-    uint32_t addressAlignMask;
+    // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word
+    using ReadFn = uint32_t (*)(ISystem & system, uint32_t address);
+
+    ReadFn readFn;
     switch (op->size) {
     case ir::MemAccessSize::Byte:
-        readFn = CastUintPtr(&SystemMemReadByte);
-        addressAlignMask = ~0;
+        if (op->mode == ir::MemAccessMode::Signed) {
+            readFn = SystemMemReadSignedByte;
+        } else { // aligned
+            readFn = SystemMemReadByte;
+        }
         break;
     case ir::MemAccessSize::Half:
-        readFn = CastUintPtr(&SystemMemReadHalf);
-        addressAlignMask = ~1;
+        if (op->mode == ir::MemAccessMode::Signed) {
+            if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
+                readFn = SystemMemReadSignedHalfOrByte;
+            } else {
+                readFn = SystemMemReadSignedHalf;
+            }
+        } else if (op->mode == ir::MemAccessMode::Unaligned) {
+            if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
+                readFn = SystemMemReadUnalignedRotatedHalf;
+            } else {
+                readFn = SystemMemReadUnalignedHalf;
+            }
+        } else { // aligned
+            readFn = SystemMemReadAlignedHalf;
+        }
         break;
     case ir::MemAccessSize::Word:
-        readFn = CastUintPtr(&SystemMemReadWord);
-        addressAlignMask = ~3;
+        if (op->mode == ir::MemAccessMode::Unaligned) {
+            readFn = SystemMemReadUnalignedWord;
+        } else { // aligned
+            readFn = SystemMemReadAlignedWord;
+        }
         break;
     default: return; // TODO: unreachable
     }
 
-    // Save all used volatile registers
-    std::vector<Xbyak::Reg64> savedRegs;
-    for (auto reg : abi::kVolatileRegs) {
-        // TODO: only push allocated registers
-        code.push(reg);
-        savedRegs.push_back(reg);
-    }
-    // Save RAX
-    // code.push(rax);  // Already included in abi::kVolatileRegs; TODO: reenable this
-
-    const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
-    const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
-
-    // Put arguments in the corresponding argument registers
-    code.mov(abi::kIntArgRegs[0], CastUintPtr(&m_system));
+    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     if (op->address.immediate) {
-        code.mov(abi::kIntArgRegs[1], op->address.imm.value & addressAlignMask);
+        CompileInvokeHostFunction(dstReg32, readFn, m_system, op->address.imm.value);
     } else {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-        code.mov(abi::kIntArgRegs[1], addrReg32);
-        if (addressAlignMask != ~0) {
-            code.and_(abi::kIntArgRegs[1], addressAlignMask);
-        }
+        CompileInvokeHostFunction(dstReg32, readFn, m_system, addrReg32);
     }
-
-    // Align stack to ABI requirement
-    if (stackAlignmentOffset != 0) {
-        code.sub(rsp, stackAlignmentOffset);
-    }
-
-    // Call trampoline function
-    code.mov(rax, readFn);
-    code.call(rax);
-    // EAX/AX/AL now contains the read value
-
-    // Undo stack alignment
-    if (stackAlignmentOffset != 0) {
-        code.add(rsp, stackAlignmentOffset);
-    }
-
-    // Pop all saved registers except RAX
-    for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
-        if (*it != rax) {
-            code.pop(*it);
-        }
-    }
-
-    // Copy read value to destination register
-    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-    switch (op->size) {
-    case ir::MemAccessSize::Byte:
-        if (op->mode == ir::MemAccessMode::Signed) {
-            code.movsx(dstReg32, al);
-        } else {
-            code.movzx(dstReg32, al);
-        }
-        break;
-    case ir::MemAccessSize::Half:
-        if (op->mode == ir::MemAccessMode::Signed) {
-            code.movsx(dstReg32, ax);
-        } else {
-            code.movzx(dstReg32, ax);
-        }
-        break;
-    case ir::MemAccessSize::Word: code.mov(dstReg32, eax); break;
-    }
-
-    // Rotate value on unaligned word reads
-    if (op->size == ir::MemAccessSize::Word && op->mode == ir::MemAccessMode::Unaligned) {
-        if (op->address.immediate) {
-            const uint32_t offset = (op->address.imm.value & 3) * 8;
-            if (offset != 0) {
-                code.ror(dstReg32, offset);
-            }
-        } else {
-            auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-            auto offsetReg32 = compiler.regAlloc.GetRCX();
-            code.mov(offsetReg32, addrReg32);
-            code.and_(offsetReg32, 3);
-            code.shl(offsetReg32, 3);
-            code.ror(dstReg32, offsetReg32.cvt8());
-        }
-    }
-
-    // Pop RAX
-    code.pop(rax);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
@@ -2100,6 +2087,86 @@ void x64Host::AssignLongImmResultWithNZ(Compiler &compiler, const ir::VariableAr
 
     if (setFlags) {
         SetNZFromValue(result);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename T>
+constexpr bool is_raw_integral_v = std::is_integral_v<remove_cvref_t<T>>;
+
+template <typename Base, typename Derived>
+constexpr bool is_raw_base_of_v = std::is_base_of_v<Base, remove_cvref_t<Derived>>;
+
+template <typename ReturnType, typename... FnArgs, typename... Args>
+void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
+    static_assert(is_raw_integral_v<ReturnType> || std::is_void_v<ReturnType>,
+                  "ReturnType must be an integral type or void");
+
+    static_assert(((is_raw_integral_v<FnArgs> || is_raw_base_of_v<Xbyak::Operand, FnArgs> ||
+                    std::is_pointer_v<FnArgs> || std::is_reference_v<FnArgs>)&&...),
+                  "All FnArgs must be integral types, Xbyak operands, pointers or references");
+
+    // Save all used volatile registers
+    std::vector<Xbyak::Reg64> savedRegs;
+    for (auto reg : abi::kVolatileRegs) {
+        // TODO: only push allocated registers
+        code.push(reg);
+        savedRegs.push_back(reg);
+    }
+    // Save RAX
+    // code.push(rax);  // Already included in abi::kVolatileRegs; TODO: reenable this
+
+    const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
+    const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
+
+    // Put arguments in the corresponding argument registers
+    size_t argIndex = 0;
+    auto setArg = [&](auto &&arg) {
+        using TArg = decltype(arg);
+
+        if (argIndex < abi::kIntArgRegs.size()) {
+            if constexpr (is_raw_integral_v<TArg> || is_raw_base_of_v<Xbyak::Operand, TArg>) {
+                code.mov(abi::kIntArgRegs[argIndex], arg);
+            } else if constexpr (std::is_pointer_v<TArg>) {
+                code.mov(abi::kIntArgRegs[argIndex], CastUintPtr(arg));
+            } else if constexpr (std::is_reference_v<TArg>) {
+                code.mov(abi::kIntArgRegs[argIndex], CastUintPtr(&arg));
+            } else {
+                code.mov(abi::kIntArgRegs[argIndex], arg);
+            }
+        } else {
+            // TODO: push onto stack in the order specified by the ABI
+            throw std::runtime_error("host function call argument-passing through the stack is unimplemented");
+        }
+        ++argIndex;
+    };
+    (setArg(std::forward<Args>(args)), ...);
+
+    // Align stack to ABI requirement
+    if (stackAlignmentOffset != 0) {
+        code.sub(rsp, stackAlignmentOffset);
+    }
+
+    // Call host function
+    code.mov(rax, CastUintPtr(fn));
+    code.call(rax);
+
+    // Copy result to destination register if present
+    if constexpr (!std::is_void_v<ReturnType>) {
+        if (!dstReg.isNone()) {
+            code.mov(dstReg, rax.changeBit(dstReg.getBit()));
+        }
+    }
+
+    // Undo stack alignment
+    if (stackAlignmentOffset != 0) {
+        code.add(rsp, stackAlignmentOffset);
+    }
+
+    // Pop all saved registers
+    for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
+        code.pop(*it);
     }
 }
 

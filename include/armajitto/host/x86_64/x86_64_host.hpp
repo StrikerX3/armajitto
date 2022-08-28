@@ -3,6 +3,7 @@
 #include "armajitto/host/host.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/ir_ops.hpp"
+#include "armajitto/util/type_traits.hpp"
 
 #ifdef _WIN32
     #define NOMINMAX
@@ -111,6 +112,23 @@ private:
 
     void AssignLongImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dstLo, const ir::VariableArg &dstHi,
                                    uint64_t result, bool setFlags);
+
+    // -------------------------------------------------------------------------
+    // Host function calls
+
+    template <typename... FnArgs, typename... Args>
+    void CompileInvokeHostFunction(void (*fn)(FnArgs...), Args &&...args) {
+        static_assert(args_match_v<arg_list<FnArgs...>, arg_list<Args...>>, "Arguments mismatch");
+        CompileInvokeHostFunction(fn, std::forward<Args>(args)...);
+    }
+
+    template <typename ReturnType, typename... FnArgs, typename... Args>
+    void CompileInvokeHostFunction(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
+        CompileInvokeHostFunctionImpl(dstReg, fn, std::forward<Args>(args)...);
+    }
+
+    template <typename ReturnType, typename... FnArgs, typename... Args>
+    void CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args);
 };
 
 } // namespace armajitto::x86_64

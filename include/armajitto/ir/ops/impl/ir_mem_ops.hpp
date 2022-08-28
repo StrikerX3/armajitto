@@ -8,14 +8,14 @@
 
 namespace armajitto::ir {
 
-// [b/h/w] = byte/half/word
-// [r/s/u] = raw/signed/unaligned
-//           r is hidden
-//           s sign-extends, r and u zero-extend
-// Valid combinations: (r)b, (r)h, (r)w, sb, sh, uh, uw
-
 // Memory read
-//   ld.[r/s/u][b/h/w] <var:dst>, [<var/imm:address>]
+//   ld.[a/u/s][b/h/w] <var:dst>, [<var/imm:address>]
+// where:
+//   [b/h/w] = byte/half/word
+//   [a/u/s] = aligned/unaligned/signed
+//             r is hidden
+//             s sign-extends, a and u zero-extend
+//   Valid combinations: (a)b, (a)h, (a)w, uh, uw, sb, sh
 //
 // Reads a byte, halfword or word from address into the dst variable.
 // Byte and halfword reads extend values to 32 bits.
@@ -36,7 +36,7 @@ struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
     std::string ToString() const final {
         const char *modeStr;
         switch (mode) {
-        case MemAccessMode::Raw: modeStr = ""; break;
+        case MemAccessMode::Aligned: modeStr = ""; break;
         case MemAccessMode::Signed: modeStr = "s"; break;
         case MemAccessMode::Unaligned: modeStr = "u"; break;
         default: modeStr = "?"; break;
