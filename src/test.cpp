@@ -729,8 +729,8 @@ void testCompiler() {
     // writeARM(0xE361F01F); // msr spsr_c, 0x1F
 
     // LDR, STR, LDRB, STRB
-    writeARM(0xE5920000); // ldr r0, [r2]
-    writeARM(0xE7921003); // ldr r1, [r2, r3]
+    // writeARM(0xE5920000); // ldr r0, [r2]
+    // writeARM(0xE7921003); // ldr r1, [r2, r3]
     // writeARM(0xE7821283); // str r1, [r2, r3, lsl #5]
     // writeARM(0xE5A21004); // str r1, [r2, #4]!
     // writeARM(0xE7721003); // ldrb r1, [r2, -r3]!
@@ -738,7 +738,8 @@ void testCompiler() {
     // writeARM(0xE4521004); // ldrb r1, [r2], #-4
     // writeARM(0xE6C21003); // strb r1, [r2], r3
     // writeARM(0xE69212C3); // ldr r1, [r2], r3, asr #5
-    // writeARM(0xE4B21003); // ldrt r1, [r2], #3
+    // writeARM(0xE4B2E003); // ldrt r14, [r2], #3
+    writeARM(0xE4B8E003); // ldrt r14, [r8], #3
     // writeARM(0xE6A21003); // strt r1, [r2], r3
     // writeARM(0xE6F212E3); // ldrbt r1, [r2], r3, ror #5
     // writeARM(0xE59F1004); // ldr r1, [r15, #4]
@@ -819,7 +820,7 @@ void testCompiler() {
     // Create allocator
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::User, thumb});
+        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::FIQ, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -842,6 +843,7 @@ void testCompiler() {
     // Define function to display ARM state
     auto printState = [&] {
         auto &state = context.GetARMState();
+        printf("Registers in current mode:\n");
         for (int j = 0; j < 4; j++) {
             for (int i = 0; i < 4; i++) {
                 int index = i * 4 + j;
@@ -855,25 +857,66 @@ void testCompiler() {
             printf("\n");
         }
 
-        auto &cpsr = state.CPSR();
-        printf("CPSR = %08X   ", cpsr.u32);
-        switch (cpsr.mode) {
-        case armajitto::arm::Mode::User: printf("USR"); break;
-        case armajitto::arm::Mode::FIQ: printf("FIQ"); break;
-        case armajitto::arm::Mode::IRQ: printf("IRQ"); break;
-        case armajitto::arm::Mode::Supervisor: printf("SVC"); break;
-        case armajitto::arm::Mode::Abort: printf("ABT"); break;
-        case armajitto::arm::Mode::Undefined: printf("UND"); break;
-        case armajitto::arm::Mode::System: printf("SYS"); break;
-        default: printf("%02Xh", static_cast<uint8_t>(cpsr.mode)); break;
+        auto printPSR = [](armajitto::arm::PSR &psr, const char *name) {
+            auto flag = [](bool set, char c) { return (set ? c : '.'); };
+
+            printf("%s = %08X   ", name, psr.u32);
+            switch (psr.mode) {
+            case armajitto::arm::Mode::User: printf("USR"); break;
+            case armajitto::arm::Mode::FIQ: printf("FIQ"); break;
+            case armajitto::arm::Mode::IRQ: printf("IRQ"); break;
+            case armajitto::arm::Mode::Supervisor: printf("SVC"); break;
+            case armajitto::arm::Mode::Abort: printf("ABT"); break;
+            case armajitto::arm::Mode::Undefined: printf("UND"); break;
+            case armajitto::arm::Mode::System: printf("SYS"); break;
+            default: printf("%02Xh", static_cast<uint8_t>(psr.mode)); break;
+            }
+            if (psr.t) {
+                printf("  THUMB");
+            } else {
+                printf("  ARM  ");
+            }
+            printf("%c%c%c%c%c%c%c\n", flag(psr.n, 'N'), flag(psr.z, 'Z'), flag(psr.c, 'C'), flag(psr.v, 'V'),
+                   flag(psr.q, 'Q'), flag(psr.i, 'I'), flag(psr.f, 'F'));
+        };
+
+        printPSR(state.CPSR(), "CPSR");
+        for (auto mode : {armajitto::arm::Mode::FIQ, armajitto::arm::Mode::IRQ, armajitto::arm::Mode::Supervisor,
+                          armajitto::arm::Mode::Abort, armajitto::arm::Mode::Undefined}) {
+            auto spsrName = std::format("SPSR_{}", armajitto::arm::ToString(mode));
+            printPSR(state.SPSR(mode), spsrName.c_str());
         }
-        if (cpsr.t) {
-            printf("  THUMB");
-        } else {
-            printf("  ARM  ");
+        printf("\nBanked registers:\n");
+        printf("usr              svc              abt              und              irq              fiq\n");
+        for (int i = 0; i <= 15; i++) {
+            auto printReg = [&](armajitto::arm::Mode mode) {
+                if (mode == armajitto::arm::Mode::User || (i >= 13 && i <= 14) ||
+                    (mode == armajitto::arm::Mode::FIQ && i >= 8 && i <= 12)) {
+                    const auto gpr = static_cast<armajitto::arm::GPR>(i);
+                    if (i < 10) {
+                        printf(" R%d = ", i);
+                    } else {
+                        printf("R%d = ", i);
+                    }
+                    printf("%08X", state.GPR(gpr, mode));
+                } else {
+                    printf("              ");
+                }
+
+                if (mode != armajitto::arm::Mode::FIQ) {
+                    printf("   ");
+                } else {
+                    printf("\n");
+                }
+            };
+
+            printReg(armajitto::arm::Mode::User);
+            printReg(armajitto::arm::Mode::Supervisor);
+            printReg(armajitto::arm::Mode::Abort);
+            printReg(armajitto::arm::Mode::Undefined);
+            printReg(armajitto::arm::Mode::IRQ);
+            printReg(armajitto::arm::Mode::FIQ);
         }
-        printf("%c%c%c%c%c%c%c\n", (cpsr.n ? 'N' : '.'), (cpsr.z ? 'Z' : '.'), (cpsr.c ? 'C' : '.'),
-               (cpsr.v ? 'V' : '.'), (cpsr.q ? 'Q' : '.'), (cpsr.i ? 'I' : '.'), (cpsr.f ? 'F' : '.'));
     };
 
     // Setup initial ARM state
@@ -886,12 +929,25 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
+
+    // Multiplication tests
     // armState.GPR(armajitto::arm::GPR::R1) = 0x76543210;
     // armState.GPR(armajitto::arm::GPR::R2) = 0xFEDCBA98;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x00010001;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
-    armState.GPR(armajitto::arm::GPR::R2) = baseAddress;
+
+    // MemRead
+    armState.GPR(armajitto::arm::GPR::R2) = baseAddress + 4;
     armState.GPR(armajitto::arm::GPR::R3) = 4;
+
+    armState.GPR(armajitto::arm::GPR::R8) = baseAddress + 8;
+    armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::FIQ) = baseAddress;
+
+    // MemWrite
+    // armState.GPR(armajitto::arm::GPR::R1) = 0xDEADBEEF;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x1000;
+    // armState.GPR(armajitto::arm::GPR::R3) = -4 << 5;
+
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;
