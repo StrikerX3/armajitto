@@ -136,11 +136,17 @@ void RegisterAllocator::ReleaseTemporaries() {
     printf("\n");
 }
 
+bool RegisterAllocator::IsRegisterAllocated(Xbyak::Reg reg) const {
+    return m_allocatedRegs.test(reg.getIdx());
+}
+
 Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
+    // TODO: prefer nonvolatiles if available
     if (!m_freeRegs.empty()) {
         auto reg = m_freeRegs.front();
         printf("    allocating register %d\n", reg.getIdx());
         m_freeRegs.pop_front();
+        m_allocatedRegs.set(reg.getIdx());
         return reg;
     }
 
@@ -161,6 +167,7 @@ void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
             entry.allocated = false;
             if (entry.spillSlot == ~0) {
                 m_freeRegs.push_back(entry.reg);
+                m_allocatedRegs.set(entry.reg.getIdx(), false);
                 printf("      returned register %d\n", entry.reg.getIdx());
             }
         } else {

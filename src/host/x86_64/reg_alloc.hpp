@@ -7,6 +7,7 @@
 
 #include <xbyak/xbyak.h>
 
+#include <bitset>
 #include <deque>
 #include <optional>
 #include <vector>
@@ -59,6 +60,9 @@ public:
     // Releases all temporarily allocated registers.
     void ReleaseTemporaries();
 
+    // Determines if the specified register is allocated.
+    bool IsRegisterAllocated(Xbyak::Reg reg) const;
+
 private:
     Xbyak::CodeGenerator &m_code;
     VarLifetimeTracker m_varLifetimes;
@@ -66,10 +70,11 @@ private:
     const ir::IROp *m_currOp = nullptr;
 
     // -------------------------------------------------------------------------
-    // Free registers
+    // Registers allocation
 
     std::deque<Xbyak::Reg32> m_freeRegs;
     std::deque<Xbyak::Reg32> m_tempRegs;
+    std::bitset<16> m_allocatedRegs;
 
     Xbyak::Reg32 AllocateRegister();
 

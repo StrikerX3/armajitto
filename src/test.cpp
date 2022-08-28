@@ -766,8 +766,8 @@ void testCompiler() {
     // writeARM(0xE19F10B3); // ldrh r1, [r15, r3]
     // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
     // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
-    writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
-    writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
+    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
 
     // PLD
     // writeARM(0xF5D3F000); // pld [r3]
@@ -780,7 +780,7 @@ void testCompiler() {
     // writeARM(0xE103F092); // swp r15, r2, [r3]
 
     // LDM, STM
-    // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
+    writeARM(0xE8A00006); // stmia r0!, {r1-r2}
     // writeARM(0xE8800018); // stmia r0, {r3-r4}
     // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
     // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
@@ -937,11 +937,11 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
 
     // MemRead
-    armState.GPR(armajitto::arm::GPR::R0) = baseAddress;
-    armState.GPR(armajitto::arm::GPR::R2) = baseAddress + 4;
-    armState.GPR(armajitto::arm::GPR::R3) = 4;
-    armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::User) = baseAddress + 8;
-    armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::FIQ) = baseAddress;
+    // armState.GPR(armajitto::arm::GPR::R0) = baseAddress;
+    // armState.GPR(armajitto::arm::GPR::R2) = baseAddress + 4;
+    // armState.GPR(armajitto::arm::GPR::R3) = 4;
+    // armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::User) = baseAddress + 8;
+    // armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::FIQ) = baseAddress;
 
     // MemWrite
     // armState.GPR(armajitto::arm::GPR::R1) = 0xBADF00D5;
@@ -953,6 +953,19 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R9, armajitto::arm::Mode::FIQ) = 4;
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xDEADBEEF;
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0xABAD1DEA;
+
+    // LDM
+
+    // STM
+    armState.GPR(armajitto::arm::GPR::R0) = 0x1000;
+    armState.GPR(armajitto::arm::GPR::R1) = 0x11111111;
+    armState.GPR(armajitto::arm::GPR::R2) = 0x22222222;
+    armState.GPR(armajitto::arm::GPR::R3) = 0x33333333;
+    armState.GPR(armajitto::arm::GPR::R4) = 0x44444444;
+    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::User) = 0x1010;
+    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::FIQ) = 0x1020;
+    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
+    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
 
     armState.CPSR().mode = block->Location().Mode();
     armState.CPSR().n = 1;

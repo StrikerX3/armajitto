@@ -333,12 +333,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     default: util::unreachable();
     }
 
-    auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+    Xbyak::Reg dstReg32{};
+    if (op->dst.var.IsPresent()) {
+        dstReg32 = compiler.regAlloc.Get(op->dst.var);
+    }
     if (op->address.immediate) {
-        CompileInvokeHostFunction(dstReg32, readFn, m_system, op->address.imm.value);
+        CompileInvokeHostFunction(compiler, dstReg32, readFn, m_system, op->address.imm.value);
     } else {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-        CompileInvokeHostFunction(dstReg32, readFn, m_system, addrReg32);
+        CompileInvokeHostFunction(compiler, dstReg32, readFn, m_system, addrReg32);
     }
 }
 
@@ -349,38 +352,38 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
 
     auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, address.imm.value, src);
         } else {
             auto addrReg32 = compiler.regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, addrReg32, src);
         }
     };
 
     auto invokeFnImm16 = [&](auto fn, const ir::VarOrImmArg &address, uint16_t src) {
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, address.imm.value, src);
         } else {
             auto addrReg32 = compiler.regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, addrReg32, src);
         }
     };
 
     auto invokeFnImm32 = [&](auto fn, const ir::VarOrImmArg &address, uint32_t src) {
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, address.imm.value, src);
         } else {
             auto addrReg32 = compiler.regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+            CompileInvokeHostFunction(compiler, fn, m_system, addrReg32, src);
         }
     };
 
     auto invokeFnReg32 = [&](auto fn, const ir::VarOrImmArg &address, ir::Variable src) {
         auto srcReg32 = compiler.regAlloc.Get(src);
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, m_system, address.imm.value, srcReg32);
+            CompileInvokeHostFunction(compiler, fn, m_system, address.imm.value, srcReg32);
         } else {
             auto addrReg32 = compiler.regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, m_system, addrReg32, srcReg32);
+            CompileInvokeHostFunction(compiler, fn, m_system, addrReg32, srcReg32);
         }
     };
 
@@ -2155,7 +2158,8 @@ template <typename Base, typename Derived>
 constexpr bool is_raw_base_of_v = std::is_base_of_v<Base, remove_cvref_t<Derived>>;
 
 template <typename ReturnType, typename... FnArgs, typename... Args>
-void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
+void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...),
+                                            Args &&...args) {
     static_assert(is_raw_integral_v<ReturnType> || std::is_void_v<ReturnType>,
                   "ReturnType must be an integral type or void");
 
@@ -2169,14 +2173,16 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
     // Save all used volatile registers
     std::vector<Xbyak::Reg64> savedRegs;
     for (auto reg : abi::kVolatileRegs) {
+        // The return register is handled on its own
         if (reg == abi::kIntReturnValueReg) {
-            // TODO: this is here only because RAX is in kVolatileRegs
-            // In practice it will never be allocated to a variable because it's used for flags
             continue;
         }
-        // TODO: only push allocated registers
-        code.push(reg);
-        savedRegs.push_back(reg);
+
+        // Only push allocated registers
+        if (compiler.regAlloc.IsRegisterAllocated(reg)) {
+            code.push(reg);
+            savedRegs.push_back(reg);
+        }
     }
 
     const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
@@ -2188,17 +2194,23 @@ void x64Host::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(
         using TArg = decltype(arg);
 
         if (argIndex < abi::kIntArgRegs.size()) {
-            if constexpr (is_raw_integral_v<TArg> || is_raw_base_of_v<Xbyak::Operand, TArg>) {
-                code.mov(abi::kIntArgRegs[argIndex], arg);
+            auto argReg64 = abi::kIntArgRegs[argIndex];
+            if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
+                if (argReg64 != arg.cvt64()) {
+                    code.mov(argReg64, arg.cvt64());
+                }
+            } else if constexpr (is_raw_integral_v<TArg>) {
+                code.mov(argReg64, arg);
             } else if constexpr (std::is_pointer_v<TArg>) {
-                code.mov(abi::kIntArgRegs[argIndex], CastUintPtr(arg));
+                code.mov(argReg64, CastUintPtr(arg));
             } else if constexpr (std::is_reference_v<TArg>) {
-                code.mov(abi::kIntArgRegs[argIndex], CastUintPtr(&arg));
+                code.mov(argReg64, CastUintPtr(&arg));
             } else {
-                code.mov(abi::kIntArgRegs[argIndex], arg);
+                code.mov(argReg64, arg);
             }
         } else {
             // TODO: push onto stack in the order specified by the ABI
+            // abi::kStackGrowsDownward
             throw std::runtime_error("host function call argument-passing through the stack is unimplemented");
         }
         ++argIndex;

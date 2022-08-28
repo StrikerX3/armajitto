@@ -119,20 +119,21 @@ private:
     // Host function calls
 
     template <typename... FnArgs, typename... Args>
-    void CompileInvokeHostFunction(void (*fn)(FnArgs...), Args &&...args) {
+    void CompileInvokeHostFunction(Compiler &compiler, void (*fn)(FnArgs...), Args &&...args) {
         static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Incompatible arguments");
         static constexpr Xbyak::Reg noReg{};
-        CompileInvokeHostFunctionImpl(noReg, fn, std::forward<Args>(args)...);
+        CompileInvokeHostFunctionImpl(compiler, noReg, fn, std::forward<Args>(args)...);
     }
 
     template <typename ReturnType, typename... FnArgs, typename... Args>
-    void CompileInvokeHostFunction(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
+    void CompileInvokeHostFunction(Compiler &compiler, Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
         static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Incompatible arguments");
-        CompileInvokeHostFunctionImpl(dstReg, fn, std::forward<Args>(args)...);
+        CompileInvokeHostFunctionImpl(compiler, dstReg, fn, std::forward<Args>(args)...);
     }
 
     template <typename ReturnType, typename... FnArgs, typename... Args>
-    void CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args);
+    void CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...),
+                                       Args &&...args);
 };
 
 } // namespace armajitto::x86_64
