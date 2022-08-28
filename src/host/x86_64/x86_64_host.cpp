@@ -119,18 +119,18 @@ static uint32_t SystemMemReadUnalignedWord(ISystem &system, uint32_t address) {
 }
 
 // ARMv4T and ARMv5TE STRB
-static void MemWriteByte(ISystem &system, uint32_t address, uint8_t value) {
+static void SystemMemWriteByte(ISystem &system, uint32_t address, uint8_t value) {
     system.MemWriteByte(address, value);
 }
 
 // ARMv4T and ARMv5TE STRH
-static void MemWriteHalf(ISystem &system, uint32_t address, uint16_t value) {
-    system.MemWriteHalf(address, value);
+static void SystemMemWriteHalf(ISystem &system, uint32_t address, uint16_t value) {
+    system.MemWriteHalf(address & ~1, value);
 }
 
 // ARMv4T and ARMv5TE STR
-static void MemWriteWord(ISystem &system, uint32_t address, uint32_t value) {
-    system.MemWriteWord(address, value);
+static void SystemMemWriteWord(ISystem &system, uint32_t address, uint32_t value) {
+    system.MemWriteWord(address & ~3, value);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -343,7 +343,62 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
-    // TODO: implement
+    // TODO: handle TCM, caches, permissions, etc.
+    // TODO: fast memory LUT
+    // TODO: virtual memory, exception handling, rewriting accessors
+
+    auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
+        if (address.immediate) {
+            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+        } else {
+            auto addrReg32 = compiler.regAlloc.Get(address.var.var);
+            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+        }
+    };
+
+    auto invokeFnImm16 = [&](auto fn, const ir::VarOrImmArg &address, uint16_t src) {
+        if (address.immediate) {
+            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+        } else {
+            auto addrReg32 = compiler.regAlloc.Get(address.var.var);
+            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+        }
+    };
+
+    auto invokeFnImm32 = [&](auto fn, const ir::VarOrImmArg &address, uint32_t src) {
+        if (address.immediate) {
+            CompileInvokeHostFunction(fn, m_system, address.imm.value, src);
+        } else {
+            auto addrReg32 = compiler.regAlloc.Get(address.var.var);
+            CompileInvokeHostFunction(fn, m_system, addrReg32, src);
+        }
+    };
+
+    auto invokeFnReg32 = [&](auto fn, const ir::VarOrImmArg &address, ir::Variable src) {
+        auto srcReg32 = compiler.regAlloc.Get(src);
+        if (address.immediate) {
+            CompileInvokeHostFunction(fn, m_system, address.imm.value, srcReg32);
+        } else {
+            auto addrReg32 = compiler.regAlloc.Get(address.var.var);
+            CompileInvokeHostFunction(fn, m_system, addrReg32, srcReg32);
+        }
+    };
+
+    auto invokeFn = [&](auto valueFn, auto fn) {
+        if (op->src.immediate) {
+            valueFn(fn, op->address, op->src.imm.value);
+        } else {
+            invokeFnReg32(fn, op->address, op->src.var.var);
+        }
+    };
+
+    // Invoke appropriate write function
+    switch (op->size) {
+    case ir::MemAccessSize::Byte: invokeFn(invokeFnImm8, SystemMemWriteByte); break;
+    case ir::MemAccessSize::Half: invokeFn(invokeFnImm16, SystemMemWriteHalf); break;
+    case ir::MemAccessSize::Word: invokeFn(invokeFnImm32, SystemMemWriteWord); break;
+    default: util::unreachable();
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {

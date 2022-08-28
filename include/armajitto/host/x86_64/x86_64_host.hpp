@@ -120,14 +120,14 @@ private:
 
     template <typename... FnArgs, typename... Args>
     void CompileInvokeHostFunction(void (*fn)(FnArgs...), Args &&...args) {
-        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Arguments mismatch");
+        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Incompatible arguments");
         static constexpr Xbyak::Reg noReg{};
         CompileInvokeHostFunctionImpl(noReg, fn, std::forward<Args>(args)...);
     }
 
     template <typename ReturnType, typename... FnArgs, typename... Args>
     void CompileInvokeHostFunction(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args) {
-        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Arguments mismatch");
+        static_assert(args_match_v<arg_list_t<FnArgs...>, arg_list_t<Args...>>, "Incompatible arguments");
         CompileInvokeHostFunctionImpl(dstReg, fn, std::forward<Args>(args)...);
     }
 
