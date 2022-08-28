@@ -262,10 +262,10 @@ void testTranslatorAndOptimizer() {
 
     // MSR
     // writeARM(0xE12FF002); // msr cpsr_fxsc, r2
-    writeARM(0xE126F001); // msr cpsr_xs, r1
-    writeARM(0xE368F4A5); // msr spsr_f, 0xA5
-    writeARM(0xE361F01F); // msr spsr_c, 0x1F
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE126F001); // msr cpsr_xs, r1
+    // writeARM(0xE368F4A5); // msr spsr_f, 0xA5
+    // writeARM(0xE361F01F); // msr spsr_c, 0x1F
+    // writeARM(0xEAFFFFFE); // b $
 
     // LDR, STR, LDRB, STRB
     // writeARM(0xE5921000); // ldr r1, [r2]
@@ -324,7 +324,7 @@ void testTranslatorAndOptimizer() {
     // LDM, STM
     // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
     // writeARM(0xE8800018); // stmia r0, {r3-r4}
-    // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
+    writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
     // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
     // writeARM(0xE9A00006); // stmib r0!, {r1-r2}
     // writeARM(0xE9800018); // stmib r0, {r3-r4}
@@ -336,7 +336,7 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE8AF0001); // stmia r15!, {r0}
     // writeARM(0xE8BF0000); // ldmia r15!, {}
     // writeARM(0xE9BF0000); // ldmib r15!, {}
-    // writeARM(0xEAFFFFFE); // b $
+    writeARM(0xEAFFFFFE); // b $
 
     // SWI, BKPT, UDF
     // writeARM(0xEF123456); // swi #0x123456
@@ -780,9 +780,9 @@ void testCompiler() {
     // writeARM(0xE103F092); // swp r15, r2, [r3]
 
     // LDM, STM
-    writeARM(0xE8A00006); // stmia r0!, {r1-r2}
+    // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
     // writeARM(0xE8800018); // stmia r0, {r3-r4}
-    // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
+    writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
     // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
     // writeARM(0xE9A00006); // stmib r0!, {r1-r2}
     // writeARM(0xE9800018); // stmib r0, {r3-r4}
@@ -955,17 +955,26 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0xABAD1DEA;
 
     // LDM
+    armState.GPR(armajitto::arm::GPR::R0) = baseAddress + 8;
+    armState.GPR(armajitto::arm::GPR::R5) = 0xDEADBEEF;
+    armState.GPR(armajitto::arm::GPR::R6) = 0xABAD1DEA;
+    armState.GPR(armajitto::arm::GPR::R7) = 0x1BADC0DE;
+    armState.GPR(armajitto::arm::GPR::R8) = 0xCAFEBABE;
+    armState.GPR(armajitto::arm::GPR::R9) = 0xBADF00D5;
+    armState.GPR(armajitto::arm::GPR::R10) = 0xBAD7A57E;
+    armState.GPR(armajitto::arm::GPR::R11) = 0xB19D05E5;
+    armState.GPR(armajitto::arm::GPR::R12) = 0x12121212;
 
     // STM
-    armState.GPR(armajitto::arm::GPR::R0) = 0x1000;
-    armState.GPR(armajitto::arm::GPR::R1) = 0x11111111;
-    armState.GPR(armajitto::arm::GPR::R2) = 0x22222222;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x33333333;
-    armState.GPR(armajitto::arm::GPR::R4) = 0x44444444;
-    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::User) = 0x1010;
-    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::FIQ) = 0x1020;
-    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
-    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
+    // armState.GPR(armajitto::arm::GPR::R0) = 0x1000;
+    // armState.GPR(armajitto::arm::GPR::R1) = 0x11111111;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x22222222;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x33333333;
+    // armState.GPR(armajitto::arm::GPR::R4) = 0x44444444;
+    // armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::User) = 0x1010;
+    // armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::FIQ) = 0x1020;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
 
     armState.CPSR().mode = block->Location().Mode();
     armState.CPSR().n = 1;

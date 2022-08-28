@@ -94,14 +94,23 @@ private:
         Variable prev;            // previous variable from which this was derived
 
         void Add(uint32_t amount) {
+            if (amount != 0) {
+                valid = true;
+            }
             runningSum += amount;
         }
 
         void Subtract(uint32_t amount) {
+            if (amount != 0) {
+                valid = true;
+            }
             runningSum -= amount;
         }
 
         void Negate() {
+            if (runningSum != 0) {
+                valid = true;
+            }
             runningSum = -runningSum;
             negated = !negated;
         }

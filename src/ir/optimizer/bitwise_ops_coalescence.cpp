@@ -512,9 +512,9 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
     ResizeValues(dstIndex);
 
     auto &dstValue = m_values[dstIndex];
+    dstValue.valid = false; // Not yet valid
     dstValue.prev = src.var;
     dstValue.writerOp = op;
-    dstValue.valid = false; // Not yet valid
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
         auto &srcValue = m_values[srcIndex];
         dstValue.source = srcValue.source;
@@ -669,6 +669,9 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
+    } else {
+        // Isolate this instruction sequence as the value was consumed
+        value->valid = false;
     }
 }
 

@@ -440,7 +440,7 @@ auto ArithmeticOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, Variabl
     ResizeValues(dstIndex);
 
     auto &dstValue = m_values[dstIndex];
-    dstValue.valid = true;
+    dstValue.valid = false; // Not yet valid
     dstValue.prev = src.var;
     dstValue.writerOp = op;
     if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
@@ -488,7 +488,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
     if (value->runningSum != 0 || value->negated) {
         // The value was changed
 
-        // Emit ADD <dst>, <runningSum>, <source>  when negated == false
+        // Emit ADD <dst>, <source>, <runningSum> when negated == false
         // Emit SUB <dst>, <runningSum>, <source> when negated == true
         // Emit MVN <dst>, <source> when negated == true and runningSum == -1
 
@@ -503,8 +503,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                     const bool paramsMatch = (fwdMatch || revMatch);
                     const bool flagsMatch = (subOp->flags == arm::Flags::None);
                     match = dstMatch && paramsMatch && flagsMatch;
-                }
-                if (auto maybeMvnOp = Cast<IRMoveNegatedOp>(value->writerOp)) {
+                } else if (auto maybeMvnOp = Cast<IRMoveNegatedOp>(value->writerOp)) {
                     auto *mvnOp = *maybeMvnOp;
                     const bool dstMatch = (mvnOp->dst == var);
                     const bool srcMatch = (mvnOp->value == value->source);
@@ -519,6 +518,14 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
                     const bool revMatch = (addOp->lhs == value->source) && (addOp->rhs == value->runningSum);
                     const bool paramsMatch = (fwdMatch || revMatch);
                     const bool flagsMatch = (addOp->flags == arm::Flags::None);
+                    match = dstMatch && paramsMatch && flagsMatch;
+                } else if (auto maybeSubOp = Cast<IRSubtractOp>(value->writerOp)) {
+                    auto *subOp = *maybeSubOp;
+                    const bool dstMatch = (subOp->dst == var);
+                    const bool fwdMatch = (subOp->lhs == -value->runningSum) && (subOp->rhs == value->source);
+                    const bool revMatch = (subOp->lhs == value->source) && (subOp->rhs == -value->runningSum);
+                    const bool paramsMatch = (fwdMatch || revMatch);
+                    const bool flagsMatch = (subOp->flags == arm::Flags::None);
                     match = dstMatch && paramsMatch && flagsMatch;
                 }
             }
@@ -548,13 +555,16 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         m_emitter.Erase(value->writerOp);
     }
 
-    // Erase previous instructions if changed
     if (!match) {
+        // Erase previous instructions if changed
         value = GetValue(value->prev);
         while (value != nullptr) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
+    } else {
+        // Isolate this instruction sequence as the value was consumed
+        value->valid = false;
     }
 }
 
