@@ -739,8 +739,8 @@ void testCompiler() {
     // writeARM(0xE6C21003); // strb r1, [r2], r3
     // writeARM(0xE69212C3); // ldr r1, [r2], r3, asr #5
     // writeARM(0xE4B2E003); // ldrt r14, [r2], #3
-    writeARM(0xE4B8E003); // ldrt r14, [r8], #3
-    // writeARM(0xE6A21003); // strt r1, [r2], r3
+    // writeARM(0xE4B8E003); // ldrt r14, [r8], #3
+    // writeARM(0xE6A8E009); // strt r14, [r8], r9
     // writeARM(0xE6F212E3); // ldrbt r1, [r2], r3, ror #5
     // writeARM(0xE59F1004); // ldr r1, [r15, #4]
     // writeARM(0xE5BF1000); // ldr r1, [r15]!
@@ -766,8 +766,8 @@ void testCompiler() {
     // writeARM(0xE19F10B3); // ldrh r1, [r15, r3]
     // writeARM(0xE19210BF); // ldrh r1, [r2, r15]
     // writeARM(0xE192F0B3); // ldrh r15, [r2, r3]
-    // writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
-    // writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
+    writeARM(0xE1C0E0F0); // strd r14, r15, [r0]
+    writeARM(0xE1C0E0D0); // ldrd r14, r15, [r0]
 
     // PLD
     // writeARM(0xF5D3F000); // pld [r3]
@@ -937,17 +937,24 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 0x80000000;
 
     // MemRead
+    armState.GPR(armajitto::arm::GPR::R0) = baseAddress;
     armState.GPR(armajitto::arm::GPR::R2) = baseAddress + 4;
     armState.GPR(armajitto::arm::GPR::R3) = 4;
-
-    armState.GPR(armajitto::arm::GPR::R8) = baseAddress + 8;
+    armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::User) = baseAddress + 8;
     armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::FIQ) = baseAddress;
 
     // MemWrite
-    // armState.GPR(armajitto::arm::GPR::R1) = 0xDEADBEEF;
+    // armState.GPR(armajitto::arm::GPR::R1) = 0xBADF00D5;
     // armState.GPR(armajitto::arm::GPR::R2) = 0x1000;
     // armState.GPR(armajitto::arm::GPR::R3) = -4 << 5;
+    // armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::User) = 0x1008;
+    // armState.GPR(armajitto::arm::GPR::R8, armajitto::arm::Mode::FIQ) = 0x1000;
+    // armState.GPR(armajitto::arm::GPR::R9, armajitto::arm::Mode::User) = 8;
+    // armState.GPR(armajitto::arm::GPR::R9, armajitto::arm::Mode::FIQ) = 4;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xDEADBEEF;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0xABAD1DEA;
 
+    armState.CPSR().mode = block->Location().Mode();
     armState.CPSR().n = 1;
     armState.CPSR().z = 1;
     armState.CPSR().c = 1;
