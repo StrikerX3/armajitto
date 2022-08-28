@@ -54,6 +54,22 @@ inline size_t NormalizedIndex(Mode mode) {
     return indices[static_cast<size_t>(mode)];
 }
 
+inline Mode NormalizedMode(Mode mode) {
+    static constexpr auto modes = [] {
+        std::array<Mode, 32> modes{};
+        modes.fill(Mode::User);
+        modes[static_cast<size_t>(Mode::User)] = Mode::User;
+        modes[static_cast<size_t>(Mode::FIQ)] = Mode::FIQ;
+        modes[static_cast<size_t>(Mode::IRQ)] = Mode::IRQ;
+        modes[static_cast<size_t>(Mode::Supervisor)] = Mode::Supervisor;
+        modes[static_cast<size_t>(Mode::Abort)] = Mode::Abort;
+        modes[static_cast<size_t>(Mode::Undefined)] = Mode::Undefined;
+        modes[static_cast<size_t>(Mode::System)] = Mode::System;
+        return modes;
+    }();
+    return modes[static_cast<size_t>(mode)];
+}
+
 inline constexpr size_t kNumBankedModes = 6;
 
 } // namespace armajitto::arm

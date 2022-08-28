@@ -6,7 +6,7 @@ namespace armajitto::arm {
 
 State::State() {
     for (uint32_t mode = 0; mode < 32; mode++) {
-        const auto normMode = static_cast<Mode>(NormalizedIndex(static_cast<Mode>(mode)));
+        const auto normMode = NormalizedMode(static_cast<Mode>(mode));
 
         // 0..7: shared by all modes
         for (uint32_t gpr = 0; gpr <= 7; gpr++) {
