@@ -50,13 +50,9 @@ uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) {
     case 0x0007: // 0,C0,C0,7 - Reserved - copy of C0,C0,0
         return m_id.u32;
     case 0x0001: // 0,C0,C0,1 - Cache Type Register
-        // Code=2000h bytes, Data=1000h bytes, assoc=whatever, and line size 32 bytes each
-        return 0x0F0D2112;
-        // TODO: return m_cache.params.u32;
+        return m_cache.params.u32;
     case 0x0002: // 0,C0,C0,2 - Tightly Coupled Memory (TCM) Size Register
-        // ITCM present, size = 32 KiB; DTCM present, size = 16 KiB
-        return 0x00140180;
-        // TODO: return m_tcm.params.u32;
+        return m_tcm.params.u32;
 
     case 0x0100: // 0,C1,C0,0 - Control Register
         return m_ctl.value.u32;
@@ -118,8 +114,8 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
     switch (reg.u16) {
     case 0x0100: { // 0,C1,C0,0 - Control Register
         m_ctl.Write(value);
-        // TODO: ConfigureDTCM();
-        // TODO: ConfigureITCM();
+        m_tcm.SetupITCM(m_ctl.value.itcmEnable, m_ctl.value.itcmLoad);
+        m_tcm.SetupDTCM(m_ctl.value.dtcmEnable, m_ctl.value.dtcmLoad);
         // TODO: UpdateTimingMaps();
         // TODO: UpdatePermissionMaps();
         break;
@@ -227,12 +223,12 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
 
     case 0x0910: // 0,C9,C1,0 - Data TCM Size/Base
         m_tcm.dtcmParams = value;
-        // TODO: ConfigureDTCM();
+        m_tcm.SetupDTCM(m_ctl.value.dtcmEnable, m_ctl.value.dtcmLoad);
         // TODO: UpdateTimingMaps();
         break;
     case 0x0911: // 0,C9,C1,1 - Instruction TCM Size/Base
         m_tcm.itcmParams = value;
-        // TODO: ConfigureITCM();
+        m_tcm.SetupITCM(m_ctl.value.itcmEnable, m_ctl.value.itcmLoad);
         // TODO: UpdateTimingMaps();
         break;
     }

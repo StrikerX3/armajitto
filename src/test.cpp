@@ -656,6 +656,22 @@ void testCompiler() {
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     auto &state = context.GetARMState();
     state.GetSystemControlCoprocessor().ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
+    state.GetSystemControlCoprocessor().ConfigureCache({
+        .type = armajitto::arm::cp15::cache::Type::WriteBackReg7CleanLockdownB,
+        .separateCodeDataCaches = true,
+        .code =
+            {
+                .size = 0x2000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+        .data =
+            {
+                .size = 0x1000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+    });
 
     const uint32_t baseAddress = 0x02000100;
 
@@ -930,7 +946,7 @@ void testCompiler() {
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
-        .maxBlockSize = 32,
+        .maxBlockSize = 64,
     };
     armajitto::ir::Translator translator{context, params};
     translator.Translate(*block);
@@ -1027,6 +1043,8 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
+    armState.CPSR().mode = block->Location().Mode();
+
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
     // armState.GPR(armajitto::arm::GPR::R2) = 0x40000000;
@@ -1034,6 +1052,10 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R4) = 4;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x82000705;
     // armState.GPR(armajitto::arm::GPR::R4) = 0x111;
+    // armState.CPSR().n = 1;
+    // armState.CPSR().z = 1;
+    // armState.CPSR().c = 1;
+    // armState.CPSR().v = 1;
 
     // Multiplication tests
     // armState.GPR(armajitto::arm::GPR::R1) = 0x76543210;
@@ -1085,11 +1107,13 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
 
-    armState.CPSR().mode = block->Location().Mode();
-    armState.CPSR().n = 1;
-    armState.CPSR().z = 1;
-    armState.CPSR().c = 1;
-    armState.CPSR().v = 1;
+    // TCM
+    armState.GPR(armajitto::arm::GPR::R4) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
+    armState.GPR(armajitto::arm::GPR::R5) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    armState.GPR(armajitto::arm::GPR::R6) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
+    armState.GPR(armajitto::arm::GPR::R7) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    armState.GPR(armajitto::arm::GPR::R8) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    armState.GPR(armajitto::arm::GPR::R9) = 0xFFFFFFFF; // should have 0x00000000 after execution
 
     printf("state before execution:\n");
     printState();

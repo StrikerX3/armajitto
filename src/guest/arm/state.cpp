@@ -63,6 +63,8 @@ void State::Reset() {
     m_regsFIQ.fill(0);
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
+
+    m_cp15.Reset();
 }
 
 } // namespace armajitto::arm

@@ -12,6 +12,12 @@ union CopRegister {
         uint16_t crn : 4;
         uint16_t opcode1 : 4; // actually 3 bits, but rounded up to 4 to make the u16 field more convenient to use
     };
+
+    CopRegister()
+        : u16(0) {}
+
+    CopRegister(uint16_t u16)
+        : u16(u16) {}
 };
 
 } // namespace armajitto::arm

@@ -336,7 +336,7 @@ inline auto CopDataTransfer(uint32_t opcode, bool ext) {
 inline auto CopRegTransfer(uint32_t opcode, bool ext) {
     arm::instrs::CopRegTransfer instr{};
 
-    instr.store = bit::test<20>(opcode);
+    instr.load = bit::test<20>(opcode);
     instr.reg.opcode1 = bit::extract<21, 3>(opcode);
     instr.reg.crn = bit::extract<16, 4>(opcode);
     instr.rd = static_cast<GPR>(bit::extract<12, 4>(opcode));
@@ -352,7 +352,7 @@ inline auto CopRegTransfer(uint32_t opcode, bool ext) {
 inline auto CopDualRegTransfer(uint32_t opcode) {
     arm::instrs::CopDualRegTransfer instr{};
 
-    instr.store = bit::test<20>(opcode);
+    instr.load = bit::test<20>(opcode);
     instr.rn = static_cast<GPR>(bit::extract<16, 4>(opcode));
     instr.rd = static_cast<GPR>(bit::extract<12, 4>(opcode));
     instr.cpnum = bit::extract<8, 4>(opcode);

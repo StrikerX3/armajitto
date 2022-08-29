@@ -1062,13 +1062,7 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
         return;
     }
 
-    if (instr.store) {
-        auto value = emitter.GetRegister(instr.rd);
-        emitter.StoreCopRegister(instr.cpnum, instr.reg, instr.ext, value);
-        if (cop.RegStoreHasSideEffects(instr.reg)) {
-            m_endBlock = true;
-        }
-    } else {
+    if (instr.load) {
         auto value = emitter.LoadCopRegister(instr.cpnum, instr.reg, instr.ext);
 
         if (instr.rd == GPR::PC) {
@@ -1081,6 +1075,12 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
             m_flagsUpdated = true;
         } else {
             emitter.SetRegister(instr.rd, value);
+        }
+    } else {
+        auto value = emitter.GetRegister(instr.rd);
+        emitter.StoreCopRegister(instr.cpnum, instr.reg, instr.ext, value);
+        if (cop.RegStoreHasSideEffects(instr.reg)) {
+            m_endBlock = true;
         }
     }
 

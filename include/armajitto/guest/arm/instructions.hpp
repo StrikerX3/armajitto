@@ -298,13 +298,13 @@ namespace instrs {
     };
 
     // MCR,MCR2,MRC,MRC2
-    // store ext  opcode
-    //   -    -   MCR
-    //   -    +   MCR2
-    //   +    -   MRC
-    //   +    +   MRC2
+    // load ext  opcode
+    //   -   -   MCR
+    //   -   +   MCR2
+    //   +   -   MRC
+    //   +   +   MRC2
     struct CopRegTransfer {
-        bool store;
+        bool load;
         GPR rd;
         uint8_t cpnum;
         CopRegister reg;
@@ -312,11 +312,11 @@ namespace instrs {
     };
 
     // MCRR,MRRC
-    // store  opcode
-    //   -    MCRR
-    //   +    MRRC
+    // load  opcode
+    //   -   MCRR
+    //   +   MRRC
     struct CopDualRegTransfer {
-        bool store;
+        bool load;
         GPR rn;
         GPR rd;
         uint8_t cpnum;

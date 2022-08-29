@@ -41,6 +41,26 @@ public:
     // Configures the cache with the specified parameters.
     void ConfigureCache(const cp15::Cache::Configuration &config);
 
+    cp15::Identification &GetIdentification() {
+        return m_id;
+    }
+
+    cp15::ControlRegister &GetControlRegister() {
+        return m_ctl;
+    }
+
+    cp15::ProtectionUnit &GetProtectionUnit() {
+        return m_pu;
+    }
+
+    cp15::TCM &GetTCM() {
+        return m_tcm;
+    }
+
+    cp15::Cache &GetCache() {
+        return m_cache;
+    }
+
     // -------------------------------------------------------------------------
     // Coprocessor interface implementation
 

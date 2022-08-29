@@ -1,5 +1,7 @@
 #pragma once
 
+#include "armajitto/guest/arm/coprocessors/cp15/cp15_defs.hpp"
+
 #include "armajitto/util/bit_ops.hpp"
 
 #include <cstdint>
@@ -8,6 +10,21 @@
 namespace armajitto::arm::cp15 {
 
 struct TCM {
+    union {
+        uint32_t u32;
+        struct {
+            uint32_t _rsvd0 : 2;
+            uint32_t itcmAbsent : 1;
+            uint32_t _rsvd3 : 3;
+            tcm::Size itcmSize : 4;
+            uint32_t _rsvd10 : 4;
+            uint32_t dtcmAbsent : 1;
+            uint32_t _rsvd15 : 3;
+            tcm::Size dtcmSize : 4;
+            uint32_t _rsvd22 : 10;
+        };
+    } params;
+
     std::vector<uint8_t> itcm;
     std::vector<uint8_t> dtcm;
 
@@ -31,6 +48,9 @@ struct TCM {
 
     void Configure(const Configuration &params);
     void Disable();
+
+    void SetupITCM(bool enable, bool load);
+    void SetupDTCM(bool enable, bool load);
 };
 
 } // namespace armajitto::arm::cp15

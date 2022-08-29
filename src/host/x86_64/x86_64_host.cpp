@@ -61,7 +61,6 @@ constexpr uint32_t ARMFlagsMask = ARMflgN | ARMflgZ | ARMflgC | ARMflgV | ARMflg
 constexpr uint32_t x64FlagsMask = x64flgN | x64flgZ | x64flgC | x64flgV;
 
 // ---------------------------------------------------------------------------------------------------------------------
-
 // System method accessor trampolines
 
 // ARMv4T and ARMv5TE LDRB
@@ -131,6 +130,26 @@ static void SystemMemWriteHalf(ISystem &system, uint32_t address, uint16_t value
 // ARMv4T and ARMv5TE STR
 static void SystemMemWriteWord(ISystem &system, uint32_t address, uint32_t value) {
     system.MemWriteWord(address & ~3, value);
+}
+
+// MRC
+static uint32_t SystemLoadCopRegister(arm::State &state, uint8_t cpnum, uint16_t reg) {
+    return state.GetCoprocessor(cpnum).LoadRegister(reg);
+}
+
+// MCR
+static void SystemStoreCopRegister(arm::State &state, uint8_t cpnum, uint16_t reg, uint32_t value) {
+    return state.GetCoprocessor(cpnum).StoreRegister(reg, value);
+}
+
+// MRC2
+static uint32_t SystemLoadCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t reg) {
+    return state.GetCoprocessor(cpnum).LoadExtRegister(reg);
+}
+
+// MCR2
+static void SystemStoreCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t reg, uint32_t value) {
+    return state.GetCoprocessor(cpnum).StoreExtRegister(reg, value);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1943,11 +1962,23 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {
-    // TODO: implement
+    if (!op->dstValue.var.IsPresent()) {
+        return;
+    }
+
+    auto func = (op->ext) ? SystemLoadCopExtRegister : SystemLoadCopRegister;
+    auto dstReg32 = compiler.regAlloc.Get(op->dstValue.var);
+    CompileInvokeHostFunction(compiler, dstReg32, func, m_armState, op->cpnum, op->reg.u16);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreCopRegisterOp *op) {
-    // TODO: implement
+    auto func = (op->ext) ? SystemStoreCopExtRegister : SystemStoreCopRegister;
+    if (op->srcValue.immediate) {
+        CompileInvokeHostFunction(compiler, func, m_armState, op->cpnum, op->reg.u16, op->srcValue.imm.value);
+    } else {
+        auto srcReg32 = compiler.regAlloc.Get(op->srcValue.var.var);
+        CompileInvokeHostFunction(compiler, func, m_armState, op->cpnum, op->reg.u16, srcReg32);
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
