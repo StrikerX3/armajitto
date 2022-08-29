@@ -2269,13 +2269,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {
     const auto pcFieldOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
     const auto pcOffset = 2 * (compiler.thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+    const auto addrMask = (compiler.thumb ? ~1 : ~3);
 
     if (op->address.immediate) {
-        code.mov(dword[abi::kARMStateReg + pcFieldOffset], op->address.imm.value + pcOffset);
+        code.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
     } else {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
         auto tmpReg32 = compiler.regAlloc.GetTemporary();
         code.lea(tmpReg32, dword[addrReg32 + pcOffset]);
+        code.and_(tmpReg32, addrMask);
         code.mov(dword[abi::kARMStateReg + pcFieldOffset], tmpReg32);
     }
 }
