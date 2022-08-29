@@ -11,7 +11,6 @@
 #include "vtune.hpp"
 #include "x86_64_compiler.hpp"
 
-#include <cstdio>
 #include <limits>
 
 namespace armajitto::x86_64 {
@@ -177,8 +176,6 @@ void x64Host::Compile(ir::BasicBlock &block) {
     // Compile block code
     auto *op = block.Head();
     while (op != nullptr) {
-        auto opStr = op->ToString();
-        printf("  compiling '%s'\n", opStr.c_str());
         compiler.PreProcessOp(op);
         ir::VisitIROp(op, [this, &compiler](const auto *op) -> void { CompileOp(compiler, op); });
         compiler.PostProcessOp(op);

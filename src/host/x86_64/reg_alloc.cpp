@@ -2,8 +2,6 @@
 
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
-#include <cstdio>
-
 namespace armajitto::x86_64 {
 
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code)
@@ -44,8 +42,6 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
         entry.reg = AllocateRegister();
         entry.allocated = true;
         entry.spillSlot = ~0;
-        auto _varStr = var.ToString();
-        printf("      assigned to %s\n", _varStr.c_str());
     }
 
     return entry.reg;
@@ -53,7 +49,6 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
 
 Xbyak::Reg32 RegisterAllocator::GetTemporary() {
     auto reg = AllocateRegister();
-    printf("      temporary register\n");
     m_tempRegs.push_back(reg);
     return reg;
 }
@@ -82,10 +77,6 @@ void RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
     // Copy allocation and mark src as deallocated
     dstEntry = srcEntry;
     srcEntry.allocated = false;
-
-    auto _dstStr = dst.ToString();
-    auto _srcStr = src.ToString();
-    printf("    reassigned %s <- %s\n", _dstStr.c_str(), _srcStr.c_str());
 }
 
 bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
@@ -124,16 +115,8 @@ void RegisterAllocator::ReleaseVars() {
 }
 
 void RegisterAllocator::ReleaseTemporaries() {
-    for (auto reg : m_tempRegs) {
-        printf("    releasing temporary register %d\n", reg.getIdx());
-    }
     m_freeRegs.insert(m_freeRegs.end(), m_tempRegs.begin(), m_tempRegs.end());
     m_tempRegs.clear();
-    printf("    free registers list:");
-    for (auto reg : m_freeRegs) {
-        printf(" %d", reg.getIdx());
-    }
-    printf("\n");
 }
 
 bool RegisterAllocator::IsRegisterAllocated(Xbyak::Reg reg) const {
@@ -144,7 +127,6 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     // TODO: prefer nonvolatiles if available
     if (!m_freeRegs.empty()) {
         auto reg = m_freeRegs.front();
-        printf("    allocating register %d\n", reg.getIdx());
         m_freeRegs.pop_front();
         m_allocatedRegs.set(reg.getIdx());
         return reg;
@@ -157,9 +139,6 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
 
 void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
     if (m_varLifetimes.IsEndOfLife(var, op)) {
-        auto _varStr = var.ToString();
-        printf("    var %s expired\n", _varStr.c_str());
-
         // Deallocate if allocated
         const auto varIndex = var.Index();
         auto &entry = m_varAllocStates[varIndex];
@@ -168,10 +147,7 @@ void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
             if (entry.spillSlot == ~0) {
                 m_freeRegs.push_back(entry.reg);
                 m_allocatedRegs.set(entry.reg.getIdx(), false);
-                printf("      returned register %d\n", entry.reg.getIdx());
             }
-        } else {
-            printf("      not currently allocated\n");
         }
     }
 }
