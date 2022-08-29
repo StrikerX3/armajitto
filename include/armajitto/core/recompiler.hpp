@@ -12,14 +12,18 @@ class Recompiler {
 public:
     Recompiler(const Specification &spec)
         : m_spec(spec)
-        , m_context(spec.arch, spec.system) {}
+        , m_context(spec.model, spec.system) {}
 
     arm::State &GetARMState() {
         return m_context.GetARMState();
     }
 
+    CPUModel GetCPUModel() const {
+        return m_spec.model;
+    }
+
     CPUArch GetCPUArch() const {
-        return m_spec.arch;
+        return m_context.GetCPUArch();
     }
 
     ISystem &GetSystem() {

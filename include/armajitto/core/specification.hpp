@@ -7,7 +7,7 @@ namespace armajitto {
 
 struct Specification {
     ISystem &system;
-    CPUArch arch;
+    CPUModel model;
 };
 
 } // namespace armajitto

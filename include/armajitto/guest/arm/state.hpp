@@ -6,7 +6,7 @@
 #include "psr.hpp"
 
 #include "coprocessors/coproc_14_debug_dummy.hpp"
-#include "coprocessors/coproc_15_sys_ctrl.hpp"
+#include "coprocessors/coproc_15_sys_control.hpp"
 #include "coprocessors/coproc_null.hpp"
 
 #include <array>

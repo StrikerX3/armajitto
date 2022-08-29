@@ -2,6 +2,7 @@
 
 #include "armajitto/core/system_interface.hpp"
 #include "armajitto/defs/cpu_arch.hpp"
+#include "armajitto/defs/cpu_model.hpp"
 #include "armajitto/guest/arm/coprocessor.hpp"
 #include "armajitto/guest/arm/coprocessors/coproc_null.hpp"
 #include "armajitto/guest/arm/state.hpp"
@@ -10,9 +11,7 @@ namespace armajitto {
 
 class Context {
 public:
-    Context(CPUArch arch, ISystem &system)
-        : m_arch(arch)
-        , m_system(system) {}
+    Context(CPUModel model, ISystem &system);
 
     CPUArch GetCPUArch() const {
         return m_arch;

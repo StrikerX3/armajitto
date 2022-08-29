@@ -42,11 +42,14 @@ add_library(armajitto
     include/armajitto/guest/arm/psr.hpp
     include/armajitto/guest/arm/state.hpp
     include/armajitto/guest/arm/coprocessors/coproc_14_debug_dummy.hpp
-    include/armajitto/guest/arm/coprocessors/coproc_15_sys_ctrl.hpp
+    include/armajitto/guest/arm/coprocessors/coproc_15_sys_control.hpp
     include/armajitto/guest/arm/coprocessors/coproc_null.hpp
-    include/armajitto/guest/arm/models/cpu_model_arm7tdmi.hpp
-    include/armajitto/guest/arm/models/cpu_model_arm946es.hpp
-    include/armajitto/guest/arm/models/cpu_model_base.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_cache.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_control.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_defs.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_id.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_pu.hpp
+    include/armajitto/guest/arm/coprocessors/cp15/cp15_tcm.hpp
     include/armajitto/host/host.hpp
     include/armajitto/host/host_code.hpp
     include/armajitto/host/x86_64/cpuid.hpp
@@ -76,10 +79,14 @@ add_library(armajitto
     include/armajitto/util/pointer_cast.hpp
     include/armajitto/util/type_traits.hpp
     include/armajitto/util/unreachable.hpp
+    src/core/context.cpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
-    src/guest/arm/models/cpu_model_arm7tdmi.cpp
-    src/guest/arm/models/cpu_model_arm946es.cpp
+    src/guest/arm/coprocessors/coproc_15_sys_control.cpp
+    src/guest/arm/coprocessors/cp15/cp15_cache.cpp
+    src/guest/arm/coprocessors/cp15/cp15_control.cpp
+    src/guest/arm/coprocessors/cp15/cp15_pu.cpp
+    src/guest/arm/coprocessors/cp15/cp15_tcm.cpp
     src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
     src/host/x86_64/reg_alloc.cpp

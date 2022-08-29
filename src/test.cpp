@@ -43,9 +43,12 @@ public:
 
 private:
     // Memory map:
-    //   ROM   0x0000..0x0FFF
-    //   RAM   0x1000..0x1FFF
-    //   MMIO  0x2000..0x2FFF
+    //   ROM          0x00000000..0x00000FFF
+    //   RAM          0x00001000..0x00001FFF
+    //   MMIO         0x00002000..0x00002FFF
+    //   ROM mirror   0x02000000..0x02000FFF
+    //   RAM mirror   0x02001000..0x02001FFF
+    //   MMIO mirror  0x02002000..0x02002FFF
     //   open  ...every other address
     std::array<uint8_t, 0x1000> rom;
     std::array<uint8_t, 0x1000> ram;
@@ -54,9 +57,12 @@ private:
     T Read(uint32_t address) {
         auto page = address >> 12;
         switch (page) {
-        case 0x0: return *reinterpret_cast<T *>(&rom[address & 0xFFF]);
-        case 0x1: return *reinterpret_cast<T *>(&ram[address & 0xFFF]);
-        case 0x2: return MMIORead<T>(address);
+        case 0x00000: [[fallthrough]];
+        case 0x02000: return *reinterpret_cast<T *>(&rom[address & 0xFFF]);
+        case 0x00001: [[fallthrough]];
+        case 0x02001: return *reinterpret_cast<T *>(&ram[address & 0xFFF]);
+        case 0x00002: [[fallthrough]];
+        case 0x02002: return MMIORead<T>(address);
         default: return 0;
         }
     }
@@ -65,8 +71,10 @@ private:
     void Write(uint32_t address, T value) {
         auto page = address >> 12;
         switch (page) {
-        case 0x1: *reinterpret_cast<T *>(&ram[address & 0xFFF]) = value; break;
-        case 0x2: MMIOWrite(address, value); break;
+        case 0x00001: [[fallthrough]];
+        case 0x02001: *reinterpret_cast<T *>(&ram[address & 0xFFF]) = value; break;
+        case 0x00002: [[fallthrough]];
+        case 0x02002: MMIOWrite(address, value); break;
         }
     }
 
@@ -95,7 +103,7 @@ void testBasic() {
     // Define a specification for the recompiler
     armajitto::Specification spec{
         .system = sys,
-        .arch = armajitto::CPUArch::ARMv5TE,
+        .model = armajitto::CPUModel::ARM946ES,
     };
 
     // Make a recompiler from the specification
@@ -389,10 +397,10 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
     // writeARM(0xEAFFFFFE); // b $
 
-    armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
+    armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::User, thumb});
+        alloc, armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -645,9 +653,11 @@ void testTranslatorAndOptimizer() {
 void testCompiler() {
     System sys{};
 
-    armajitto::Context context{armajitto::CPUArch::ARMv5TE, sys};
+    armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
+    auto &state = context.GetARMState();
+    state.GetSystemControlCoprocessor().ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
 
-    const uint32_t baseAddress = 0x0100;
+    const uint32_t baseAddress = 0x02000100;
 
     uint32_t address = baseAddress;
     bool thumb = false;
@@ -796,7 +806,7 @@ void testCompiler() {
     // writeARM(0xE9BF0000); // ldmib r15!, {}
 
     // MRC, MCR, MRC2, MCR2
-    writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    // writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
     // writeARM(0xEE011F10); // mcr p15, 0, r1, c1, c0, 0
     // writeARM(0xEE112E10); // mrc p14, 0, r2, c1, c0, 0
     // writeARM(0xEE013E10); // mcr p14, 0, r3, c1, c0, 0
@@ -832,6 +842,79 @@ void testCompiler() {
     // writeARM(0xE1200070); // bkpt
     // writeARM(0xF0000000); // udf
 
+    // MCR/MRC, ITCM and DTCM
+    // Enable ITCM and DTCM
+    writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
+    writeARM(0xE3800701); // orr r0, #0x40000  // ITCM enable
+    writeARM(0xE3800801); // orr r0, #0x10000  // DTCM enable
+    writeARM(0xEE010F10); // mcr p15, 0, r0, c1, c0, 0
+
+    // Map ITCM to [0x00000000..0x0000FFFF]
+    writeARM(0xE3A0000E); // mov r0, #0xE
+    writeARM(0xEE090F31); // mcr p15, 0, r0, c9, c1, 1
+
+    // Map DTCM to [0x01000000..0x0100FFFF]
+    writeARM(0xE2801401); // add r1, r0, #0x1000000
+    writeARM(0xEE091F11); // mcr p15, 0, r1, c9, c1, 0
+
+    // Setup value to write
+    writeARM(0xE3A030DE); // mov r3, #0xDE
+    writeARM(0xE1A03403); // lsl r3, #8
+    writeARM(0xE28330AD); // add r3, #0xAD
+    writeARM(0xE1A03403); // lsl r3, #8
+    writeARM(0xE28330BE); // add r3, #0xBE
+    writeARM(0xE1A03403); // lsl r3, #8
+    writeARM(0xE28330EF); // add r3, #0xEF
+
+    // Setup mirror addresses
+    writeARM(0xE3A0A902); // mov r10, #0x8000
+    writeARM(0xE3A0B901); // mov r11, #0x4000
+
+    // Write to ITCM
+    writeARM(0xE3A02000); // mov r2, #0x0
+    writeARM(0xE5823000); // str r3, [r2]
+
+    // Check mirroring
+    // ITCM is 32 KiB
+    writeARM(0xE792400A); // ldr r4, [r2, r10]  // should be 0xDEADBEEF
+
+    // Reduce ITCM size to 32 KiB
+    // ITCM should now be mapped to [0x00000000..0x00007FFF]
+    writeARM(0xE2400002); // sub r0, #2
+    writeARM(0xEE090F31); // mcr p15, 0, r0, c9, c1, 1
+
+    // Check mirroring again
+    writeARM(0xE792500A); // ldr r5, [r2, r10]  // should be 0x00000000 (open bus read)
+
+    // Write to DTCM
+    writeARM(0xE2822401); // add r2, #0x1000000
+    writeARM(0xE5823000); // str r3, [r2]
+
+    // Check mirroring
+    // DTCM is 16 KiB
+    writeARM(0xE792600B); // ldr r6, [r2, r11]  // should be 0xDEADBEEF
+
+    // Reduce DTCM size to 16 KiB
+    // DTCM should now be mapped to [0x01000000..0x01003FFF]
+    writeARM(0xE2411004); // sub r1, #4
+    writeARM(0xEE091F11); // mcr p15, 0, r1, c9, c1, 0
+
+    // Check mirroring again
+    writeARM(0xE792700B); // ldr r7, [r2, r11]  // should be 0x00000000 (open bus read)
+
+    // Disable ITCM and DTCM
+    writeARM(0xEE11CF10); // mrc p15, 0, r12, c1, c0, 0
+    writeARM(0xE3CCC701); // bic r12, #0x40000  // ITCM enable
+    writeARM(0xE3CCC801); // bic r12, #0x10000  // DTCM enable
+    writeARM(0xEE01CF10); // mcr p15, 0, r12, c1, c0, 0
+
+    // Read DTCM
+    writeARM(0xE5928000); // ldr r8, [r2] // should be 0x00000000 (open bus read)
+
+    // Read ITCM
+    writeARM(0xE2422401); // sub r2, #0x1000000
+    writeARM(0xE5929000); // ldr r9, [r2] // should be 0x00000000 (open bus read)
+
     writeARM(0xEAFFFFFE); // b $
 
     // TODO: implement branches and exceptions
@@ -843,7 +926,7 @@ void testCompiler() {
     // Create allocator
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{0x0108, armajitto::arm::Mode::FIQ, thumb});
+        alloc, armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::FIQ, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -865,7 +948,6 @@ void testCompiler() {
 
     // Define function to display ARM state
     auto printState = [&] {
-        auto &state = context.GetARMState();
         printf("Registers in current mode:\n");
         for (int j = 0; j < 4; j++) {
             for (int i = 0; i < 4; i++) {
@@ -993,15 +1075,15 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0xEEEEEEEE;
 
     // STM
-    armState.GPR(armajitto::arm::GPR::R0) = 0x1000;
-    armState.GPR(armajitto::arm::GPR::R1) = 0x11111111;
-    armState.GPR(armajitto::arm::GPR::R2) = 0x22222222;
-    armState.GPR(armajitto::arm::GPR::R3) = 0x33333333;
-    armState.GPR(armajitto::arm::GPR::R4) = 0x44444444;
-    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::User) = 0x1010;
-    armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::FIQ) = 0x1020;
-    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
-    armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
+    // armState.GPR(armajitto::arm::GPR::R0) = 0x1000;
+    // armState.GPR(armajitto::arm::GPR::R1) = 0x11111111;
+    // armState.GPR(armajitto::arm::GPR::R2) = 0x22222222;
+    // armState.GPR(armajitto::arm::GPR::R3) = 0x33333333;
+    // armState.GPR(armajitto::arm::GPR::R4) = 0x44444444;
+    // armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::User) = 0x1010;
+    // armState.GPR(armajitto::arm::GPR::R13, armajitto::arm::Mode::FIQ) = 0x1020;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::User) = 0xEEEEEEEE;
+    // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
 
     armState.CPSR().mode = block->Location().Mode();
     armState.CPSR().n = 1;

@@ -28,16 +28,6 @@ public:
         return false;
     }
 
-    uint32_t LoadExtRegister(CopRegister reg) final {
-        return 0;
-    }
-
-    void StoreExtRegister(CopRegister reg, uint32_t value) final {}
-
-    bool ExtRegStoreHasSideEffects(CopRegister reg) final {
-        return false;
-    }
-
 private:
     NullCoprocessor() = default;
 
