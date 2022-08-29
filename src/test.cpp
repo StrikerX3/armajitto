@@ -911,29 +911,30 @@ void testCompiler() {
     // ARM branches
     // writeARM(0xEAFFFFFE); // b $
     // writeARM(0xEBFFFFFE); // bl $
-    // writeARM(0xFAFFFFFE); // blx $   <-- test this after implementing BranchExchange
-    // writeARM(0xE12FFF11); // bx r1   <-- test this after implementing BranchExchange
-    // writeARM(0xE12FFF31); // blx r1  <-- test this after implementing BranchExchange
+    // writeARM(0xFAFFFFFE); // blx $
+    // writeARM(0xE12FFF11); // bx r1
+    // writeARM(0xE12FFF31); // blx r1
+    // writeARM(0xE591F000); // ldr r15, [r1]
+    // writeARM(0x02000001); // (destination for the above branch)
 
     // Thumb branches
     // writeThumb(0xF7FF); // bl $ (prefix)
     // writeThumb(0xFFFE); // bl $ (suffix)
-    // writeThumb(0xF7FF); // blx $ (prefix)  <-- test this after implementing BranchExchange
-    // writeThumb(0xEFFE); // blx $ (suffix)  <-- test this after implementing BranchExchange
+    // writeThumb(0xF7FF); // blx $ (prefix)
+    // writeThumb(0xEFFE); // blx $ (suffix)
     // writeThumb(0xD0FE); // beq $
     // writeThumb(0xE7FE); // b $
-    // writeThumb(0x4708); // bx r1   <-- test this after implementing BranchExchange
-    // writeThumb(0x4788); // blx r1  <-- test this after implementing BranchExchange
+    // writeThumb(0x4708); // bx r1
+    // writeThumb(0x4788); // blx r1
 
     // SWI, BKPT, UDF
-    // writeARM(0xEF123456); // swi #0x123456
+    writeARM(0xEF123456); // swi #0x123456
     // writeARM(0xE1200070); // bkpt
     // writeARM(0xF0000000); // udf
 
     // writeARM(0xEAFFFFFE); // b $
 
-    // TODO: implement branches and exceptions
-    // TODO: implement branching, block linking, block lookups, etc.
+    // TODO: implement block terminals, block cache and lookups, block linking, etc.
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
     // TODO: implement cycle counting
 
@@ -991,9 +992,9 @@ void testCompiler() {
             default: printf("%02Xh", static_cast<uint8_t>(psr.mode)); break;
             }
             if (psr.t) {
-                printf("  THUMB");
+                printf("  THUMB  ");
             } else {
-                printf("  ARM  ");
+                printf("   ARM   ");
             }
             printf("%c%c%c%c%c%c%c\n", flag(psr.n, 'N'), flag(psr.z, 'Z'), flag(psr.c, 'C'), flag(psr.v, 'V'),
                    flag(psr.q, 'Q'), flag(psr.i, 'I'), flag(psr.f, 'F'));
@@ -1112,6 +1113,10 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R7) = 0xFFFFFFFF; // should have 0x00000000 after execution
     // armState.GPR(armajitto::arm::GPR::R8) = 0xFFFFFFFF; // should have 0x00000000 after execution
     // armState.GPR(armajitto::arm::GPR::R9) = 0xFFFFFFFF; // should have 0x00000000 after execution
+
+    // BX, BLX
+    armState.GPR(armajitto::arm::GPR::R1) = 0x0104;
+    armState.GetSystemControlCoprocessor().GetControlRegister().value.preARMv5 = 1;
 
     printf("state before execution:\n");
     printState();

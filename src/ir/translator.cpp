@@ -477,6 +477,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
             // Branch without switching modes; CPSR was not changed
             emitter.Branch(result);
         }
+
+        // TODO: set block branch target
         m_endBlock = true;
     } else {
         m_flagsUpdated = instr.setFlags;
@@ -751,16 +753,13 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
 
     if (pcValue.IsPresent()) {
         if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
-            // TODO: honor CP15 pre-ARMv5 branching feature
-            // if (!m_cp15.ctl.preARMv5) {
-            // Switch to THUMB mode if bit 0 is set (ARMv5 CP15 feature)
-            emitter.BranchExchange(pcValue);
-            // } else {
-            //     emitter.Branch(pcValue);
-            // }
+            // Honor CP15 pre-ARMv5 branching feature
+            emitter.BranchExchangeL4(pcValue);
         } else {
             emitter.Branch(pcValue);
         }
+
+        // TODO: set block branch target
         m_endBlock = true;
     }
 }
@@ -870,6 +869,8 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
 
     if (pcValue.IsPresent()) {
         emitter.Branch(pcValue);
+
+        // TODO: set block branch target
         m_endBlock = true;
     }
 }
@@ -990,16 +991,13 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
 
     if (pcValue.IsPresent()) {
         if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
-            // TODO: honor CP15 pre-ARMv5 branching feature
-            // if (!m_cp15.ctl.preARMv5) {
-            // Switch to THUMB mode if bit 0 is set (ARMv5 CP15 feature)
-            emitter.BranchExchange(pcValue);
-            // } else {
-            //     emitter.Branch(pcValue);
-            // }
+            // Honor CP15 pre-ARMv5 branching feature
+            emitter.BranchExchangeL4(pcValue);
         } else {
             emitter.Branch(pcValue);
         }
+
+        // TODO: set block branch target
         m_endBlock = true;
     }
 }

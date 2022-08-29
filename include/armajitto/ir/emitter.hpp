@@ -232,6 +232,7 @@ public:
 
     void Branch(VarOrImmArg address);
     void BranchExchange(VarOrImmArg address);
+    void BranchExchangeL4(VarOrImmArg address);
 
     Variable LoadCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext);
     void StoreCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext, VarOrImmArg srcValue);

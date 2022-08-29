@@ -312,8 +312,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
 
-    Xbyak::Label skipTCM{};
-    Xbyak::Label end{};
+    Xbyak::Label lblSkipTCM{};
+    Xbyak::Label lblEnd{};
 
     auto compileRead = [this, op, &compiler](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64) {
         switch (op->size) {
@@ -334,22 +334,22 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                             code.movsx(dstReg32, word[addrReg64]);
                         }
                     } else {
-                        Xbyak::Label byteRead{};
-                        Xbyak::Label done{};
+                        Xbyak::Label lblByteRead{};
+                        Xbyak::Label lblDone{};
 
                         auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
                         code.test(baseAddrReg32, 1);
-                        code.jnz(byteRead);
+                        code.jnz(lblByteRead);
 
                         // Word read
                         code.movsx(dstReg32, word[addrReg64]);
-                        code.jmp(done);
+                        code.jmp(lblDone);
 
                         // Byte read
-                        code.L(byteRead);
+                        code.L(lblByteRead);
                         code.movsx(dstReg32, byte[addrReg64 + 1]);
 
-                        code.L(done);
+                        code.L(lblDone);
                     }
                 } else {
                     code.movsx(dstReg32, word[addrReg64]);
@@ -411,7 +411,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
             {
                 constexpr auto itcmReadSizeOfs = offsetof(arm::cp15::TCM, itcmReadSize);
 
-                Xbyak::Label skipITCM{};
+                Xbyak::Label lblSkipITCM{};
 
                 // Get address
                 if (op->address.immediate) {
@@ -423,7 +423,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
 
                 // Check if address is in range
                 code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmReadSizeOfs]);
-                code.jae(skipITCM);
+                code.jae(lblSkipITCM);
 
                 // Compute address mirror mask
                 assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
@@ -444,9 +444,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                 compileRead(dstReg32, addrReg64);
 
                 // Done!
-                code.jmp(end);
+                code.jmp(lblEnd);
 
-                code.L(skipITCM);
+                code.L(lblSkipITCM);
             }
 
             // DTCM check (data bus only)
@@ -467,7 +467,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
 
                 // Check if address is in range
                 code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmReadSizeOfs]);
-                code.jae(skipTCM);
+                code.jae(lblSkipTCM);
 
                 // Compute address mirror mask
                 assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
@@ -488,13 +488,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                 compileRead(dstReg32, addrReg64);
 
                 // Done!
-                code.jmp(end);
+                code.jmp(lblEnd);
             }
         }
     }
 
     // Handle slow memory access
-    code.L(skipTCM);
+    code.L(lblSkipTCM);
 
     // Select parameters based on size
     // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word
@@ -547,7 +547,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
         CompileInvokeHostFunction(compiler, dstReg32, readFn, m_system, addrReg32);
     }
 
-    code.L(end);
+    code.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
@@ -555,8 +555,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
     // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
 
-    Xbyak::Label skipTCM{};
-    Xbyak::Label end{};
+    Xbyak::Label lblSkipTCM{};
+    Xbyak::Label lblEnd{};
 
     auto &cp15 = m_armState.GetSystemControlCoprocessor();
     if (cp15.IsPresent()) {
@@ -572,7 +572,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
         {
             constexpr auto itcmWriteSizeOfs = offsetof(arm::cp15::TCM, itcmWriteSize);
 
-            Xbyak::Label skipITCM{};
+            Xbyak::Label lblSkipITCM{};
 
             // Get address
             if (op->address.immediate) {
@@ -584,7 +584,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
 
             // Check if address is in range
             code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmWriteSizeOfs]);
-            code.jae(skipITCM);
+            code.jae(lblSkipITCM);
 
             // Compute address mirror mask
             assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
@@ -617,9 +617,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
             }
 
             // Done!
-            code.jmp(end);
+            code.jmp(lblEnd);
 
-            code.L(skipITCM);
+            code.L(lblSkipITCM);
         }
 
         // DTCM check
@@ -640,7 +640,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
 
             // Check if address is in range
             code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmWriteSizeOfs]);
-            code.jae(skipTCM);
+            code.jae(lblSkipTCM);
 
             // Compute address mirror mask
             assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
@@ -673,12 +673,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
             }
 
             // Done!
-            code.jmp(end);
+            code.jmp(lblEnd);
         }
     }
 
     // Handle slow memory access
-    code.L(skipTCM);
+    code.L(lblSkipTCM);
 
     auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
         if (address.immediate) {
@@ -733,7 +733,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
     default: util::unreachable();
     }
 
-    code.L(end);
+    code.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {
@@ -2283,7 +2283,86 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {
-    // TODO: implement
+    Xbyak::Label lblEnd;
+    Xbyak::Label lblExchange;
+
+    auto pcReg32 = compiler.regAlloc.GetTemporary();
+    const auto pcFieldOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
+    const auto cpsrFieldOffset = m_armState.CPSROffset();
+
+    // Honor pre-ARMv5 branching feature if requested
+    if (op->bx4) {
+        auto &cp15 = m_context.GetARMState().GetSystemControlCoprocessor();
+        if (cp15.IsPresent()) {
+            auto &cp15ctl = cp15.GetControlRegister();
+            const auto ctlValueOfs = offsetof(arm::cp15::ControlRegister, value);
+
+            // Use pcReg32 as scratch register for this test
+            code.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
+            code.test(dword[pcReg32.cvt64() + ctlValueOfs], (1 << 15)); // L4 bit
+            code.je(lblExchange);
+
+            // Perform branch without exchange
+            const auto pcOffset = 2 * (compiler.thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+            const auto addrMask = (compiler.thumb ? ~1 : ~3);
+            if (op->address.immediate) {
+                code.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
+            } else {
+                auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                code.lea(pcReg32, dword[addrReg32 + pcOffset]);
+                code.and_(pcReg32, addrMask);
+                code.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
+            }
+            code.jmp(lblEnd);
+        }
+        // If CP15 is absent, assume bit L4 is clear (the default value) -- branch and exchange
+    }
+
+    // Perform exchange
+    code.L(lblExchange);
+    if (op->address.immediate) {
+        // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
+        if (op->address.imm.value & 1) {
+            // Thumb branch
+            code.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5)); // T bit
+            code.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
+        } else {
+            // ARM branch
+            code.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5)); // T bit
+            code.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
+        }
+    } else {
+        Xbyak::Label lblBranchARM;
+        Xbyak::Label lblSetPC;
+
+        auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+
+        // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
+        code.test(addrReg32, 1);
+        code.je(lblBranchARM);
+
+        // Thumb branch
+        code.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5));
+        code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t) - 1]);
+        // The address always has bit 0 set, so (addr & ~1) == (addr - 1)
+        // Therefore, (addr & ~1) + 4 == (addr - 1) + 4 == (addr + 3)
+        // code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t)]);
+        // code.and_(pcReg32, ~1);
+        code.jmp(lblSetPC);
+
+        // ARM branch
+        code.L(lblBranchARM);
+        code.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5));
+        code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint32_t)]);
+        code.and_(pcReg32, ~3);
+
+        code.L(lblSetPC);
+    }
+
+    // Set PC to branch target
+    code.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
+
+    code.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {

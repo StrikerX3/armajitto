@@ -296,6 +296,10 @@ void Emitter::BranchExchange(VarOrImmArg address) {
     Write<IRBranchExchangeOp>(address);
 }
 
+void Emitter::BranchExchangeL4(VarOrImmArg address) {
+    Write<IRBranchExchangeOp>(address, true);
+}
+
 Variable Emitter::LoadCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext) {
     auto dstValue = Var();
     LoadCopRegister(dstValue, cpnum, reg, ext);
