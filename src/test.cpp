@@ -928,9 +928,26 @@ void testCompiler() {
     // writeThumb(0x4788); // blx r1
 
     // SWI, BKPT, UDF
-    writeARM(0xEF123456); // swi #0x123456
+    // writeARM(0xEF123456); // swi #0x123456
     // writeARM(0xE1200070); // bkpt
     // writeARM(0xF0000000); // udf
+
+    // Condition codes
+    // writeARM(0x0A000002); // beq $+0x10   Z=1
+    // writeARM(0x1A000002); // bne $+0x10   Z=0
+    // writeARM(0x2A000002); // bcs $+0x10   C=1
+    // writeARM(0x3A000002); // bcc $+0x10   C=0
+    // writeARM(0x4A000002); // bmi $+0x10   N=1
+    // writeARM(0x5A000002); // bpl $+0x10   N=0
+    // writeARM(0x6A000002); // bvs $+0x10   V=1
+    // writeARM(0x7A000002); // bvc $+0x10   V=0
+    // writeARM(0x8A000002); // bhi $+0x10   C=1 && Z=0
+    // writeARM(0x9A000002); // bls $+0x10   C=0 || Z=1
+    // writeARM(0xAA000002); // bge $+0x10   N=V
+    // writeARM(0xBA000002); // blt $+0x10   N!=V
+    // writeARM(0xCA000002); // bgt $+0x10   Z=0 && N=V
+    // writeARM(0xDA000002); // ble $+0x10   Z=1 || N!=V
+    writeARM(0xEA000002); // b(al) $+0x10
 
     // writeARM(0xEAFFFFFE); // b $
 
@@ -1044,6 +1061,12 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
     armState.CPSR().mode = block->Location().Mode();
 
+    // Block condition test
+    armState.CPSR().n = 0;
+    armState.CPSR().z = 0;
+    armState.CPSR().c = 0;
+    armState.CPSR().v = 0;
+
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
     // armState.GPR(armajitto::arm::GPR::R2) = 0x40000000;
@@ -1115,8 +1138,8 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R9) = 0xFFFFFFFF; // should have 0x00000000 after execution
 
     // BX, BLX
-    armState.GPR(armajitto::arm::GPR::R1) = 0x0104;
-    armState.GetSystemControlCoprocessor().GetControlRegister().value.preARMv5 = 1;
+    // armState.GPR(armajitto::arm::GPR::R1) = 0x0104;
+    // armState.GetSystemControlCoprocessor().GetControlRegister().value.preARMv5 = 1;
 
     printf("state before execution:\n");
     printState();

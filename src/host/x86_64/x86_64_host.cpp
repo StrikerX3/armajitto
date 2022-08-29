@@ -169,8 +169,10 @@ void x64Host::Compile(ir::BasicBlock &block) {
     auto fnPtr = code.getCurr<HostCode::Fn>();
     code.setProtectModeRW();
 
-    // TODO: check condition code
-    // TODO: update PC if condition fails
+    Xbyak::Label lblCondFail{};
+    Xbyak::Label lblCondPass{};
+
+    CompileCondCheck(block.Condition(), lblCondFail);
 
     // Compile block code
     auto *op = block.Head();
@@ -183,6 +185,17 @@ void x64Host::Compile(ir::BasicBlock &block) {
         op = op->Next();
     }
 
+    // Skip over condition fail block
+    code.jmp(lblCondPass);
+
+    // Update PC if condition fails
+    code.L(lblCondFail);
+    const auto pcRegOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
+    const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+    code.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
+    // TODO: increment cycles for failing the check
+
+    code.L(lblCondPass);
     // TODO: block linking
     // TODO: cycle counting
 
@@ -257,6 +270,78 @@ void x64Host::CompileEpilog() {
 
     code.setProtectModeRE();
     vtune::ReportCode(m_epilog.GetPtr(), code.getCurr<uintptr_t>(), "__epilog");
+}
+
+void x64Host::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
+    switch (cond) {
+    case arm::Condition::EQ: // Z=1
+        code.sahf();
+        code.jnz(lblCondFail);
+        break;
+    case arm::Condition::NE: // Z=0
+        code.sahf();
+        code.jz(lblCondFail);
+        break;
+    case arm::Condition::CS: // C=1
+        code.sahf();
+        code.jnc(lblCondFail);
+        break;
+    case arm::Condition::CC: // C=0
+        code.sahf();
+        code.jc(lblCondFail);
+        break;
+    case arm::Condition::MI: // N=1
+        code.sahf();
+        code.jns(lblCondFail);
+        break;
+    case arm::Condition::PL: // N=0
+        code.sahf();
+        code.js(lblCondFail);
+        break;
+    case arm::Condition::VS: // V=1
+        code.cmp(al, 0x81);
+        code.jno(lblCondFail);
+        break;
+    case arm::Condition::VC: // V=0
+        code.cmp(al, 0x81);
+        code.jo(lblCondFail);
+        break;
+    case arm::Condition::HI: // C=1 && Z=0
+        code.sahf();
+        code.cmc();
+        code.jna(lblCondFail);
+        break;
+    case arm::Condition::LS: // C=0 || Z=1
+        code.sahf();
+        code.cmc();
+        code.ja(lblCondFail);
+        break;
+    case arm::Condition::GE: // N=V
+        code.cmp(al, 0x81);
+        code.sahf();
+        code.jnge(lblCondFail);
+        break;
+    case arm::Condition::LT: // N!=V
+        code.cmp(al, 0x81);
+        code.sahf();
+        code.jge(lblCondFail);
+        break;
+    case arm::Condition::GT: // Z=0 && N=V
+        code.cmp(al, 0x81);
+        code.sahf();
+        code.jng(lblCondFail);
+        break;
+    case arm::Condition::LE: // Z=1 || N!=V
+        code.cmp(al, 0x81);
+        code.sahf();
+        code.jg(lblCondFail);
+        break;
+    case arm::Condition::AL: // always
+        break;
+    case arm::Condition::NV: // never
+        code.jmp(lblCondFail);
+        break;
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {

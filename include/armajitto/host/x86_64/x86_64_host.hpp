@@ -35,6 +35,8 @@ private:
     void CompileProlog();
     void CompileEpilog();
 
+    void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
+
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>
     void CompileOp(Compiler &compiler, const T *op) {}
