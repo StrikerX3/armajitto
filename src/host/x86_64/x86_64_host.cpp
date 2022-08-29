@@ -2267,7 +2267,17 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {
-    // TODO: implement
+    const auto pcFieldOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
+    const auto pcOffset = 2 * (compiler.thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+
+    if (op->address.immediate) {
+        code.mov(dword[abi::kARMStateReg + pcFieldOffset], op->address.imm.value + pcOffset);
+    } else {
+        auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+        auto tmpReg32 = compiler.regAlloc.GetTemporary();
+        code.lea(tmpReg32, dword[addrReg32 + pcOffset]);
+        code.mov(dword[abi::kARMStateReg + pcFieldOffset], tmpReg32);
+    }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {

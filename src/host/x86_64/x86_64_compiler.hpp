@@ -14,12 +14,16 @@ struct x64Host::Compiler {
 
     void Analyze(const ir::BasicBlock &block) {
         regAlloc.Analyze(block);
+        mode = block.Location().Mode();
+        thumb = block.Location().IsThumbMode();
     }
 
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
     RegisterAllocator regAlloc;
+    arm::Mode mode;
+    bool thumb;
 };
 
 } // namespace armajitto::x86_64

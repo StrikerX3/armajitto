@@ -909,29 +909,28 @@ void testCompiler() {
     writeARM(0xE5929000); // ldr r9, [r2] // should be 0x00000000 (open bus read)*/
 
     // ARM branches
-    // writeARM(0xE16F2F13); // clz r2, r3
     // writeARM(0xEAFFFFFE); // b $
     // writeARM(0xEBFFFFFE); // bl $
-    // writeARM(0xFAFFFFFE); // blx $
-    // writeARM(0xE12FFF11); // bx r1
-    // writeARM(0xE12FFF31); // blx r1
+    // writeARM(0xFAFFFFFE); // blx $   <-- test this after implementing BranchExchange
+    // writeARM(0xE12FFF11); // bx r1   <-- test this after implementing BranchExchange
+    // writeARM(0xE12FFF31); // blx r1  <-- test this after implementing BranchExchange
 
     // Thumb branches
     // writeThumb(0xF7FF); // bl $ (prefix)
     // writeThumb(0xFFFE); // bl $ (suffix)
-    // writeThumb(0xF7FF); // blx $ (prefix)
-    // writeThumb(0xEFFE); // blx $ (suffix)
+    // writeThumb(0xF7FF); // blx $ (prefix)  <-- test this after implementing BranchExchange
+    // writeThumb(0xEFFE); // blx $ (suffix)  <-- test this after implementing BranchExchange
     // writeThumb(0xD0FE); // beq $
     // writeThumb(0xE7FE); // b $
-    // writeThumb(0x4708); // bx r1
-    // writeThumb(0x4788); // blx r1
+    // writeThumb(0x4708); // bx r1   <-- test this after implementing BranchExchange
+    // writeThumb(0x4788); // blx r1  <-- test this after implementing BranchExchange
 
     // SWI, BKPT, UDF
-    writeARM(0xEF123456); // swi #0x123456
+    // writeARM(0xEF123456); // swi #0x123456
     // writeARM(0xE1200070); // bkpt
     // writeARM(0xF0000000); // udf
 
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEAFFFFFE); // b $
 
     // TODO: implement branches and exceptions
     // TODO: implement branching, block linking, block lookups, etc.
@@ -1107,12 +1106,12 @@ void testCompiler() {
     // armState.GPR(armajitto::arm::GPR::R14, armajitto::arm::Mode::FIQ) = 0x14141414;
 
     // TCM
-    armState.GPR(armajitto::arm::GPR::R4) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
-    armState.GPR(armajitto::arm::GPR::R5) = 0xFFFFFFFF; // should have 0x00000000 after execution
-    armState.GPR(armajitto::arm::GPR::R6) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
-    armState.GPR(armajitto::arm::GPR::R7) = 0xFFFFFFFF; // should have 0x00000000 after execution
-    armState.GPR(armajitto::arm::GPR::R8) = 0xFFFFFFFF; // should have 0x00000000 after execution
-    armState.GPR(armajitto::arm::GPR::R9) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    // armState.GPR(armajitto::arm::GPR::R4) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
+    // armState.GPR(armajitto::arm::GPR::R5) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    // armState.GPR(armajitto::arm::GPR::R6) = 0xFFFFFFFF; // should have 0xDEADBEEF after execution
+    // armState.GPR(armajitto::arm::GPR::R7) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    // armState.GPR(armajitto::arm::GPR::R8) = 0xFFFFFFFF; // should have 0x00000000 after execution
+    // armState.GPR(armajitto::arm::GPR::R9) = 0xFFFFFFFF; // should have 0x00000000 after execution
 
     printf("state before execution:\n");
     printState();
