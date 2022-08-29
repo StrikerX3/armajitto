@@ -5,8 +5,8 @@
 namespace armajitto::arm::cp15 {
 
 void TCM::Reset() {
-    std::fill(itcm.begin(), itcm.end(), 0);
-    std::fill(dtcm.begin(), dtcm.end(), 0);
+    std::fill_n(itcm, itcmSize, 0);
+    std::fill_n(dtcm, dtcmSize, 0);
 
     itcmWriteSize = itcmReadSize = 0;
     itcmParams = 0;
@@ -16,37 +16,54 @@ void TCM::Reset() {
     dtcmParams = 0;
 }
 
+TCM::~TCM() {
+    if (itcm != nullptr) {
+        delete[] itcm;
+    }
+    if (dtcm != nullptr) {
+        delete[] dtcm;
+    }
+}
+
 void TCM::Configure(const Configuration &config) {
-    auto calcSize = [](uint32_t size, std::vector<uint8_t> &tcm) -> std::pair<bool, tcm::Size> {
+    auto calcSize = [](uint32_t size, uint8_t *&tcm, uint32_t &tcmSize) -> std::pair<bool, tcm::Size> {
         if (size == 0) {
-            tcm.clear();
+            delete[] tcm;
+            tcm = nullptr;
+            tcmSize = 0;
             return {true, tcm::Size::_0KB};
         } else {
             const uint32_t roundedSize = std::clamp(bit::bitceil(size), 4096u, 1048576u);
-            tcm.resize(roundedSize);
+            if (tcm != nullptr) {
+                delete[] tcm;
+            }
+            tcm = new uint8_t[roundedSize];
+            tcmSize = roundedSize;
             return {false, static_cast<tcm::Size>(roundedSize)};
         }
     };
 
-    auto [itcmAbsent, itcmSize] = calcSize(config.itcmSize, itcm);
+    auto [itcmAbsent, itcmSizeParam] = calcSize(config.itcmSize, itcm, itcmSize);
     params.itcmAbsent = itcmAbsent;
-    params.itcmSize = itcmSize;
-    itcm.shrink_to_fit();
+    params.itcmSize = itcmSizeParam;
 
-    auto [dtcmAbsent, dtcmSize] = calcSize(config.dtcmSize, dtcm);
+    auto [dtcmAbsent, dtcmSizeParam] = calcSize(config.dtcmSize, dtcm, dtcmSize);
     params.dtcmAbsent = dtcmAbsent;
-    params.dtcmSize = dtcmSize;
-    dtcm.shrink_to_fit();
+    params.dtcmSize = dtcmSizeParam;
 
     Reset();
 }
 
 void TCM::Disable() {
-    itcm.clear();
-    itcm.shrink_to_fit();
+    if (itcm != nullptr) {
+        delete[] itcm;
+    }
+    itcmSize = 0;
 
-    dtcm.clear();
-    dtcm.shrink_to_fit();
+    if (dtcm != nullptr) {
+        delete[] dtcm;
+    }
+    dtcmSize = 0;
 }
 
 void TCM::SetupITCM(bool enable, bool load) {

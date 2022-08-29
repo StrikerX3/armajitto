@@ -308,9 +308,193 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
-    // TODO: handle TCM, caches, permissions, etc.
-    // TODO: fast memory LUT
+    // TODO: handle caches, permissions, etc.
+    // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
+
+    Xbyak::Label skipTCM{};
+    Xbyak::Label end{};
+
+    auto compileRead = [this, op, &compiler](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64) {
+        switch (op->size) {
+        case ir::MemAccessSize::Byte:
+            if (op->mode == ir::MemAccessMode::Signed) {
+                code.movsx(dstReg32, byte[addrReg64]);
+            } else { // aligned/unaligned
+                code.movzx(dstReg32, byte[addrReg64]);
+            }
+            break;
+        case ir::MemAccessSize::Half:
+            if (op->mode == ir::MemAccessMode::Signed) {
+                if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
+                    if (op->address.immediate) {
+                        if (op->address.imm.value & 1) {
+                            code.movsx(dstReg32, byte[addrReg64 + 1]);
+                        } else {
+                            code.movsx(dstReg32, word[addrReg64]);
+                        }
+                    } else {
+                        Xbyak::Label byteRead{};
+                        Xbyak::Label done{};
+
+                        auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                        code.test(baseAddrReg32, 1);
+                        code.jnz(byteRead);
+
+                        // Word read
+                        code.movsx(dstReg32, word[addrReg64]);
+                        code.jmp(done);
+
+                        // Byte read
+                        code.L(byteRead);
+                        code.movsx(dstReg32, byte[addrReg64 + 1]);
+
+                        code.L(done);
+                    }
+                } else {
+                    code.movsx(dstReg32, word[addrReg64]);
+                }
+            } else if (op->mode == ir::MemAccessMode::Unaligned) {
+                code.movzx(dstReg32, word[addrReg64]);
+                if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
+                    if (op->address.immediate) {
+                        const uint32_t shiftOffset = (op->address.imm.value & 1) * 8;
+                        if (shiftOffset != 0) {
+                            code.ror(dstReg32, shiftOffset);
+                        }
+                    } else {
+                        auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                        auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
+                        code.mov(shiftReg32, baseAddrReg32);
+                        code.and_(shiftReg32, 1);
+                        code.shl(shiftReg32, 3);
+                        code.ror(dstReg32, shiftReg32.cvt8());
+                    }
+                }
+            } else { // aligned
+                code.movzx(dstReg32, word[addrReg64]);
+            }
+            break;
+        case ir::MemAccessSize::Word:
+            code.mov(dstReg32, dword[addrReg64]);
+            if (op->mode == ir::MemAccessMode::Unaligned) {
+                if (op->address.immediate) {
+                    const uint32_t shiftOffset = (op->address.imm.value & 3) * 8;
+                    if (shiftOffset != 0) {
+                        code.ror(dstReg32, shiftOffset);
+                    }
+                } else {
+                    auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                    auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
+                    code.mov(shiftReg32, baseAddrReg32);
+                    code.and_(shiftReg32, 3);
+                    code.shl(shiftReg32, 3);
+                    code.ror(dstReg32, shiftReg32.cvt8());
+                }
+            }
+            break;
+        }
+    };
+
+    if (op->dst.var.IsPresent()) {
+        auto &cp15 = m_armState.GetSystemControlCoprocessor();
+        if (cp15.IsPresent()) {
+            auto &tcm = cp15.GetTCM();
+
+            auto tcmReg64 = compiler.regAlloc.GetTemporary().cvt64();
+            code.mov(tcmReg64, CastUintPtr(&tcm));
+
+            // Get temporary register for the address
+            auto addrReg64 = compiler.regAlloc.GetTemporary().cvt64();
+
+            // ITCM check
+            {
+                constexpr auto itcmReadSizeOfs = offsetof(arm::cp15::TCM, itcmReadSize);
+
+                Xbyak::Label skipITCM{};
+
+                // Get address
+                if (op->address.immediate) {
+                    code.mov(addrReg64.cvt32(), op->address.imm.value);
+                } else {
+                    auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                    code.mov(addrReg64.cvt32(), addrReg32);
+                }
+
+                // Check if address is in range
+                code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmReadSizeOfs]);
+                code.jae(skipITCM);
+
+                // Compute address mirror mask
+                assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
+                uint32_t addrMask = tcm.itcmSize - 1;
+                if (op->size == ir::MemAccessSize::Half) {
+                    addrMask &= ~1;
+                } else if (op->size == ir::MemAccessSize::Word) {
+                    addrMask &= ~3;
+                }
+
+                // Mirror and/or align address and use it as offset into the ITCM data
+                code.and_(addrReg64, addrMask);
+                code.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
+                code.add(addrReg64, tcmReg64);
+
+                // Read from ITCM
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+                compileRead(dstReg32, addrReg64);
+
+                // Done!
+                code.jmp(end);
+
+                code.L(skipITCM);
+            }
+
+            // DTCM check (data bus only)
+            if (op->bus == ir::MemAccessBus::Data) {
+                constexpr auto dtcmBaseOfs = offsetof(arm::cp15::TCM, dtcmBase);
+                constexpr auto dtcmReadSizeOfs = offsetof(arm::cp15::TCM, dtcmReadSize);
+
+                // Get address
+                if (op->address.immediate) {
+                    code.mov(addrReg64.cvt32(), op->address.imm.value);
+                } else {
+                    auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                    code.mov(addrReg64.cvt32(), addrReg32);
+                }
+
+                // Adjust address to base offset
+                code.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
+
+                // Check if address is in range
+                code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmReadSizeOfs]);
+                code.jae(skipTCM);
+
+                // Compute address mirror mask
+                assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
+                uint32_t addrMask = tcm.dtcmSize - 1;
+                if (op->size == ir::MemAccessSize::Half) {
+                    addrMask &= ~1;
+                } else if (op->size == ir::MemAccessSize::Word) {
+                    addrMask &= ~3;
+                }
+
+                // Mirror and/or align address and use it as offset into the DTCM data
+                code.and_(addrReg64, addrMask);
+                code.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
+                code.add(addrReg64, tcmReg64);
+
+                // Read from DTCM
+                auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+                compileRead(dstReg32, addrReg64);
+
+                // Done!
+                code.jmp(end);
+            }
+        }
+    }
+
+    // Handle slow memory access
+    code.L(skipTCM);
 
     // Select parameters based on size
     // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word
@@ -321,7 +505,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
     case ir::MemAccessSize::Byte:
         if (op->mode == ir::MemAccessMode::Signed) {
             readFn = SystemMemReadSignedByte;
-        } else { // aligned
+        } else { // aligned/unaligned
             readFn = SystemMemReadByte;
         }
         break;
@@ -362,12 +546,139 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
         CompileInvokeHostFunction(compiler, dstReg32, readFn, m_system, addrReg32);
     }
+
+    code.L(end);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
-    // TODO: handle TCM, caches, permissions, etc.
-    // TODO: fast memory LUT
+    // TODO: handle caches, permissions, etc.
+    // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
+
+    Xbyak::Label skipTCM{};
+    Xbyak::Label end{};
+
+    auto &cp15 = m_armState.GetSystemControlCoprocessor();
+    if (cp15.IsPresent()) {
+        auto &tcm = cp15.GetTCM();
+
+        auto tcmReg64 = compiler.regAlloc.GetTemporary().cvt64();
+        code.mov(tcmReg64, CastUintPtr(&tcm));
+
+        // Get temporary register for the address
+        auto addrReg64 = compiler.regAlloc.GetTemporary().cvt64();
+
+        // ITCM check
+        {
+            constexpr auto itcmWriteSizeOfs = offsetof(arm::cp15::TCM, itcmWriteSize);
+
+            Xbyak::Label skipITCM{};
+
+            // Get address
+            if (op->address.immediate) {
+                code.mov(addrReg64.cvt32(), op->address.imm.value);
+            } else {
+                auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                code.mov(addrReg64.cvt32(), addrReg32);
+            }
+
+            // Check if address is in range
+            code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmWriteSizeOfs]);
+            code.jae(skipITCM);
+
+            // Compute address mirror mask
+            assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
+            uint32_t addrMask = tcm.itcmSize - 1;
+            if (op->size == ir::MemAccessSize::Half) {
+                addrMask &= ~1;
+            } else if (op->size == ir::MemAccessSize::Word) {
+                addrMask &= ~3;
+            }
+
+            // Mirror and/or align address and use it as offset into the ITCM data
+            code.and_(addrReg64, addrMask);
+            code.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
+            code.add(addrReg64, tcmReg64);
+
+            // Write to ITCM
+            if (op->src.immediate) {
+                switch (op->size) {
+                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Half: code.mov(word[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], op->src.imm.value); break;
+                }
+            } else {
+                auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
+                switch (op->size) {
+                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], srcReg32.cvt8()); break;
+                case ir::MemAccessSize::Half: code.mov(word[addrReg64], srcReg32.cvt16()); break;
+                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], srcReg32.cvt32()); break;
+                }
+            }
+
+            // Done!
+            code.jmp(end);
+
+            code.L(skipITCM);
+        }
+
+        // DTCM check
+        {
+            constexpr auto dtcmBaseOfs = offsetof(arm::cp15::TCM, dtcmBase);
+            constexpr auto dtcmWriteSizeOfs = offsetof(arm::cp15::TCM, dtcmWriteSize);
+
+            // Get address
+            if (op->address.immediate) {
+                code.mov(addrReg64.cvt32(), op->address.imm.value);
+            } else {
+                auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
+                code.mov(addrReg64.cvt32(), addrReg32);
+            }
+
+            // Adjust address to base offset
+            code.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
+
+            // Check if address is in range
+            code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmWriteSizeOfs]);
+            code.jae(skipTCM);
+
+            // Compute address mirror mask
+            assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
+            uint32_t addrMask = tcm.dtcmSize - 1;
+            if (op->size == ir::MemAccessSize::Half) {
+                addrMask &= ~1;
+            } else if (op->size == ir::MemAccessSize::Word) {
+                addrMask &= ~3;
+            }
+
+            // Mirror and/or align address and use it as offset into the DTCM data
+            code.and_(addrReg64, addrMask);
+            code.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
+            code.add(addrReg64, tcmReg64);
+
+            // Write to DTCM
+            if (op->src.immediate) {
+                switch (op->size) {
+                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Half: code.mov(word[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], op->src.imm.value); break;
+                }
+            } else {
+                auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
+                switch (op->size) {
+                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], srcReg32.cvt8()); break;
+                case ir::MemAccessSize::Half: code.mov(word[addrReg64], srcReg32.cvt16()); break;
+                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], srcReg32.cvt32()); break;
+                }
+            }
+
+            // Done!
+            code.jmp(end);
+        }
+    }
+
+    // Handle slow memory access
+    code.L(skipTCM);
 
     auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
         if (address.immediate) {
@@ -421,6 +732,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
     case ir::MemAccessSize::Word: invokeFn(invokeFnImm32, SystemMemWriteWord); break;
     default: util::unreachable();
     }
+
+    code.L(end);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {

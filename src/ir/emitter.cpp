@@ -66,9 +66,9 @@ void Emitter::SetSPSR(VarOrImmArg src, arm::Mode mode) {
     Write<IRSetSPSROp>(mode, src);
 }
 
-Variable Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
+Variable Emitter::MemRead(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
     auto dst = Var();
-    MemRead(mode, size, dst, address);
+    MemRead(bus, mode, size, dst, address);
     return dst;
 }
 
@@ -343,8 +343,8 @@ void Emitter::GetSPSR(VariableArg dst) {
     Write<IRGetSPSROp>(dst, m_mode);
 }
 
-void Emitter::MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address) {
-    Write<IRMemReadOp>(mode, size, dst, address);
+void Emitter::MemRead(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address) {
+    Write<IRMemReadOp>(bus, mode, size, dst, address);
 }
 
 void Emitter::LogicalShiftLeft(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags) {

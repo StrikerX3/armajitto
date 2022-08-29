@@ -185,7 +185,7 @@ public:
     void SetSPSR(VarOrImmArg src);
     void SetSPSR(VarOrImmArg src, arm::Mode mode);
 
-    Variable MemRead(MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
+    Variable MemRead(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VarOrImmArg address);
     void MemWrite(MemAccessSize size, VarOrImmArg src, VarOrImmArg address);
     void Preload(VarOrImmArg address);
 
@@ -249,7 +249,7 @@ public:
     void GetCPSR(VariableArg dst);
     void GetSPSR(VariableArg dst);
 
-    void MemRead(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
+    void MemRead(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address);
 
     void LogicalShiftLeft(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);
     void LogicalShiftRight(VariableArg dst, VarOrImmArg value, VarOrImmArg amount, bool setFlags);

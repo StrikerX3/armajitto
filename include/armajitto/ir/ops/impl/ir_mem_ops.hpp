@@ -9,31 +9,42 @@
 namespace armajitto::ir {
 
 // Memory read
-//   ld.[a/u/s][b/h/w] <var:dst>, [<var/imm:address>]
+//   ld.[c/d][a/u/s][b/h/w] <var:dst>, [<var/imm:address>]
 // where:
-//   [b/h/w] = byte/half/word
-//   [a/u/s] = aligned/unaligned/signed
-//             r is hidden
+//   [c/d]   = code/data (bus)
+//   [b/h/w] = byte/half/word (size)
+//   [a/u/s] = aligned/unaligned/signed (mode)
+//             a is hidden
 //             s sign-extends, a and u zero-extend
-//   Valid combinations: (a)b, (a)h, (a)w, uh, uw, sb, sh
+//   Valid size/mode combinations: (a)b, (a)h, (a)w, uh, uw, sb, sh
+//   Code reads can only be half or word
 //
 // Reads a byte, halfword or word from address into the dst variable.
 // Byte and halfword reads extend values to 32 bits.
 // Signed reads use sign-extension. Other reads use zero-extension.
 // Unaligned halfword and word reads may force-align or rotate the word, depending on the CPU architecture.
 struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
+    MemAccessBus bus;
     MemAccessMode mode;
     MemAccessSize size;
     VariableArg dst;
     VarOrImmArg address;
 
-    IRMemReadOp(MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address)
-        : mode(mode)
+    IRMemReadOp(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VariableArg dst, VarOrImmArg address)
+        : bus(bus)
+        , mode(mode)
         , size(size)
         , dst(dst)
         , address(address) {}
 
     std::string ToString() const final {
+        char busStr;
+        switch (bus) {
+        case MemAccessBus::Code: busStr = 'c'; break;
+        case MemAccessBus::Data: busStr = 'd'; break;
+        default: busStr = '?'; break;
+        }
+
         const char *modeStr;
         switch (mode) {
         case MemAccessMode::Aligned: modeStr = ""; break;
@@ -50,12 +61,14 @@ struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
         default: sizeStr = '?'; break;
         }
 
-        return std::format("ld.{}{}, {}, [{}]", modeStr, sizeStr, dst.ToString(), address.ToString());
+        return std::format("ld.{}{}{}, {}, [{}]", busStr, modeStr, sizeStr, dst.ToString(), address.ToString());
     }
 };
 
 // Memory write
 //   st.[b/h/w] <var/imm:src>, [<var/imm:address>]
+// where:
+//   [b/h/w] = byte/half/word
 //
 // Writes a byte, halfword or word from src into memory at address.
 struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {

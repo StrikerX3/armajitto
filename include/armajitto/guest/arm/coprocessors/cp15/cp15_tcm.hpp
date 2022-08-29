@@ -25,9 +25,6 @@ struct TCM {
         };
     } params;
 
-    std::vector<uint8_t> itcm;
-    std::vector<uint8_t> dtcm;
-
     uint32_t itcmParams;
     uint32_t itcmWriteSize;
     uint32_t itcmReadSize;
@@ -37,12 +34,19 @@ struct TCM {
     uint32_t dtcmWriteSize;
     uint32_t dtcmReadSize;
 
+    uint8_t *itcm;
+    uint8_t *dtcm;
+    uint32_t itcmSize;
+    uint32_t dtcmSize;
+
     // -------------------------------------------------------------------------
 
     struct Configuration {
         uint32_t itcmSize;
         uint32_t dtcmSize;
     };
+
+    ~TCM();
 
     void Reset();
 

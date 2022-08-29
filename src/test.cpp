@@ -934,7 +934,6 @@ void testCompiler() {
     writeARM(0xEAFFFFFE); // b $
 
     // TODO: implement branches and exceptions
-    // TODO: implement coprocessors
     // TODO: implement branching, block linking, block lookups, etc.
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
     // TODO: implement cycle counting
