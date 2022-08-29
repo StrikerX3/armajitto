@@ -4,6 +4,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 namespace bit {
@@ -43,6 +44,15 @@ constexpr auto sign_extend(const T x) {
         ST x : B;
     } s{static_cast<ST>(x)};
     return s.x;
+}
+
+// Finds the smallest integral power of two not less than the given value
+template <typename T>
+constexpr T bitceil(T value) {
+    if (value == 0) {
+        return 1;
+    }
+    return static_cast<T>(T{1} << (std::numeric_limits<T>::digits - std::countl_zero(static_cast<T>(value - 1))));
 }
 
 } // namespace bit

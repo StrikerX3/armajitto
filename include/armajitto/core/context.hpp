@@ -45,8 +45,7 @@ public:
     }
 
     arm::Coprocessor &GetCoprocessor(uint8_t cpnum) {
-        // TODO: implement
-        return arm::NullCoprocessor::Instance();
+        return m_armState.GetCoprocessor(cpnum);
     }
 
 private:

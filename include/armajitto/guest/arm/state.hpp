@@ -1,8 +1,13 @@
 #pragma once
 
+#include "coprocessor.hpp"
 #include "gpr.hpp"
 #include "mode.hpp"
 #include "psr.hpp"
+
+#include "coprocessors/coproc_14_debug_dummy.hpp"
+#include "coprocessors/coproc_15_sys_ctrl.hpp"
+#include "coprocessors/coproc_null.hpp"
 
 #include <array>
 #include <cassert>
@@ -70,6 +75,22 @@ public:
         return m_psrOffsets[index];
     }
 
+    Coprocessor &GetCoprocessor(uint8_t cpnum) {
+        switch (cpnum) {
+        case 14: return m_cp14;
+        case 15: return m_cp15;
+        default: return arm::NullCoprocessor::Instance();
+        }
+    }
+
+    DummyDebugCoprocessor &GetDummyDebugCoprocessor() {
+        return m_cp14;
+    }
+
+    SystemControlCoprocessor &GetSystemControlCoprocessor() {
+        return m_cp15;
+    }
+
 private:
     // ARM registers per mode (abridged)
     //
@@ -117,6 +138,10 @@ private:
     // Lookup tables of GPRs and PSRs offsets
     std::array<uintptr_t, kNumGPREntries> m_gprOffsets;
     std::array<uintptr_t, kNumPSREntries> m_psrOffsets;
+
+    // Coprocessors
+    DummyDebugCoprocessor m_cp14;
+    SystemControlCoprocessor m_cp15;
 };
 
 } // namespace armajitto::arm

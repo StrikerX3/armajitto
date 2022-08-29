@@ -805,6 +805,10 @@ void testCompiler() {
     // writeARM(0xFE110F10); // mrc2 p15, 0, r0, c1, c0, 0
     // writeARM(0xFE010F10); // mcr2 p15, 0, r0, c1, c0, 0
 
+    // TODO: CDP, CDP2
+    // TODO: LDC, LDC2, STC, STC2
+    // TODO: MRRC, MCRR
+
     // ARM branches
     // writeARM(0xE16F2F13); // clz r2, r3
     // writeARM(0xEAFFFFFE); // b $
