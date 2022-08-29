@@ -835,31 +835,8 @@ void testCompiler() {
     // TODO: LDC, LDC2, STC, STC2
     // TODO: MRRC, MCRR
 
-    // ARM branches
-    // writeARM(0xE16F2F13); // clz r2, r3
-    // writeARM(0xEAFFFFFE); // b $
-    // writeARM(0xEBFFFFFE); // bl $
-    // writeARM(0xFAFFFFFE); // blx $
-    // writeARM(0xE12FFF11); // bx r1
-    // writeARM(0xE12FFF31); // blx r1
-
-    // Thumb branches
-    // writeThumb(0xF7FF); // bl $ (prefix)
-    // writeThumb(0xFFFE); // bl $ (suffix)
-    // writeThumb(0xF7FF); // blx $ (prefix)
-    // writeThumb(0xEFFE); // blx $ (suffix)
-    // writeThumb(0xD0FE); // beq $
-    // writeThumb(0xE7FE); // b $
-    // writeThumb(0x4708); // bx r1
-    // writeThumb(0x4788); // blx r1
-
-    // SWI, BKPT, UDF
-    // writeARM(0xEF123456); // swi #0x123456
-    // writeARM(0xE1200070); // bkpt
-    // writeARM(0xF0000000); // udf
-
     // MCR/MRC, ITCM and DTCM
-    // Enable ITCM and DTCM
+    /*// Enable ITCM and DTCM
     writeARM(0xEE110F10); // mrc p15, 0, r0, c1, c0, 0
     writeARM(0xE3800701); // orr r0, #0x40000  // ITCM enable
     writeARM(0xE3800801); // orr r0, #0x10000  // DTCM enable
@@ -929,7 +906,30 @@ void testCompiler() {
 
     // Read ITCM
     writeARM(0xE2422401); // sub r2, #0x1000000
-    writeARM(0xE5929000); // ldr r9, [r2] // should be 0x00000000 (open bus read)
+    writeARM(0xE5929000); // ldr r9, [r2] // should be 0x00000000 (open bus read)*/
+
+    // ARM branches
+    // writeARM(0xE16F2F13); // clz r2, r3
+    // writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEBFFFFFE); // bl $
+    // writeARM(0xFAFFFFFE); // blx $
+    // writeARM(0xE12FFF11); // bx r1
+    // writeARM(0xE12FFF31); // blx r1
+
+    // Thumb branches
+    // writeThumb(0xF7FF); // bl $ (prefix)
+    // writeThumb(0xFFFE); // bl $ (suffix)
+    // writeThumb(0xF7FF); // blx $ (prefix)
+    // writeThumb(0xEFFE); // blx $ (suffix)
+    // writeThumb(0xD0FE); // beq $
+    // writeThumb(0xE7FE); // b $
+    // writeThumb(0x4708); // bx r1
+    // writeThumb(0x4788); // blx r1
+
+    // SWI, BKPT, UDF
+    writeARM(0xEF123456); // swi #0x123456
+    // writeARM(0xE1200070); // bkpt
+    // writeARM(0xF0000000); // udf
 
     writeARM(0xEAFFFFFE); // b $
 

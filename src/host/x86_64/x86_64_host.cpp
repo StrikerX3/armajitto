@@ -2313,7 +2313,23 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRCopyVarOp *op) {
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *op) {
-    // TODO: implement
+    if (op->dst.var.IsPresent()) {
+        auto &cp15 = m_armState.GetSystemControlCoprocessor();
+        if (cp15.IsPresent()) {
+            // Load base vector address from CP15
+            auto &cp15ctl = cp15.GetControlRegister();
+            const auto baseVectorAddressOfs = offsetof(arm::cp15::ControlRegister, baseVectorAddress);
+
+            auto ctlPtrReg64 = compiler.regAlloc.GetTemporary().cvt64();
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.mov(ctlPtrReg64, CastUintPtr(&cp15ctl));
+            code.mov(dstReg32, dword[ctlPtrReg64 + baseVectorAddressOfs]);
+        } else {
+            // Default to 00000000 if CP15 is absent
+            auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
+            code.xor_(dstReg32, dstReg32);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

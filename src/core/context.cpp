@@ -21,4 +21,14 @@ Context::Context(CPUModel model, ISystem &system)
     }
 }
 
+uint16_t Context::CodeReadHalf(uint32_t address) {
+    // TODO: handle TCM
+    return m_system.MemReadHalf(address);
+}
+
+uint32_t Context::CodeReadWord(uint32_t address) {
+    // TODO: handle TCM
+    return m_system.MemReadWord(address);
+}
+
 } // namespace armajitto
