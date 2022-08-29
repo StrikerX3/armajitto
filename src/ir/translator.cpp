@@ -346,6 +346,8 @@ void Translator::TranslateThumb(uint16_t opcode, Emitter &emitter) {
                 } else {
                     Translate(thumb_decoder::LongBranchSuffix(opcode, true), emitter);
                 }
+            } else {
+                Translate(thumb_decoder::UnconditionalBranch(opcode), emitter);
             }
         } else {
             Translate(thumb_decoder::UnconditionalBranch(opcode), emitter);
