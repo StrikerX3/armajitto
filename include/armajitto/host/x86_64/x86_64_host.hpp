@@ -37,10 +37,10 @@ private:
         HostCode::Fn code;
     };
 
+    // TODO: redesign cache to a simpler design that can be easily traversed in handwritten assembly
     std::unordered_map<uint64_t, CachedBlock> m_blockCache;
 
-    /*[[gnu::flatten]]*/ static HostCode::Fn GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache,
-                                                                uint64_t lochash) {
+    static HostCode::Fn GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
         auto it = blockCache.find(lochash);
         if (it != blockCache.end()) {
             return it->second.code;
@@ -56,7 +56,7 @@ private:
 
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
 
-    void CompileBlockLinkFromCache(Compiler &compiler);
+    void CompileBlockCacheLookup(Compiler &compiler);
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>

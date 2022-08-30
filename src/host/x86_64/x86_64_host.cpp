@@ -194,7 +194,7 @@ void x64Host::Compile(ir::BasicBlock &block) {
 
     code.L(lblCondPass);
     // TODO: fast block linking (pointer in BasicBlock)
-    CompileBlockLinkFromCache(compiler);
+    CompileBlockCacheLookup(compiler);
     // TODO: cycle counting
 
     // Go to epilog
@@ -344,7 +344,7 @@ void x64Host::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
     }
 }
 
-void x64Host::CompileBlockLinkFromCache(Compiler &compiler) {
+void x64Host::CompileBlockCacheLookup(Compiler &compiler) {
     Xbyak::Label noEntry{};
 
     const auto cpsrOffset = m_armState.CPSROffset();
@@ -357,6 +357,7 @@ void x64Host::CompileBlockLinkFromCache(Compiler &compiler) {
     code.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
 
     // Lookup entry
+    // TODO: redesign cache to not rely on this function call
     CompileInvokeHostFunction(compiler, cacheKeyReg64, GetCodeForLocation, m_blockCache, cacheKeyReg64);
 
     // Check for nullptr
@@ -2354,7 +2355,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
             code.shl(flags, 28);
         } else {
             code.imul(flags, abi::kHostFlagsReg, x64ToARMFlagsMult);
-            code.and_(flags, ARMFlagsMask);
+            // code.and_(flags, ARMFlagsMask);
         }
         code.and_(flags, cpsrMask);     // Keep only the affected bits
         code.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
