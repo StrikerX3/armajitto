@@ -1,198 +1,167 @@
 #pragma once
 
-#include <algorithm>
-#include <cstdlib>
-#include <type_traits>
-#include <utility>
+#include <bit>
+#include <limits>
+#include <memory_resource>
 #include <vector>
 
 namespace armajitto::memory {
 
-class Allocator {
-    static constexpr std::size_t pageAlignmentShift = 12;
-    static constexpr std::size_t alignment = static_cast<std::size_t>(1) << pageAlignmentShift;
+struct Allocator final : public std::pmr::memory_resource {
+    // Memory allocated for chunks is a multiple of this amount.
+    // Must be a power of two.
+    static constexpr std::size_t kChunkMemSize = 65536u;
 
-    static constexpr std::size_t pageShift = 16;
-    static constexpr std::size_t pageSize = static_cast<std::size_t>(1) << pageShift;
-    static constexpr std::size_t pageMask = pageSize - 1;
+    // Memory allocated for chunks is aligned to this size.
+    // Must be a power of two.
+    static constexpr std::size_t kChunkMemAlignment = 4096u;
 
-    static constexpr std::size_t entryAlignmentShift = 4;
-    static constexpr std::size_t entryAlignmentSize = static_cast<std::size_t>(1) << entryAlignmentShift;
-    static constexpr std::size_t entryAlignmentMask = entryAlignmentSize - 1;
-
-public:
-    template <typename T>
-    struct Ref {
-        Ref(const Ref &) = delete;
-        Ref(Ref &&obj)
-            : allocator(obj.allocator) {
-            std::swap(ptr, obj.ptr);
-        }
-        ~Ref() {
-            if constexpr (!std::is_trivially_destructible_v<T>) {
-                if (ptr != nullptr) {
-                    ptr->~T();
-                }
-            }
-            allocator.Free(ptr);
-        }
-
-        T *operator&() {
-            return ptr;
-        }
-
-        const T *operator&() const {
-            return ptr;
-        }
-
-        T &operator*() {
-            return *ptr;
-        }
-
-        const T &operator*() const {
-            return *ptr;
-        }
-
-        T *operator->() {
-            return ptr;
-        }
-
-        const T *operator->() const {
-            return ptr;
-        }
-
-        bool IsValid() const {
-            return ptr != nullptr;
-        }
-
-        operator bool() const {
-            return IsValid();
-        }
-
-    private:
-        Ref(Allocator &allocator, T *ptr)
-            : allocator(allocator)
-            , ptr(ptr) {}
-
-        Allocator &allocator;
-        T *ptr = nullptr;
-
-        friend class Allocator;
-    };
+    // TODO: allocate and free Chunks in page-sized sets using this constant
+    // Memory for the chunk structs is allocated in pages of this size.
+    // Must be a power of two and no smaller than the host page size.
+    static constexpr std::size_t kChunkPageSize = 4096u;
 
     ~Allocator() {
-        for (auto &block : m_blocks) {
-            AlignedFree(block.basePtr);
+        Chunk *chunk = m_head;
+        while (chunk != nullptr) {
+            Chunk *next = chunk->next;
+            delete chunk;
+            chunk = next;
         }
     }
 
-    void *AllocateRaw(size_t size, bool zeroMemory = false) {
-        void *ptr = AllocateMemory(size);
-        if (ptr != nullptr) {
-            std::memset(ptr, 0, size);
-        }
-        return ptr;
-    }
-
-    template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
-    T *Allocate(Args &&...args) {
-        void *ptr = AllocateMemory(sizeof(T));
-        if (ptr != nullptr) {
-            return new (ptr) T(std::forward<Args>(args)...);
-        } else {
-            return nullptr;
-        }
-    }
-
-    template <typename T, typename... Args, typename = std::enable_if_t<!std::is_trivially_destructible_v<T>>>
-    Ref<T> AllocateNonTrivial(Args &&...args) {
-        void *ptr = AllocateMemory(sizeof(T));
-        if (ptr != nullptr) {
-            return {*this, new (ptr) T(std::forward<Args>(args)...)};
-        } else {
-            return {*this, nullptr};
-        }
-    }
-
-    void Free(void *ptr) {
-        for (auto it = m_blocks.begin(); it != m_blocks.end(); ++it) {
-            if (it->Free(ptr)) {
-                if (it->IsEmpty()) {
-                    AlignedFree(it->basePtr);
-                    m_blocks.erase(it);
-                }
-                break;
-            }
-        }
-    }
-
-private:
-    void *AllocateMemory(std::size_t size) {
-        for (auto it = m_blocks.begin(); it != m_blocks.end(); ++it) {
-            void *ptr = it->Allocate(size);
+    void *do_allocate(std::size_t bytes, std::size_t alignment) final {
+        // Traverse the chunk chain trying to perform the requested allocation
+        Chunk *chunk = m_head;
+        Chunk *prevChunk = nullptr;
+        while (chunk != nullptr) {
+            void *ptr = chunk->Allocate(bytes, alignment);
             if (ptr != nullptr) {
-                // Move this block to the front to speed up future allocations
-                if (it != m_blocks.begin()) {
-                    std::iter_swap(it, m_blocks.begin());
+                // This chunk allocated the block successfully
+                if (chunk != m_head) {
+                    // Move it to the head since it is likely to have free space for future allocations
+                    if (prevChunk != nullptr) {
+                        prevChunk->next = chunk->next;
+                    }
+                    chunk->next = m_head;
+                    m_head = chunk;
                 }
                 return ptr;
             }
+            prevChunk = chunk;
+            chunk = chunk->next;
         }
-        // No blocks had enough space for this object, so allocate a new block with the specified page size
-        auto *block = AllocateBlock(size);
-        if (block != nullptr) {
-            return block->Allocate(size);
-        } else {
+
+        // No chunks have enough space to fulfill the requested allocation, so we need to create a new chunk
+
+        // Chunk memory is allocated in kChunkSize units
+        const std::size_t chunkSize = (bytes + kChunkMemSize - 1) & ~(kChunkMemSize - 1);
+        void *basePtr = AlignedAlloc(chunkSize, kChunkMemAlignment);
+        if (basePtr == nullptr) {
+            // Failed to allocate memory for the chunk data
             return nullptr;
+        }
+
+        chunk = new Chunk(basePtr, chunkSize);
+        if (chunk == nullptr) {
+            // Failed to allocate memory for the Chunk object
+            AlignedFree(basePtr);
+            return nullptr;
+        }
+
+        // Insert it at the head, since it is the most likely chunk to have free space
+        chunk->next = m_head;
+        m_head = chunk;
+
+        // At this point, the chunk should have room for the requested allocation
+        return chunk->Allocate(bytes, alignment);
+    }
+
+    void do_deallocate(void *p, std::size_t bytes, std::size_t alignment) final {
+        // Find the chunk that allocated this pointer and release the pointer
+        // TODO: speed up pointer -> chunk lookups somehow
+        Chunk *chunk = m_head;
+        Chunk *prevChunk = nullptr;
+        while (chunk != nullptr) {
+            if (chunk->Release(p)) {
+                // This chunk owned p and has released it
+                // If the chunk no longer has any allocations, free it
+                if (chunk->IsEmpty()) {
+                    if (prevChunk != nullptr) {
+                        prevChunk->next = chunk->next;
+                    }
+                    if (chunk == m_head) {
+                        m_head = nullptr;
+                    }
+                    delete chunk;
+                }
+                break;
+            }
+            prevChunk = chunk;
+            chunk = chunk->next;
         }
     }
 
-    struct Block {
-        Block(void *ptr, std::size_t size)
-            : basePtr(ptr)
-            , endPtr(static_cast<char *>(ptr) + size)
-            , blockSize(size) {
-            freeRegions.push_back({ptr, size});
+    bool do_is_equal(const std::pmr::memory_resource &other) const noexcept final {
+        return this == &other;
+    }
+
+private:
+    struct Chunk {
+        Chunk(void *basePtr, std::size_t size)
+            : basePtr(basePtr)
+            , size(size) {
+            freeRegions.push_back({basePtr, size});
         }
 
-        void *Allocate(std::size_t size) {
+        ~Chunk() {
+            AlignedFree(basePtr);
+        }
+
+        void *Allocate(std::size_t bytes, std::size_t alignment) {
+            const std::size_t alignMask = alignment - 1;
+
             // Align entry size
-            size = (size + entryAlignmentSize - 1) & ~entryAlignmentMask;
+            bytes = (bytes + alignMask) & ~alignMask;
 
             Region *bestFit = nullptr;
             for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
                 auto &region = *it;
-                if (region.size < size) {
+                const auto alignOffset = ((uintptr_t(region.ptr) + alignMask) & ~alignMask) - uintptr_t(region.ptr);
+                if (region.size < bytes + alignOffset) {
                     // Too small
                     continue;
                 }
-                if (region.size == size) {
+                if (region.size == bytes + alignOffset) {
                     // Perfect fit; erase the region and return its pointer
                     void *ptr = region.ptr;
                     freeRegions.erase(it);
-                    InsertSorted(ptr, size, allocRegions);
-                    return ptr;
+                    InsertSorted(ptr, bytes, allocRegions);
+                    return static_cast<char *>(ptr) + alignOffset;
                 }
-                if (bestFit == nullptr || region.size < bestFit->size) {
+                if (bestFit == nullptr || region.size < bestFit->size + alignOffset) {
                     // Record best fit or use the first available region
                     bestFit = &region;
                 }
             }
             if (bestFit != nullptr) {
                 // Best fit found; resize and move region pointer
-                void *ptr = bestFit->ptr;
-                bestFit->ptr = static_cast<char *>(bestFit->ptr) + size;
-                bestFit->size -= size;
-                InsertSorted(ptr, size, allocRegions);
+                char *ptr = static_cast<char *>(bestFit->ptr);
+                const auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr);
+                bestFit->ptr = ptr + bytes + alignOffset;
+                bestFit->size -= bytes + alignOffset;
+                ptr += alignOffset;
+                InsertSorted(ptr, bytes, allocRegions);
                 return ptr;
             }
+
             // No free region found with the requested size
             return nullptr;
         }
 
-        bool Free(void *ptr) {
+        bool Release(void *ptr) {
             // Ensure the pointer belongs to this block
-            if (ptr < basePtr || ptr >= endPtr) {
+            if (ptr < basePtr || ptr >= static_cast<char *>(basePtr) + size) {
                 return false;
             }
 
@@ -207,14 +176,14 @@ private:
             auto size = itAlloc->size;
             allocRegions.erase(itAlloc);
 
-            // Coalesce free regions if possible
+            // Merge free regions if possible
             auto itFree = Find(ptr, freeRegions);
-            bool coalesced = false;
+            bool merged = false;
             if (itFree != freeRegions.end() && static_cast<char *>(ptr) + size == itFree->ptr) {
                 // End of the freed region connects to the beginning of the existing free region
                 itFree->ptr = ptr;
                 itFree->size += size;
-                coalesced = true;
+                merged = true;
             }
             if (itFree != freeRegions.begin()) {
                 auto itPrevFree = std::prev(itFree);
@@ -228,10 +197,10 @@ private:
                         // Merge freed region with previous region
                         itPrevFree->size += size;
                     }
-                    coalesced = true;
+                    merged = true;
                 }
             }
-            if (!coalesced) {
+            if (!merged) {
                 // Add new free region
                 InsertSorted(ptr, size, freeRegions);
             }
@@ -241,17 +210,19 @@ private:
         }
 
         bool IsEmpty() const {
-            return (freeRegions.size() == 1 && freeRegions[0].size == blockSize);
+            return (freeRegions.size() == 1 && freeRegions[0].size == size);
         }
 
+        void *basePtr;
+        std::size_t size;
+
+        Chunk *next = nullptr;
+
+    private:
         struct Region {
             void *ptr;
             std::size_t size;
         };
-
-        void *basePtr;
-        void *endPtr;
-        std::size_t blockSize;
 
         std::vector<Region> freeRegions;
         std::vector<Region> allocRegions;
@@ -266,40 +237,31 @@ private:
         }
     };
 
-    Block *AllocateBlock(std::size_t sizeBytes) {
-        if (sizeBytes == 0) {
-            return nullptr;
-        }
-
-        // Align to page size
-        sizeBytes = (sizeBytes + pageSize - 1) & ~pageMask;
-        void *ptr = AlignedAlloc(sizeBytes);
-        if (ptr != nullptr) {
-            return &m_blocks.emplace_back(ptr, sizeBytes);
-        } else {
-            return nullptr;
-        }
-    }
-
-    std::vector<Block> m_blocks;
+    Chunk *m_head = nullptr;
 
 #ifdef _WIN32
-    static void *AlignedAlloc(std::size_t size) {
+    static inline void *AlignedAlloc(std::size_t size, std::size_t alignment) {
         return _aligned_malloc(size, alignment);
     }
 
-    static void AlignedFree(void *ptr) {
+    static inline void AlignedFree(void *ptr) {
         _aligned_free(ptr);
     }
 #else
-    static void *AlignedAlloc(std::size_t size) {
+    static inline void *AlignedAlloc(std::size_t size, std::size_t alignment) {
         return std::aligned_alloc(alignment, size);
     }
 
-    static void AlignedFree(void *ptr) {
+    static inline void AlignedFree(void *ptr) {
         std::free(ptr);
     }
 #endif
 };
+
+// TODO: global allocator + AllocatorMixin; make BasicBlock, IROp and all optimizers use it
+// TODO: replace all std containers with the pmr equivalents; use the same global allocator
+// - Use std::pmr::monotonic_buffer_resource for short-lived objects like the optimizers
+// - Use custom allocator directly for long-lived objects such as host code blocks
+// - BasicBlock might be considered short-lived for now, since the IR ops are no longer used when compiled
 
 } // namespace armajitto::memory
