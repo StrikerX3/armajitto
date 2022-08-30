@@ -8,10 +8,6 @@ namespace armajitto {
 template <typename T>
 static constexpr bool alwaysFalse = false;
 
-// Combines std::remove_cv_t and std::remove_reference_t
-template <typename T>
-using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
-
 namespace detail {
 
     // Determines if a value of type U is can be passed as an argument of type T to a function
@@ -24,7 +20,7 @@ namespace detail {
 
 // Determines if a value of type U is can be passed as an argument of type T to a function
 template <typename T, typename U>
-struct is_compatible : public detail::is_compatible_base<remove_cvref_t<T>, remove_cvref_t<U>> {};
+struct is_compatible : public detail::is_compatible_base<std::remove_cvref_t<T>, std::remove_cvref_t<U>> {};
 
 // Convenience wrapper for is_compatible<T, U>::value
 template <typename T, typename U>

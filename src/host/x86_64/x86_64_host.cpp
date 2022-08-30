@@ -2685,10 +2685,10 @@ void x64Host::AssignLongImmResultWithNZ(Compiler &compiler, const ir::VariableAr
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <typename T>
-constexpr bool is_raw_integral_v = std::is_integral_v<remove_cvref_t<T>>;
+constexpr bool is_raw_integral_v = std::is_integral_v<std::remove_cvref_t<T>>;
 
 template <typename Base, typename Derived>
-constexpr bool is_raw_base_of_v = std::is_base_of_v<Base, remove_cvref_t<Derived>>;
+constexpr bool is_raw_base_of_v = std::is_base_of_v<Base, std::remove_cvref_t<Derived>>;
 
 template <typename ReturnType, typename... FnArgs, typename... Args>
 void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...),
