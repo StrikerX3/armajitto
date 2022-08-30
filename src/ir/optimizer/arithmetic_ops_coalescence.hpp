@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/std_allocator.hpp"
 #include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
@@ -121,7 +122,7 @@ private:
         }
     };
 
-    std::vector<Value> m_values;
+    std::vector<Value, memory::StdAllocator<Value>> m_values;
 
     void ResizeValues(size_t index);
 

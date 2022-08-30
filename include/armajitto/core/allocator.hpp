@@ -88,7 +88,7 @@ public:
 
     void *AllocateRaw(size_t size, bool zeroMemory = false) {
         void *ptr = AllocateMemory(size);
-        if (ptr != nullptr) {
+        if (zeroMemory && ptr != nullptr) {
             std::memset(ptr, 0, size);
         }
         return ptr;
@@ -301,5 +301,19 @@ private:
     }
 #endif
 };
+
+struct AllocatorMixin {
+    void *operator new(size_t size) {
+        return s_allocator.AllocateRaw(size);
+    }
+
+    void operator delete(void *ptr) {
+        s_allocator.Free(ptr);
+    }
+
+private:
+    static Allocator s_allocator;
+};
+inline Allocator AllocatorMixin::s_allocator{};
 
 } // namespace armajitto::memory

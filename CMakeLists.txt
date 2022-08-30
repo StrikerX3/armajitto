@@ -27,6 +27,7 @@ add_library(armajitto
     include/armajitto/core/context.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
+    include/armajitto/core/std_allocator.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/cpu_model.hpp

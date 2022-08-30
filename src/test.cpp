@@ -399,8 +399,8 @@ void testTranslatorAndOptimizer() {
 
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
-    auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
+    auto block = new armajitto::ir::BasicBlock(
+        armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -608,7 +608,7 @@ void testTranslatorAndOptimizer() {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(alloc, *block, pass, false)) {
+        if (armajitto::ir::Optimize(*block, pass, false)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
@@ -645,7 +645,7 @@ void testTranslatorAndOptimizer() {
     printf("  finished\n");
     printf("==================================================\n\n");
 
-    armajitto::ir::Optimize(alloc, *block);
+    armajitto::ir::Optimize(*block);
     printf("after all optimizations:\n\n");
     printBlock();
 }
@@ -972,8 +972,8 @@ void testCompiler() {
     uint32_t currAddress = baseAddress + 2 * instrSize;
     for (int i = 0; i < 2; i++) {
         // Create basic block
-        auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-            alloc, armajitto::ir::LocationRef{currAddress, armajitto::arm::Mode::FIQ, thumb});
+        auto block =
+            new armajitto::ir::BasicBlock(armajitto::ir::LocationRef{currAddress, armajitto::arm::Mode::FIQ, thumb});
 
         if (i == 0) {
             firstBlock = block;
@@ -987,7 +987,7 @@ void testCompiler() {
         translator.Translate(*block);
 
         // Optimize code
-        armajitto::ir::Optimize(alloc, *block);
+        armajitto::ir::Optimize(*block);
 
         // Display IR code
         printf("translated %u instructions:\n\n", block->InstructionCount());

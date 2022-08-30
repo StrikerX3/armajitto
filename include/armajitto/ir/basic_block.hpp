@@ -8,9 +8,7 @@
 #include "location_ref.hpp"
 
 #include <cassert>
-#include <memory>
 #include <type_traits>
-#include <vector>
 
 namespace armajitto {
 
@@ -20,11 +18,10 @@ class Host;
 
 namespace armajitto::ir {
 
-class BasicBlock {
+class BasicBlock : public memory::AllocatorMixin {
 public:
-    BasicBlock(memory::Allocator &alloc, LocationRef location)
-        : m_alloc(alloc)
-        , m_location(location) {}
+    BasicBlock(LocationRef location)
+        : m_location(location) {}
 
     /*~BasicBlock() {
         Clear();
@@ -62,7 +59,7 @@ public:
         IROp *op = m_opsHead;
         while (op != nullptr) {
             IROp *next = op->next;
-            m_alloc.Free(op);
+            delete op;
             op = next;
         }
         m_opsHead = nullptr;
@@ -74,8 +71,6 @@ public:
     }
 
 private:
-    memory::Allocator &m_alloc;
-
     LocationRef m_location;
     arm::Condition m_cond;
 
@@ -100,7 +95,7 @@ private:
 
     template <typename T, typename... Args>
     IROp *CreateOp(Args &&...args) {
-        return m_alloc.Allocate<T>(std::forward<Args>(args)...);
+        return new T(std::forward<Args>(args)...);
     }
 
     template <typename T, typename... Args>
@@ -144,7 +139,7 @@ private:
             if (ref == m_opsTail) {
                 m_opsTail = op;
             }
-            m_alloc.Free(ref);
+            delete ref;
         }
         return op;
     }
@@ -176,7 +171,9 @@ private:
         if (op == m_opsTail) {
             m_opsTail = m_opsTail->Next();
         }
-        return op->Erase();
+        IROp *next = op->Erase();
+        delete op;
+        return next;
     }
 
     uint32_t NextVarID() {

@@ -683,8 +683,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
-                                                                               const std::vector<Value> &values)
+BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(
+    Value &value, Variable expectedOutput, const std::vector<Value, memory::StdAllocator<Value>> &values)
     : ones(value.Ones())
     , zeros(value.Zeros())
     , flips(value.Flips())

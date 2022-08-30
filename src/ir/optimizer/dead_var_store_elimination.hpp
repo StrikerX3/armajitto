@@ -2,6 +2,8 @@
 
 #include "dead_store_elimination_base.hpp"
 
+#include "armajitto/core/std_allocator.hpp"
+
 #include <array>
 #include <vector>
 
@@ -150,8 +152,10 @@ private:
         bool consumed = false;
     };
 
-    std::vector<VarWrite> m_varWrites;
-    std::vector<std::vector<Variable>> m_dependencies;
+    using DepList = std::vector<Variable, memory::StdAllocator<Variable>>;
+
+    std::vector<VarWrite, memory::StdAllocator<VarWrite>> m_varWrites;
+    std::vector<DepList, memory::StdAllocator<DepList>> m_dependencies;
 
     void RecordRead(VariableArg &dst, bool consume = true);
     void RecordRead(VarOrImmArg &dst, bool consume = true);

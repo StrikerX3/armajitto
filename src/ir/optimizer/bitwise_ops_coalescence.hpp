@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/std_allocator.hpp"
 #include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
@@ -284,7 +285,7 @@ private:
     };
 
     // Value per variable
-    std::vector<Value> m_values;
+    std::vector<Value, memory::StdAllocator<Value>> m_values;
 
     void ResizeValues(size_t index);
 
@@ -330,9 +331,10 @@ private:
         const Variable expectedInput;
         const Variable expectedOutput;
 
-        const std::vector<Value> &values;
+        const std::vector<Value, memory::StdAllocator<Value>> &values;
 
-        BitwiseOpsMatchState(Value &value, Variable expectedOutput, const std::vector<Value> &values);
+        BitwiseOpsMatchState(Value &value, Variable expectedOutput,
+                             const std::vector<Value, memory::StdAllocator<Value>> &values);
 
         bool Check(const Value *value);
 

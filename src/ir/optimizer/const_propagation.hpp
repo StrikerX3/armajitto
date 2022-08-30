@@ -2,6 +2,8 @@
 
 #include "optimizer_pass_base.hpp"
 
+#include "armajitto/core/std_allocator.hpp"
+
 #include <array>
 #include <optional>
 #include <vector>
@@ -158,7 +160,7 @@ private:
     };
 
     // Variable substitutions lookup table
-    std::vector<Value> m_varSubsts;
+    std::vector<Value, memory::StdAllocator<Value>> m_varSubsts;
 
     // Variable substitution operations
     void ResizeVarSubsts(size_t index);

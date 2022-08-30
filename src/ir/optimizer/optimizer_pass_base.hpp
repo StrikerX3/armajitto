@@ -1,12 +1,13 @@
 #pragma once
 
+#include "armajitto/core/allocator.hpp"
 #include "armajitto/ir/emitter.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 
 namespace armajitto::ir {
 
 // Base class for all optimization passes that implements common algorithms and data structures.
-class OptimizerPassBase {
+class OptimizerPassBase : public memory::AllocatorMixin {
 public:
     OptimizerPassBase(Emitter &emitter, bool backward = false)
         : m_emitter(emitter)

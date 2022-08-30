@@ -2,6 +2,8 @@
 
 #include "dead_store_elimination_base.hpp"
 
+#include "armajitto/core/std_allocator.hpp"
+
 #include <array>
 #include <vector>
 
@@ -106,7 +108,7 @@ private:
         IROp *writerOpV = nullptr; // last instruction that wrote to V
     };
 
-    std::vector<FlagWrites> m_flagWritesPerVar;
+    std::vector<FlagWrites, memory::StdAllocator<FlagWrites>> m_flagWritesPerVar;
 
     void ResizeFlagWritesPerVar(size_t index);
     void InitFlagWrites(VariableArg base);

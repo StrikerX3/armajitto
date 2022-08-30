@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/allocator.hpp"
 #include "armajitto/ir/defs/opcode_types.hpp"
 
 #include <optional>
@@ -7,7 +8,9 @@
 
 namespace armajitto::ir {
 
-struct IROp {
+struct IROp : public memory::AllocatorMixin {
+    virtual ~IROp() = default;
+
     virtual IROpcodeType GetType() const = 0;
     virtual std::string ToString() const = 0;
 

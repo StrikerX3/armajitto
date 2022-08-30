@@ -1,6 +1,5 @@
 #pragma once
 
-#include "armajitto/core/allocator.hpp"
 #include "armajitto/util/bitmask_enum.hpp"
 #include "basic_block.hpp"
 
@@ -26,8 +25,7 @@ enum class OptimizerPasses {
           HostFlagsOpsCoalescence,
 };
 
-bool Optimize(memory::Allocator &alloc, BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All,
-              bool repeatWhileDirty = true);
+bool Optimize(BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All, bool repeatWhileDirty = true);
 
 } // namespace armajitto::ir
 
