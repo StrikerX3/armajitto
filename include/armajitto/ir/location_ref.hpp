@@ -28,6 +28,10 @@ struct LocationRef {
         return bit::test<5>(m_cpsr);
     }
 
+    uint64_t ToUint64() const {
+        return static_cast<uint64_t>(m_pc) | (static_cast<uint64_t>(m_cpsr) << 32ull);
+    }
+
 private:
     static constexpr uint32_t kCPSRMask = 0x0000003F; // T bit and mode
 

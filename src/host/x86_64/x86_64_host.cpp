@@ -193,7 +193,8 @@ void x64Host::Compile(ir::BasicBlock &block) {
     // TODO: increment cycles for failing the check
 
     code.L(lblCondPass);
-    // TODO: block linking
+    // TODO: fast block linking (pointer in BasicBlock)
+    CompileBlockLinkFromCache(compiler);
     // TODO: cycle counting
 
     // Go to epilog
@@ -202,6 +203,8 @@ void x64Host::Compile(ir::BasicBlock &block) {
 
     code.setProtectModeRE();
     SetHostCode(block, fnPtr);
+    m_blockCache.insert({block.Location().ToUint64(), {.code = fnPtr}});
+
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), code.getCurr<uintptr_t>(), block.Location());
 }
 
@@ -339,6 +342,36 @@ void x64Host::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
         code.jmp(lblCondFail);
         break;
     }
+}
+
+void x64Host::CompileBlockLinkFromCache(Compiler &compiler) {
+    Xbyak::Label noEntry{};
+
+    const auto cpsrOffset = m_armState.CPSROffset();
+    const auto pcRegOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
+
+    // Build cache key
+    auto cacheKeyReg64 = compiler.regAlloc.GetTemporary().cvt64();
+    code.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+    code.shl(cacheKeyReg64.cvt64(), 32);
+    code.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
+
+    // Lookup entry
+    CompileInvokeHostFunction(compiler, cacheKeyReg64, GetCodeForLocation, m_blockCache, cacheKeyReg64);
+
+    // Check for nullptr
+    auto cacheEntryReg64 = cacheKeyReg64;
+    code.test(cacheEntryReg64, cacheKeyReg64);
+    code.jz(noEntry);
+
+    // Entry found, jump to linked block
+    code.jmp(cacheEntryReg64);
+
+    // Entry not found, bail out
+    code.L(noEntry);
+
+    // Cleanup temporaries used here
+    compiler.regAlloc.ReleaseTemporaries();
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {
@@ -2693,8 +2726,9 @@ constexpr bool is_raw_base_of_v = std::is_base_of_v<Base, std::remove_cvref_t<De
 template <typename ReturnType, typename... FnArgs, typename... Args>
 void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...),
                                             Args &&...args) {
-    static_assert(is_raw_integral_v<ReturnType> || std::is_void_v<ReturnType>,
-                  "ReturnType must be an integral type or void");
+    static_assert(is_raw_integral_v<ReturnType> || std::is_void_v<ReturnType> || std::is_pointer_v<ReturnType> ||
+                      std::is_reference_v<ReturnType>,
+                  "ReturnType must be an integral type, void, pointer or reference");
 
     static_assert(((is_raw_integral_v<FnArgs> || is_raw_base_of_v<Xbyak::Operand, FnArgs> ||
                     std::is_pointer_v<FnArgs> || std::is_reference_v<FnArgs>)&&...),
@@ -2718,7 +2752,7 @@ void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstRe
         }
     }
 
-    const uint64_t volatileRegsSize = savedRegs.size() * sizeof(uint64_t);
+    const uint64_t volatileRegsSize = (savedRegs.size() + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
     // Put arguments in the corresponding argument registers

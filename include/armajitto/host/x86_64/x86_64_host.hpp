@@ -12,6 +12,9 @@
 #endif
 #include <xbyak/xbyak.h>
 
+// TODO: I'll probably regret this...
+#include <unordered_map>
+
 namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
@@ -30,12 +33,30 @@ private:
     HostCode m_epilog;
     uint64_t m_stackAlignmentOffset;
 
+    struct CachedBlock {
+        HostCode::Fn code;
+    };
+
+    std::unordered_map<uint64_t, CachedBlock> m_blockCache;
+
+    /*[[gnu::flatten]]*/ static HostCode::Fn GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache,
+                                                                uint64_t lochash) {
+        auto it = blockCache.find(lochash);
+        if (it != blockCache.end()) {
+            return it->second.code;
+        } else {
+            return nullptr;
+        }
+    }
+
     struct Compiler;
 
     void CompileProlog();
     void CompileEpilog();
 
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
+
+    void CompileBlockLinkFromCache(Compiler &compiler);
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>

@@ -947,9 +947,14 @@ void testCompiler() {
     // writeARM(0xBA000002); // blt $+0x10   N!=V
     // writeARM(0xCA000002); // bgt $+0x10   Z=0 && N=V
     // writeARM(0xDA000002); // ble $+0x10   Z=1 || N!=V
-    writeARM(0xEA000002); // b(al) $+0x10
+    // writeARM(0xEA000002); // b(al) $+0x10
 
     // writeARM(0xEAFFFFFE); // b $
+
+    // Multiple blocks
+    writeARM(0x03A02012); // moveq r2, #0x12
+    writeARM(0x03A03B0D); // moveq r3, #0x3400
+    writeARM(0x13A04004); // movne r4, #0x4
 
     // TODO: implement block terminals, block cache and lookups, block linking, etc.
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
@@ -957,26 +962,47 @@ void testCompiler() {
 
     // Create allocator
     armajitto::memory::Allocator alloc{};
-    auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::FIQ, thumb});
 
-    // Translate code from memory
-    armajitto::ir::Translator::Parameters params{
-        .maxBlockSize = 64,
-    };
-    armajitto::ir::Translator translator{context, params};
-    translator.Translate(*block);
+    // Create host compiler
+    armajitto::x86_64::x64Host host{context};
 
-    // Optimize code
-    armajitto::ir::Optimize(alloc, *block);
+    // Compile multiple blocks
+    armajitto::ir::BasicBlock *firstBlock = nullptr;
+    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+    uint32_t currAddress = baseAddress + 2 * instrSize;
+    for (int i = 0; i < 2; i++) {
+        // Create basic block
+        auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
+            alloc, armajitto::ir::LocationRef{currAddress, armajitto::arm::Mode::FIQ, thumb});
 
-    // Display IR code
-    printf("translated %u instructions:\n\n", block->InstructionCount());
-    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-        auto str = op->ToString();
-        printf("%s\n", str.c_str());
+        if (i == 0) {
+            firstBlock = block;
+        }
+
+        // Translate code from memory
+        armajitto::ir::Translator::Parameters params{
+            .maxBlockSize = 64,
+        };
+        armajitto::ir::Translator translator{context, params};
+        translator.Translate(*block);
+
+        // Optimize code
+        armajitto::ir::Optimize(alloc, *block);
+
+        // Display IR code
+        printf("translated %u instructions:\n\n", block->InstructionCount());
+        for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+            auto str = op->ToString();
+            printf("%s\n", str.c_str());
+        }
+        printf("\n");
+
+        // Compile IR block into host code
+        host.Compile(*block);
+
+        // Advance to next instruction in the sequence
+        currAddress += block->InstructionCount() * instrSize;
     }
-    printf("\n");
 
     // Define function to display ARM state
     auto printState = [&] {
@@ -1059,7 +1085,7 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.CPSR().mode = block->Location().Mode();
+    armState.CPSR().mode = firstBlock->Location().Mode();
 
     // Block condition test
     armState.CPSR().n = 0;
@@ -1145,11 +1171,8 @@ void testCompiler() {
     printState();
 
     // Compile and execute code
-    armajitto::x86_64::x64Host host{context};
-    printf("\ncompiling code...\n");
-    host.Compile(*block);
-    printf("done; invoking\n");
-    host.Call(*block);
+    printf("invoking\n");
+    host.Call(*firstBlock);
     printf("\n");
 
     printf("state after execution:\n");
