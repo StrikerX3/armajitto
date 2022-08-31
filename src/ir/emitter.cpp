@@ -294,6 +294,8 @@ void Emitter::Branch(VarOrImmArg address) {
     if (address.immediate) {
         auto loc = m_block.Location();
         TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), loc.IsThumbMode());
+    } else {
+        // TODO: TerminateBranchToUnknownAddress();
     }
 }
 
@@ -303,6 +305,8 @@ void Emitter::BranchExchange(VarOrImmArg address) {
     if (address.immediate) {
         auto loc = m_block.Location();
         TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), bit::test<0>(address.imm.value));
+    } else {
+        // TODO: TerminateBranchToUnknownAddress();
     }
 }
 

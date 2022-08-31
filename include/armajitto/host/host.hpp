@@ -11,9 +11,7 @@ using HostCode = uintptr_t;
 class Host {
 public:
     Host(Context &context)
-        : m_context(context)
-        , m_armState(context.GetARMState())
-        , m_system(context.GetSystem()) {}
+        : m_context(context) {}
 
     virtual ~Host() = default;
 
@@ -33,8 +31,6 @@ public:
 
 protected:
     Context &m_context;
-    arm::State &m_armState;
-    ISystem &m_system;
 };
 
 } // namespace armajitto
