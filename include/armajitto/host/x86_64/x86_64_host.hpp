@@ -66,8 +66,17 @@ private:
         HostCode code;
     };
 
-    // TODO: redesign cache to a simpler design that can be easily traversed in handwritten assembly
+    // Cached blocks by LocationRef::ToUint64()
     std::unordered_map<uint64_t, CachedBlock> m_blockCache;
+
+    struct PatchInfo {
+        uint64_t cachedBlockKey;
+        const uint8_t *codePos;
+        // TODO: patch type?
+    };
+
+    // Xbyak patch locations by LocationRef::ToUint64()
+    std::unordered_map<uint64_t, std::vector<PatchInfo>> m_patches;
 
     static HostCode GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
         auto it = blockCache.find(lochash);
@@ -83,9 +92,7 @@ private:
     void CompileProlog();
     void CompileEpilog();
 
-    void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
-
-    void CompileBlockCacheLookup(Compiler &compiler);
+    void CompileCondCheck(Compiler &compiler, arm::Condition cond, Xbyak::Label &lblCondFail);
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>
@@ -135,26 +142,26 @@ private:
     // -------------------------------------------------------------------------
     // Building blocks
 
-    void SetCFromValue(bool carry);
+    void SetCFromValue(Compiler &compiler, bool carry);
     void SetCFromFlags(Compiler &compiler);
 
-    void SetVFromValue(bool overflow);
-    void SetVFromFlags();
+    void SetVFromValue(Compiler &compiler, bool overflow);
+    void SetVFromFlags(Compiler &compiler);
 
-    void SetNZFromValue(uint32_t value);
-    void SetNZFromValue(uint64_t value);
+    void SetNZFromValue(Compiler &compiler, uint32_t value);
+    void SetNZFromValue(Compiler &compiler, uint64_t value);
     void SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value);
     void SetNZFromFlags(Compiler &compiler);
 
-    void SetNZCVFromValue(uint32_t value, bool carry, bool overflow);
-    void SetNZCVFromFlags();
+    void SetNZCVFromValue(Compiler &compiler, uint32_t value, bool carry, bool overflow);
+    void SetNZCVFromFlags(Compiler &compiler);
 
     // Compiles a MOV <reg>, <value> if <value> != 0, or XOR <reg>, <reg> if 0
-    void MOVImmediate(Xbyak::Reg32 reg, uint32_t value);
+    void MOVImmediate(Compiler &compiler, Xbyak::Reg32 reg, uint32_t value);
 
     // Compiles a MOV <dst>, <src> if the registers are different
-    void CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src);
-    void CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src);
+    void CopyIfDifferent(Compiler &compiler, Xbyak::Reg32 dst, Xbyak::Reg32 src);
+    void CopyIfDifferent(Compiler &compiler, Xbyak::Reg64 dst, Xbyak::Reg64 src);
 
     void AssignImmResultWithNZ(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool setFlags);
     void AssignImmResultWithNZCV(Compiler &compiler, const ir::VariableArg &dst, uint32_t result, bool carry,

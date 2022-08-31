@@ -307,6 +307,13 @@ public:
 
     void FetchInstruction();
 
+    // -------------------------------------------------------------------------
+    // Terminals
+
+    void TerminateReturn();
+    void TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb);
+    void TerminateContinueExecution();
+
 private:
     BasicBlock &m_block;
 

@@ -25,6 +25,20 @@ class BasicBlock {
     static constexpr bool kFreeErasedIROps = false;
 
 public:
+    enum class Terminal {
+        // Perform lookup to specified LocationRef.
+        // Used by branches to known addresses.
+        BranchToKnownAddress,
+
+        // Perform lookup to LocationRef after this block.
+        // Used when the condition code changes or the block is terminated by the block size limit.
+        ContinueExecution,
+
+        // Return to dispatcher (default).
+        // Used by exceptions, ALU writes to PC and writes to coprocessors with side-effects.
+        Return,
+    };
+
     BasicBlock(memory::Allocator &alloc, LocationRef location)
         : m_alloc(alloc)
         , m_location(location) {}
@@ -78,6 +92,15 @@ public:
         return m_nextVarID;
     }
 
+    Terminal GetTerminal() const {
+        return m_terminal;
+    }
+
+    // Valid for Terminal::BranchToKnownAddress and Terminal::ContinueExecution
+    LocationRef GetTerminalLocation() const {
+        return m_terminalLocation;
+    }
+
 private:
     memory::Allocator &m_alloc;
 
@@ -88,6 +111,9 @@ private:
     IROp *m_opsTail = nullptr;
     uint32_t m_instrCount = 0; // ARM/Thumb instructions
     uint32_t m_nextVarID = 0;
+
+    Terminal m_terminal = Terminal::Return;
+    LocationRef m_terminalLocation{};
 
     // -------------------------------------------------------------------------
     // Emitter accessors
@@ -195,6 +221,23 @@ private:
     }
 
     void RenameVariables();
+
+    void TerminateReturn() {
+        m_terminal = Terminal::Return;
+    }
+
+    void TerminateBranchToKnownAddress(LocationRef branchTarget) {
+        m_terminal = Terminal::BranchToKnownAddress;
+        m_terminalLocation = branchTarget;
+    }
+
+    void TerminateContinueExecution() {
+        const uint32_t instrSize = (m_location.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t));
+        const uint32_t targetAddress = m_location.PC() + m_instrCount * instrSize;
+
+        m_terminal = Terminal::ContinueExecution;
+        m_terminalLocation = {targetAddress, m_location.Mode(), m_location.IsThumbMode()};
+    }
 };
 
 static_assert(std::is_trivially_destructible_v<BasicBlock>,

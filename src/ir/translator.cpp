@@ -83,6 +83,10 @@ void Translator::Translate(BasicBlock &block) {
 
         address += opcodeSize;
     }
+
+    if (!m_endBlock) {
+        emitter.TerminateContinueExecution();
+    }
 }
 
 void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
@@ -376,7 +380,6 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
         emitter.Branch(targetAddress);
     }
 
-    // TODO: set block branch target
     m_endBlock = true;
 }
 
@@ -387,7 +390,6 @@ void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter
     }
     emitter.BranchExchange(addr);
 
-    // TODO: set block branch target
     m_endBlock = true;
 }
 
@@ -402,7 +404,6 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
         emitter.Branch(targetAddrBase);
     }
 
-    // TODO: set block branch target
     m_endBlock = true;
 }
 
@@ -478,7 +479,6 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
             emitter.Branch(result);
         }
 
-        // TODO: set block branch target
         m_endBlock = true;
     } else {
         m_flagsUpdated = instr.setFlags;
@@ -759,7 +759,6 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
             emitter.Branch(pcValue);
         }
 
-        // TODO: set block branch target
         m_endBlock = true;
     }
 }
@@ -870,7 +869,6 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
     if (pcValue.IsPresent()) {
         emitter.Branch(pcValue);
 
-        // TODO: set block branch target
         m_endBlock = true;
     }
 }
@@ -997,7 +995,6 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             emitter.Branch(pcValue);
         }
 
-        // TODO: set block branch target
         m_endBlock = true;
     }
 }

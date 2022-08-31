@@ -290,10 +290,20 @@ arm::Flags Emitter::SetNZCV(uint32_t value, bool carry, bool overflow) {
 
 void Emitter::Branch(VarOrImmArg address) {
     Write<IRBranchOp>(address);
+
+    if (address.immediate) {
+        auto loc = m_block.Location();
+        TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), loc.IsThumbMode());
+    }
 }
 
 void Emitter::BranchExchange(VarOrImmArg address) {
     Write<IRBranchExchangeOp>(address);
+
+    if (address.immediate) {
+        auto loc = m_block.Location();
+        TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), bit::test<0>(address.imm.value));
+    }
 }
 
 void Emitter::BranchExchangeL4(VarOrImmArg address) {
@@ -569,6 +579,20 @@ void Emitter::FetchInstruction() {
     auto pc = GetRegister(arm::GPR::PC);
     pc = Add(pc, m_instrSize, false);
     SetRegister(arm::GPR::PC, pc);
+}
+
+void Emitter::TerminateReturn() {
+    m_block.TerminateReturn();
+}
+
+void Emitter::TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb) {
+    const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+    const uint32_t pc = targetAddress + 2 * instrSize;
+    m_block.TerminateBranchToKnownAddress({pc, mode, thumb});
+}
+
+void Emitter::TerminateContinueExecution() {
+    m_block.TerminateContinueExecution();
 }
 
 Variable Emitter::Var() {

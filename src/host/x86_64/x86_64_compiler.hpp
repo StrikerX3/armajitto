@@ -9,8 +9,9 @@
 namespace armajitto::x86_64 {
 
 struct x64Host::Compiler {
-    Compiler(Xbyak::CodeGenerator &code)
-        : regAlloc(code) {}
+    Compiler(Xbyak::CodeGenerator &codegen)
+        : codegen(codegen)
+        , regAlloc(codegen) {}
 
     void Analyze(const ir::BasicBlock &block) {
         regAlloc.Analyze(block);
@@ -21,6 +22,7 @@ struct x64Host::Compiler {
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
+    Xbyak::CodeGenerator &codegen;
     RegisterAllocator regAlloc;
     arm::Mode mode;
     bool thumb;
