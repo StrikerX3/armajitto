@@ -32,7 +32,8 @@ struct CompiledCode {
     std::unordered_map<uint64_t, std::vector<PatchInfo>> patches;
 
     // Helper function to retrieve a cached block, to be invoked by compiled code
-    static HostCode GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
+    static HostCode GetCodeForLocationTrampoline(std::unordered_map<uint64_t, CachedBlock> &blockCache,
+                                                 uint64_t lochash) {
         auto it = blockCache.find(lochash);
         if (it != blockCache.end()) {
             return it->second.code;
@@ -43,7 +44,7 @@ struct CompiledCode {
 
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
-        return GetCodeForLocation(blockCache, loc.ToUint64());
+        return GetCodeForLocationTrampoline(blockCache, loc.ToUint64());
     }
 
     void Clear() {

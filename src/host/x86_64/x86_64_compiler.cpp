@@ -256,7 +256,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 
         // Lookup entry
         // TODO: redesign cache to not rely on this function call
-        CompileInvokeHostFunction(cacheKeyReg64, CompiledCode::GetCodeForLocation, compiledCode.blockCache,
+        CompileInvokeHostFunction(cacheKeyReg64, CompiledCode::GetCodeForLocationTrampoline, compiledCode.blockCache,
                                   cacheKeyReg64);
 
         // Check for nullptr

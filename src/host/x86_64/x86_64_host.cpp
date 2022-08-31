@@ -191,9 +191,9 @@ void x64Host::CompileExitIRQ() {
     auto &armState = m_context.GetARMState();
 
     // Get temporary registers for operations
-    auto cpsrReg32 = abi::kIntArgRegs[0].cvt32();
-    auto lrReg32 = abi::kIntArgRegs[1].cvt32();
-    auto pcReg32 = abi::kIntArgRegs[2].cvt32();
+    auto pcReg32 = abi::kIntArgRegs[0].cvt32();
+    auto cpsrReg32 = abi::kIntArgRegs[1].cvt32();
+    auto lrReg32 = abi::kIntArgRegs[2].cvt32();
     auto lrOffsetReg32 = abi::kIntArgRegs[3].cvt32();
 
     // Get field offsets
@@ -246,14 +246,44 @@ void x64Host::CompileExitIRQ() {
         m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
     } else {
         // Assume 00000000 if CP15 is absent
-        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], irqVectorOffset);
+        m_codegen.mov(pcReg32, irqVectorOffset);
+        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
     }
 
     // Clear halt state
     m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
-    // Jump to epilog
-    m_codegen.jmp((void *)m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+    // Try to link directly to IRQ handler if compiled
+
+    // Build cache key
+    auto cacheKeyReg64 = cpsrReg32.cvt64(); // 2nd argument to function call, which already contains CPSR
+    m_codegen.shl(cacheKeyReg64, 32);
+    m_codegen.or_(cacheKeyReg64, pcReg32.cvt64());
+
+    // Save return register
+    m_codegen.push(abi::kIntReturnValueReg);
+    constexpr uint64_t volatileRegsSize = (1 + 1) * sizeof(uint64_t);
+    constexpr uint64_t stackAlignmentOffset =
+        abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
+
+    // Lookup entry in block cache
+    // TODO: redesign cache to not rely on this function call
+    m_codegen.mov(abi::kIntArgRegs[0], CastUintPtr(&m_compiledCode.blockCache)); // 1st argument
+    m_codegen.mov(abi::kIntReturnValueReg, CastUintPtr(CompiledCode::GetCodeForLocationTrampoline));
+    if (stackAlignmentOffset != 0) {
+        m_codegen.sub(rsp, stackAlignmentOffset);
+    }
+    m_codegen.call(abi::kIntReturnValueReg);
+    if (stackAlignmentOffset != 0) {
+        m_codegen.add(rsp, stackAlignmentOffset);
+    }
+
+    // Jump to block if present, or epilog if not
+    m_codegen.test(abi::kIntReturnValueReg, abi::kIntReturnValueReg);
+    m_codegen.mov(cpsrReg32.cvt64(), m_compiledCode.epilog);
+    m_codegen.cmovnz(cpsrReg32.cvt64(), abi::kIntReturnValueReg);
+    m_codegen.pop(abi::kIntReturnValueReg); // Restore return register
+    m_codegen.jmp(cpsrReg32.cvt64());
 
     m_codegen.setProtectModeRE();
 }
