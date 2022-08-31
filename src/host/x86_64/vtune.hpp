@@ -2,7 +2,7 @@
 
 #if ARMAJITTO_USE_VTUNE
 
-    #include "armajitto/ir/location_ref.hpp"
+    #include "armajitto/core/location_ref.hpp"
 
     #include <jitprofiling.h>
 
@@ -30,7 +30,7 @@ inline void ReportCode(uintptr_t codeStart, uintptr_t codeEnd, const char *fnNam
     iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2, static_cast<void *>(&method));
 }
 
-inline void ReportBasicBlock(uintptr_t codeStart, uintptr_t codeEnd, armajitto::ir::LocationRef loc) {
+inline void ReportBasicBlock(uintptr_t codeStart, uintptr_t codeEnd, armajitto::LocationRef loc) {
     if (iJIT_IsProfilingActive() != iJIT_SAMPLING_ON) {
         return;
     }

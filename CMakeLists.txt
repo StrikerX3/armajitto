@@ -25,6 +25,8 @@ add_library(armajitto
     include/armajitto/version.hpp
     include/armajitto/core/allocator.hpp
     include/armajitto/core/context.hpp
+    include/armajitto/core/location_ref.hpp
+    include/armajitto/core/pmr_allocator.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
@@ -57,7 +59,6 @@ add_library(armajitto
     include/armajitto/ir/basic_block.hpp
     include/armajitto/ir/emitter.hpp
     include/armajitto/ir/ir_ops.hpp
-    include/armajitto/ir/location_ref.hpp
     include/armajitto/ir/optimizer.hpp
     include/armajitto/ir/translator.hpp
     include/armajitto/ir/defs/arguments.hpp
@@ -170,6 +171,7 @@ target_precompile_headers(armajitto
         <format>
         <limits>
         <memory>
+        <memory_resource>
         <optional>
         <ranges>
         <string>

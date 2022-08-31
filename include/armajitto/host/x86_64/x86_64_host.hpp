@@ -21,10 +21,18 @@ namespace armajitto::x86_64 {
 class x64Host final : public Host {
 public:
     x64Host(Context &context);
+
     HostCode Compile(ir::BasicBlock &block) final;
 
-    void Call(HostCode code) {
-        m_prolog(code);
+    void Call(LocationRef loc) final {
+        auto code = GetCodeForLocation(m_blockCache, loc.ToUint64());
+        Call(code);
+    }
+
+    void Call(HostCode code) final {
+        if (code != 0) {
+            m_prolog(code);
+        }
     }
 
 private:

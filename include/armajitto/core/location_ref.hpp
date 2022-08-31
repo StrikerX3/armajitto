@@ -5,9 +5,13 @@
 
 #include <cstdint>
 
-namespace armajitto::ir {
+namespace armajitto {
 
 struct LocationRef {
+    LocationRef()
+        : m_pc(0)
+        , m_cpsr(0) {}
+
     LocationRef(uint32_t pc, uint32_t cpsr)
         : m_pc(pc)
         , m_cpsr(cpsr & kCPSRMask) {}
@@ -32,6 +36,10 @@ struct LocationRef {
         return static_cast<uint64_t>(m_pc) | (static_cast<uint64_t>(m_cpsr) << 32ull);
     }
 
+    std::string ToString() const {
+        return std::format("{:08X}_{}_{}", m_pc, arm::ToString(Mode()), (IsThumbMode() ? "Thumb" : "ARM"));
+    }
+
 private:
     static constexpr uint32_t kCPSRMask = 0x0000003F; // T bit and mode
 
@@ -39,4 +47,4 @@ private:
     uint32_t m_cpsr;
 };
 
-} // namespace armajitto::ir
+} // namespace armajitto

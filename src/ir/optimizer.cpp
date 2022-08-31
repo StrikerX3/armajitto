@@ -1,5 +1,6 @@
 #include "armajitto/ir/optimizer.hpp"
 
+#include "armajitto/core/pmr_allocator.hpp"
 #include "optimizer/arithmetic_ops_coalescence.hpp"
 #include "optimizer/bitwise_ops_coalescence.hpp"
 #include "optimizer/const_propagation.hpp"

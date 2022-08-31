@@ -1,10 +1,10 @@
 #pragma once
 
 #include "armajitto/core/allocator.hpp"
+#include "armajitto/core/location_ref.hpp"
 #include "armajitto/guest/arm/instructions.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 #include "defs/variable.hpp"
-#include "location_ref.hpp"
 
 #include <cassert>
 #include <memory>

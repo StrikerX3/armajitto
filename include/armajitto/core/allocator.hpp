@@ -2,7 +2,6 @@
 
 #include <bit>
 #include <limits>
-#include <memory_resource>
 #include <vector>
 
 namespace armajitto::memory {
@@ -84,12 +83,7 @@ public:
     };
 
     ~Allocator() {
-        Chunk *chunk = m_head;
-        while (chunk != nullptr) {
-            Chunk *next = chunk->next;
-            delete chunk;
-            chunk = next;
-        }
+        Release();
     }
 
     void *AllocateRaw(std::size_t bytes, std::size_t alignment = sizeof(void *)) {
@@ -182,6 +176,16 @@ public:
             prevChunk = chunk;
             chunk = chunk->next;
         }
+    }
+
+    void Release() {
+        Chunk *chunk = m_head;
+        while (chunk != nullptr) {
+            Chunk *next = chunk->next;
+            delete chunk;
+            chunk = next;
+        }
+        m_head = nullptr;
     }
 
 private:
@@ -334,23 +338,6 @@ private:
         std::free(ptr);
     }
 #endif
-};
-
-struct PMRAllocator final : public std::pmr::memory_resource {
-    void *do_allocate(std::size_t bytes, std::size_t alignment) final {
-        return m_allocator.AllocateRaw(bytes, alignment);
-    }
-
-    void do_deallocate(void *p, std::size_t /*bytes*/, std::size_t /*alignment*/) final {
-        m_allocator.Free(p);
-    }
-
-    bool do_is_equal(const std::pmr::memory_resource &other) const noexcept final {
-        return this == &other;
-    }
-
-private:
-    Allocator m_allocator;
 };
 
 } // namespace armajitto::memory

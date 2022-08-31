@@ -400,7 +400,7 @@ void testTranslatorAndOptimizer() {
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-        alloc, armajitto::ir::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
+        alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
     armajitto::ir::Translator::Parameters params{
@@ -964,16 +964,18 @@ void testCompiler() {
     // Create host compiler
     armajitto::x86_64::x64Host host{context};
     armajitto::HostCode entryCode{};
+    armajitto::LocationRef entryLoc{};
+
+    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
 
     // Compile multiple blocks
     {
         armajitto::memory::Allocator blockAlloc{};
-        const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
         uint32_t currAddress = baseAddress + 2 * instrSize;
         for (int i = 0; i < 2; i++) {
             // Create basic block
             auto block = blockAlloc.Allocate<armajitto::ir::BasicBlock>(
-                blockAlloc, armajitto::ir::LocationRef{currAddress, mode, thumb});
+                blockAlloc, armajitto::LocationRef{currAddress, mode, thumb});
 
             // Translate code from memory
             armajitto::ir::Translator::Parameters params{
@@ -997,6 +999,7 @@ void testCompiler() {
             auto code = host.Compile(*block);
             if (i == 0) {
                 entryCode = code;
+                entryLoc = block->Location();
             }
             printf("compiled to host code at %p\n\n", (void *)code);
 
@@ -1171,8 +1174,14 @@ void testCompiler() {
     printf("state before execution:\n");
     printState();
 
-    // Execute code
-    printf("invoking function %p\n", (void *)entryCode);
+    // Execute code using LocationRef
+    /*auto entryLocStr = entryLoc.ToString();
+    printf("\ninvoking code at %s\n", entryLocStr.c_str());
+    host.Call(entryLoc);
+    printf("\n");*/
+
+    // Execute code using HostCode
+    printf("\ninvoking code at %p\n", (void *)entryCode);
     host.Call(entryCode);
     printf("\n");
 
