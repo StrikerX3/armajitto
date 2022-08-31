@@ -295,7 +295,7 @@ void Emitter::Branch(VarOrImmArg address) {
         auto loc = m_block.Location();
         TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), loc.IsThumbMode());
     } else {
-        // TODO: TerminateBranchToUnknownAddress();
+        TerminateBranchToUnknownAddress();
     }
 }
 
@@ -306,7 +306,7 @@ void Emitter::BranchExchange(VarOrImmArg address) {
         auto loc = m_block.Location();
         TerminateBranchToKnownAddress(address.imm.value, loc.Mode(), bit::test<0>(address.imm.value));
     } else {
-        // TODO: TerminateBranchToUnknownAddress();
+        TerminateBranchToUnknownAddress();
     }
 }
 
@@ -585,18 +585,22 @@ void Emitter::FetchInstruction() {
     SetRegister(arm::GPR::PC, pc);
 }
 
-void Emitter::TerminateReturn() {
-    m_block.TerminateReturn();
-}
-
 void Emitter::TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb) {
     const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
     const uint32_t pc = targetAddress + 2 * instrSize;
-    m_block.TerminateBranchToKnownAddress({pc, mode, thumb});
+    m_block.TerminateDirectLink({pc, mode, thumb});
+}
+
+void Emitter::TerminateBranchToUnknownAddress() {
+    m_block.TerminateIndirectLink();
 }
 
 void Emitter::TerminateContinueExecution() {
-    m_block.TerminateContinueExecution();
+    m_block.TerminateDirectLinkNextBlock();
+}
+
+void Emitter::TerminateReturn() {
+    m_block.TerminateReturn();
 }
 
 Variable Emitter::Var() {

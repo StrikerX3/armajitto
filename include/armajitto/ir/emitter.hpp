@@ -310,9 +310,10 @@ public:
     // -------------------------------------------------------------------------
     // Terminals
 
-    void TerminateReturn();
     void TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb);
+    void TerminateBranchToUnknownAddress();
     void TerminateContinueExecution();
+    void TerminateReturn();
 
 private:
     BasicBlock &m_block;

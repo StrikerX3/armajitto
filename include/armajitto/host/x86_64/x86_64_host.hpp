@@ -6,15 +6,13 @@
 #include "armajitto/util/pointer_cast.hpp"
 #include "armajitto/util/type_traits.hpp"
 
+#include "x86_64_compiled_code.hpp"
 #include "x86_64_type_traits.hpp"
 
 #ifdef _WIN32
     #define NOMINMAX
 #endif
 #include <xbyak/xbyak.h>
-
-// TODO: I'll probably regret this...
-#include <unordered_map>
 
 namespace armajitto::x86_64 {
 
@@ -25,7 +23,7 @@ public:
     HostCode Compile(ir::BasicBlock &block) final;
 
     HostCode GetCodeForLocation(LocationRef loc) final {
-        return GetCodeForLocation(m_blockCache, loc.ToUint64());
+        return m_compiledCode.GetCodeForLocation(loc);
     }
 
     void Call(LocationRef loc) final {
@@ -61,31 +59,7 @@ private:
 
     XbyakAllocator m_alloc;
     Xbyak::CodeGenerator m_codegen;
-
-    struct CachedBlock {
-        HostCode code;
-    };
-
-    // Cached blocks by LocationRef::ToUint64()
-    std::unordered_map<uint64_t, CachedBlock> m_blockCache;
-
-    struct PatchInfo {
-        uint64_t cachedBlockKey;
-        const uint8_t *codePos;
-        // TODO: patch type?
-    };
-
-    // Xbyak patch locations by LocationRef::ToUint64()
-    std::unordered_map<uint64_t, std::vector<PatchInfo>> m_patches;
-
-    static HostCode GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
-        auto it = blockCache.find(lochash);
-        if (it != blockCache.end()) {
-            return it->second.code;
-        } else {
-            return CastUintPtr(nullptr);
-        }
-    }
+    CompiledCode m_compiledCode;
 
     struct Compiler;
 

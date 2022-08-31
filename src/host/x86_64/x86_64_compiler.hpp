@@ -4,27 +4,22 @@
 
 #include "reg_alloc.hpp"
 
+#ifdef _WIN32
+    #define NOMINMAX
+#endif
 #include <xbyak/xbyak.h>
 
 namespace armajitto::x86_64 {
 
 struct x64Host::Compiler {
-    Compiler(Context &context, Xbyak::CodeGenerator &codegen)
-        : context(context)
-        , armState(context.GetARMState())
-        , codegen(codegen)
-        , regAlloc(codegen) {}
-
-    void Analyze(const ir::BasicBlock &block) {
-        regAlloc.Analyze(block);
-        mode = block.Location().Mode();
-        thumb = block.Location().IsThumbMode();
-    }
+    Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block);
 
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
+    void CompileTerminal(const ir::BasicBlock &block, HostCode epilog);
+    void PatchReferences(LocationRef loc, HostCode blockCode);
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>
@@ -123,7 +118,9 @@ struct x64Host::Compiler {
     template <typename ReturnType, typename... FnArgs, typename... Args>
     void CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args);
 
+private:
     Context &context;
+    CompiledCode &compiledCode;
     arm::State &armState;
     Xbyak::CodeGenerator &codegen;
     RegisterAllocator regAlloc;

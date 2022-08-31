@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // Cast any pointer to uintptr_t in a non-verbose manner.

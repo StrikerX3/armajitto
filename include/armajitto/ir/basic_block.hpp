@@ -26,13 +26,16 @@ class BasicBlock {
 
 public:
     enum class Terminal {
-        // Perform lookup to specified LocationRef.
-        // Used by branches to known addresses.
-        BranchToKnownAddress,
+        // Jump to specified LocationRef.
+        // Used:
+        // - By branches to known addresses
+        // - When the condition code changes
+        // - The block is terminated by the block size limit
+        DirectLink,
 
-        // Perform lookup to LocationRef after this block.
-        // Used when the condition code changes or the block is terminated by the block size limit.
-        ContinueExecution,
+        // Lookup block specified by current PC + CPSR mode + CPSR T.
+        // Used by branches to unknown addresses.
+        IndirectLink,
 
         // Return to dispatcher (default).
         // Used by exceptions, ALU writes to PC and writes to coprocessors with side-effects.
@@ -222,21 +225,25 @@ private:
 
     void RenameVariables();
 
-    void TerminateReturn() {
-        m_terminal = Terminal::Return;
-    }
-
-    void TerminateBranchToKnownAddress(LocationRef branchTarget) {
-        m_terminal = Terminal::BranchToKnownAddress;
+    void TerminateDirectLink(LocationRef branchTarget) {
+        m_terminal = Terminal::DirectLink;
         m_terminalLocation = branchTarget;
     }
 
-    void TerminateContinueExecution() {
+    void TerminateDirectLinkNextBlock() {
         const uint32_t instrSize = (m_location.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t));
         const uint32_t targetAddress = m_location.PC() + m_instrCount * instrSize;
 
-        m_terminal = Terminal::ContinueExecution;
+        m_terminal = Terminal::DirectLink;
         m_terminalLocation = {targetAddress, m_location.Mode(), m_location.IsThumbMode()};
+    }
+
+    void TerminateIndirectLink() {
+        m_terminal = Terminal::IndirectLink;
+    }
+
+    void TerminateReturn() {
+        m_terminal = Terminal::Return;
     }
 };
 

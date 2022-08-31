@@ -22,15 +22,11 @@ x64Host::x64Host(Context &context)
 }
 
 HostCode x64Host::Compile(ir::BasicBlock &block) {
-    const auto blockLocKey = block.Location().ToUint64();
-    auto &cachedBlock = m_blockCache[blockLocKey];
-    Compiler compiler{m_context, m_codegen};
-    auto &codegen = compiler.codegen;
+    auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
+    Compiler compiler{m_context, m_compiledCode, m_codegen, block};
 
-    compiler.Analyze(block);
-
-    auto fnPtr = codegen.getCurr<HostCode>();
-    codegen.setProtectModeRW();
+    auto fnPtr = m_codegen.getCurr<HostCode>();
+    m_codegen.setProtectModeRW();
 
     Xbyak::Label lblCondFail{};
     Xbyak::Label lblCondPass{};
@@ -47,99 +43,30 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     }
 
     // Skip over condition fail block
-    codegen.jmp(lblCondPass);
+    m_codegen.jmp(lblCondPass);
 
     // Update PC if condition fails
-    codegen.L(lblCondFail);
-    const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, compiler.mode);
+    m_codegen.L(lblCondFail);
+    const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
     const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
-    codegen.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
+    m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
     // TODO: increment cycles for failing the check
 
-    codegen.L(lblCondPass);
+    m_codegen.L(lblCondPass);
 
     // TODO: cycle counting
     // TODO: check cycles and IRQ
 
     // Go to next block or epilog
-    using Terminal = ir::BasicBlock::Terminal;
-    switch (block.GetTerminal()) {
-    case Terminal::BranchToKnownAddress:
-    case Terminal::ContinueExecution: {
-        auto targetLoc = block.GetTerminalLocation();
-        auto code = GetCodeForLocation(targetLoc);
-        if (code != 0) {
-            // Go to the compiled code's address directly
-            /*m_codegen.mov(rcx, code);
-            m_codegen.jmp(rcx);*/
-            m_codegen.jmp((void *)code, Xbyak::CodeGenerator::T_NEAR);
-            compiler.regAlloc.ReleaseTemporaries();
-        } else {
-            // Store this code location to be patched later
-            m_patches[targetLoc.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
+    compiler.CompileTerminal(block, m_epilog);
 
-            // Go to epilog if there is no compiled code at the target address
-            /*codegen.mov(abi::kNonvolatileRegs[0], m_epilog);
-            codegen.jmp(abi::kNonvolatileRegs[0]);*/
-            m_codegen.jmp((void *)m_epilog, Xbyak::CodeGenerator::T_NEAR);
-        }
-        break;
-    }
-    case Terminal::Return:
-        // Go to epilog
-        /*codegen.mov(abi::kNonvolatileRegs[0], m_epilog);
-        codegen.jmp(abi::kNonvolatileRegs[0]);*/
-        m_codegen.jmp((void *)m_epilog, Xbyak::CodeGenerator::T_NEAR);
-        break;
-    }
-
-    codegen.setProtectModeRE();
+    m_codegen.setProtectModeRE();
 
     cachedBlock.code = fnPtr;
-    vtune::ReportBasicBlock(fnPtr, codegen.getCurr<uintptr_t>(), block.Location());
+    vtune::ReportBasicBlock(fnPtr, m_codegen.getCurr<uintptr_t>(), block.Location());
 
     // Patch references to this block
-    auto itPatches = m_patches.find(block.Location().ToUint64());
-    if (itPatches != m_patches.end()) {
-        for (PatchInfo &patchInfo : itPatches->second) {
-            auto itPatchBlock = m_blockCache.find(patchInfo.cachedBlockKey);
-            if (itPatchBlock != m_blockCache.end()) {
-                // Edit code
-                m_codegen.setProtectModeRW();
-
-                // Go to patch location
-                auto prevSize = m_codegen.getSize();
-                m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
-
-                // Overwrite a jump to the compiled code's address directly
-
-                // TODO: different patch types
-                /*m_codegen.mov(rcx, fnPtr);
-                m_codegen.jmp(rcx);*/
-
-                // If target is close enough, emit up to three NOPs, otherwise emit a JMP
-                auto distToTarget = (const uint8_t *)fnPtr - patchInfo.codePos;
-                if (distToTarget >= 1 && distToTarget <= 27) {
-                    for (;;) {
-                        if (distToTarget > 9) {
-                            m_codegen.nop(9);
-                            distToTarget -= 9;
-                        } else {
-                            m_codegen.nop(distToTarget);
-                            break;
-                        }
-                    }
-                } else {
-                    m_codegen.jmp((void *)fnPtr, Xbyak::CodeGenerator::T_NEAR);
-                }
-
-                // Restore code generator position
-                m_codegen.setSize(prevSize);
-                m_codegen.setProtectModeRE();
-            }
-        }
-        m_patches.erase(itPatches);
-    }
+    compiler.PatchReferences(block.Location(), fnPtr);
 
     return fnPtr;
 }

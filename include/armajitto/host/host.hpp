@@ -3,9 +3,9 @@
 #include "armajitto/core/context.hpp"
 #include "armajitto/ir/basic_block.hpp"
 
-namespace armajitto {
+#include "host_code.hpp"
 
-using HostCode = uintptr_t;
+namespace armajitto {
 
 // Base class for host compilers and invokers.
 class Host {

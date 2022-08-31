@@ -12,6 +12,8 @@
 
 namespace armajitto::x86_64 {
 
+using namespace Xbyak::util;
+
 // ---------------------------------------------------------------------------------------------------------------------
 // System method accessor trampolines
 
@@ -106,6 +108,19 @@ static void SystemStoreCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+x64Host::Compiler::Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen,
+                            const ir::BasicBlock &block)
+    : context(context)
+    , compiledCode(compiledCode)
+    , armState(context.GetARMState())
+    , codegen(codegen)
+    , regAlloc(codegen) {
+
+    regAlloc.Analyze(block);
+    mode = block.Location().Mode();
+    thumb = block.Location().IsThumbMode();
+}
+
 void x64Host::Compiler::PreProcessOp(const ir::IROp *op) {
     regAlloc.SetInstruction(op);
 }
@@ -184,6 +199,112 @@ void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblC
     case arm::Condition::NV: // never
         codegen.jmp(lblCondFail);
         break;
+    }
+}
+
+void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block, HostCode epilog) {
+    using Terminal = ir::BasicBlock::Terminal;
+    const auto blockLocKey = block.Location().ToUint64();
+
+    switch (block.GetTerminal()) {
+    case Terminal::DirectLink: {
+        auto targetLoc = block.GetTerminalLocation();
+        auto it = compiledCode.blockCache.find(targetLoc.ToUint64());
+        if (it != compiledCode.blockCache.end()) {
+            auto code = it->second.code;
+
+            // Jump to the compiled code's address directly
+            /*codegen.mov(rcx, code);
+            codegen.jmp(rcx);*/
+            codegen.jmp((void *)code, Xbyak::CodeGenerator::T_NEAR);
+        } else {
+            // Store this code location to be patched later
+            compiledCode.patches[targetLoc.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
+
+            // Go to epilog if there is no compiled code at the target address
+            /*codegen.mov(abi::kNonvolatileRegs[0], epilog);
+            codegen.jmp(abi::kNonvolatileRegs[0]);*/
+            codegen.jmp((void *)epilog, Xbyak::CodeGenerator::T_NEAR);
+        }
+        break;
+    }
+    case Terminal::IndirectLink: {
+        auto &armState = context.GetARMState();
+        Xbyak::Label noEntry{};
+
+        // Get current CPSR and PC
+        const auto cpsrOffset = armState.CPSROffset();
+        const auto pcRegOffset = armState.GPROffset(arm::GPR::PC, mode);
+
+        // Build cache key
+        auto cacheKeyReg64 = regAlloc.GetTemporary().cvt64();
+        codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+        codegen.shl(cacheKeyReg64.cvt64(), 32);
+        codegen.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
+
+        // Lookup entry
+        // TODO: redesign cache to not rely on this function call
+        CompileInvokeHostFunction(cacheKeyReg64, CompiledCode::GetCodeForLocation, compiledCode.blockCache,
+                                  cacheKeyReg64);
+
+        // Check for nullptr
+        auto cacheEntryReg64 = cacheKeyReg64;
+        codegen.test(cacheEntryReg64, cacheKeyReg64);
+        codegen.jz(noEntry);
+
+        // Entry found, jump to linked block
+        codegen.jmp(cacheEntryReg64);
+
+        // Entry not found, bail out
+        codegen.L(noEntry);
+
+        // Cleanup temporaries used here
+        regAlloc.ReleaseTemporaries();
+    }
+    case Terminal::Return:
+        // Go to epilog
+        /*codegen.mov(abi::kNonvolatileRegs[0], epilog);
+        codegen.jmp(abi::kNonvolatileRegs[0]);*/
+        codegen.jmp((void *)epilog, Xbyak::CodeGenerator::T_NEAR);
+        break;
+    }
+}
+
+void x64Host::Compiler::PatchReferences(LocationRef loc, HostCode blockCode) {
+    auto itPatches = compiledCode.patches.find(loc.ToUint64());
+    if (itPatches != compiledCode.patches.end()) {
+        for (auto &patchInfo : itPatches->second) {
+            auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+            if (itPatchBlock != compiledCode.blockCache.end()) {
+                // Edit code
+                codegen.setProtectModeRW();
+
+                // Go to patch location
+                auto prevSize = codegen.getSize();
+                codegen.setSize(patchInfo.codePos - codegen.getCode());
+
+                // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
+                auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
+                if (distToTarget >= 1 && distToTarget <= 27) {
+                    for (;;) {
+                        if (distToTarget > 9) {
+                            codegen.nop(9);
+                            distToTarget -= 9;
+                        } else {
+                            codegen.nop(distToTarget);
+                            break;
+                        }
+                    }
+                } else {
+                    codegen.jmp((void *)blockCode, Xbyak::CodeGenerator::T_NEAR);
+                }
+
+                // Restore code generator position
+                codegen.setSize(prevSize);
+                codegen.setProtectModeRE();
+            }
+        }
+        compiledCode.patches.erase(itPatches);
     }
 }
 

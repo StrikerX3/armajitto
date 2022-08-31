@@ -953,9 +953,10 @@ void testCompiler() {
     // writeARM(0xEAFFFFFE); // b $
 
     // Multiple blocks
-    writeARM(0x03A02012); // moveq r2, #0x12
-    writeARM(0x03A03B0D); // moveq r3, #0x3400
-    writeARM(0x13A04004); // movne r4, #0x4
+    writeARM(0x03A01004); // moveq r1, #0x4
+    writeARM(0x03A02B0D); // moveq r2, #0x3400
+    writeARM(0x13A03402); // movne r3, #0x02000000
+    writeARM(0x112FFF10); // bxne r0
 
     // TODO: implement block terminals, block cache and lookups, block linking, etc.
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
@@ -1091,7 +1092,8 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
     armState.CPSR().mode = mode;
 
-    // Block condition test
+    // Block condition and linking test
+    armState.GPR(armajitto::arm::GPR::R0) = baseAddress;
     armState.CPSR().n = 0;
     armState.CPSR().z = 0;
     armState.CPSR().c = 0;
