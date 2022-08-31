@@ -587,7 +587,8 @@ void Emitter::FetchInstruction() {
 
 void Emitter::TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb) {
     const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-    const uint32_t pc = targetAddress + 2 * instrSize;
+    const uint32_t addrMask = ~(instrSize - 1);
+    const uint32_t pc = (targetAddress & addrMask) + 2 * instrSize;
     m_block.TerminateDirectLink({pc, mode, thumb});
 }
 

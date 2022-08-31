@@ -956,6 +956,7 @@ void testCompiler() {
     writeARM(0x03A01004); // moveq r1, #0x4
     writeARM(0x03A02B0D); // moveq r2, #0x3400
     writeARM(0x13A03402); // movne r3, #0x02000000
+    writeARM(0x13830C01); // orrne r0, r3, #0x0100
     writeARM(0x112FFF10); // bxne r0
 
     // TODO: implement block terminals, block cache and lookups, block linking, etc.
