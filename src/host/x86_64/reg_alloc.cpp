@@ -115,6 +115,9 @@ void RegisterAllocator::ReleaseVars() {
 }
 
 void RegisterAllocator::ReleaseTemporaries() {
+    for (auto reg : m_tempRegs) {
+        m_allocatedRegs.set(reg.getIdx(), false);
+    }
     m_freeRegs.insert(m_freeRegs.end(), m_tempRegs.begin(), m_tempRegs.end());
     m_tempRegs.clear();
 }
