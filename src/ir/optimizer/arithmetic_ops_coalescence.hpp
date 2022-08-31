@@ -34,7 +34,7 @@ namespace armajitto::ir {
 // accumulated sum up to that point. MVN or EOR with all bits flipped negates and subtracts one from the running sum.
 class ArithmeticOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter);
+    ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
 
 private:
     void PreProcess(IROp *op) final;
@@ -121,7 +121,7 @@ private:
         }
     };
 
-    std::vector<Value> m_values;
+    std::pmr::vector<Value> m_values;
 
     void ResizeValues(size_t index);
 

@@ -93,7 +93,7 @@ namespace armajitto::ir {
 //    0x00000000  0x........    0xFFFFFFFF    0         mvn <final var>, <base var>
 class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter);
+    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
 
 private:
     void PreProcess(IROp *op) final;
@@ -283,8 +283,10 @@ private:
         }
     };
 
+    std::pmr::monotonic_buffer_resource &m_buffer;
+
     // Value per variable
-    std::vector<Value> m_values;
+    std::pmr::vector<Value> m_values;
 
     void ResizeValues(size_t index);
 
@@ -330,9 +332,9 @@ private:
         const Variable expectedInput;
         const Variable expectedOutput;
 
-        const std::vector<Value> &values;
+        const std::pmr::vector<Value> &values;
 
-        BitwiseOpsMatchState(Value &value, Variable expectedOutput, const std::vector<Value> &values);
+        BitwiseOpsMatchState(Value &value, Variable expectedOutput, const std::pmr::vector<Value> &values);
 
         bool Check(const Value *value);
 

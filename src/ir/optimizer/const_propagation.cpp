@@ -10,8 +10,10 @@
 
 namespace armajitto::ir {
 
-ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter)
-    : OptimizerPassBase(emitter) {
+ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter,
+                                                             std::pmr::monotonic_buffer_resource &buffer)
+    : OptimizerPassBase(emitter)
+    , m_varSubsts(&buffer) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_varSubsts.resize(varCount);

@@ -3,9 +3,12 @@
 
 namespace armajitto::ir {
 
-BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter)
+BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter,
+                                                                       std::pmr::monotonic_buffer_resource &buffer)
     : OptimizerPassBase(emitter)
-    , m_varSubst(emitter.VariableCount()) {
+    , m_buffer(buffer)
+    , m_values(&buffer)
+    , m_varSubst(emitter.VariableCount(), buffer) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_values.resize(varCount);
@@ -684,7 +687,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(Value &value, Variable expectedOutput,
-                                                                               const std::vector<Value> &values)
+                                                                               const std::pmr::vector<Value> &values)
     : ones(value.Ones())
     , zeros(value.Zeros())
     , flips(value.Flips())

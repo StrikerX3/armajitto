@@ -73,7 +73,7 @@ namespace armajitto::ir {
 // variables are substituted in subsequent instructions.
 class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
-    ConstPropagationOptimizerPass(Emitter &emitter);
+    ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
 
 private:
     void PreProcess() final;
@@ -158,7 +158,7 @@ private:
     };
 
     // Variable substitutions lookup table
-    std::vector<Value> m_varSubsts;
+    std::pmr::vector<Value> m_varSubsts;
 
     // Variable substitution operations
     void ResizeVarSubsts(size_t index);

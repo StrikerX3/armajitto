@@ -4,7 +4,8 @@
 
 namespace armajitto::ir {
 
-VarSubstitutor::VarSubstitutor(size_t varCount) {
+VarSubstitutor::VarSubstitutor(size_t varCount, std::pmr::monotonic_buffer_resource &buffer)
+    : m_varSubsts(&buffer) {
     m_varSubsts.resize(varCount);
 }
 

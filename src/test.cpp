@@ -608,7 +608,7 @@ void testTranslatorAndOptimizer() {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(alloc, *block, pass, false)) {
+        if (armajitto::ir::Optimize(*block, pass, false)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
@@ -645,7 +645,7 @@ void testTranslatorAndOptimizer() {
     printf("  finished\n");
     printf("==================================================\n\n");
 
-    armajitto::ir::Optimize(alloc, *block);
+    armajitto::ir::Optimize(*block);
     printf("after all optimizations:\n\n");
     printBlock();
 }
@@ -987,7 +987,7 @@ void testCompiler() {
         translator.Translate(*block);
 
         // Optimize code
-        armajitto::ir::Optimize(alloc, *block);
+        armajitto::ir::Optimize(*block);
 
         // Display IR code
         printf("translated %u instructions:\n\n", block->InstructionCount());

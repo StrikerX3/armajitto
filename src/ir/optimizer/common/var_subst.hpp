@@ -3,6 +3,7 @@
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 
+#include <memory_resource>
 #include <vector>
 
 namespace armajitto::ir {
@@ -15,7 +16,7 @@ namespace armajitto::ir {
 // Does not work on a backward scan.
 class VarSubstitutor {
 public:
-    VarSubstitutor(size_t varCount);
+    VarSubstitutor(size_t varCount, std::pmr::monotonic_buffer_resource &buffer);
 
     // Assigns a substitution of all <src> variables to <dst>.
     void Assign(VariableArg dst, VariableArg src);
@@ -24,7 +25,7 @@ public:
     bool Substitute(IROp *op);
 
 private:
-    std::vector<Variable> m_varSubsts;
+    std::pmr::vector<Variable> m_varSubsts;
 
     void ResizeVarSubsts(size_t index);
 

@@ -7,7 +7,8 @@
 
 namespace armajitto::memory {
 
-struct Allocator final : public std::pmr::memory_resource {
+class Allocator {
+public:
     // Memory allocated for chunks is a multiple of this amount.
     // Must be a power of two.
     static constexpr std::size_t kChunkMemSize = 65536u;
@@ -21,6 +22,67 @@ struct Allocator final : public std::pmr::memory_resource {
     // Must be a power of two and no smaller than the host page size.
     static constexpr std::size_t kChunkPageSize = 4096u;
 
+    // Reference to a non-trivially-destructible object allocated by this allocator.
+    // Invokes the object's destructor upon destruction.
+    template <typename T>
+    struct Ref {
+        Ref(const Ref &) = delete;
+        Ref(Ref &&obj)
+            : allocator(obj.allocator) {
+            std::swap(ptr, obj.ptr);
+        }
+        ~Ref() {
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                if (ptr != nullptr) {
+                    ptr->~T();
+                }
+            }
+            allocator.Free(ptr);
+        }
+
+        T *operator&() {
+            return ptr;
+        }
+
+        const T *operator&() const {
+            return ptr;
+        }
+
+        T &operator*() {
+            return *ptr;
+        }
+
+        const T &operator*() const {
+            return *ptr;
+        }
+
+        T *operator->() {
+            return ptr;
+        }
+
+        const T *operator->() const {
+            return ptr;
+        }
+
+        bool IsValid() const {
+            return ptr != nullptr;
+        }
+
+        operator bool() const {
+            return IsValid();
+        }
+
+    private:
+        Ref(Allocator &allocator, T *ptr)
+            : allocator(allocator)
+            , ptr(ptr) {}
+
+        Allocator &allocator;
+        T *ptr = nullptr;
+
+        friend class Allocator;
+    };
+
     ~Allocator() {
         Chunk *chunk = m_head;
         while (chunk != nullptr) {
@@ -30,7 +92,7 @@ struct Allocator final : public std::pmr::memory_resource {
         }
     }
 
-    void *do_allocate(std::size_t bytes, std::size_t alignment) final {
+    void *AllocateRaw(std::size_t bytes, std::size_t alignment = sizeof(void *)) {
         // Traverse the chunk chain trying to perform the requested allocation
         Chunk *chunk = m_head;
         Chunk *prevChunk = nullptr;
@@ -77,7 +139,27 @@ struct Allocator final : public std::pmr::memory_resource {
         return chunk->Allocate(bytes, alignment);
     }
 
-    void do_deallocate(void *p, std::size_t bytes, std::size_t alignment) final {
+    template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
+    T *Allocate(Args &&...args) {
+        void *ptr = AllocateRaw(sizeof(T));
+        if (ptr != nullptr) {
+            return new (ptr) T(std::forward<Args>(args)...);
+        } else {
+            return nullptr;
+        }
+    }
+
+    template <typename T, typename... Args, typename = std::enable_if_t<!std::is_trivially_destructible_v<T>>>
+    Ref<T> AllocateNonTrivial(Args &&...args) {
+        void *ptr = AllocateRaw(sizeof(T));
+        if (ptr != nullptr) {
+            return {*this, new (ptr) T(std::forward<Args>(args)...)};
+        } else {
+            return {*this, nullptr};
+        }
+    }
+
+    void Free(void *p) {
         // Find the chunk that allocated this pointer and release the pointer
         // TODO: speed up pointer -> chunk lookups somehow
         Chunk *chunk = m_head;
@@ -100,10 +182,6 @@ struct Allocator final : public std::pmr::memory_resource {
             prevChunk = chunk;
             chunk = chunk->next;
         }
-    }
-
-    bool do_is_equal(const std::pmr::memory_resource &other) const noexcept final {
-        return this == &other;
     }
 
 private:
@@ -258,10 +336,21 @@ private:
 #endif
 };
 
-// TODO: global allocator + AllocatorMixin; make BasicBlock, IROp and all optimizers use it
-// TODO: replace all std containers with the pmr equivalents; use the same global allocator
-// - Use std::pmr::monotonic_buffer_resource for short-lived objects like the optimizers
-// - Use custom allocator directly for long-lived objects such as host code blocks
-// - BasicBlock might be considered short-lived for now, since the IR ops are no longer used when compiled
+struct PMRAllocator final : public std::pmr::memory_resource {
+    void *do_allocate(std::size_t bytes, std::size_t alignment) final {
+        return m_allocator.AllocateRaw(bytes, alignment);
+    }
+
+    void do_deallocate(void *p, std::size_t /*bytes*/, std::size_t /*alignment*/) final {
+        m_allocator.Free(p);
+    }
+
+    bool do_is_equal(const std::pmr::memory_resource &other) const noexcept final {
+        return this == &other;
+    }
+
+private:
+    Allocator m_allocator;
+};
 
 } // namespace armajitto::memory
