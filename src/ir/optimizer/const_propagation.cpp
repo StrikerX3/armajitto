@@ -836,7 +836,7 @@ void ConstPropagationOptimizerPass::Process(IRBranchOp *op) {
 
     // If a variable branch became an immediate branch, replace the terminal with a direct link
     if (op->address.immediate && m_emitter.GetBlock().GetTerminal() != BasicBlock::Terminal::DirectLink) {
-        m_emitter.TerminateBranchToKnownAddress(op->address.imm.value, m_emitter.Mode(), m_emitter.IsThumbMode());
+        m_emitter.TerminateDirectLink(op->address.imm.value, m_emitter.Mode(), m_emitter.IsThumbMode());
         MarkDirty();
     }
 }
@@ -847,8 +847,7 @@ void ConstPropagationOptimizerPass::Process(IRBranchExchangeOp *op) {
 
     // If a variable branch became an immediate branch, replace the terminal with a direct link
     if (op->address.immediate && !op->bx4 && m_emitter.GetBlock().GetTerminal() != BasicBlock::Terminal::DirectLink) {
-        m_emitter.TerminateBranchToKnownAddress(op->address.imm.value, m_emitter.Mode(),
-                                                bit::test<0>(op->address.imm.value));
+        m_emitter.TerminateDirectLink(op->address.imm.value, m_emitter.Mode(), bit::test<0>(op->address.imm.value));
         MarkDirty();
     }
 }

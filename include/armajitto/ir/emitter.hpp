@@ -310,8 +310,8 @@ public:
     // -------------------------------------------------------------------------
     // Terminals
 
-    void TerminateBranchToKnownAddress(uint32_t targetAddress, arm::Mode mode, bool thumb);
-    void TerminateBranchToUnknownAddress();
+    void TerminateDirectLink(uint32_t targetAddress, arm::Mode mode, bool thumb);
+    void TerminateIndirectLink();
     void TerminateContinueExecution();
     void TerminateReturn();
 

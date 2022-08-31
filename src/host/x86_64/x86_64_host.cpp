@@ -110,21 +110,26 @@ void x64Host::CompileProlog() {
     // Also include the stack alignment offset
     m_codegen.sub(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
 
-    // Copy CPSR NZCV flags to ah/al
-    auto flagsReg = abi::kHostFlagsReg;
-    m_codegen.mov(flagsReg, dword[CastUintPtr(&armState.CPSR())]);
-    m_codegen.shr(flagsReg, ARMflgNZCVShift); // Shift NZCV bits to [3..0]
+    // Copy CPSR NZCV and I flags to EAX
+    auto flagsReg32 = abi::kHostFlagsReg;
+    auto iFlagReg32 = abi::kNonvolatileRegs[1].cvt32(); // Use this as scratch register for the I flag
+    m_codegen.mov(flagsReg32, dword[CastUintPtr(&armState.CPSR())]);
+    m_codegen.mov(iFlagReg32, flagsReg32);
+    m_codegen.and_(iFlagReg32, (1 << ARMflgIPos));      // Keep I flag
+    m_codegen.shl(iFlagReg32, x64flgIPos - ARMflgIPos); // Shift I flag to correct place
+    m_codegen.shr(flagsReg32, ARMflgNZCVShift);         // Shift NZCV bits to [3..0]
     if (CPUID::HasFastPDEPAndPEXT()) {
         // AH       AL
         // SZ0A0P1C -------V
         // NZ.....C .......V
         auto depMask = abi::kNonvolatileRegs[0];
         m_codegen.mov(depMask.cvt32(), 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
-        m_codegen.pdep(flagsReg, flagsReg, depMask.cvt32());
+        m_codegen.pdep(flagsReg32, flagsReg32, depMask.cvt32());
     } else {
-        m_codegen.imul(flagsReg, flagsReg, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
-        m_codegen.and_(flagsReg, x64FlagsMask);                // -------- -------- NZ-----C -------V
+        m_codegen.imul(flagsReg32, flagsReg32, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
+        m_codegen.and_(flagsReg32, x64FlagsMask);                  // -------- -------- NZ-----C -------V
     }
+    m_codegen.or_(flagsReg32, iFlagReg32); // -------- -------I NZ-----C -------V
 
     // Setup other static registers
     m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // ARM state pointer
@@ -140,10 +145,9 @@ void x64Host::CompileProlog() {
 
     // At this point, the CPU is halted
 
-    // Get and invert CPSR I bit
-    const auto cpsrOffset = armState.CPSROffset();
+    // Get inverted CPSR I bit
     auto tmpReg8 = abi::kNonvolatileRegs.back().cvt8();
-    m_codegen.test(dword[abi::kARMStateReg + cpsrOffset], (1u << ARMflgIPos));
+    m_codegen.test(abi::kHostFlagsReg, x64flgI);
     m_codegen.sete(tmpReg8);
 
     // Compare against IRQ line
@@ -162,10 +166,8 @@ void x64Host::CompileProlog() {
     // Block execution
 
     // Call block function
-    auto funcAddr = abi::kNonvolatileRegs.back();
     m_codegen.L(lblContinue);
-    m_codegen.mov(funcAddr, abi::kIntArgRegs[0]); // Get block code pointer from 1st arg
-    m_codegen.jmp(funcAddr);                      // Jump to block code
+    m_codegen.jmp(abi::kIntArgRegs[0]); // Jump to block code (1st argument passed to prolog function)
 
     m_codegen.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_compiledCode.prolog), m_codegen.getCurr<uintptr_t>(), "__prolog");
@@ -243,6 +245,7 @@ void x64Host::CompileEnterIRQ() {
     m_codegen.and_(cpsrReg32, ~0b11'1111);
     m_codegen.or_(cpsrReg32, setBits);
     m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], cpsrReg32);
+    // TODO: update I in EAX
 
     // Set PC
     constexpr uint32_t irqVectorOffset =

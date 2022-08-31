@@ -688,7 +688,7 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
         m_flagsUpdated = true;
     }
     if (instr.c) {
-        emitter.TerminateReturn();
+        emitter.TerminateIndirectLink();
         m_endBlock = true;
     }
 }

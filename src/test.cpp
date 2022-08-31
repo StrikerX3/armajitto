@@ -754,6 +754,7 @@ void testCompiler() {
     // writeARM(0xE126F001); // msr cpsr_xs, r1
     // writeARM(0xE368F4A5); // msr spsr_f, 0xA5
     // writeARM(0xE361F01F); // msr spsr_c, 0x1F
+    writeARM(0xE321F09F); // msr cpsr_c, 0x9F
 
     // LDR, STR, LDRB, STRB
     // writeARM(0xE5920000); // ldr r0, [r2]
@@ -1106,8 +1107,9 @@ void testCompiler() {
     armState.CPSR().z = 0;
     armState.CPSR().c = 0;
     armState.CPSR().v = 0;
-    armState.IRQLine() = true;
-    armState.ExecutionState() = armajitto::arm::ExecState::Halted;
+    armState.CPSR().i = 0;
+    // armState.IRQLine() = true;
+    // armState.ExecutionState() = armajitto::arm::ExecState::Halted;
 
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;

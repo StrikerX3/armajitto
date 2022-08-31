@@ -131,12 +131,11 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
 }
 
 void x64Host::Compiler::CompileIRQLineCheck() {
-    const auto cpsrOffset = armState.CPSROffset();
     const auto irqLineOffset = armState.IRQLineOffset();
     auto tmpReg8 = regAlloc.GetTemporary().cvt8();
 
-    // Get and invert CPSR I bit
-    codegen.test(dword[abi::kARMStateReg + cpsrOffset], (1u << ARMflgIPos));
+    // Get inverted CPSR I bit
+    codegen.test(abi::kHostFlagsReg, x64flgI);
     codegen.sete(tmpReg8);
 
     // Compare against IRQ line
@@ -253,6 +252,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
         codegen.shl(cacheKeyReg64.cvt64(), 32);
         codegen.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
+        regAlloc.ReleaseTemporaries(); // Temporary register not needed anymore
 
         // Lookup entry
         // TODO: redesign cache to not rely on this function call
@@ -269,9 +269,6 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 
         // Entry not found, bail out
         codegen.L(noEntry);
-
-        // Cleanup temporaries used here
-        regAlloc.ReleaseTemporaries();
     }
     case Terminal::Return: CompileExit(); break;
     }
@@ -319,6 +316,8 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) 
     }
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
 void x64Host::Compiler::CompileOp(const ir::IRGetRegisterOp *op) {
     auto dstReg32 = regAlloc.Get(op->dst.var);
     auto offset = armState.GPROffset(op->src.gpr, op->src.Mode());
@@ -345,9 +344,20 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
     auto offset = armState.CPSROffset();
     if (op->src.immediate) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
+        // Update I in EAX
+        if (bit::test<ARMflgIPos>(op->src.imm.value)) {
+            codegen.or_(abi::kHostFlagsReg, x64flgI);
+        } else {
+            codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+        }
     } else {
         auto srcReg32 = regAlloc.Get(op->src.var.var);
         codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
+        // Update I in EAX
+        codegen.and_(srcReg32, (1 << ARMflgIPos));
+        codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+        codegen.shl(srcReg32, x64flgIPos - ARMflgIPos);
+        codegen.or_(abi::kHostFlagsReg, srcReg32);
     }
 }
 
