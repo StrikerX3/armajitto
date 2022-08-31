@@ -688,6 +688,7 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
         m_flagsUpdated = true;
     }
     if (instr.c) {
+        emitter.TerminateReturn();
         m_endBlock = true;
     }
 }
@@ -1077,6 +1078,7 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
         auto value = emitter.GetRegister(instr.rd);
         emitter.StoreCopRegister(instr.cpnum, instr.reg, instr.ext, value);
         if (cop.RegStoreHasSideEffects(instr.reg)) {
+            emitter.TerminateReturn();
             m_endBlock = true;
         }
     }

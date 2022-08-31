@@ -14,6 +14,8 @@ constexpr uint32_t ARMTox64FlagsMult = 0x1081;
 // This is a constant used to create the ARM format from the x64 flags format.
 constexpr uint32_t x64ToARMFlagsMult = 0x1021'0000;
 
+constexpr uint32_t ARMflgIPos = 7u;
+constexpr uint32_t ARMflgTPos = 5u;
 constexpr uint32_t ARMflgQPos = 27u;
 constexpr uint32_t ARMflgNZCVShift = 28u;
 

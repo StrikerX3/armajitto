@@ -6,7 +6,7 @@ namespace armajitto::arm {
 
 State::State() {
     for (uint32_t mode = 0; mode < 32; mode++) {
-        const auto normMode = NormalizedMode(static_cast<Mode>(mode));
+        const auto normMode = Normalize(static_cast<Mode>(mode));
 
         // 0..7: shared by all modes
         for (uint32_t gpr = 0; gpr <= 7; gpr++) {
@@ -51,6 +51,10 @@ State::State() {
         m_psrOffsets[i] = CastUintPtr(m_psrPtrs[i]) - CastUintPtr(this);
     }
 
+    m_gprOffsetsOffset = CastUintPtr(m_gprOffsets.data()) - CastUintPtr(this);
+
+    m_irqLineOffset = CastUintPtr(&m_irqLine) - CastUintPtr(this);
+
     Reset();
 }
 
@@ -63,6 +67,8 @@ void State::Reset() {
     m_regsFIQ.fill(0);
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
+
+    m_irqLine = false;
 
     m_cp15.Reset();
 }

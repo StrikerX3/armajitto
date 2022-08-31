@@ -130,6 +130,22 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
     regAlloc.ReleaseTemporaries();
 }
 
+void x64Host::Compiler::CompileIRQLineCheck() {
+    const auto cpsrOffset = armState.CPSROffset();
+    const auto irqLineOffset = armState.IRQLineOffset();
+    auto tmpReg32 = regAlloc.GetTemporary();
+
+    // Get and invert CPSR I bit
+    codegen.test(dword[abi::kARMStateReg + cpsrOffset], (1u << ARMflgIPos));
+    codegen.sete(tmpReg32.cvt8());
+
+    // Compare against IRQ line
+    codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg32.cvt8());
+
+    // Jump to IRQ switch code if the IRQ line is raised and interrupts are not inhibited
+    codegen.jnz((void *)compiledCode.exitIRQ);
+}
+
 void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
     switch (cond) {
     case arm::Condition::EQ: // Z=1
@@ -202,7 +218,7 @@ void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblC
     }
 }
 
-void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block, HostCode epilog) {
+void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
     using Terminal = ir::BasicBlock::Terminal;
     const auto blockLocKey = block.Location().ToUint64();
 
@@ -214,17 +230,13 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block, HostCode ep
             auto code = it->second.code;
 
             // Jump to the compiled code's address directly
-            /*codegen.mov(rcx, code);
-            codegen.jmp(rcx);*/
             codegen.jmp((void *)code, Xbyak::CodeGenerator::T_NEAR);
         } else {
             // Store this code location to be patched later
             compiledCode.patches[targetLoc.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
 
-            // Go to epilog if there is no compiled code at the target address
-            /*codegen.mov(abi::kNonvolatileRegs[0], epilog);
-            codegen.jmp(abi::kNonvolatileRegs[0]);*/
-            codegen.jmp((void *)epilog, Xbyak::CodeGenerator::T_NEAR);
+            // Exit due to cache miss; need to compile new block
+            CompileExit();
         }
         break;
     }
@@ -261,16 +273,15 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block, HostCode ep
         // Cleanup temporaries used here
         regAlloc.ReleaseTemporaries();
     }
-    case Terminal::Return:
-        // Go to epilog
-        /*codegen.mov(abi::kNonvolatileRegs[0], epilog);
-        codegen.jmp(abi::kNonvolatileRegs[0]);*/
-        codegen.jmp((void *)epilog, Xbyak::CodeGenerator::T_NEAR);
-        break;
+    case Terminal::Return: CompileExit(); break;
     }
 }
 
-void x64Host::Compiler::PatchReferences(LocationRef loc, HostCode blockCode) {
+void x64Host::Compiler::CompileExit() {
+    codegen.jmp((void *)compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+}
+
+void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) {
     auto itPatches = compiledCode.patches.find(loc.ToUint64());
     if (itPatches != compiledCode.patches.end()) {
         for (auto &patchInfo : itPatches->second) {

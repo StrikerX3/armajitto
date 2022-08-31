@@ -21,6 +21,13 @@ public:
 
     void Reset();
 
+    // Convenience method that sets PC and the CPSR T bit to the specified values.
+    // Also applies the pipeline offset to the address (+8 for ARM, +4 for Thumb).
+    void JumpTo(uint32_t address, bool thumb) {
+        GPR(GPR::PC) = address + (thumb ? 4 : 8);
+        CPSR().t = thumb;
+    }
+
     uint32_t &GPR(GPR gpr, Mode mode) {
         const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
         assert(static_cast<size_t>(gpr) < 16);
@@ -54,25 +61,16 @@ public:
         return *m_psrPtrs[index];
     }
 
-    void JumpTo(uint32_t address, bool thumb) {
-        GPR(GPR::PC) = address + (thumb ? 4 : 8);
-        CPSR().t = thumb;
+    const PSR &SPSR(Mode mode) const {
+        return const_cast<State *>(this)->SPSR(mode);
     }
 
-    uintptr_t GPROffset(enum GPR gpr, enum Mode mode) const {
-        const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
-        assert(index < kNumGPREntries);
-        return m_gprOffsets[index];
+    bool &IRQLine() {
+        return m_irqLine;
     }
 
-    uintptr_t CPSROffset() const {
-        return m_psrOffsets[0];
-    }
-
-    uintptr_t SPSROffset(enum Mode mode) const {
-        const auto index = static_cast<size_t>(mode);
-        assert(index < kNumPSREntries);
-        return m_psrOffsets[index];
+    const bool &IRQLine() const {
+        return const_cast<State *>(this)->IRQLine();
     }
 
     Coprocessor &GetCoprocessor(uint8_t cpnum) {
@@ -89,6 +87,33 @@ public:
 
     SystemControlCoprocessor &GetSystemControlCoprocessor() {
         return m_cp15;
+    }
+
+    // -------------------------------------------------------------------------
+    // Helper methods for the host compiler
+
+    uintptr_t GPROffset(enum GPR gpr, enum Mode mode) const {
+        const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
+        assert(index < kNumGPREntries);
+        return m_gprOffsets[index];
+    }
+
+    uintptr_t GPROffsetsOffset() const {
+        return m_gprOffsetsOffset;
+    }
+
+    uintptr_t CPSROffset() const {
+        return m_psrOffsets[0];
+    }
+
+    uintptr_t SPSROffset(enum Mode mode) const {
+        const auto index = static_cast<size_t>(mode);
+        assert(index < kNumPSREntries);
+        return m_psrOffsets[index];
+    }
+
+    uintptr_t IRQLineOffset() const {
+        return m_irqLineOffset;
     }
 
 private:
@@ -128,6 +153,18 @@ private:
     // [5] SPSR_und
     std::array<union PSR, kNumBankedModes> m_psrs;
 
+    // Coprocessors
+    DummyDebugCoprocessor m_cp14;
+    SystemControlCoprocessor m_cp15;
+
+    // IRQ line
+    bool m_irqLine = false;
+
+    // TODO: Halt state
+
+    // -------------------------------------------------------------------------
+    // Lookup tables
+
     static constexpr size_t kNumGPREntries = 16 * 32;
     static constexpr size_t kNumPSREntries = 32;
 
@@ -138,10 +175,9 @@ private:
     // Lookup tables of GPRs and PSRs offsets
     std::array<uintptr_t, kNumGPREntries> m_gprOffsets;
     std::array<uintptr_t, kNumPSREntries> m_psrOffsets;
+    uintptr_t m_gprOffsetsOffset;
 
-    // Coprocessors
-    DummyDebugCoprocessor m_cp14;
-    SystemControlCoprocessor m_cp15;
+    uintptr_t m_irqLineOffset;
 };
 
 } // namespace armajitto::arm

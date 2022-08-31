@@ -28,21 +28,16 @@ public:
 
     void Call(LocationRef loc) final {
         auto code = GetCodeForLocation(loc);
-        Call(code);
+        return Call(code);
     }
 
     void Call(HostCode code) final {
         if (code != 0) {
-            m_prolog(code);
+            m_compiledCode.prolog(code);
         }
     }
 
 private:
-    using PrologFn = void (*)(uintptr_t blockFn);
-    PrologFn m_prolog;
-    HostCode m_epilog;
-    uint64_t m_stackAlignmentOffset;
-
     struct XbyakAllocator final : Xbyak::Allocator {
         using Xbyak::Allocator::Allocator;
 
@@ -60,11 +55,13 @@ private:
     XbyakAllocator m_alloc;
     Xbyak::CodeGenerator m_codegen;
     CompiledCode m_compiledCode;
+    uint64_t m_stackAlignmentOffset;
 
     struct Compiler;
 
     void CompileProlog();
     void CompileEpilog();
+    void CompileExitIRQ();
 };
 
 } // namespace armajitto::x86_64

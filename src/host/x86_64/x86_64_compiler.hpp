@@ -17,9 +17,12 @@ struct x64Host::Compiler {
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
+    void CompileIRQLineCheck();
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
-    void CompileTerminal(const ir::BasicBlock &block, HostCode epilog);
-    void PatchReferences(LocationRef loc, HostCode blockCode);
+    void CompileTerminal(const ir::BasicBlock &block);
+    void CompileExit();
+
+    void PatchIndirectLinks(LocationRef loc, HostCode blockCode);
 
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>

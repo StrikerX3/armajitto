@@ -959,9 +959,9 @@ void testCompiler() {
     writeARM(0x13830C01); // orrne r0, r3, #0x0100
     writeARM(0x112FFF10); // bxne r0
 
-    // TODO: implement block terminals, block cache and lookups, block linking, etc.
+    // TODO: implement CPU halt state, bail out if halted
+    // TODO: implement cycle counting and bailing out of execution when cycles run out
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
-    // TODO: implement cycle counting
 
     // Create host compiler
     armajitto::x86_64::x64Host host{context};
@@ -1099,6 +1099,7 @@ void testCompiler() {
     armState.CPSR().z = 0;
     armState.CPSR().c = 0;
     armState.CPSR().v = 0;
+    armState.IRQLine() = true;
 
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;
@@ -1186,9 +1187,7 @@ void testCompiler() {
     // Execute code using HostCode
     printf("\ninvoking code at %p\n", (void *)entryCode);
     host.Call(entryCode);
-    printf("\n");
-
-    printf("state after execution:\n");
+    printf("\nstate after execution:\n");
     printState();
 }
 

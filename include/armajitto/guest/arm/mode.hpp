@@ -54,7 +54,7 @@ inline size_t NormalizedIndex(Mode mode) {
     return indices[static_cast<size_t>(mode)];
 }
 
-inline Mode NormalizedMode(Mode mode) {
+inline Mode Normalize(Mode mode) {
     static constexpr auto modes = [] {
         std::array<Mode, 32> modes{};
         modes.fill(Mode::User);

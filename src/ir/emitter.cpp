@@ -484,6 +484,7 @@ Variable Emitter::GetOffsetFromCurrentInstructionAddress(int32_t offset) {
 void Emitter::CopySPSRToCPSR() {
     auto spsr = GetSPSR();
     SetCPSR(spsr);
+    TerminateReturn();
 }
 
 Variable Emitter::ComputeAddress(const arm::Addressing &addressing) {
@@ -577,6 +578,8 @@ void Emitter::EnterException(arm::Exception vector) {
     auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);
     SetRegister({arm::GPR::LR, m_mode}, lr);
     SetRegister({arm::GPR::PC, m_mode}, pc);
+
+    TerminateReturn();
 }
 
 void Emitter::FetchInstruction() {

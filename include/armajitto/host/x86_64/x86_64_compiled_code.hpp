@@ -20,6 +20,11 @@ struct CompiledCode {
         // TODO: patch type?
     };
 
+    using PrologFn = void (*)(uintptr_t blockFn);
+    PrologFn prolog;
+    HostCode epilog;
+    HostCode exitIRQ;
+
     // Cached blocks by LocationRef::ToUint64()
     std::unordered_map<uint64_t, CachedBlock> blockCache;
 
