@@ -2,6 +2,8 @@
 
 #include "armajitto/util/bit_ops.hpp"
 
+#include <algorithm>
+
 namespace armajitto::arm::cp15 {
 
 void TCM::Reset() {

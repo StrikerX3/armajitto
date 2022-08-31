@@ -5,6 +5,7 @@
 #include "optimizer_pass_base.hpp"
 
 #include <bit>
+#include <memory_resource>
 #include <vector>
 
 namespace armajitto::ir {

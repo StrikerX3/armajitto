@@ -3,6 +3,7 @@
 #include "optimizer_pass_base.hpp"
 
 #include <array>
+#include <memory_resource>
 #include <optional>
 #include <vector>
 

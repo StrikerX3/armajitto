@@ -4,6 +4,7 @@
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
 
+#include <memory_resource>
 #include <vector>
 
 namespace armajitto::ir {

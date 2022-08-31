@@ -3,6 +3,7 @@
 #include "dead_store_elimination_base.hpp"
 
 #include <array>
+#include <memory_resource>
 #include <vector>
 
 namespace armajitto::ir {
