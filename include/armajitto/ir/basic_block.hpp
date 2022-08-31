@@ -176,7 +176,9 @@ private:
         if (op == m_opsTail) {
             m_opsTail = m_opsTail->Next();
         }
-        return op->Erase();
+        IROp *next = op->Erase();
+        m_alloc.Free(op);
+        return next;
     }
 
     uint32_t NextVarID() {
