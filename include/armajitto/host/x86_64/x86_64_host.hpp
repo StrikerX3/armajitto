@@ -76,7 +76,7 @@ private:
 
     void CompileProlog();
     void CompileEpilog();
-    void CompileExitIRQ();
+    void CompileEnterIRQ();
 };
 
 } // namespace armajitto::x86_64

@@ -88,7 +88,7 @@ void x64Host::Clear() {
 
 void x64Host::CompileCommon() {
     CompileEpilog();
-    CompileExitIRQ();
+    CompileEnterIRQ();
     CompileProlog(); // Depends on Epilog and ExitIRQ being compiled
 }
 
@@ -97,6 +97,9 @@ void x64Host::CompileProlog() {
 
     m_compiledCode.prolog = m_codegen.getCurr<CompiledCode::PrologFn>();
     m_codegen.setProtectModeRW();
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Entry setup
 
     // Push all nonvolatile registers
     for (auto &reg : abi::kNonvolatileRegs) {
@@ -123,8 +126,11 @@ void x64Host::CompileProlog() {
         m_codegen.and_(flagsReg, x64FlagsMask);                // -------- -------- NZ-----C -------V
     }
 
-    // Setup static registers
-    m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // Set ARM state pointer
+    // Setup other static registers
+    m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // ARM state pointer
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Execution state check
 
     // Check if the CPU is running
     Xbyak::Label lblContinue{};
@@ -132,7 +138,7 @@ void x64Host::CompileProlog() {
     m_codegen.cmp(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
     m_codegen.je(lblContinue);
 
-    // CPU is halted
+    // At this point, the CPU is halted
 
     // Get and invert CPSR I bit
     const auto cpsrOffset = armState.CPSROffset();
@@ -150,7 +156,10 @@ void x64Host::CompileProlog() {
 
     // Change execution state to Running otherwise, and enter IRQ
     m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
-    m_codegen.jmp((void *)m_compiledCode.exitIRQ);
+    m_codegen.jmp((void *)m_compiledCode.enterIRQ);
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Block execution
 
     // Call block function
     auto funcAddr = abi::kNonvolatileRegs.back();
@@ -184,15 +193,15 @@ void x64Host::CompileEpilog() {
     vtune::ReportCode(m_compiledCode.epilog, m_codegen.getCurr<uintptr_t>(), "__epilog");
 }
 
-void x64Host::CompileExitIRQ() {
-    m_compiledCode.exitIRQ = m_codegen.getCurr<HostCode>();
+void x64Host::CompileEnterIRQ() {
+    m_compiledCode.enterIRQ = m_codegen.getCurr<HostCode>();
     m_codegen.setProtectModeRW();
 
     auto &armState = m_context.GetARMState();
 
     // Get temporary registers for operations
     auto pcReg32 = abi::kIntArgRegs[0].cvt32();
-    auto cpsrReg32 = abi::kIntArgRegs[1].cvt32();
+    auto cpsrReg32 = abi::kIntArgRegs[1].cvt32(); // Also used as 2nd argument to function call
     auto lrReg32 = abi::kIntArgRegs[2].cvt32();
     auto lrOffsetReg32 = abi::kIntArgRegs[3].cvt32();
 
@@ -202,6 +211,9 @@ void x64Host::CompileExitIRQ() {
     const auto pcOffset = armState.GPROffset(arm::GPR::PC, arm::Mode::User);
     const auto baseLROffset = armState.GPROffsetsOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
     const auto execStateOffset = armState.ExecutionStateOffset();
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // IRQ exception vector entry
 
     // Use PC register as temporary storage for CPSR to avoid two memory reads
     m_codegen.mov(pcReg32, dword[abi::kARMStateReg + cpsrOffset]);
@@ -243,17 +255,17 @@ void x64Host::CompileExitIRQ() {
         m_codegen.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
         m_codegen.mov(pcReg32, dword[pcReg32.cvt64() + baseVectorAddressOfs]);
         m_codegen.add(pcReg32, irqVectorOffset);
-        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
     } else {
         // Assume 00000000 if CP15 is absent
         m_codegen.mov(pcReg32, irqVectorOffset);
-        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
     }
+    m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
 
     // Clear halt state
     m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
-    // Try to link directly to IRQ handler if compiled
+    // -----------------------------------------------------------------------------------------------------------------
+    // IRQ handler block linking
 
     // Build cache key
     auto cacheKeyReg64 = cpsrReg32.cvt64(); // 2nd argument to function call, which already contains CPSR

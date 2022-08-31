@@ -23,7 +23,7 @@ struct CompiledCode {
     using PrologFn = void (*)(uintptr_t blockFn);
     PrologFn prolog;
     HostCode epilog;
-    HostCode exitIRQ;
+    HostCode enterIRQ;
 
     // Cached blocks by LocationRef::ToUint64()
     std::unordered_map<uint64_t, CachedBlock> blockCache;
@@ -52,7 +52,7 @@ struct CompiledCode {
         patches.clear();
         prolog = nullptr;
         epilog = HostCode(nullptr);
-        exitIRQ = HostCode(nullptr);
+        enterIRQ = HostCode(nullptr);
     }
 };
 

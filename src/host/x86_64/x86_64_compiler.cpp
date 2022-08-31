@@ -143,7 +143,7 @@ void x64Host::Compiler::CompileIRQLineCheck() {
     codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
 
     // Jump to IRQ switch code if the IRQ line is raised and interrupts are not inhibited
-    codegen.jnz((void *)compiledCode.exitIRQ);
+    codegen.jnz((void *)compiledCode.enterIRQ);
 }
 
 void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
