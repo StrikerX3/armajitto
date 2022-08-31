@@ -144,7 +144,7 @@ public:
     }
 
     template <typename T, typename... Args, typename = std::enable_if_t<!std::is_trivially_destructible_v<T>>>
-    Ref<T> AllocateNonTrivial(Args &&...args) {
+    Ref<T> Allocate(Args &&...args) {
         void *ptr = AllocateRaw(sizeof(T));
         if (ptr != nullptr) {
             return {*this, new (ptr) T(std::forward<Args>(args)...)};
