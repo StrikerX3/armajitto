@@ -29,6 +29,9 @@ public:
     // Calls the specified compiled code, if present.
     virtual void Call(HostCode code) = 0;
 
+    // Clears all compiled code.
+    virtual void Clear() = 0;
+
 protected:
     Context &m_context;
 };

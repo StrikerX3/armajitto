@@ -1,6 +1,7 @@
 #pragma once
 
 #include "coprocessor.hpp"
+#include "exec_state.hpp"
 #include "gpr.hpp"
 #include "mode.hpp"
 #include "psr.hpp"
@@ -116,6 +117,10 @@ public:
         return m_irqLineOffset;
     }
 
+    uintptr_t ExecStateOffset() const {
+        return m_execStateOffset;
+    }
+
 private:
     // ARM registers per mode (abridged)
     //
@@ -160,7 +165,9 @@ private:
     // IRQ line
     bool m_irqLine = false;
 
-    // TODO: Halt state
+    // Execution state.
+    // When halted or stopped, the CPU stops executing code until the IRQ line is raised.
+    ExecState m_execState = ExecState::Running;
 
     // -------------------------------------------------------------------------
     // Lookup tables
@@ -178,6 +185,7 @@ private:
     uintptr_t m_gprOffsetsOffset;
 
     uintptr_t m_irqLineOffset;
+    uintptr_t m_execStateOffset;
 };
 
 } // namespace armajitto::arm

@@ -4,7 +4,8 @@
 
 namespace armajitto::arm {
 
-State::State() {
+State::State()
+    : m_cp15(m_execState) {
     for (uint32_t mode = 0; mode < 32; mode++) {
         const auto normMode = Normalize(static_cast<Mode>(mode));
 
@@ -44,16 +45,19 @@ State::State() {
         m_psrPtrs[mode] = &m_psrs[modeIndex];
     }
 
+    const uintptr_t thisPtr = CastUintPtr(this);
+
     for (size_t i = 0; i < kNumGPREntries; i++) {
-        m_gprOffsets[i] = CastUintPtr(m_gprPtrs[i]) - CastUintPtr(this);
+        m_gprOffsets[i] = CastUintPtr(m_gprPtrs[i]) - thisPtr;
     }
     for (size_t i = 0; i < kNumPSREntries; i++) {
-        m_psrOffsets[i] = CastUintPtr(m_psrPtrs[i]) - CastUintPtr(this);
+        m_psrOffsets[i] = CastUintPtr(m_psrPtrs[i]) - thisPtr;
     }
 
-    m_gprOffsetsOffset = CastUintPtr(m_gprOffsets.data()) - CastUintPtr(this);
+    m_gprOffsetsOffset = CastUintPtr(m_gprOffsets.data()) - thisPtr;
 
-    m_irqLineOffset = CastUintPtr(&m_irqLine) - CastUintPtr(this);
+    m_irqLineOffset = CastUintPtr(&m_irqLine) - thisPtr;
+    m_execStateOffset = CastUintPtr(&m_execState) - thisPtr;
 
     Reset();
 }
@@ -69,6 +73,7 @@ void State::Reset() {
     CPSR().mode = Mode::Supervisor;
 
     m_irqLine = false;
+    m_execState = ExecState::Running;
 
     m_cp15.Reset();
 }

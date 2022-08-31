@@ -37,6 +37,8 @@ public:
         }
     }
 
+    void Clear() final;
+
 private:
     struct XbyakAllocator final : Xbyak::Allocator {
         using Xbyak::Allocator::Allocator;
@@ -52,8 +54,18 @@ private:
         memory::Allocator allocator;
     };
 
+    struct XbyakCodeGen : public Xbyak::CodeGenerator {
+        using Xbyak::CodeGenerator::CodeGenerator;
+
+        void resetAndReallocate(size_t size = Xbyak::DEFAULT_MAX_CODE_SIZE) {
+            reset();
+            maxSize_ = 0;
+            growMemory();
+        }
+    };
+
     XbyakAllocator m_alloc;
-    Xbyak::CodeGenerator m_codegen;
+    XbyakCodeGen m_codegen;
     CompiledCode m_compiledCode;
     uint64_t m_stackAlignmentOffset;
 

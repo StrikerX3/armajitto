@@ -34,7 +34,6 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     Xbyak::Label lblCondPass{};
 
     compiler.CompileIRQLineCheck();
-    // TODO: check halt state
     compiler.CompileCondCheck(block.Condition(), lblCondFail);
 
     // Compile block code
@@ -73,6 +72,15 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     compiler.PatchIndirectLinks(block.Location(), fnPtr);
 
     return fnPtr;
+}
+
+void x64Host::Clear() {
+    m_compiledCode.Clear();
+    m_codegen.resetAndReallocate();
+
+    CompileProlog();
+    CompileEpilog();
+    CompileExitIRQ();
 }
 
 void x64Host::CompileProlog() {
@@ -162,6 +170,7 @@ void x64Host::CompileExitIRQ() {
     const auto spsrOffset = armState.SPSROffset(arm::Mode::IRQ);
     const auto pcOffset = armState.GPROffset(arm::GPR::PC, arm::Mode::User);
     const auto baseLROffset = armState.GPROffsetsOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
+    const auto execStateOffset = armState.ExecStateOffset();
 
     // Use PC register as temporary storage for CPSR to avoid two memory reads
     m_codegen.mov(pcReg32, dword[rbx + cpsrOffset]);
@@ -209,7 +218,8 @@ void x64Host::CompileExitIRQ() {
         m_codegen.mov(dword[rbx + pcOffset], irqVectorOffset);
     }
 
-    // TODO: clear halt state
+    // Clear halt state
+    m_codegen.mov(byte[rbx + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
     // Jump to epilog
     m_codegen.jmp((void *)m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);

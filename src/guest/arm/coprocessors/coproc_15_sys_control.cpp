@@ -188,7 +188,7 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
 
     case 0x0704: // 0,C7,C0,4 - Wait For Interrupt (Halt)
     case 0x0782: // 0,C7,C8,2 - Wait For Interrupt (Halt), alternately to C7,C0,4
-        // TODO: Halt CPU
+        m_execState = ExecState::Halted;
         break;
 
     case 0x0750: // 0,C7,C5,0 - Invalidate Entire Instruction Cache

@@ -1007,6 +1007,8 @@ void testCompiler() {
 
             // Advance to next instruction in the sequence
             currAddress += block->InstructionCount() * instrSize;
+
+            host.Clear();
         }
     }
 

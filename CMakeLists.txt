@@ -37,6 +37,7 @@ add_library(armajitto
     include/armajitto/guest/arm/cop_register.hpp
     include/armajitto/guest/arm/coprocessor.hpp
     include/armajitto/guest/arm/exceptions.hpp
+    include/armajitto/guest/arm/exec_state.hpp
     include/armajitto/guest/arm/flags.hpp
     include/armajitto/guest/arm/gpr.hpp
     include/armajitto/guest/arm/instructions.hpp

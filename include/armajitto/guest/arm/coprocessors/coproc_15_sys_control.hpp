@@ -1,6 +1,7 @@
 #pragma once
 
 #include "armajitto/guest/arm/coprocessor.hpp"
+#include "armajitto/guest/arm/exec_state.hpp"
 
 #include "cp15/cp15_cache.hpp"
 #include "cp15/cp15_control.hpp"
@@ -16,7 +17,8 @@ namespace armajitto::arm {
 
 class SystemControlCoprocessor : public Coprocessor {
 public:
-    SystemControlCoprocessor() = default;
+    SystemControlCoprocessor(ExecState &execState)
+        : m_execState(execState) {}
 
     void Reset();
 
@@ -78,6 +80,8 @@ public:
 
 private:
     bool m_installed = false;
+
+    ExecState &m_execState;
 
     cp15::Identification m_id;
     cp15::ControlRegister m_ctl;

@@ -45,6 +45,14 @@ struct CompiledCode {
     HostCode GetCodeForLocation(LocationRef loc) {
         return GetCodeForLocation(blockCache, loc.ToUint64());
     }
+
+    void Clear() {
+        blockCache.clear();
+        patches.clear();
+        prolog = nullptr;
+        epilog = HostCode(nullptr);
+        exitIRQ = HostCode(nullptr);
+    }
 };
 
 } // namespace armajitto::x86_64
