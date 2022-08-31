@@ -33,6 +33,23 @@ private:
     HostCode m_epilog;
     uint64_t m_stackAlignmentOffset;
 
+    struct XbyakAllocator final : Xbyak::Allocator {
+        using Xbyak::Allocator::Allocator;
+
+        virtual uint8_t *alloc(size_t size) {
+            return reinterpret_cast<uint8_t *>(allocator.AllocateRaw(size, 4096u));
+        }
+
+        virtual void free(uint8_t *p) {
+            allocator.Free(p);
+        }
+
+        memory::Allocator allocator;
+    };
+
+    XbyakAllocator m_alloc;
+    Xbyak::CodeGenerator m_codegen;
+
     struct CachedBlock {
         HostCode code;
     };

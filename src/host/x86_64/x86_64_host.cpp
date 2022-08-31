@@ -15,14 +15,6 @@
 
 namespace armajitto::x86_64 {
 
-// FIXME: remove this code; this is just to get things going
-Xbyak::Allocator g_alloc;
-void *ptr = g_alloc.alloc(4096);
-Xbyak::CodeGenerator code{4096, ptr, &g_alloc};
-// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
-
-// ---------------------------------------------------------------------------------------------------------------------
-
 // From Dynarmic:
 
 // This is a constant used to create the x64 flags format from the ARM format.
@@ -33,18 +25,8 @@ constexpr uint32_t ARMTox64FlagsMult = 0x1081;
 // This is a constant used to create the ARM format from the x64 flags format.
 constexpr uint32_t x64ToARMFlagsMult = 0x1021'0000;
 
-constexpr uint32_t ARMflgNPos = 31u;
-constexpr uint32_t ARMflgZPos = 30u;
-constexpr uint32_t ARMflgCPos = 29u;
-constexpr uint32_t ARMflgVPos = 28u;
 constexpr uint32_t ARMflgQPos = 27u;
 constexpr uint32_t ARMflgNZCVShift = 28u;
-
-constexpr uint32_t ARMflgN = (1u << ARMflgNPos);
-constexpr uint32_t ARMflgZ = (1u << ARMflgZPos);
-constexpr uint32_t ARMflgC = (1u << ARMflgCPos);
-constexpr uint32_t ARMflgV = (1u << ARMflgVPos);
-constexpr uint32_t ARMflgQ = (1u << ARMflgQPos);
 
 constexpr uint32_t x64flgNPos = 15u;
 constexpr uint32_t x64flgZPos = 14u;
@@ -56,7 +38,6 @@ constexpr uint32_t x64flgZ = (1u << x64flgZPos);
 constexpr uint32_t x64flgC = (1u << x64flgCPos);
 constexpr uint32_t x64flgV = (1u << x64flgVPos);
 
-constexpr uint32_t ARMFlagsMask = ARMflgN | ARMflgZ | ARMflgC | ARMflgV | ARMflgQ;
 constexpr uint32_t x64FlagsMask = x64flgN | x64flgZ | x64flgC | x64flgV;
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -154,19 +135,20 @@ static void SystemStoreCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t
 // ---------------------------------------------------------------------------------------------------------------------
 
 x64Host::x64Host(Context &context)
-    : Host(context) {
+    : Host(context)
+    , m_codegen(Xbyak::DEFAULT_MAX_CODE_SIZE, nullptr, &m_alloc) {
 
     CompileProlog();
     CompileEpilog();
 }
 
 HostCode x64Host::Compile(ir::BasicBlock &block) {
-    Compiler compiler{code};
+    Compiler compiler{m_codegen};
 
     compiler.Analyze(block);
 
-    auto fnPtr = code.getCurr<HostCode>();
-    code.setProtectModeRW();
+    auto fnPtr = m_codegen.getCurr<HostCode>();
+    m_codegen.setProtectModeRW();
 
     Xbyak::Label lblCondFail{};
     Xbyak::Label lblCondPass{};
@@ -183,38 +165,38 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     }
 
     // Skip over condition fail block
-    code.jmp(lblCondPass);
+    m_codegen.jmp(lblCondPass);
 
     // Update PC if condition fails
-    code.L(lblCondFail);
+    m_codegen.L(lblCondFail);
     const auto pcRegOffset = m_armState.GPROffset(arm::GPR::PC, compiler.mode);
     const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
-    code.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
+    m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
     // TODO: increment cycles for failing the check
 
-    code.L(lblCondPass);
+    m_codegen.L(lblCondPass);
     // TODO: fast block linking (pointer in BasicBlock)
     CompileBlockCacheLookup(compiler);
     // TODO: cycle counting
 
     // Go to epilog
-    code.mov(abi::kNonvolatileRegs[0], m_epilog);
-    code.jmp(abi::kNonvolatileRegs[0]);
+    m_codegen.mov(abi::kNonvolatileRegs[0], m_epilog);
+    m_codegen.jmp(abi::kNonvolatileRegs[0]);
 
-    code.setProtectModeRE();
+    m_codegen.setProtectModeRE();
     m_blockCache.insert({block.Location().ToUint64(), {.code = fnPtr}});
 
-    vtune::ReportBasicBlock(fnPtr, code.getCurr<uintptr_t>(), block.Location());
+    vtune::ReportBasicBlock(fnPtr, m_codegen.getCurr<uintptr_t>(), block.Location());
     return fnPtr;
 }
 
 void x64Host::CompileProlog() {
-    m_prolog = code.getCurr<PrologFn>();
-    code.setProtectModeRW();
+    m_prolog = m_codegen.getCurr<PrologFn>();
+    m_codegen.setProtectModeRW();
 
     // Push all nonvolatile registers
     for (auto &reg : abi::kNonvolatileRegs) {
-        code.push(reg);
+        m_codegen.push(reg);
     }
 
     // Calculate current stack size
@@ -226,120 +208,121 @@ void x64Host::CompileProlog() {
 
     // Setup stack -- make space for register spill area
     // Also include the stack alignment offset
-    code.sub(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
+    m_codegen.sub(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
 
     // Copy CPSR NZCV flags to ah/al
-    code.mov(abi::kHostFlagsReg, dword[CastUintPtr(&m_armState.CPSR())]);
-    code.shr(abi::kHostFlagsReg, ARMflgNZCVShift); // Shift NZCV bits to [3..0]
+    auto flagsReg = abi::kHostFlagsReg;
+    m_codegen.mov(flagsReg, dword[CastUintPtr(&m_armState.CPSR())]);
+    m_codegen.shr(flagsReg, ARMflgNZCVShift); // Shift NZCV bits to [3..0]
     if (CPUID::HasFastPDEPAndPEXT()) {
         // AH       AL
         // SZ0A0P1C -------V
         // NZ.....C .......V
         auto depMask = abi::kNonvolatileRegs[0];
-        code.mov(depMask.cvt32(), 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
-        code.pdep(abi::kHostFlagsReg, abi::kHostFlagsReg, depMask.cvt32());
+        m_codegen.mov(depMask.cvt32(), 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
+        m_codegen.pdep(flagsReg, flagsReg, depMask.cvt32());
     } else {
-        code.imul(abi::kHostFlagsReg, abi::kHostFlagsReg, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
-        code.and_(abi::kHostFlagsReg, x64FlagsMask);                          // -------- -------- NZ-----C -------V
+        m_codegen.imul(flagsReg, flagsReg, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
+        m_codegen.and_(flagsReg, x64FlagsMask);                // -------- -------- NZ-----C -------V
     }
 
     // Setup static registers and call block function
     auto funcAddr = abi::kNonvolatileRegs.back();
-    code.mov(funcAddr, abi::kIntArgRegs[0]);               // Get block code pointer from 1st arg
-    code.mov(abi::kARMStateReg, CastUintPtr(&m_armState)); // Set ARM state pointer
-    code.jmp(funcAddr);                                    // Jump to block code
+    m_codegen.mov(funcAddr, abi::kIntArgRegs[0]);               // Get block code pointer from 1st arg
+    m_codegen.mov(abi::kARMStateReg, CastUintPtr(&m_armState)); // Set ARM state pointer
+    m_codegen.jmp(funcAddr);                                    // Jump to block code
 
-    code.setProtectModeRE();
-    vtune::ReportCode(CastUintPtr(m_prolog), code.getCurr<uintptr_t>(), "__prolog");
+    m_codegen.setProtectModeRE();
+    vtune::ReportCode(CastUintPtr(m_prolog), m_codegen.getCurr<uintptr_t>(), "__prolog");
 }
 
 void x64Host::CompileEpilog() {
-    m_epilog = code.getCurr<HostCode>();
-    code.setProtectModeRW();
+    m_epilog = m_codegen.getCurr<HostCode>();
+    m_codegen.setProtectModeRW();
 
     // Cleanup stack
-    code.add(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
+    m_codegen.add(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
 
     // Pop all nonvolatile registers
     for (auto it = abi::kNonvolatileRegs.rbegin(); it != abi::kNonvolatileRegs.rend(); it++) {
-        code.pop(*it);
+        m_codegen.pop(*it);
     }
 
     // Return from call
-    code.ret();
+    m_codegen.ret();
 
-    code.setProtectModeRE();
-    vtune::ReportCode(m_epilog, code.getCurr<uintptr_t>(), "__epilog");
+    m_codegen.setProtectModeRE();
+    vtune::ReportCode(m_epilog, m_codegen.getCurr<uintptr_t>(), "__epilog");
 }
 
 void x64Host::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
     switch (cond) {
     case arm::Condition::EQ: // Z=1
-        code.sahf();
-        code.jnz(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.jnz(lblCondFail);
         break;
     case arm::Condition::NE: // Z=0
-        code.sahf();
-        code.jz(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.jz(lblCondFail);
         break;
     case arm::Condition::CS: // C=1
-        code.sahf();
-        code.jnc(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.jnc(lblCondFail);
         break;
     case arm::Condition::CC: // C=0
-        code.sahf();
-        code.jc(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.jc(lblCondFail);
         break;
     case arm::Condition::MI: // N=1
-        code.sahf();
-        code.jns(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.jns(lblCondFail);
         break;
     case arm::Condition::PL: // N=0
-        code.sahf();
-        code.js(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.js(lblCondFail);
         break;
     case arm::Condition::VS: // V=1
-        code.cmp(al, 0x81);
-        code.jno(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.jno(lblCondFail);
         break;
     case arm::Condition::VC: // V=0
-        code.cmp(al, 0x81);
-        code.jo(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.jo(lblCondFail);
         break;
     case arm::Condition::HI: // C=1 && Z=0
-        code.sahf();
-        code.cmc();
-        code.jna(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.cmc();
+        m_codegen.jna(lblCondFail);
         break;
     case arm::Condition::LS: // C=0 || Z=1
-        code.sahf();
-        code.cmc();
-        code.ja(lblCondFail);
+        m_codegen.sahf();
+        m_codegen.cmc();
+        m_codegen.ja(lblCondFail);
         break;
     case arm::Condition::GE: // N=V
-        code.cmp(al, 0x81);
-        code.sahf();
-        code.jnge(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.sahf();
+        m_codegen.jnge(lblCondFail);
         break;
     case arm::Condition::LT: // N!=V
-        code.cmp(al, 0x81);
-        code.sahf();
-        code.jge(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.sahf();
+        m_codegen.jge(lblCondFail);
         break;
     case arm::Condition::GT: // Z=0 && N=V
-        code.cmp(al, 0x81);
-        code.sahf();
-        code.jng(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.sahf();
+        m_codegen.jng(lblCondFail);
         break;
     case arm::Condition::LE: // Z=1 || N!=V
-        code.cmp(al, 0x81);
-        code.sahf();
-        code.jg(lblCondFail);
+        m_codegen.cmp(al, 0x81);
+        m_codegen.sahf();
+        m_codegen.jg(lblCondFail);
         break;
     case arm::Condition::AL: // always
         break;
     case arm::Condition::NV: // never
-        code.jmp(lblCondFail);
+        m_codegen.jmp(lblCondFail);
         break;
     }
 }
@@ -352,9 +335,9 @@ void x64Host::CompileBlockCacheLookup(Compiler &compiler) {
 
     // Build cache key
     auto cacheKeyReg64 = compiler.regAlloc.GetTemporary().cvt64();
-    code.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
-    code.shl(cacheKeyReg64.cvt64(), 32);
-    code.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
+    m_codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+    m_codegen.shl(cacheKeyReg64.cvt64(), 32);
+    m_codegen.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
 
     // Lookup entry
     // TODO: redesign cache to not rely on this function call
@@ -362,14 +345,14 @@ void x64Host::CompileBlockCacheLookup(Compiler &compiler) {
 
     // Check for nullptr
     auto cacheEntryReg64 = cacheKeyReg64;
-    code.test(cacheEntryReg64, cacheKeyReg64);
-    code.jz(noEntry);
+    m_codegen.test(cacheEntryReg64, cacheKeyReg64);
+    m_codegen.jz(noEntry);
 
     // Entry found, jump to linked block
-    code.jmp(cacheEntryReg64);
+    m_codegen.jmp(cacheEntryReg64);
 
     // Entry not found, bail out
-    code.L(noEntry);
+    m_codegen.L(noEntry);
 
     // Cleanup temporaries used here
     compiler.regAlloc.ReleaseTemporaries();
@@ -378,48 +361,48 @@ void x64Host::CompileBlockCacheLookup(Compiler &compiler) {
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetRegisterOp *op) {
     auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.GPROffset(op->src.gpr, op->src.Mode());
-    code.mov(dstReg32, dword[abi::kARMStateReg + offset]);
+    m_codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetRegisterOp *op) {
     auto offset = m_armState.GPROffset(op->dst.gpr, op->dst.Mode());
     if (op->src.immediate) {
-        code.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[abi::kARMStateReg + offset], srcReg32);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetCPSROp *op) {
     auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.CPSROffset();
-    code.mov(dstReg32, dword[abi::kARMStateReg + offset]);
+    m_codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetCPSROp *op) {
     auto offset = m_armState.CPSROffset();
     if (op->src.immediate) {
-        code.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[abi::kARMStateReg + offset], srcReg32);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
     }
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRGetSPSROp *op) {
     auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
     auto offset = m_armState.SPSROffset(op->mode);
-    code.mov(dstReg32, dword[abi::kARMStateReg + offset]);
+    m_codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRSetSPSROp *op) {
     auto offset = m_armState.SPSROffset(op->mode);
     if (op->src.immediate) {
-        code.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
-        code.mov(dword[abi::kARMStateReg + offset], srcReg32);
+        m_codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
     }
 }
 
@@ -435,9 +418,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
         switch (op->size) {
         case ir::MemAccessSize::Byte:
             if (op->mode == ir::MemAccessMode::Signed) {
-                code.movsx(dstReg32, byte[addrReg64]);
+                m_codegen.movsx(dstReg32, byte[addrReg64]);
             } else { // aligned/unaligned
-                code.movzx(dstReg32, byte[addrReg64]);
+                m_codegen.movzx(dstReg32, byte[addrReg64]);
             }
             break;
         case ir::MemAccessSize::Half:
@@ -445,67 +428,67 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                 if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
                     if (op->address.immediate) {
                         if (op->address.imm.value & 1) {
-                            code.movsx(dstReg32, byte[addrReg64 + 1]);
+                            m_codegen.movsx(dstReg32, byte[addrReg64 + 1]);
                         } else {
-                            code.movsx(dstReg32, word[addrReg64]);
+                            m_codegen.movsx(dstReg32, word[addrReg64]);
                         }
                     } else {
                         Xbyak::Label lblByteRead{};
                         Xbyak::Label lblDone{};
 
                         auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                        code.test(baseAddrReg32, 1);
-                        code.jnz(lblByteRead);
+                        m_codegen.test(baseAddrReg32, 1);
+                        m_codegen.jnz(lblByteRead);
 
                         // Word read
-                        code.movsx(dstReg32, word[addrReg64]);
-                        code.jmp(lblDone);
+                        m_codegen.movsx(dstReg32, word[addrReg64]);
+                        m_codegen.jmp(lblDone);
 
                         // Byte read
-                        code.L(lblByteRead);
-                        code.movsx(dstReg32, byte[addrReg64 + 1]);
+                        m_codegen.L(lblByteRead);
+                        m_codegen.movsx(dstReg32, byte[addrReg64 + 1]);
 
-                        code.L(lblDone);
+                        m_codegen.L(lblDone);
                     }
                 } else {
-                    code.movsx(dstReg32, word[addrReg64]);
+                    m_codegen.movsx(dstReg32, word[addrReg64]);
                 }
             } else if (op->mode == ir::MemAccessMode::Unaligned) {
-                code.movzx(dstReg32, word[addrReg64]);
+                m_codegen.movzx(dstReg32, word[addrReg64]);
                 if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
                     if (op->address.immediate) {
                         const uint32_t shiftOffset = (op->address.imm.value & 1) * 8;
                         if (shiftOffset != 0) {
-                            code.ror(dstReg32, shiftOffset);
+                            m_codegen.ror(dstReg32, shiftOffset);
                         }
                     } else {
                         auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
                         auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
-                        code.mov(shiftReg32, baseAddrReg32);
-                        code.and_(shiftReg32, 1);
-                        code.shl(shiftReg32, 3);
-                        code.ror(dstReg32, shiftReg32.cvt8());
+                        m_codegen.mov(shiftReg32, baseAddrReg32);
+                        m_codegen.and_(shiftReg32, 1);
+                        m_codegen.shl(shiftReg32, 3);
+                        m_codegen.ror(dstReg32, shiftReg32.cvt8());
                     }
                 }
             } else { // aligned
-                code.movzx(dstReg32, word[addrReg64]);
+                m_codegen.movzx(dstReg32, word[addrReg64]);
             }
             break;
         case ir::MemAccessSize::Word:
-            code.mov(dstReg32, dword[addrReg64]);
+            m_codegen.mov(dstReg32, dword[addrReg64]);
             if (op->mode == ir::MemAccessMode::Unaligned) {
                 if (op->address.immediate) {
                     const uint32_t shiftOffset = (op->address.imm.value & 3) * 8;
                     if (shiftOffset != 0) {
-                        code.ror(dstReg32, shiftOffset);
+                        m_codegen.ror(dstReg32, shiftOffset);
                     }
                 } else {
                     auto baseAddrReg32 = compiler.regAlloc.Get(op->address.var.var);
                     auto shiftReg32 = compiler.regAlloc.GetRCX().cvt32();
-                    code.mov(shiftReg32, baseAddrReg32);
-                    code.and_(shiftReg32, 3);
-                    code.shl(shiftReg32, 3);
-                    code.ror(dstReg32, shiftReg32.cvt8());
+                    m_codegen.mov(shiftReg32, baseAddrReg32);
+                    m_codegen.and_(shiftReg32, 3);
+                    m_codegen.shl(shiftReg32, 3);
+                    m_codegen.ror(dstReg32, shiftReg32.cvt8());
                 }
             }
             break;
@@ -518,7 +501,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
             auto &tcm = cp15.GetTCM();
 
             auto tcmReg64 = compiler.regAlloc.GetTemporary().cvt64();
-            code.mov(tcmReg64, CastUintPtr(&tcm));
+            m_codegen.mov(tcmReg64, CastUintPtr(&tcm));
 
             // Get temporary register for the address
             auto addrReg64 = compiler.regAlloc.GetTemporary().cvt64();
@@ -531,15 +514,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
 
                 // Get address
                 if (op->address.immediate) {
-                    code.mov(addrReg64.cvt32(), op->address.imm.value);
+                    m_codegen.mov(addrReg64.cvt32(), op->address.imm.value);
                 } else {
                     auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                    code.mov(addrReg64.cvt32(), addrReg32);
+                    m_codegen.mov(addrReg64.cvt32(), addrReg32);
                 }
 
                 // Check if address is in range
-                code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmReadSizeOfs]);
-                code.jae(lblSkipITCM);
+                m_codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmReadSizeOfs]);
+                m_codegen.jae(lblSkipITCM);
 
                 // Compute address mirror mask
                 assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
@@ -551,18 +534,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                 }
 
                 // Mirror and/or align address and use it as offset into the ITCM data
-                code.and_(addrReg64, addrMask);
-                code.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
-                code.add(addrReg64, tcmReg64);
+                m_codegen.and_(addrReg64, addrMask);
+                m_codegen.mov(tcmReg64,
+                              CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
+                m_codegen.add(addrReg64, tcmReg64);
 
                 // Read from ITCM
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
                 compileRead(dstReg32, addrReg64);
 
                 // Done!
-                code.jmp(lblEnd);
+                m_codegen.jmp(lblEnd);
 
-                code.L(lblSkipITCM);
+                m_codegen.L(lblSkipITCM);
             }
 
             // DTCM check (data bus only)
@@ -572,18 +556,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
 
                 // Get address
                 if (op->address.immediate) {
-                    code.mov(addrReg64.cvt32(), op->address.imm.value);
+                    m_codegen.mov(addrReg64.cvt32(), op->address.imm.value);
                 } else {
                     auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                    code.mov(addrReg64.cvt32(), addrReg32);
+                    m_codegen.mov(addrReg64.cvt32(), addrReg32);
                 }
 
                 // Adjust address to base offset
-                code.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
+                m_codegen.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
 
                 // Check if address is in range
-                code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmReadSizeOfs]);
-                code.jae(lblSkipTCM);
+                m_codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmReadSizeOfs]);
+                m_codegen.jae(lblSkipTCM);
 
                 // Compute address mirror mask
                 assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
@@ -595,22 +579,23 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
                 }
 
                 // Mirror and/or align address and use it as offset into the DTCM data
-                code.and_(addrReg64, addrMask);
-                code.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
-                code.add(addrReg64, tcmReg64);
+                m_codegen.and_(addrReg64, addrMask);
+                m_codegen.mov(tcmReg64,
+                              CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
+                m_codegen.add(addrReg64, tcmReg64);
 
                 // Read from DTCM
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
                 compileRead(dstReg32, addrReg64);
 
                 // Done!
-                code.jmp(lblEnd);
+                m_codegen.jmp(lblEnd);
             }
         }
     }
 
     // Handle slow memory access
-    code.L(lblSkipTCM);
+    m_codegen.L(lblSkipTCM);
 
     // Select parameters based on size
     // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word
@@ -663,7 +648,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemReadOp *op) {
         CompileInvokeHostFunction(compiler, dstReg32, readFn, m_system, addrReg32);
     }
 
-    code.L(lblEnd);
+    m_codegen.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
@@ -679,7 +664,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
         auto &tcm = cp15.GetTCM();
 
         auto tcmReg64 = compiler.regAlloc.GetTemporary().cvt64();
-        code.mov(tcmReg64, CastUintPtr(&tcm));
+        m_codegen.mov(tcmReg64, CastUintPtr(&tcm));
 
         // Get temporary register for the address
         auto addrReg64 = compiler.regAlloc.GetTemporary().cvt64();
@@ -692,15 +677,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
 
             // Get address
             if (op->address.immediate) {
-                code.mov(addrReg64.cvt32(), op->address.imm.value);
+                m_codegen.mov(addrReg64.cvt32(), op->address.imm.value);
             } else {
                 auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                code.mov(addrReg64.cvt32(), addrReg32);
+                m_codegen.mov(addrReg64.cvt32(), addrReg32);
             }
 
             // Check if address is in range
-            code.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmWriteSizeOfs]);
-            code.jae(lblSkipITCM);
+            m_codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmWriteSizeOfs]);
+            m_codegen.jae(lblSkipITCM);
 
             // Compute address mirror mask
             assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
@@ -712,30 +697,30 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
             }
 
             // Mirror and/or align address and use it as offset into the ITCM data
-            code.and_(addrReg64, addrMask);
-            code.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
-            code.add(addrReg64, tcmReg64);
+            m_codegen.and_(addrReg64, addrMask);
+            m_codegen.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
+            m_codegen.add(addrReg64, tcmReg64);
 
             // Write to ITCM
             if (op->src.immediate) {
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Half: code.mov(word[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Byte: m_codegen.mov(byte[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Half: m_codegen.mov(word[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Word: m_codegen.mov(dword[addrReg64], op->src.imm.value); break;
                 }
             } else {
                 auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], srcReg32.cvt8()); break;
-                case ir::MemAccessSize::Half: code.mov(word[addrReg64], srcReg32.cvt16()); break;
-                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], srcReg32.cvt32()); break;
+                case ir::MemAccessSize::Byte: m_codegen.mov(byte[addrReg64], srcReg32.cvt8()); break;
+                case ir::MemAccessSize::Half: m_codegen.mov(word[addrReg64], srcReg32.cvt16()); break;
+                case ir::MemAccessSize::Word: m_codegen.mov(dword[addrReg64], srcReg32.cvt32()); break;
                 }
             }
 
             // Done!
-            code.jmp(lblEnd);
+            m_codegen.jmp(lblEnd);
 
-            code.L(lblSkipITCM);
+            m_codegen.L(lblSkipITCM);
         }
 
         // DTCM check
@@ -745,18 +730,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
 
             // Get address
             if (op->address.immediate) {
-                code.mov(addrReg64.cvt32(), op->address.imm.value);
+                m_codegen.mov(addrReg64.cvt32(), op->address.imm.value);
             } else {
                 auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                code.mov(addrReg64.cvt32(), addrReg32);
+                m_codegen.mov(addrReg64.cvt32(), addrReg32);
             }
 
             // Adjust address to base offset
-            code.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
+            m_codegen.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
 
             // Check if address is in range
-            code.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmWriteSizeOfs]);
-            code.jae(lblSkipTCM);
+            m_codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmWriteSizeOfs]);
+            m_codegen.jae(lblSkipTCM);
 
             // Compute address mirror mask
             assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
@@ -768,33 +753,33 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
             }
 
             // Mirror and/or align address and use it as offset into the DTCM data
-            code.and_(addrReg64, addrMask);
-            code.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
-            code.add(addrReg64, tcmReg64);
+            m_codegen.and_(addrReg64, addrMask);
+            m_codegen.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
+            m_codegen.add(addrReg64, tcmReg64);
 
             // Write to DTCM
             if (op->src.immediate) {
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Half: code.mov(word[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Byte: m_codegen.mov(byte[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Half: m_codegen.mov(word[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Word: m_codegen.mov(dword[addrReg64], op->src.imm.value); break;
                 }
             } else {
                 auto srcReg32 = compiler.regAlloc.Get(op->src.var.var);
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: code.mov(byte[addrReg64], srcReg32.cvt8()); break;
-                case ir::MemAccessSize::Half: code.mov(word[addrReg64], srcReg32.cvt16()); break;
-                case ir::MemAccessSize::Word: code.mov(dword[addrReg64], srcReg32.cvt32()); break;
+                case ir::MemAccessSize::Byte: m_codegen.mov(byte[addrReg64], srcReg32.cvt8()); break;
+                case ir::MemAccessSize::Half: m_codegen.mov(word[addrReg64], srcReg32.cvt16()); break;
+                case ir::MemAccessSize::Word: m_codegen.mov(dword[addrReg64], srcReg32.cvt32()); break;
                 }
             }
 
             // Done!
-            code.jmp(lblEnd);
+            m_codegen.jmp(lblEnd);
         }
     }
 
     // Handle slow memory access
-    code.L(lblSkipTCM);
+    m_codegen.L(lblSkipTCM);
 
     auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
         if (address.immediate) {
@@ -849,7 +834,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMemWriteOp *op) {
     default: util::unreachable();
     }
 
-    code.L(lblEnd);
+    m_codegen.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRPreloadOp *op) {
@@ -875,14 +860,14 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg64, 63);
+        m_codegen.cmp(amountReg32, 63);
+        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Get destination register
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
             auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            code.shlx(dstReg64, valueReg64, shiftReg64);
+            m_codegen.shlx(dstReg64, valueReg64, shiftReg64);
         } else {
             Xbyak::Reg64 dstReg{};
             if (op->dst.var.IsPresent()) {
@@ -893,12 +878,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
             }
 
             // Compute the shift
-            code.shl(dstReg, 32); // Shift value to the top half of the 64-bit register
-            code.shl(dstReg, shiftReg64.cvt8());
+            m_codegen.shl(dstReg, 32); // Shift value to the top half of the 64-bit register
+            m_codegen.shl(dstReg, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
-            code.shr(dstReg, 32); // Shift value back down to the bottom half
+            m_codegen.shr(dstReg, 32); // Shift value back down to the bottom half
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
@@ -907,9 +892,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg64, 63);
+        m_codegen.cmp(amountReg32, 63);
+        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Get destination register
         Xbyak::Reg64 dstReg64{};
@@ -920,12 +905,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
         }
 
         // Compute the shift
-        code.mov(dstReg64, static_cast<uint64_t>(value) << 32ull);
-        code.shl(dstReg64, shiftReg64.cvt8());
+        m_codegen.mov(dstReg64, static_cast<uint64_t>(value) << 32ull);
+        m_codegen.shl(dstReg64, shiftReg64.cvt8());
         if (op->setCarry) {
             SetCFromFlags(compiler);
         }
-        code.shr(dstReg64, 32); // Shift value back down to the bottom half
+        m_codegen.shr(dstReg64, 32); // Shift value back down to the bottom half
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
@@ -942,7 +927,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
             }
 
             // Compute shift and update flags
-            code.shl(dstReg32, amount);
+            m_codegen.shl(dstReg32, amount);
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
@@ -951,21 +936,21 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftLeftOp *op) 
                 if (op->dst.var.IsPresent()) {
                     // Update carry flag before zeroing out the register
                     if (op->setCarry) {
-                        code.bt(valueReg32, 0);
+                        m_codegen.bt(valueReg32, 0);
                         SetCFromFlags(compiler);
                     }
 
                     auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg32, dstReg32);
+                    m_codegen.xor_(dstReg32, dstReg32);
                 } else if (op->setCarry) {
-                    code.bt(valueReg32, 0);
+                    m_codegen.bt(valueReg32, 0);
                     SetCFromFlags(compiler);
                 }
             } else {
                 // Zero out destination
                 if (op->dst.var.IsPresent()) {
                     auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    code.xor_(dstReg32, dstReg32);
+                    m_codegen.xor_(dstReg32, dstReg32);
                 }
                 if (op->setCarry) {
                     SetCFromValue(false);
@@ -994,24 +979,24 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg64, 63);
+        m_codegen.cmp(amountReg32, 63);
+        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Compute the shift
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
             auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-            code.shrx(dstReg64, valueReg64, shiftReg64);
+            m_codegen.shrx(dstReg64, valueReg64, shiftReg64);
         } else if (op->dst.var.IsPresent()) {
             auto dstReg64 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             CopyIfDifferent(dstReg64, valueReg64);
-            code.shr(dstReg64, shiftReg64.cvt8());
+            m_codegen.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            code.dec(shiftReg64);
-            code.bt(valueReg64, shiftReg64);
+            m_codegen.dec(shiftReg64);
+            m_codegen.bt(valueReg64, shiftReg64);
             SetCFromFlags(compiler);
         }
     } else if (valueImm) {
@@ -1021,22 +1006,22 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
-        code.mov(shiftReg64, 63);
-        code.cmp(amountReg32, 63);
-        code.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg64, 63);
+        m_codegen.cmp(amountReg32, 63);
+        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = compiler.regAlloc.Get(op->dst.var).cvt64();
-            code.mov(dstReg64, value);
-            code.shr(dstReg64, shiftReg64.cvt8());
+            m_codegen.mov(dstReg64, value);
+            m_codegen.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
             auto valueReg64 = compiler.regAlloc.GetTemporary().cvt64();
-            code.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
-            code.bt(valueReg64, shiftReg64);
+            m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
+            m_codegen.bt(valueReg64, shiftReg64);
             SetCFromFlags(compiler);
         }
     } else {
@@ -1049,33 +1034,33 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLogicalShiftRightOp *op)
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 CopyIfDifferent(dstReg32, valueReg32);
-                code.shr(dstReg32, amount);
+                m_codegen.shr(dstReg32, amount);
                 if (op->setCarry) {
                     SetCFromFlags(compiler);
                 }
             } else if (op->setCarry) {
-                code.bt(valueReg32.cvt64(), amount - 1);
+                m_codegen.bt(valueReg32.cvt64(), amount - 1);
                 SetCFromFlags(compiler);
             }
         } else if (amount == 32) {
             if (op->dst.var.IsPresent()) {
                 // Update carry flag before zeroing out the register
                 if (op->setCarry) {
-                    code.bt(valueReg32, 31);
+                    m_codegen.bt(valueReg32, 31);
                     SetCFromFlags(compiler);
                 }
 
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                code.xor_(dstReg32, dstReg32);
+                m_codegen.xor_(dstReg32, dstReg32);
             } else if (op->setCarry) {
-                code.bt(valueReg32, 31);
+                m_codegen.bt(valueReg32, 31);
                 SetCFromFlags(compiler);
             }
         } else {
             // Zero out destination
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                code.xor_(dstReg32, dstReg32);
+                m_codegen.xor_(dstReg32, dstReg32);
             }
             if (op->setCarry) {
                 SetCFromValue(false);
@@ -1102,20 +1087,20 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..31
-        code.mov(shiftReg32, 31);
-        code.cmp(amountReg32, 31);
-        code.cmovbe(shiftReg32.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg32, 31);
+        m_codegen.cmp(amountReg32, 31);
+        m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-            code.sar(dstReg32, shiftReg32.cvt8());
+            m_codegen.sar(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            code.dec(shiftReg32);
-            code.bt(valueReg32, shiftReg32);
+            m_codegen.dec(shiftReg32);
+            m_codegen.bt(valueReg32, shiftReg32);
             SetCFromFlags(compiler);
         }
     } else if (valueImm) {
@@ -1125,22 +1110,22 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..31
-        code.mov(shiftReg32, 31);
-        code.cmp(amountReg32, 31);
-        code.cmovbe(shiftReg32.cvt32(), amountReg32);
+        m_codegen.mov(shiftReg32, 31);
+        m_codegen.cmp(amountReg32, 31);
+        m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg32, value);
-            code.sar(dstReg32, shiftReg32.cvt8());
+            m_codegen.mov(dstReg32, value);
+            m_codegen.sar(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
             auto valueReg32 = compiler.regAlloc.GetTemporary();
-            code.mov(valueReg32, (static_cast<uint64_t>(value) << 1ull));
-            code.bt(valueReg32, shiftReg32);
+            m_codegen.mov(valueReg32, (static_cast<uint64_t>(value) << 1ull));
+            m_codegen.bt(valueReg32, shiftReg32);
             SetCFromFlags(compiler);
         }
     } else {
@@ -1152,12 +1137,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRArithmeticShiftRightOp *
         if (op->dst.var.IsPresent()) {
             auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
             CopyIfDifferent(dstReg32, valueReg32);
-            code.sar(dstReg32, amount);
+            m_codegen.sar(dstReg32, amount);
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
         } else if (op->setCarry) {
-            code.bt(valueReg32.cvt64(), amount - 1);
+            m_codegen.bt(valueReg32.cvt64(), amount - 1);
             SetCFromFlags(compiler);
         }
     }
@@ -1180,7 +1165,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Put shift amount into CL
-        code.mov(shiftReg8, amountReg32.cvt8());
+        m_codegen.mov(shiftReg8, amountReg32.cvt8());
 
         // Put value to shift into the result register
         Xbyak::Reg32 dstReg32{};
@@ -1189,11 +1174,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
             CopyIfDifferent(dstReg32, valueReg32);
         } else {
             dstReg32 = compiler.regAlloc.GetTemporary();
-            code.mov(dstReg32, valueReg32);
+            m_codegen.mov(dstReg32, valueReg32);
         }
 
         // Compute the shift
-        code.ror(dstReg32, shiftReg8);
+        m_codegen.ror(dstReg32, shiftReg8);
         if (op->setCarry) {
             SetCFromFlags(compiler);
         }
@@ -1204,7 +1189,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
         auto amountReg32 = compiler.regAlloc.Get(op->amount.var.var);
 
         // Put shift amount into CL
-        code.mov(shiftReg8, amountReg32.cvt8());
+        m_codegen.mov(shiftReg8, amountReg32.cvt8());
 
         // Put value to shift into the result register
         Xbyak::Reg32 dstReg32{};
@@ -1215,8 +1200,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
         }
 
         // Compute the shift
-        code.mov(dstReg32, value);
-        code.ror(dstReg32, shiftReg8);
+        m_codegen.mov(dstReg32, value);
+        m_codegen.ror(dstReg32, shiftReg8);
         if (op->setCarry) {
             SetCFromFlags(compiler);
         }
@@ -1228,7 +1213,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
             // Compute the shift directly into the result register
             auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-            code.rorx(dstReg32, valueReg32, amount);
+            m_codegen.rorx(dstReg32, valueReg32, amount);
         } else {
             // Put value to shift into the result register
             Xbyak::Reg32 dstReg32{};
@@ -1237,11 +1222,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightOp *op) {
                 CopyIfDifferent(dstReg32, valueReg32);
             } else {
                 dstReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(dstReg32, valueReg32);
+                m_codegen.mov(dstReg32, valueReg32);
             }
 
             // Compute the shift
-            code.ror(dstReg32, amount);
+            m_codegen.ror(dstReg32, amount);
             if (op->setCarry) {
                 SetCFromFlags(compiler);
             }
@@ -1257,15 +1242,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *o
 
         if (op->value.immediate) {
             dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg32, op->value.imm.value);
+            m_codegen.mov(dstReg32, op->value.imm.value);
         } else {
             auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
             dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
             CopyIfDifferent(dstReg32, valueReg32);
         }
 
-        code.bt(abi::kHostFlagsReg, x64flgCPos); // Refresh carry flag
-        code.rcr(dstReg32, 1);                   // Perform RRX
+        m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Refresh carry flag
+        m_codegen.rcr(dstReg32, 1);                   // Perform RRX
 
         if (op->setCarry) {
             SetCFromFlags(compiler);
@@ -1275,7 +1260,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRRotateRightExtendedOp *o
             SetCFromValue(bit::test<0>(op->value.imm.value));
         } else {
             auto valueReg32 = compiler.regAlloc.Get(op->value.var.var);
-            code.bt(valueReg32, 0);
+            m_codegen.bt(valueReg32, 0);
             SetCFromFlags(compiler);
         }
     }
@@ -1299,9 +1284,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.and_(dstReg32, imm);
+                m_codegen.and_(dstReg32, imm);
             } else if (setFlags) {
-                code.test(varReg32, imm);
+                m_codegen.test(varReg32, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -1314,15 +1299,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseAndOp *op) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 if (dstReg32 == lhsReg32) {
-                    code.and_(dstReg32, rhsReg32);
+                    m_codegen.and_(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
-                    code.and_(dstReg32, lhsReg32);
+                    m_codegen.and_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.and_(dstReg32, rhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
+                    m_codegen.and_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
-                code.test(lhsReg32, rhsReg32);
+                m_codegen.test(lhsReg32, rhsReg32);
             }
         }
 
@@ -1350,11 +1335,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.or_(dstReg32, imm);
+                m_codegen.or_(dstReg32, imm);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.or_(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.or_(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -1367,18 +1352,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseOrOp *op) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 if (dstReg32 == lhsReg32) {
-                    code.or_(dstReg32, rhsReg32);
+                    m_codegen.or_(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
-                    code.or_(dstReg32, lhsReg32);
+                    m_codegen.or_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.or_(dstReg32, rhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
+                    m_codegen.or_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg32, lhsReg32);
-                code.or_(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.or_(tmpReg32, rhsReg32);
             }
         }
 
@@ -1406,11 +1391,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.xor_(dstReg32, imm);
+                m_codegen.xor_(dstReg32, imm);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.xor_(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.xor_(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -1423,18 +1408,18 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitwiseXorOp *op) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 if (dstReg32 == lhsReg32) {
-                    code.xor_(dstReg32, rhsReg32);
+                    m_codegen.xor_(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
-                    code.xor_(dstReg32, lhsReg32);
+                    m_codegen.xor_(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.xor_(dstReg32, rhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
+                    m_codegen.xor_(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg32, lhsReg32);
-                code.xor_(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.xor_(tmpReg32, rhsReg32);
             }
         }
 
@@ -1462,24 +1447,24 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
                 CopyIfDifferent(dstReg32, rhsReg32);
-                code.not_(dstReg32);
+                m_codegen.not_(dstReg32);
 
                 if (lhsImm) {
-                    code.and_(dstReg32, op->lhs.imm.value);
+                    m_codegen.and_(dstReg32, op->lhs.imm.value);
                 } else {
                     auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
-                    code.and_(dstReg32, lhsReg32);
+                    m_codegen.and_(dstReg32, lhsReg32);
                 }
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, rhsReg32);
-                code.not_(tmpReg32);
+                m_codegen.mov(tmpReg32, rhsReg32);
+                m_codegen.not_(tmpReg32);
 
                 if (lhsImm) {
-                    code.test(tmpReg32, op->lhs.imm.value);
+                    m_codegen.test(tmpReg32, op->lhs.imm.value);
                 } else {
                     auto lhsReg32 = compiler.regAlloc.Get(op->lhs.var.var);
-                    code.test(tmpReg32, lhsReg32);
+                    m_codegen.test(tmpReg32, lhsReg32);
                 }
             }
         } else {
@@ -1488,9 +1473,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBitClearOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
                 CopyIfDifferent(dstReg32, lhsReg32);
-                code.and_(dstReg32, ~op->rhs.imm.value);
+                m_codegen.and_(dstReg32, ~op->rhs.imm.value);
             } else if (setFlags) {
-                code.test(lhsReg32, ~op->rhs.imm.value);
+                m_codegen.test(lhsReg32, ~op->rhs.imm.value);
             }
         }
 
@@ -1507,7 +1492,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRCountLeadingZerosOp *op)
         if (op->value.immediate) {
             valReg32 = compiler.regAlloc.GetTemporary();
             dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(valReg32, op->value.imm.value);
+            m_codegen.mov(valReg32, op->value.imm.value);
         } else {
             valReg32 = compiler.regAlloc.Get(op->value.var.var);
             dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
@@ -1515,15 +1500,15 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRCountLeadingZerosOp *op)
         }
 
         if (CPUID::HasLZCNT()) {
-            code.lzcnt(dstReg32, valReg32);
+            m_codegen.lzcnt(dstReg32, valReg32);
         } else {
             // BSR unhelpfully returns the bit offset from the right, not left
             auto valIfZero32 = compiler.regAlloc.GetTemporary();
-            code.mov(valIfZero32, 0xFFFFFFFF);
-            code.bsr(dstReg32, valReg32);
-            code.cmovz(dstReg32, valIfZero32);
-            code.neg(dstReg32);
-            code.add(dstReg32, 31);
+            m_codegen.mov(valIfZero32, 0xFFFFFFFF);
+            m_codegen.bsr(dstReg32, valReg32);
+            m_codegen.cmovz(dstReg32, valIfZero32);
+            m_codegen.neg(dstReg32);
+            m_codegen.add(dstReg32, 31);
         }
     }
 }
@@ -1546,11 +1531,11 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.add(dstReg32, imm);
+                m_codegen.add(dstReg32, imm);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.add(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.add(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -1564,14 +1549,14 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddOp *op) {
 
                 auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
                 if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
-                    code.mov(dstReg32, lhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
                 }
-                code.add(dstReg32, op2Reg32);
+                m_codegen.add(dstReg32, op2Reg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg32, lhsReg32);
-                code.add(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.add(tmpReg32, rhsReg32);
             }
         }
 
@@ -1590,10 +1575,10 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
         // Both are immediates
         if (op->dst.var.IsPresent()) {
             auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg32, op->lhs.imm.value);
+            m_codegen.mov(dstReg32, op->lhs.imm.value);
 
-            code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            code.adc(dstReg32, op->rhs.imm.value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+            m_codegen.adc(dstReg32, op->rhs.imm.value);
             if (setFlags) {
                 SetNZCVFromFlags();
             }
@@ -1607,13 +1592,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-                code.adc(dstReg32, imm);
+                m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+                m_codegen.adc(dstReg32, imm);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-                code.adc(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+                m_codegen.adc(tmpReg32, imm);
             }
         } else {
             // lhs and rhs are vars
@@ -1625,19 +1610,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddCarryOp *op) {
                 compiler.regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
-                code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+                m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
 
                 auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
                 if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
-                    code.mov(dstReg32, lhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
                 }
-                code.adc(dstReg32, op2Reg32);
+                m_codegen.adc(dstReg32, op2Reg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg32, lhsReg32);
-                code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-                code.adc(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+                m_codegen.adc(tmpReg32, rhsReg32);
             }
         }
 
@@ -1667,17 +1652,17 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
                 CopyIfDifferent(dstReg32, lhsReg32);
 
                 if (rhsImm) {
-                    code.sub(dstReg32, op->rhs.imm.value);
+                    m_codegen.sub(dstReg32, op->rhs.imm.value);
                 } else {
                     auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
-                    code.sub(dstReg32, rhsReg32);
+                    m_codegen.sub(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
                 if (rhsImm) {
-                    code.cmp(lhsReg32, op->rhs.imm.value);
+                    m_codegen.cmp(lhsReg32, op->rhs.imm.value);
                 } else {
                     auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
-                    code.cmp(lhsReg32, rhsReg32);
+                    m_codegen.cmp(lhsReg32, rhsReg32);
                 }
             }
         } else {
@@ -1685,17 +1670,17 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractOp *op) {
             auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-                code.mov(dstReg32, op->lhs.imm.value);
-                code.sub(dstReg32, rhsReg32);
+                m_codegen.mov(dstReg32, op->lhs.imm.value);
+                m_codegen.sub(dstReg32, rhsReg32);
             } else if (setFlags) {
                 auto lhsReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(lhsReg32, op->lhs.imm.value);
-                code.cmp(lhsReg32, rhsReg32);
+                m_codegen.mov(lhsReg32, op->lhs.imm.value);
+                m_codegen.cmp(lhsReg32, rhsReg32);
             }
         }
 
         if (setFlags) {
-            code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+            m_codegen.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
             SetNZCVFromFlags();
         }
     }
@@ -1712,13 +1697,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
         // Both are immediates
         if (op->dst.var.IsPresent()) {
             auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(dstReg32, op->lhs.imm.value);
+            m_codegen.mov(dstReg32, op->lhs.imm.value);
 
-            code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            code.cmc();                              // Complement it
-            code.sbb(dstReg32, op->rhs.imm.value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+            m_codegen.cmc();                              // Complement it
+            m_codegen.sbb(dstReg32, op->rhs.imm.value);
             if (setFlags) {
-                code.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
+                m_codegen.cmc(); // x86 carry is inverted compared to ARM carry in subtractions
                 SetNZCVFromFlags();
             }
         }
@@ -1736,13 +1721,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
                 dstReg32 = compiler.regAlloc.GetTemporary();
             }
 
-            code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            code.cmc();                              // Complement it
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+            m_codegen.cmc();                              // Complement it
             if (rhsImm) {
-                code.sbb(dstReg32, op->rhs.imm.value);
+                m_codegen.sbb(dstReg32, op->rhs.imm.value);
             } else {
                 auto rhsReg32 = compiler.regAlloc.Get(op->rhs.var.var);
-                code.sbb(dstReg32, rhsReg32);
+                m_codegen.sbb(dstReg32, rhsReg32);
             }
         } else {
             // lhs is immediate, rhs is variable
@@ -1753,14 +1738,14 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSubtractCarryOp *op) {
             } else {
                 dstReg32 = compiler.regAlloc.GetTemporary();
             }
-            code.mov(dstReg32, op->lhs.imm.value);
-            code.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            code.cmc();                              // Complement it
-            code.sbb(dstReg32, rhsReg32);
+            m_codegen.mov(dstReg32, op->lhs.imm.value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
+            m_codegen.cmc();                              // Complement it
+            m_codegen.sbb(dstReg32, rhsReg32);
         }
 
         if (setFlags) {
-            code.cmc(); // Complement carry output
+            m_codegen.cmc(); // Complement carry output
             SetNZCVFromFlags();
         }
     }
@@ -1803,7 +1788,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
             auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
 
             CopyIfDifferent(dstReg32, valReg32);
-            code.not_(dstReg32);
+            m_codegen.not_(dstReg32);
         }
 
         if (setFlags) {
@@ -1816,8 +1801,8 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMoveNegatedOp *op) {
         } else {
             auto valReg32 = compiler.regAlloc.Get(op->value.var.var);
             auto tmpReg32 = compiler.regAlloc.GetTemporary();
-            code.mov(tmpReg32, valReg32);
-            code.not_(tmpReg32);
+            m_codegen.mov(tmpReg32, valReg32);
+            m_codegen.not_(tmpReg32);
             SetNZFromReg(compiler, tmpReg32);
         }
     }
@@ -1843,19 +1828,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.add(dstReg32, imm);
+                m_codegen.add(dstReg32, imm);
                 if (setFlags) {
                     SetVFromFlags();
                 }
 
                 // Clamp on overflow
                 auto maxValReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(maxValReg32, std::numeric_limits<int32_t>::max());
-                code.cmovo(dstReg32, maxValReg32);
+                m_codegen.mov(maxValReg32, std::numeric_limits<int32_t>::max());
+                m_codegen.cmovo(dstReg32, maxValReg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.add(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.add(tmpReg32, imm);
                 SetVFromFlags();
             }
         } else {
@@ -1869,12 +1854,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 if (dstReg32 == lhsReg32) {
-                    code.add(dstReg32, rhsReg32);
+                    m_codegen.add(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
-                    code.add(dstReg32, lhsReg32);
+                    m_codegen.add(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.add(dstReg32, rhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
+                    m_codegen.add(dstReg32, rhsReg32);
                 }
 
                 if (setFlags) {
@@ -1883,12 +1868,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingAddOp *op) {
 
                 // Clamp on overflow
                 auto maxValReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(maxValReg32, std::numeric_limits<int32_t>::max());
-                code.cmovo(dstReg32, maxValReg32);
+                m_codegen.mov(maxValReg32, std::numeric_limits<int32_t>::max());
+                m_codegen.cmovo(dstReg32, maxValReg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, lhsReg32);
-                code.add(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.add(tmpReg32, rhsReg32);
                 SetVFromFlags();
             }
         }
@@ -1915,19 +1900,19 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
-                code.sub(dstReg32, imm);
+                m_codegen.sub(dstReg32, imm);
                 if (setFlags) {
                     SetVFromFlags();
                 }
 
                 // Clamp on overflow
                 auto maxValReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(maxValReg32, std::numeric_limits<int32_t>::min());
-                code.cmovo(dstReg32, maxValReg32);
+                m_codegen.mov(maxValReg32, std::numeric_limits<int32_t>::min());
+                m_codegen.cmovo(dstReg32, maxValReg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
-                code.sub(tmpReg32, imm);
+                m_codegen.mov(tmpReg32, varReg32);
+                m_codegen.sub(tmpReg32, imm);
                 SetVFromFlags();
             }
         } else {
@@ -1941,12 +1926,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op
                 auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
 
                 if (dstReg32 == lhsReg32) {
-                    code.sub(dstReg32, rhsReg32);
+                    m_codegen.sub(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
-                    code.sub(dstReg32, lhsReg32);
+                    m_codegen.sub(dstReg32, lhsReg32);
                 } else {
-                    code.mov(dstReg32, lhsReg32);
-                    code.sub(dstReg32, rhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
+                    m_codegen.sub(dstReg32, rhsReg32);
                 }
 
                 if (setFlags) {
@@ -1955,12 +1940,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRSaturatingSubtractOp *op
 
                 // Clamp on overflow
                 auto maxValReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(maxValReg32, std::numeric_limits<int32_t>::min());
-                code.cmovo(dstReg32, maxValReg32);
+                m_codegen.mov(maxValReg32, std::numeric_limits<int32_t>::min());
+                m_codegen.cmovo(dstReg32, maxValReg32);
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, lhsReg32);
-                code.sub(tmpReg32, rhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
+                m_codegen.sub(tmpReg32, rhsReg32);
                 SetVFromFlags();
             }
         }
@@ -1991,22 +1976,22 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {
                 auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
                 if (op->signedMul) {
-                    code.imul(dstReg32, dstReg32, static_cast<int32_t>(imm));
+                    m_codegen.imul(dstReg32, dstReg32, static_cast<int32_t>(imm));
                 } else {
-                    code.imul(dstReg32.cvt64(), dstReg32.cvt64(), imm);
+                    m_codegen.imul(dstReg32.cvt64(), dstReg32.cvt64(), imm);
                 }
                 if (setFlags) {
-                    code.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
+                    m_codegen.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
                 }
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
-                code.mov(tmpReg32, varReg32);
+                m_codegen.mov(tmpReg32, varReg32);
                 if (op->signedMul) {
-                    code.imul(tmpReg32, tmpReg32, static_cast<int32_t>(imm));
+                    m_codegen.imul(tmpReg32, tmpReg32, static_cast<int32_t>(imm));
                 } else {
-                    code.imul(tmpReg32.cvt64(), tmpReg32.cvt64(), imm);
+                    m_codegen.imul(tmpReg32.cvt64(), tmpReg32.cvt64(), imm);
                 }
-                code.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
+                m_codegen.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
             }
         } else {
             // lhs and rhs are vars
@@ -2020,26 +2005,26 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyOp *op) {
 
                 auto op2Reg32 = (dstReg32 == rhsReg32) ? lhsReg32 : rhsReg32;
                 if (dstReg32 != lhsReg32 && dstReg32 != rhsReg32) {
-                    code.mov(dstReg32, lhsReg32);
+                    m_codegen.mov(dstReg32, lhsReg32);
                 }
                 if (op->signedMul) {
-                    code.imul(dstReg32, op2Reg32);
+                    m_codegen.imul(dstReg32, op2Reg32);
                 } else {
-                    code.imul(dstReg32.cvt64(), op2Reg32.cvt64());
+                    m_codegen.imul(dstReg32.cvt64(), op2Reg32.cvt64());
                 }
                 if (setFlags) {
-                    code.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
+                    m_codegen.test(dstReg32, dstReg32); // We need NZ, but IMUL trashes both flags
                 }
             } else if (setFlags) {
                 auto tmpReg32 = compiler.regAlloc.GetTemporary();
 
-                code.mov(tmpReg32, lhsReg32);
+                m_codegen.mov(tmpReg32, lhsReg32);
                 if (op->signedMul) {
-                    code.imul(tmpReg32, rhsReg32);
+                    m_codegen.imul(tmpReg32, rhsReg32);
                 } else {
-                    code.imul(tmpReg32.cvt64(), rhsReg32.cvt64());
+                    m_codegen.imul(tmpReg32.cvt64(), rhsReg32.cvt64());
                 }
-                code.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
+                m_codegen.test(tmpReg32, tmpReg32); // We need NZ, but IMUL trashes both flags
             }
         }
 
@@ -2085,23 +2070,23 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                     dstReg64 = compiler.regAlloc.GetTemporary().cvt64();
                 }
                 if (op->signedMul) {
-                    code.movsxd(dstReg64, varReg32);
+                    m_codegen.movsxd(dstReg64, varReg32);
                 } else if (dstReg64.cvt32() != varReg32) {
-                    code.mov(dstReg64.cvt32(), varReg32);
+                    m_codegen.mov(dstReg64.cvt32(), varReg32);
                 }
 
                 // Multiply and shift down if needed
                 // If dstLo is present, the result is already in place
                 if (op->signedMul) {
-                    code.imul(dstReg64, dstReg64, static_cast<int32_t>(imm));
+                    m_codegen.imul(dstReg64, dstReg64, static_cast<int32_t>(imm));
                 } else {
-                    code.imul(dstReg64, dstReg64, imm);
+                    m_codegen.imul(dstReg64, dstReg64, imm);
                 }
                 if (op->shiftDownHalf) {
                     if (op->signedMul) {
-                        code.sar(dstReg64, 16);
+                        m_codegen.sar(dstReg64, 16);
                     } else {
-                        code.shr(dstReg64, 16);
+                        m_codegen.shr(dstReg64, 16);
                     }
                 }
 
@@ -2109,33 +2094,33 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                 if (op->dstHi.var.IsPresent()) {
                     auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
                     if (CPUID::HasBMI2()) {
-                        code.rorx(dstHiReg64, dstReg64, 32);
+                        m_codegen.rorx(dstHiReg64, dstReg64, 32);
                     } else {
-                        code.mov(dstHiReg64, dstReg64);
-                        code.shr(dstHiReg64, 32);
+                        m_codegen.mov(dstHiReg64, dstReg64);
+                        m_codegen.shr(dstHiReg64, 32);
                     }
                 }
 
                 if (setFlags) {
-                    code.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
+                    m_codegen.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
                 }
             } else if (setFlags) {
                 auto tmpReg64 = compiler.regAlloc.GetTemporary().cvt64();
                 if (op->signedMul) {
-                    code.movsxd(tmpReg64, varReg32);
-                    code.imul(tmpReg64, tmpReg64, static_cast<int32_t>(imm));
+                    m_codegen.movsxd(tmpReg64, varReg32);
+                    m_codegen.imul(tmpReg64, tmpReg64, static_cast<int32_t>(imm));
                 } else {
-                    code.mov(tmpReg64.cvt32(), varReg32);
-                    code.imul(tmpReg64, tmpReg64, imm);
+                    m_codegen.mov(tmpReg64.cvt32(), varReg32);
+                    m_codegen.imul(tmpReg64, tmpReg64, imm);
                 }
                 if (op->shiftDownHalf) {
                     if (op->signedMul) {
-                        code.sar(tmpReg64, 16);
+                        m_codegen.sar(tmpReg64, 16);
                     } else {
-                        code.shr(tmpReg64, 16);
+                        m_codegen.shr(tmpReg64, 16);
                     }
                 }
-                code.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
+                m_codegen.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
             }
         } else {
             // lhs and rhs are vars
@@ -2156,25 +2141,25 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                 auto op2Reg32 = (dstReg64.cvt32() == rhsReg32) ? lhsReg32 : rhsReg32;
                 if (dstReg64.cvt32() != lhsReg32 && dstReg64.cvt32() != rhsReg32) {
                     if (op->signedMul) {
-                        code.movsxd(dstReg64, lhsReg32);
+                        m_codegen.movsxd(dstReg64, lhsReg32);
                     } else {
-                        code.mov(dstReg64.cvt32(), lhsReg32);
+                        m_codegen.mov(dstReg64.cvt32(), lhsReg32);
                     }
                 } else if (op->signedMul) {
-                    code.movsxd(dstReg64, dstReg64.cvt32());
+                    m_codegen.movsxd(dstReg64, dstReg64.cvt32());
                 }
 
                 if (op->signedMul) {
-                    code.movsxd(op2Reg32.cvt64(), op2Reg32);
-                    code.imul(dstReg64, op2Reg32.cvt64());
+                    m_codegen.movsxd(op2Reg32.cvt64(), op2Reg32);
+                    m_codegen.imul(dstReg64, op2Reg32.cvt64());
                 } else {
-                    code.imul(dstReg64, op2Reg32.cvt64());
+                    m_codegen.imul(dstReg64, op2Reg32.cvt64());
                 }
                 if (op->shiftDownHalf) {
                     if (op->signedMul) {
-                        code.sar(dstReg64, 16);
+                        m_codegen.sar(dstReg64, 16);
                     } else {
-                        code.shr(dstReg64, 16);
+                        m_codegen.shr(dstReg64, 16);
                     }
                 }
 
@@ -2182,30 +2167,30 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRMultiplyLongOp *op) {
                 if (op->dstHi.var.IsPresent()) {
                     auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
                     if (CPUID::HasBMI2()) {
-                        code.rorx(dstHiReg64, dstReg64, 32);
+                        m_codegen.rorx(dstHiReg64, dstReg64, 32);
                     } else {
-                        code.mov(dstHiReg64, dstReg64);
-                        code.shr(dstHiReg64, 32);
+                        m_codegen.mov(dstHiReg64, dstReg64);
+                        m_codegen.shr(dstHiReg64, 32);
                     }
                 }
 
                 if (setFlags) {
-                    code.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
+                    m_codegen.test(dstReg64, dstReg64); // We need NZ, but IMUL trashes both flags
                 }
             } else if (setFlags) {
                 auto tmpReg64 = compiler.regAlloc.GetTemporary().cvt64();
                 auto op2Reg64 = compiler.regAlloc.GetTemporary().cvt64();
 
                 if (op->signedMul) {
-                    code.movsxd(tmpReg64, lhsReg32);
-                    code.movsxd(op2Reg64, rhsReg32);
-                    code.imul(tmpReg64, op2Reg64);
+                    m_codegen.movsxd(tmpReg64, lhsReg32);
+                    m_codegen.movsxd(op2Reg64, rhsReg32);
+                    m_codegen.imul(tmpReg64, op2Reg64);
                 } else {
-                    code.mov(tmpReg64.cvt32(), lhsReg32);
-                    code.mov(op2Reg64.cvt32(), rhsReg32);
-                    code.imul(tmpReg64, op2Reg64);
+                    m_codegen.mov(tmpReg64.cvt32(), lhsReg32);
+                    m_codegen.mov(op2Reg64.cvt32(), rhsReg32);
+                    m_codegen.imul(tmpReg64, op2Reg64);
                 }
-                code.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
+                m_codegen.test(tmpReg64, tmpReg64); // We need NZ, but IMUL trashes both flags
             }
         }
 
@@ -2222,7 +2207,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
     Xbyak::Reg64 shiftBy32Reg64{};
     if (CPUID::HasBMI2()) {
         shiftBy32Reg64 = compiler.regAlloc.GetTemporary().cvt64();
-        code.mov(shiftBy32Reg64, 32);
+        m_codegen.mov(shiftBy32Reg64, 32);
     }
 
     // Compose two input variables (lo and hi) into a single 64-bit register
@@ -2231,42 +2216,42 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
         if (lo.immediate && hi.immediate) {
             // Both are immediates
             const uint64_t value = static_cast<uint64_t>(lo.imm.value) | (static_cast<uint64_t>(hi.imm.value) << 32ull);
-            code.mov(outReg64, value);
+            m_codegen.mov(outReg64, value);
         } else if (!lo.immediate && !hi.immediate) {
             // Both are variables
             auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
             auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
 
             if (CPUID::HasBMI2()) {
-                code.shlx(outReg64, hiReg64, shiftBy32Reg64);
+                m_codegen.shlx(outReg64, hiReg64, shiftBy32Reg64);
             } else {
-                code.mov(outReg64, hiReg64);
-                code.shl(outReg64, 32);
+                m_codegen.mov(outReg64, hiReg64);
+                m_codegen.shl(outReg64, 32);
             }
-            code.or_(outReg64, loReg64);
+            m_codegen.or_(outReg64, loReg64);
         } else if (lo.immediate) {
             // lo is immediate, hi is variable
             auto hiReg64 = compiler.regAlloc.Get(hi.var.var).cvt64();
 
             if (outReg64 != hiReg64 && CPUID::HasBMI2()) {
-                code.shlx(outReg64, hiReg64, shiftBy32Reg64);
+                m_codegen.shlx(outReg64, hiReg64, shiftBy32Reg64);
             } else {
                 CopyIfDifferent(outReg64, hiReg64);
-                code.shl(outReg64, 32);
+                m_codegen.shl(outReg64, 32);
             }
-            code.or_(outReg64, lo.imm.value);
+            m_codegen.or_(outReg64, lo.imm.value);
         } else {
             // lo is variable, hi is immediate
             auto loReg64 = compiler.regAlloc.Get(lo.var.var).cvt64();
 
             if (outReg64 != loReg64 && CPUID::HasBMI2()) {
-                code.shlx(outReg64, loReg64, shiftBy32Reg64);
+                m_codegen.shlx(outReg64, loReg64, shiftBy32Reg64);
             } else {
                 CopyIfDifferent(outReg64, loReg64);
-                code.shl(outReg64, 32);
+                m_codegen.shl(outReg64, 32);
             }
-            code.or_(outReg64, hi.imm.value);
-            code.ror(outReg64, 32);
+            m_codegen.or_(outReg64, hi.imm.value);
+            m_codegen.ror(outReg64, 32);
         }
         return outReg64;
     };
@@ -2284,9 +2269,9 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
     } else {
         // Create a new temporary variable if dstLo is absent or the temporary register assignment failed
         dstLoReg64 = compiler.regAlloc.GetTemporary().cvt64();
-        code.mov(dstLoReg64, lhsReg64);
+        m_codegen.mov(dstLoReg64, lhsReg64);
     }
-    code.add(dstLoReg64, rhsReg64);
+    m_codegen.add(dstLoReg64, rhsReg64);
 
     // Update flags if requested
     if (setFlags) {
@@ -2297,10 +2282,10 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRAddLongOp *op) {
     if (op->dstHi.var.IsPresent()) {
         auto dstHiReg64 = compiler.regAlloc.Get(op->dstHi.var).cvt64();
         if (CPUID::HasBMI2()) {
-            code.shrx(dstHiReg64, dstLoReg64, shiftBy32Reg64);
+            m_codegen.shrx(dstHiReg64, dstLoReg64, shiftBy32Reg64);
         } else {
-            code.mov(dstHiReg64, dstLoReg64);
-            code.shr(dstHiReg64, 32);
+            m_codegen.mov(dstHiReg64, dstLoReg64);
+            m_codegen.shr(dstHiReg64, 32);
         }
     }
 }
@@ -2313,20 +2298,20 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRStoreFlagsOp *op) {
             const auto ones = ((value & mask) * ARMTox64FlagsMult) & x64FlagsMask;
             const auto zeros = ((~value & mask) * ARMTox64FlagsMult) & x64FlagsMask;
             if (ones != 0) {
-                code.or_(abi::kHostFlagsReg, ones);
+                m_codegen.or_(abi::kHostFlagsReg, ones);
             }
             if (zeros != 0) {
-                code.and_(abi::kHostFlagsReg, ~zeros);
+                m_codegen.and_(abi::kHostFlagsReg, ~zeros);
             }
         } else {
             auto valReg32 = compiler.regAlloc.Get(op->values.var.var);
             auto maskReg32 = compiler.regAlloc.GetTemporary();
-            code.shr(valReg32, ARMflgNZCVShift);
-            code.imul(valReg32, valReg32, ARMTox64FlagsMult);
-            code.and_(valReg32, x64FlagsMask);
-            code.mov(maskReg32, (~mask * ARMTox64FlagsMult) & x64FlagsMask);
-            code.and_(abi::kHostFlagsReg, maskReg32);
-            code.or_(abi::kHostFlagsReg, valReg32);
+            m_codegen.shr(valReg32, ARMflgNZCVShift);
+            m_codegen.imul(valReg32, valReg32, ARMTox64FlagsMult);
+            m_codegen.and_(valReg32, x64FlagsMask);
+            m_codegen.mov(maskReg32, (~mask * ARMTox64FlagsMult) & x64FlagsMask);
+            m_codegen.and_(abi::kHostFlagsReg, maskReg32);
+            m_codegen.or_(abi::kHostFlagsReg, valReg32);
         }
     }
 }
@@ -2335,7 +2320,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
     // Get value from srcCPSR and copy to dstCPSR, or reuse register from srcCPSR if possible
     if (op->srcCPSR.immediate) {
         auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
-        code.mov(dstReg32, op->srcCPSR.imm.value);
+        m_codegen.mov(dstReg32, op->srcCPSR.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
         auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
@@ -2350,16 +2335,16 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadFlagsOp *op) {
         // Extract the host flags we need from EAX into flags
         auto flags = compiler.regAlloc.GetTemporary();
         if (CPUID::HasFastPDEPAndPEXT()) {
-            code.mov(flags, x64FlagsMask);
-            code.pext(flags, abi::kHostFlagsReg, flags);
-            code.shl(flags, 28);
+            m_codegen.mov(flags, x64FlagsMask);
+            m_codegen.pext(flags, abi::kHostFlagsReg, flags);
+            m_codegen.shl(flags, 28);
         } else {
-            code.imul(flags, abi::kHostFlagsReg, x64ToARMFlagsMult);
-            // code.and_(flags, ARMFlagsMask);
+            m_codegen.imul(flags, abi::kHostFlagsReg, x64ToARMFlagsMult);
+            // m_codegen.and_(flags, ARMFlagsMask);
         }
-        code.and_(flags, cpsrMask);     // Keep only the affected bits
-        code.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
-        code.or_(dstReg32, flags);      // Store new bits into dst value
+        m_codegen.and_(flags, cpsrMask);     // Keep only the affected bits
+        m_codegen.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
+        m_codegen.or_(dstReg32, flags);      // Store new bits into dst value
     }
 }
 
@@ -2369,12 +2354,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadStickyOverflowOp *op
         auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
 
         // Apply overflow flag in the Q position
-        code.mov(dstReg32, abi::kHostFlagsReg.cvt8()); // Copy overflow flag into destination register
-        code.shl(dstReg32, ARMflgQPos);                // Move Q into position
-        code.or_(dstReg32, srcReg32);                  // OR with srcCPSR
+        m_codegen.mov(dstReg32, abi::kHostFlagsReg.cvt8()); // Copy overflow flag into destination register
+        m_codegen.shl(dstReg32, ARMflgQPos);                // Move Q into position
+        m_codegen.or_(dstReg32, srcReg32);                  // OR with srcCPSR
     } else if (op->srcCPSR.immediate) {
         auto dstReg32 = compiler.regAlloc.Get(op->dstCPSR.var);
-        code.mov(dstReg32, op->srcCPSR.imm.value);
+        m_codegen.mov(dstReg32, op->srcCPSR.imm.value);
     } else {
         auto srcReg32 = compiler.regAlloc.Get(op->srcCPSR.var.var);
         auto dstReg32 = compiler.regAlloc.ReuseAndGet(op->dstCPSR.var, op->srcCPSR.var.var);
@@ -2388,13 +2373,13 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchOp *op) {
     const auto addrMask = (compiler.thumb ? ~1 : ~3);
 
     if (op->address.immediate) {
-        code.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
+        m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
     } else {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
         auto tmpReg32 = compiler.regAlloc.GetTemporary();
-        code.lea(tmpReg32, dword[addrReg32 + pcOffset]);
-        code.and_(tmpReg32, addrMask);
-        code.mov(dword[abi::kARMStateReg + pcFieldOffset], tmpReg32);
+        m_codegen.lea(tmpReg32, dword[addrReg32 + pcOffset]);
+        m_codegen.and_(tmpReg32, addrMask);
+        m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], tmpReg32);
     }
 }
 
@@ -2414,38 +2399,38 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {
             const auto ctlValueOfs = offsetof(arm::cp15::ControlRegister, value);
 
             // Use pcReg32 as scratch register for this test
-            code.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
-            code.test(dword[pcReg32.cvt64() + ctlValueOfs], (1 << 15)); // L4 bit
-            code.je(lblExchange);
+            m_codegen.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
+            m_codegen.test(dword[pcReg32.cvt64() + ctlValueOfs], (1 << 15)); // L4 bit
+            m_codegen.je(lblExchange);
 
             // Perform branch without exchange
             const auto pcOffset = 2 * (compiler.thumb ? sizeof(uint16_t) : sizeof(uint32_t));
             const auto addrMask = (compiler.thumb ? ~1 : ~3);
             if (op->address.immediate) {
-                code.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
+                m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
             } else {
                 auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
-                code.lea(pcReg32, dword[addrReg32 + pcOffset]);
-                code.and_(pcReg32, addrMask);
-                code.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
+                m_codegen.lea(pcReg32, dword[addrReg32 + pcOffset]);
+                m_codegen.and_(pcReg32, addrMask);
+                m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
             }
-            code.jmp(lblEnd);
+            m_codegen.jmp(lblEnd);
         }
         // If CP15 is absent, assume bit L4 is clear (the default value) -- branch and exchange
     }
 
     // Perform exchange
-    code.L(lblExchange);
+    m_codegen.L(lblExchange);
     if (op->address.immediate) {
         // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
         if (op->address.imm.value & 1) {
             // Thumb branch
-            code.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5)); // T bit
-            code.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
+            m_codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5)); // T bit
+            m_codegen.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
         } else {
             // ARM branch
-            code.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5)); // T bit
-            code.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
+            m_codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5)); // T bit
+            m_codegen.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
         }
     } else {
         Xbyak::Label lblBranchARM;
@@ -2454,31 +2439,31 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRBranchExchangeOp *op) {
         auto addrReg32 = compiler.regAlloc.Get(op->address.var.var);
 
         // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
-        code.test(addrReg32, 1);
-        code.je(lblBranchARM);
+        m_codegen.test(addrReg32, 1);
+        m_codegen.je(lblBranchARM);
 
         // Thumb branch
-        code.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5));
-        code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t) - 1]);
+        m_codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5));
+        m_codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t) - 1]);
         // The address always has bit 0 set, so (addr & ~1) == (addr - 1)
         // Therefore, (addr & ~1) + 4 == (addr - 1) + 4 == (addr + 3)
-        // code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t)]);
-        // code.and_(pcReg32, ~1);
-        code.jmp(lblSetPC);
+        // m_codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t)]);
+        // m_codegen.and_(pcReg32, ~1);
+        m_codegen.jmp(lblSetPC);
 
         // ARM branch
-        code.L(lblBranchARM);
-        code.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5));
-        code.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint32_t)]);
-        code.and_(pcReg32, ~3);
+        m_codegen.L(lblBranchARM);
+        m_codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5));
+        m_codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint32_t)]);
+        m_codegen.and_(pcReg32, ~3);
 
-        code.L(lblSetPC);
+        m_codegen.L(lblSetPC);
     }
 
     // Set PC to branch target
-    code.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
+    m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
 
-    code.L(lblEnd);
+    m_codegen.L(lblEnd);
 }
 
 void x64Host::CompileOp(Compiler &compiler, const ir::IRLoadCopRegisterOp *op) {
@@ -2505,7 +2490,7 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRConstantOp *op) {
     // This instruction should be optimized away, but here's an implementation anyway
     if (op->dst.var.IsPresent()) {
         auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-        code.mov(dstReg32, op->value);
+        m_codegen.mov(dstReg32, op->value);
     }
 }
 
@@ -2529,12 +2514,12 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *
 
             auto ctlPtrReg64 = compiler.regAlloc.GetTemporary().cvt64();
             auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.mov(ctlPtrReg64, CastUintPtr(&cp15ctl));
-            code.mov(dstReg32, dword[ctlPtrReg64 + baseVectorAddressOfs]);
+            m_codegen.mov(ctlPtrReg64, CastUintPtr(&cp15ctl));
+            m_codegen.mov(dstReg32, dword[ctlPtrReg64 + baseVectorAddressOfs]);
         } else {
             // Default to 00000000 if CP15 is absent
             auto dstReg32 = compiler.regAlloc.Get(op->dst.var);
-            code.xor_(dstReg32, dstReg32);
+            m_codegen.xor_(dstReg32, dstReg32);
         }
     }
 }
@@ -2543,31 +2528,31 @@ void x64Host::CompileOp(Compiler &compiler, const ir::IRGetBaseVectorAddressOp *
 
 void x64Host::SetCFromValue(bool carry) {
     if (carry) {
-        code.or_(abi::kHostFlagsReg, x64flgC);
+        m_codegen.or_(abi::kHostFlagsReg, x64flgC);
     } else {
-        code.and_(abi::kHostFlagsReg, ~x64flgC);
+        m_codegen.and_(abi::kHostFlagsReg, ~x64flgC);
     }
 }
 
 void x64Host::SetCFromFlags(Compiler &compiler) {
     auto tmp32 = compiler.regAlloc.GetTemporary();
-    code.setc(tmp32.cvt8());                 // Put new C into a temporary register
-    code.movzx(tmp32, tmp32.cvt8());         // Zero-extend to 32 bits
-    code.shl(tmp32, x64flgCPos);             // Move it to the correct position
-    code.and_(abi::kHostFlagsReg, ~x64flgC); // Clear existing C flag from EAX
-    code.or_(abi::kHostFlagsReg, tmp32);     // Write new C flag into EAX
+    m_codegen.setc(tmp32.cvt8());                 // Put new C into a temporary register
+    m_codegen.movzx(tmp32, tmp32.cvt8());         // Zero-extend to 32 bits
+    m_codegen.shl(tmp32, x64flgCPos);             // Move it to the correct position
+    m_codegen.and_(abi::kHostFlagsReg, ~x64flgC); // Clear existing C flag from EAX
+    m_codegen.or_(abi::kHostFlagsReg, tmp32);     // Write new C flag into EAX
 }
 
 void x64Host::SetVFromValue(bool overflow) {
     if (overflow) {
-        code.mov(abi::kHostFlagsReg.cvt8(), 1);
+        m_codegen.mov(abi::kHostFlagsReg.cvt8(), 1);
     } else {
-        code.xor_(abi::kHostFlagsReg.cvt8(), abi::kHostFlagsReg.cvt8());
+        m_codegen.xor_(abi::kHostFlagsReg.cvt8(), abi::kHostFlagsReg.cvt8());
     }
 }
 
 void x64Host::SetVFromFlags() {
-    code.seto(abi::kHostFlagsReg.cvt8());
+    m_codegen.seto(abi::kHostFlagsReg.cvt8());
 }
 
 void x64Host::SetNZFromValue(uint32_t value) {
@@ -2576,10 +2561,10 @@ void x64Host::SetNZFromValue(uint32_t value) {
     const uint32_t ones = (n * x64flgN) | (z * x64flgZ);
     const uint32_t zeros = (!n * x64flgN) | (!z * x64flgZ);
     if (ones != 0) {
-        code.or_(abi::kHostFlagsReg, ones);
+        m_codegen.or_(abi::kHostFlagsReg, ones);
     }
     if (zeros != 0) {
-        code.and_(abi::kHostFlagsReg, ~zeros);
+        m_codegen.and_(abi::kHostFlagsReg, ~zeros);
     }
 }
 
@@ -2589,29 +2574,29 @@ void x64Host::SetNZFromValue(uint64_t value) {
     const uint32_t ones = (n * x64flgN) | (z * x64flgZ);
     const uint32_t zeros = (!n * x64flgN) | (!z * x64flgZ);
     if (ones != 0) {
-        code.or_(abi::kHostFlagsReg, ones);
+        m_codegen.or_(abi::kHostFlagsReg, ones);
     }
     if (zeros != 0) {
-        code.and_(abi::kHostFlagsReg, ~zeros);
+        m_codegen.and_(abi::kHostFlagsReg, ~zeros);
     }
 }
 
 void x64Host::SetNZFromReg(Compiler &compiler, Xbyak::Reg32 value) {
     auto tmp32 = compiler.regAlloc.GetTemporary();
-    code.test(value, value);             // Updates NZ, clears CV; V won't be changed here
-    code.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
-    code.lahf();                         // Load NZC; C is 0
-    code.and_(tmp32, x64flgC);           // Keep previous C only
-    code.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
+    m_codegen.test(value, value);             // Updates NZ, clears CV; V won't be changed here
+    m_codegen.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
+    m_codegen.lahf();                         // Load NZC; C is 0
+    m_codegen.and_(tmp32, x64flgC);           // Keep previous C only
+    m_codegen.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::SetNZFromFlags(Compiler &compiler) {
     auto tmp32 = compiler.regAlloc.GetTemporary();
-    code.clc();                          // Clear C to make way for the previous C
-    code.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
-    code.lahf();                         // Load NZC; C is 0
-    code.and_(tmp32, x64flgC);           // Keep previous C only
-    code.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
+    m_codegen.clc();                          // Clear C to make way for the previous C
+    m_codegen.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
+    m_codegen.lahf();                         // Load NZC; C is 0
+    m_codegen.and_(tmp32, x64flgC);           // Keep previous C only
+    m_codegen.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::SetNZCVFromValue(uint32_t value, bool carry, bool overflow) {
@@ -2620,36 +2605,36 @@ void x64Host::SetNZCVFromValue(uint32_t value, bool carry, bool overflow) {
     const uint32_t ones = (n * x64flgN) | (z * x64flgZ) | (carry * x64flgC);
     const uint32_t zeros = (!n * x64flgN) | (!z * x64flgZ) | (!carry * x64flgC);
     if (ones != 0) {
-        code.or_(abi::kHostFlagsReg, ones);
+        m_codegen.or_(abi::kHostFlagsReg, ones);
     }
     if (zeros != 0) {
-        code.and_(abi::kHostFlagsReg, ~zeros);
+        m_codegen.and_(abi::kHostFlagsReg, ~zeros);
     }
-    code.mov(abi::kHostFlagsReg.cvt8(), static_cast<uint8_t>(overflow));
+    m_codegen.mov(abi::kHostFlagsReg.cvt8(), static_cast<uint8_t>(overflow));
 }
 
 void x64Host::SetNZCVFromFlags() {
-    code.lahf();
-    code.seto(abi::kHostFlagsReg.cvt8());
+    m_codegen.lahf();
+    m_codegen.seto(abi::kHostFlagsReg.cvt8());
 }
 
 void x64Host::MOVImmediate(Xbyak::Reg32 reg, uint32_t value) {
     if (value == 0) {
-        code.xor_(reg, reg);
+        m_codegen.xor_(reg, reg);
     } else {
-        code.mov(reg, value);
+        m_codegen.mov(reg, value);
     }
 }
 
 void x64Host::CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src) {
     if (dst != src) {
-        code.mov(dst, src);
+        m_codegen.mov(dst, src);
     }
 }
 
 void x64Host::CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src) {
     if (dst != src) {
-        code.mov(dst, src);
+        m_codegen.mov(dst, src);
     }
 }
 
@@ -2736,7 +2721,7 @@ void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstRe
                   "All FnArgs must be integral types, Xbyak operands, pointers or references");
 
     // Save the return value register
-    code.push(abi::kIntReturnValueReg);
+    m_codegen.push(abi::kIntReturnValueReg);
 
     // Save all used volatile registers
     std::vector<Xbyak::Reg64> savedRegs;
@@ -2748,7 +2733,7 @@ void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstRe
 
         // Only push allocated registers
         if (compiler.regAlloc.IsRegisterAllocated(reg)) {
-            code.push(reg);
+            m_codegen.push(reg);
             savedRegs.push_back(reg);
         }
     }
@@ -2765,16 +2750,16 @@ void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstRe
             auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
                 if (argReg64 != arg.cvt64()) {
-                    code.mov(argReg64, arg.cvt64());
+                    m_codegen.mov(argReg64, arg.cvt64());
                 }
             } else if constexpr (is_raw_integral_v<TArg>) {
-                code.mov(argReg64, arg);
+                m_codegen.mov(argReg64, arg);
             } else if constexpr (std::is_pointer_v<TArg>) {
-                code.mov(argReg64, CastUintPtr(arg));
+                m_codegen.mov(argReg64, CastUintPtr(arg));
             } else if constexpr (std::is_reference_v<TArg>) {
-                code.mov(argReg64, CastUintPtr(&arg));
+                m_codegen.mov(argReg64, CastUintPtr(&arg));
             } else {
-                code.mov(argReg64, arg);
+                m_codegen.mov(argReg64, arg);
             }
         } else {
             // TODO: push onto stack in the order specified by the ABI
@@ -2787,32 +2772,32 @@ void x64Host::CompileInvokeHostFunctionImpl(Compiler &compiler, Xbyak::Reg dstRe
 
     // Align stack to ABI requirement
     if (stackAlignmentOffset != 0) {
-        code.sub(rsp, stackAlignmentOffset);
+        m_codegen.sub(rsp, stackAlignmentOffset);
     }
 
     // Call host function using the return value register as a pointer
-    code.mov(abi::kIntReturnValueReg, CastUintPtr(fn));
-    code.call(abi::kIntReturnValueReg);
+    m_codegen.mov(abi::kIntReturnValueReg, CastUintPtr(fn));
+    m_codegen.call(abi::kIntReturnValueReg);
 
     // Undo stack alignment
     if (stackAlignmentOffset != 0) {
-        code.add(rsp, stackAlignmentOffset);
+        m_codegen.add(rsp, stackAlignmentOffset);
     }
 
     // Pop all saved registers
     for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
-        code.pop(*it);
+        m_codegen.pop(*it);
     }
 
     // Copy result to destination register if present
     if constexpr (!std::is_void_v<ReturnType>) {
         if (!dstReg.isNone()) {
-            code.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
+            m_codegen.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
         }
     }
 
     // Pop the return value register
-    code.pop(abi::kIntReturnValueReg);
+    m_codegen.pop(abi::kIntReturnValueReg);
 }
 
 } // namespace armajitto::x86_64
