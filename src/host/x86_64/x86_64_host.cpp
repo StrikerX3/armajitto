@@ -160,12 +160,12 @@ x64Host::x64Host(Context &context)
     CompileEpilog();
 }
 
-void x64Host::Compile(ir::BasicBlock &block) {
+HostCode x64Host::Compile(ir::BasicBlock &block) {
     Compiler compiler{code};
 
     compiler.Analyze(block);
 
-    auto fnPtr = code.getCurr<HostCode::Fn>();
+    auto fnPtr = code.getCurr<HostCode>();
     code.setProtectModeRW();
 
     Xbyak::Label lblCondFail{};
@@ -198,14 +198,14 @@ void x64Host::Compile(ir::BasicBlock &block) {
     // TODO: cycle counting
 
     // Go to epilog
-    code.mov(abi::kNonvolatileRegs[0], m_epilog.GetPtr());
+    code.mov(abi::kNonvolatileRegs[0], m_epilog);
     code.jmp(abi::kNonvolatileRegs[0]);
 
     code.setProtectModeRE();
-    SetHostCode(block, fnPtr);
     m_blockCache.insert({block.Location().ToUint64(), {.code = fnPtr}});
 
-    vtune::ReportBasicBlock(CastUintPtr(fnPtr), code.getCurr<uintptr_t>(), block.Location());
+    vtune::ReportBasicBlock(fnPtr, code.getCurr<uintptr_t>(), block.Location());
+    return fnPtr;
 }
 
 void x64Host::CompileProlog() {
@@ -254,7 +254,7 @@ void x64Host::CompileProlog() {
 }
 
 void x64Host::CompileEpilog() {
-    m_epilog = code.getCurr<HostCode::Fn>();
+    m_epilog = code.getCurr<HostCode>();
     code.setProtectModeRW();
 
     // Cleanup stack
@@ -269,7 +269,7 @@ void x64Host::CompileEpilog() {
     code.ret();
 
     code.setProtectModeRE();
-    vtune::ReportCode(m_epilog.GetPtr(), code.getCurr<uintptr_t>(), "__epilog");
+    vtune::ReportCode(m_epilog, code.getCurr<uintptr_t>(), "__epilog");
 }
 
 void x64Host::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {

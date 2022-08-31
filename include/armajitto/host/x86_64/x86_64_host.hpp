@@ -3,6 +3,7 @@
 #include "armajitto/host/host.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/ir_ops.hpp"
+#include "armajitto/util/pointer_cast.hpp"
 #include "armajitto/util/type_traits.hpp"
 
 #include "x86_64_type_traits.hpp"
@@ -20,11 +21,10 @@ namespace armajitto::x86_64 {
 class x64Host final : public Host {
 public:
     x64Host(Context &context);
-    void Compile(ir::BasicBlock &block) final;
+    HostCode Compile(ir::BasicBlock &block) final;
 
-    void Call(const ir::BasicBlock &block) {
-        auto fn = GetHostCode(block).GetPtr();
-        m_prolog(fn);
+    void Call(HostCode code) {
+        m_prolog(code);
     }
 
 private:
@@ -34,18 +34,18 @@ private:
     uint64_t m_stackAlignmentOffset;
 
     struct CachedBlock {
-        HostCode::Fn code;
+        HostCode code;
     };
 
     // TODO: redesign cache to a simpler design that can be easily traversed in handwritten assembly
     std::unordered_map<uint64_t, CachedBlock> m_blockCache;
 
-    static HostCode::Fn GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
+    static HostCode GetCodeForLocation(std::unordered_map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
         auto it = blockCache.find(lochash);
         if (it != blockCache.end()) {
             return it->second.code;
         } else {
-            return nullptr;
+            return CastUintPtr(nullptr);
         }
     }
 

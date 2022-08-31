@@ -2,7 +2,6 @@
 
 #include "armajitto/core/allocator.hpp"
 #include "armajitto/guest/arm/instructions.hpp"
-#include "armajitto/host/host_code.hpp"
 #include "armajitto/ir/ops/ir_ops_base.hpp"
 #include "defs/variable.hpp"
 #include "location_ref.hpp"
@@ -21,6 +20,10 @@ class Host;
 namespace armajitto::ir {
 
 class BasicBlock {
+    // true = less translator/optimizer performance, lower memory usage
+    // false = faster, but memory is wasted on optimization passes until allocator is released
+    static constexpr bool kFreeErasedIROps = false;
+
 public:
     BasicBlock(memory::Allocator &alloc, LocationRef location)
         : m_alloc(alloc)
@@ -59,11 +62,13 @@ public:
     }
 
     void Clear() {
-        IROp *op = m_opsHead;
-        while (op != nullptr) {
-            IROp *next = op->next;
-            m_alloc.Free(op);
-            op = next;
+        if constexpr (kFreeErasedIROps) {
+            IROp *op = m_opsHead;
+            while (op != nullptr) {
+                IROp *next = op->next;
+                m_alloc.Free(op);
+                op = next;
+            }
         }
         m_opsHead = nullptr;
         m_opsTail = nullptr;
@@ -144,7 +149,9 @@ private:
             if (ref == m_opsTail) {
                 m_opsTail = op;
             }
-            m_alloc.Free(ref);
+            if constexpr (kFreeErasedIROps) {
+                m_alloc.Free(ref);
+            }
         }
         return op;
     }
@@ -177,7 +184,9 @@ private:
             m_opsTail = m_opsTail->Next();
         }
         IROp *next = op->Erase();
-        m_alloc.Free(op);
+        if constexpr (kFreeErasedIROps) {
+            m_alloc.Free(op);
+        }
         return next;
     }
 
@@ -186,22 +195,6 @@ private:
     }
 
     void RenameVariables();
-
-    // -------------------------------------------------------------------------
-    // Host accessors
-    // Allows compilation of host code
-
-    friend class ::armajitto::Host;
-
-    HostCode m_hostCode;
-
-    const HostCode &GetHostCode() const {
-        return m_hostCode;
-    }
-
-    void SetHostCode(HostCode code) {
-        m_hostCode = code;
-    }
 };
 
 static_assert(std::is_trivially_destructible_v<BasicBlock>,

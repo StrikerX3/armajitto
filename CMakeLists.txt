@@ -51,7 +51,6 @@ add_library(armajitto
     include/armajitto/guest/arm/coprocessors/cp15/cp15_pu.hpp
     include/armajitto/guest/arm/coprocessors/cp15/cp15_tcm.hpp
     include/armajitto/host/host.hpp
-    include/armajitto/host/host_code.hpp
     include/armajitto/host/x86_64/cpuid.hpp
     include/armajitto/host/x86_64/x86_64_host.hpp
     include/armajitto/host/x86_64/x86_64_type_traits.hpp

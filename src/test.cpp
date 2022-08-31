@@ -676,6 +676,7 @@ void testCompiler() {
     const uint32_t baseAddress = 0x02000100;
 
     uint32_t address = baseAddress;
+    auto mode = armajitto::arm::Mode::FIQ;
     bool thumb = false;
 
     [[maybe_unused]] auto writeThumb = [&](uint16_t opcode) {
@@ -960,48 +961,48 @@ void testCompiler() {
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
     // TODO: implement cycle counting
 
-    // Create allocator
-    armajitto::memory::Allocator alloc{};
-
     // Create host compiler
     armajitto::x86_64::x64Host host{context};
+    armajitto::HostCode entryCode{};
 
     // Compile multiple blocks
-    armajitto::ir::BasicBlock *firstBlock = nullptr;
-    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-    uint32_t currAddress = baseAddress + 2 * instrSize;
-    for (int i = 0; i < 2; i++) {
-        // Create basic block
-        auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
-            alloc, armajitto::ir::LocationRef{currAddress, armajitto::arm::Mode::FIQ, thumb});
+    {
+        armajitto::memory::Allocator blockAlloc{};
+        const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+        uint32_t currAddress = baseAddress + 2 * instrSize;
+        for (int i = 0; i < 2; i++) {
+            // Create basic block
+            auto block = blockAlloc.Allocate<armajitto::ir::BasicBlock>(
+                blockAlloc, armajitto::ir::LocationRef{currAddress, mode, thumb});
 
-        if (i == 0) {
-            firstBlock = block;
+            // Translate code from memory
+            armajitto::ir::Translator::Parameters params{
+                .maxBlockSize = 64,
+            };
+            armajitto::ir::Translator translator{context, params};
+            translator.Translate(*block);
+
+            // Optimize code
+            armajitto::ir::Optimize(*block);
+
+            // Display IR code
+            printf("translated %u instructions:\n\n", block->InstructionCount());
+            for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+                auto str = op->ToString();
+                printf("%s\n", str.c_str());
+            }
+            printf("\n");
+
+            // Compile IR block into host code
+            auto code = host.Compile(*block);
+            if (i == 0) {
+                entryCode = code;
+            }
+            printf("compiled to host code at %p\n\n", (void *)code);
+
+            // Advance to next instruction in the sequence
+            currAddress += block->InstructionCount() * instrSize;
         }
-
-        // Translate code from memory
-        armajitto::ir::Translator::Parameters params{
-            .maxBlockSize = 64,
-        };
-        armajitto::ir::Translator translator{context, params};
-        translator.Translate(*block);
-
-        // Optimize code
-        armajitto::ir::Optimize(*block);
-
-        // Display IR code
-        printf("translated %u instructions:\n\n", block->InstructionCount());
-        for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
-            auto str = op->ToString();
-            printf("%s\n", str.c_str());
-        }
-        printf("\n");
-
-        // Compile IR block into host code
-        host.Compile(*block);
-
-        // Advance to next instruction in the sequence
-        currAddress += block->InstructionCount() * instrSize;
     }
 
     // Define function to display ARM state
@@ -1085,7 +1086,7 @@ void testCompiler() {
     // Setup initial ARM state
     auto &armState = context.GetARMState();
     armState.JumpTo(baseAddress, thumb);
-    armState.CPSR().mode = firstBlock->Location().Mode();
+    armState.CPSR().mode = mode;
 
     // Block condition test
     armState.CPSR().n = 0;
@@ -1170,9 +1171,9 @@ void testCompiler() {
     printf("state before execution:\n");
     printState();
 
-    // Compile and execute code
-    printf("invoking\n");
-    host.Call(*firstBlock);
+    // Execute code
+    printf("invoking function %p\n", (void *)entryCode);
+    host.Call(entryCode);
     printf("\n");
 
     printf("state after execution:\n");
