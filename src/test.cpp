@@ -1007,8 +1007,6 @@ void testCompiler() {
 
             // Advance to next instruction in the sequence
             currAddress += block->InstructionCount() * instrSize;
-
-            host.Clear();
         }
     }
 
@@ -1088,6 +1086,13 @@ void testCompiler() {
             printReg(armajitto::arm::Mode::IRQ);
             printReg(armajitto::arm::Mode::FIQ);
         }
+        printf("Execution state: ");
+        switch (state.ExecutionState()) {
+        case armajitto::arm::ExecState::Running: printf("Running\n"); break;
+        case armajitto::arm::ExecState::Halted: printf("Halted\n"); break;
+        case armajitto::arm::ExecState::Stopped: printf("Stopped\n"); break;
+        default: printf("Unknown (0x%X)\n", static_cast<uint8_t>(state.ExecutionState())); break;
+        }
     };
 
     // Setup initial ARM state
@@ -1102,6 +1107,7 @@ void testCompiler() {
     armState.CPSR().c = 0;
     armState.CPSR().v = 0;
     armState.IRQLine() = true;
+    armState.ExecutionState() = armajitto::arm::ExecState::Halted;
 
     // armState.GPR(armajitto::arm::GPR::R2) = 0x12;   // 0x7FFFFFFF; // -1;
     // armState.GPR(armajitto::arm::GPR::R3) = 0x3400; // 0x340F; // 1;

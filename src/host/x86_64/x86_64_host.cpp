@@ -18,9 +18,14 @@ x64Host::x64Host(Context &context)
     : Host(context)
     , m_codegen(Xbyak::DEFAULT_MAX_CODE_SIZE, nullptr, &m_alloc) {
 
-    CompileProlog();
-    CompileEpilog();
-    CompileExitIRQ();
+    // Calculate reserved stack size
+    uint64_t stackSize = abi::kNonvolatileRegs.size() * sizeof(uint64_t);
+    stackSize += sizeof(uint64_t); // +1 for RIP pushed by call
+
+    // Calculate offset needed to compensate for stack misalignment
+    m_stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(stackSize) - stackSize;
+
+    CompileCommon();
 }
 
 HostCode x64Host::Compile(ir::BasicBlock &block) {
@@ -78,9 +83,13 @@ void x64Host::Clear() {
     m_compiledCode.Clear();
     m_codegen.resetAndReallocate();
 
-    CompileProlog();
+    CompileCommon();
+}
+
+void x64Host::CompileCommon() {
     CompileEpilog();
     CompileExitIRQ();
+    CompileProlog(); // Depends on Epilog and ExitIRQ being compiled
 }
 
 void x64Host::CompileProlog() {
@@ -93,13 +102,6 @@ void x64Host::CompileProlog() {
     for (auto &reg : abi::kNonvolatileRegs) {
         m_codegen.push(reg);
     }
-
-    // Calculate current stack size
-    uint64_t stackSize = abi::kNonvolatileRegs.size() * sizeof(uint64_t);
-    stackSize += sizeof(uint64_t); // +1 for RIP pushed by call
-
-    // Calculate offset needed to compensate for stack misalignment
-    m_stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(stackSize) - stackSize;
 
     // Setup stack -- make space for register spill area
     // Also include the stack alignment offset
@@ -121,11 +123,40 @@ void x64Host::CompileProlog() {
         m_codegen.and_(flagsReg, x64FlagsMask);                // -------- -------- NZ-----C -------V
     }
 
-    // Setup static registers and call block function
-    auto funcAddr = abi::kNonvolatileRegs.back();
-    m_codegen.mov(funcAddr, abi::kIntArgRegs[0]);             // Get block code pointer from 1st arg
+    // Setup static registers
     m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // Set ARM state pointer
-    m_codegen.jmp(funcAddr);                                  // Jump to block code
+
+    // Check if the CPU is running
+    Xbyak::Label lblContinue{};
+    const auto execStateOfs = armState.ExecutionStateOffset();
+    m_codegen.cmp(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
+    m_codegen.je(lblContinue);
+
+    // CPU is halted
+
+    // Get and invert CPSR I bit
+    const auto cpsrOffset = armState.CPSROffset();
+    auto tmpReg8 = abi::kNonvolatileRegs.back().cvt8();
+    m_codegen.test(dword[abi::kARMStateReg + cpsrOffset], (1u << ARMflgIPos));
+    m_codegen.sete(tmpReg8);
+
+    // Compare against IRQ line
+    const auto irqLineOffset = armState.IRQLineOffset();
+    m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
+
+    // Exit if IRQ is not raised
+    // TODO: set "executed" cycles to requested cycles
+    m_codegen.jz((void *)m_compiledCode.epilog);
+
+    // Change execution state to Running otherwise, and enter IRQ
+    m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
+    m_codegen.jmp((void *)m_compiledCode.exitIRQ);
+
+    // Call block function
+    auto funcAddr = abi::kNonvolatileRegs.back();
+    m_codegen.L(lblContinue);
+    m_codegen.mov(funcAddr, abi::kIntArgRegs[0]); // Get block code pointer from 1st arg
+    m_codegen.jmp(funcAddr);                      // Jump to block code
 
     m_codegen.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_compiledCode.prolog), m_codegen.getCurr<uintptr_t>(), "__prolog");
@@ -170,36 +201,36 @@ void x64Host::CompileExitIRQ() {
     const auto spsrOffset = armState.SPSROffset(arm::Mode::IRQ);
     const auto pcOffset = armState.GPROffset(arm::GPR::PC, arm::Mode::User);
     const auto baseLROffset = armState.GPROffsetsOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
-    const auto execStateOffset = armState.ExecStateOffset();
+    const auto execStateOffset = armState.ExecutionStateOffset();
 
     // Use PC register as temporary storage for CPSR to avoid two memory reads
-    m_codegen.mov(pcReg32, dword[rbx + cpsrOffset]);
+    m_codegen.mov(pcReg32, dword[abi::kARMStateReg + cpsrOffset]);
 
     // Copy CPSR to SPSR of the IRQ's mode
     m_codegen.mov(cpsrReg32, pcReg32);
-    m_codegen.mov(dword[rbx + spsrOffset], cpsrReg32);
+    m_codegen.mov(dword[abi::kARMStateReg + spsrOffset], cpsrReg32);
 
     // Get LR offset based on current CPSR mode (using State::m_gprOffsets)
     m_codegen.mov(lrOffsetReg32, cpsrReg32);
     m_codegen.and_(lrOffsetReg32, 0x1F); // Extract CPSR mode bits
     m_codegen.shl(lrOffsetReg32, 4);     // Multiply by 16
     m_codegen.lea(lrOffsetReg32, dword[lrOffsetReg32 * sizeof(uintptr_t) + baseLROffset]);
-    m_codegen.mov(lrOffsetReg32, dword[rbx + lrOffsetReg32.cvt64()]);
+    m_codegen.mov(lrOffsetReg32, dword[abi::kARMStateReg + lrOffsetReg32.cvt64()]);
 
     // Set LR
-    m_codegen.mov(lrReg32, dword[rbx + pcOffset]); // LR = PC
-    m_codegen.test(cpsrReg32, (1u << ARMflgTPos)); // Test against CPSR T bit
-    m_codegen.sete(cpsrReg32.cvt8());              // cpsrReg32 will be 1 in Thumb mode
+    m_codegen.mov(lrReg32, dword[abi::kARMStateReg + pcOffset]); // LR = PC
+    m_codegen.test(cpsrReg32, (1u << ARMflgTPos));               // Test against CPSR T bit
+    m_codegen.setne(cpsrReg32.cvt8());                           // cpsrReg32 will be 1 in Thumb mode
     m_codegen.movzx(cpsrReg32, cpsrReg32.cvt8());
-    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]); // LR = PC + 0 (Thumb)
-    m_codegen.mov(dword[rbx + lrOffsetReg32.cvt64()], lrReg32); // LR = PC - 4 (ARM)
+    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]);               // LR = PC + 0 (Thumb)
+    m_codegen.mov(dword[abi::kARMStateReg + lrOffsetReg32.cvt64()], lrReg32); // LR = PC - 4 (ARM)
 
     // Modify CPSR T and mode bits
     constexpr uint32_t setBits = static_cast<uint32_t>(arm::Mode::IRQ) | (1u << ARMflgIPos);
     m_codegen.mov(cpsrReg32, pcReg32);
     m_codegen.and_(cpsrReg32, ~0b11'1111);
     m_codegen.or_(cpsrReg32, setBits);
-    m_codegen.mov(dword[rbx + cpsrOffset], cpsrReg32);
+    m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], cpsrReg32);
 
     // Set PC
     constexpr uint32_t irqVectorOffset =
@@ -212,14 +243,14 @@ void x64Host::CompileExitIRQ() {
         m_codegen.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
         m_codegen.mov(pcReg32, dword[pcReg32.cvt64() + baseVectorAddressOfs]);
         m_codegen.add(pcReg32, irqVectorOffset);
-        m_codegen.mov(dword[rbx + pcOffset], pcReg32);
+        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], pcReg32);
     } else {
         // Assume 00000000 if CP15 is absent
-        m_codegen.mov(dword[rbx + pcOffset], irqVectorOffset);
+        m_codegen.mov(dword[abi::kARMStateReg + pcOffset], irqVectorOffset);
     }
 
     // Clear halt state
-    m_codegen.mov(byte[rbx + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
+    m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
     // Jump to epilog
     m_codegen.jmp((void *)m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);

@@ -133,14 +133,14 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
 void x64Host::Compiler::CompileIRQLineCheck() {
     const auto cpsrOffset = armState.CPSROffset();
     const auto irqLineOffset = armState.IRQLineOffset();
-    auto tmpReg32 = regAlloc.GetTemporary();
+    auto tmpReg8 = regAlloc.GetTemporary().cvt8();
 
     // Get and invert CPSR I bit
     codegen.test(dword[abi::kARMStateReg + cpsrOffset], (1u << ARMflgIPos));
-    codegen.sete(tmpReg32.cvt8());
+    codegen.sete(tmpReg8);
 
     // Compare against IRQ line
-    codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg32.cvt8());
+    codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
 
     // Jump to IRQ switch code if the IRQ line is raised and interrupts are not inhibited
     codegen.jnz((void *)compiledCode.exitIRQ);

@@ -74,6 +74,14 @@ public:
         return const_cast<State *>(this)->IRQLine();
     }
 
+    ExecState &ExecutionState() {
+        return m_execState;
+    }
+
+    const ExecState &ExecutionState() const {
+        return const_cast<State *>(this)->ExecutionState();
+    }
+
     Coprocessor &GetCoprocessor(uint8_t cpnum) {
         switch (cpnum) {
         case 14: return m_cp14;
@@ -117,7 +125,7 @@ public:
         return m_irqLineOffset;
     }
 
-    uintptr_t ExecStateOffset() const {
+    uintptr_t ExecutionStateOffset() const {
         return m_execStateOffset;
     }
 

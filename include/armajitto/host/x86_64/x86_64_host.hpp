@@ -58,6 +58,7 @@ private:
         using Xbyak::CodeGenerator::CodeGenerator;
 
         void resetAndReallocate(size_t size = Xbyak::DEFAULT_MAX_CODE_SIZE) {
+            setProtectModeRW();
             reset();
             maxSize_ = 0;
             growMemory();
@@ -70,6 +71,8 @@ private:
     uint64_t m_stackAlignmentOffset;
 
     struct Compiler;
+
+    void CompileCommon();
 
     void CompileProlog();
     void CompileEpilog();
