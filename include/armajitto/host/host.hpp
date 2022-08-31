@@ -21,6 +21,10 @@ public:
     // Use the block's LocationRef to call the code.
     virtual HostCode Compile(ir::BasicBlock &block) = 0;
 
+    // Retrieves the compiled code for the specified location, if present.
+    // Returns 0 if no code was compiled at that location.
+    virtual HostCode GetCodeForLocation(LocationRef loc) = 0;
+
     // Calls the compiled code at LocationRef, if present.
     virtual void Call(LocationRef loc) = 0;
 

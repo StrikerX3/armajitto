@@ -24,8 +24,12 @@ public:
 
     HostCode Compile(ir::BasicBlock &block) final;
 
+    HostCode GetCodeForLocation(LocationRef loc) final {
+        return GetCodeForLocation(m_blockCache, loc.ToUint64());
+    }
+
     void Call(LocationRef loc) final {
-        auto code = GetCodeForLocation(m_blockCache, loc.ToUint64());
+        auto code = GetCodeForLocation(loc);
         Call(code);
     }
 
