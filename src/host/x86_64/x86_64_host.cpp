@@ -16,9 +16,10 @@ namespace armajitto::x86_64 {
 
 inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycleCountOffset];
 
-x64Host::x64Host(Context &context)
+x64Host::x64Host(Context &context, size_t maxCodeSize)
     : Host(context)
-    , m_codegen(Xbyak::DEFAULT_MAX_CODE_SIZE, nullptr, &m_alloc) {
+    , m_codeBuffer(new uint8_t[maxCodeSize])
+    , m_codegen(maxCodeSize, m_codeBuffer.get()) {
 
     CompileCommon();
 }
@@ -94,7 +95,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
 void x64Host::Clear() {
     m_compiledCode.Clear();
-    m_codegen.resetAndReallocate();
+    m_codegen.reset();
 
     CompileCommon();
 }

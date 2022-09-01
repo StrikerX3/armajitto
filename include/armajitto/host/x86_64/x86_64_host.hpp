@@ -18,7 +18,9 @@ namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
 public:
-    x64Host(Context &context);
+    static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(32) * 1024 * 1024;
+
+    x64Host(Context &context, size_t maxCodeSize = kDefaultMaxCodeSize);
 
     HostCode Compile(ir::BasicBlock &block) final;
 
@@ -42,33 +44,8 @@ public:
     void Clear() final;
 
 private:
-    struct XbyakAllocator final : Xbyak::Allocator {
-        using Xbyak::Allocator::Allocator;
-
-        virtual uint8_t *alloc(size_t size) {
-            return reinterpret_cast<uint8_t *>(allocator.AllocateRaw(size, 4096u));
-        }
-
-        virtual void free(uint8_t *p) {
-            allocator.Free(p);
-        }
-
-        memory::Allocator allocator;
-    };
-
-    struct XbyakCodeGen : public Xbyak::CodeGenerator {
-        using Xbyak::CodeGenerator::CodeGenerator;
-
-        void resetAndReallocate(size_t size = Xbyak::DEFAULT_MAX_CODE_SIZE) {
-            setProtectModeRW();
-            reset();
-            maxSize_ = 0;
-            growMemory();
-        }
-    };
-
-    XbyakAllocator m_alloc;
-    XbyakCodeGen m_codegen;
+    std::unique_ptr<uint8_t[]> m_codeBuffer;
+    Xbyak::CodeGenerator m_codegen;
     CompiledCode m_compiledCode;
 
     struct Compiler;

@@ -139,7 +139,7 @@ public:
 
     template <typename T>
     void Write(uint32_t address, T value) {
-        auto page = address >> 12;
+        auto page = address >> 24;
         switch (page) {
         case 0x02: *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]) = value; break;
         case 0x04: MMIOWrite<T>(address, value); break;
@@ -1371,7 +1371,7 @@ void testNDS() {
     auto &armState = jit.GetARMState();
 
     // Configure CP15
-    // These specs match the NDS's ARM946E-S core
+    // These specs match the NDS's ARM946E-S
     auto &cp15 = armState.GetSystemControlCoprocessor();
     cp15.ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
     cp15.ConfigureCache({
@@ -1395,6 +1395,11 @@ void testNDS() {
     armState.SetMode(armajitto::arm::Mode::System);
     armState.JumpTo(codeDesc.entrypoint, false);
 
+    // Setup ITCM and DTCM for direct boot
+    cp15.StoreRegister(0x0910, 0x0300000A);
+    cp15.StoreRegister(0x0911, 0x00000020);
+    cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
+
     using clk = std::chrono::steady_clock;
     using namespace std::chrono_literals;
 
@@ -1404,9 +1409,11 @@ void testNDS() {
         // Run for a full frame, assuming each instruction takes 3 cycles to complete
         jit.Run(560190 / 3);
         ++frames;
-        if (clk::now() - t >= 1s) {
+        auto t2 = clk::now();
+        if (t2 - t >= 1s) {
             printf("%u fps\n", frames);
             frames = 0;
+            t = t2;
         }
     }
 }

@@ -241,7 +241,6 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
     }
     case Terminal::IndirectLink: {
         auto &armState = context.GetARMState();
-        Xbyak::Label noEntry{};
 
         // Get current CPSR and PC
         const auto cpsrOffset = armState.CPSROffset();
@@ -262,13 +261,13 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         // Check for nullptr
         auto cacheEntryReg64 = cacheKeyReg64;
         codegen.test(cacheEntryReg64, cacheKeyReg64);
-        codegen.jz(noEntry);
+
+        // Entry not found, jump to epilog
+        codegen.jz(compiledCode.epilog);
 
         // Entry found, jump to linked block
         codegen.jmp(cacheEntryReg64);
-
-        // Entry not found, bail out
-        codegen.L(noEntry);
+        break;
     }
     case Terminal::Return: CompileExit(); break;
     }
