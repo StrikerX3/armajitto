@@ -1343,7 +1343,7 @@ void testNDS() {
     } codeDesc;
 
     {
-        std::ifstream ifsROM{"armwrestler.nds"};
+        std::ifstream ifsROM{"armwrestler.nds", std::ios::binary};
         if (!ifsROM) {
             printf("Could not open armwrestler.nds\n");
             return;
@@ -1395,7 +1395,13 @@ void testNDS() {
     armState.SetMode(armajitto::arm::Mode::System);
     armState.JumpTo(codeDesc.entrypoint, false);
 
-    // Setup ITCM and DTCM for direct boot
+    // Setup direct boot
+    armState.GPR(armajitto::arm::GPR::R12) = codeDesc.entrypoint;
+    armState.GPR(armajitto::arm::GPR::LR) = codeDesc.entrypoint;
+    armState.GPR(armajitto::arm::GPR::PC) = codeDesc.entrypoint;
+    armState.GPR(armajitto::arm::GPR::SP) = 0x3002F7C;
+    armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::IRQ) = 0x3003F80;
+    armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::Supervisor) = 0x3003FC0;
     cp15.StoreRegister(0x0910, 0x0300000A);
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
