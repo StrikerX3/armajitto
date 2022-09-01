@@ -41,6 +41,8 @@ struct GPRArg {
         return static_cast<size_t>(gpr) | (NormalizedIndex(mode) << 4);
     }
 
+    bool operator==(const GPRArg &) const = default;
+
 private:
     arm::Mode mode;
 
