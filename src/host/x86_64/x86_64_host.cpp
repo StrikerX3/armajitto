@@ -31,33 +31,36 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     m_codegen.setProtectModeRW();
 
     Xbyak::Label lblCondFail{};
-    Xbyak::Label lblCondPass{};
 
     // Compile pre-execution checks
     compiler.CompileIRQLineCheck();
     compiler.CompileCondCheck(block.Condition(), lblCondFail);
 
     // Compile block code
-    auto *op = block.Head();
-    while (op != nullptr) {
-        compiler.PreProcessOp(op);
-        ir::VisitIROp(op, [&compiler](const auto *op) -> void { compiler.CompileOp(op); });
-        compiler.PostProcessOp(op);
-        op = op->Next();
+    if (block.Condition() != arm::Condition::NV) {
+        auto *op = block.Head();
+        while (op != nullptr) {
+            compiler.PreProcessOp(op);
+            ir::VisitIROp(op, [&compiler](const auto *op) -> void { compiler.CompileOp(op); });
+            compiler.PostProcessOp(op);
+            op = op->Next();
+        }
+
+        // Decrement cycles for this block
+        // TODO: proper cycle counting
+        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+
+        // Bail out if we ran out of cycles
+        m_codegen.jle((void *)m_compiledCode.epilog);
     }
 
-    // Decrement cycles for this block
-    // TODO: proper cycle counting
-    m_codegen.sub(kCycleCountOperand, block.InstructionCount());
-
-    // Bail out if we ran out of cycles
-    m_codegen.jle((void *)m_compiledCode.epilog);
-
-    // Skip over condition fail block
-    m_codegen.jmp(lblCondPass);
-
     // Condition fail block
-    {
+    if (block.Condition() != arm::Condition::AL) {
+        Xbyak::Label lblCondPass{};
+
+        // Skip over condition fail block
+        m_codegen.jmp(lblCondPass);
+
         m_codegen.L(lblCondFail);
 
         // Update PC if condition fails
@@ -72,9 +75,9 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
         // Bail out if we ran out of cycles
         m_codegen.jle((void *)m_compiledCode.epilog);
-    }
 
-    m_codegen.L(lblCondPass);
+        m_codegen.L(lblCondPass);
+    }
 
     // Go to next block or epilog
     compiler.CompileTerminal(block);

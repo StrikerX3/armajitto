@@ -212,7 +212,7 @@ void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblC
     case arm::Condition::AL: // always
         break;
     case arm::Condition::NV: // never
-        codegen.jmp(lblCondFail);
+        // codegen.jmp(lblCondFail); // not needed as the block code is not compiled
         break;
     }
 }
