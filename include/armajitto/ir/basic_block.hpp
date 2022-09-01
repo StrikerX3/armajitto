@@ -104,6 +104,12 @@ public:
         return m_terminalLocation;
     }
 
+    // Returns the location reference to the first instruction after this block
+    LocationRef NextLocation() const {
+        const uint32_t instrSize = m_location.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+        return {m_location.PC() + InstructionCount() * instrSize, m_location.Mode(), m_location.IsThumbMode()};
+    }
+
 private:
     memory::Allocator &m_alloc;
 

@@ -20,8 +20,13 @@ struct x64Host::Compiler {
     void CompileIRQLineCheck();
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
     void CompileTerminal(const ir::BasicBlock &block);
+    void CompileDirectLinkToSuccessor(const ir::BasicBlock &block);
     void CompileExit();
 
+private:
+    void CompileDirectLink(LocationRef target, uint64_t blockLocKey);
+
+public:
     void PatchIndirectLinks(LocationRef loc, HostCode blockCode);
 
     // Catch-all method for unimplemented ops, required by the visitor

@@ -76,6 +76,9 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
             // Bail out if we ran out of cycles
             m_codegen.jle(m_compiledCode.epilog);
+
+            // Link to next instruction
+            compiler.CompileDirectLinkToSuccessor(block);
         }
     }
 

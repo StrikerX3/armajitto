@@ -223,20 +223,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 
     switch (block.GetTerminal()) {
     case Terminal::DirectLink: {
-        auto targetLoc = block.GetTerminalLocation();
-        auto it = compiledCode.blockCache.find(targetLoc.ToUint64());
-        if (it != compiledCode.blockCache.end()) {
-            auto code = it->second.code;
-
-            // Jump to the compiled code's address directly
-            codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
-        } else {
-            // Store this code location to be patched later
-            compiledCode.patches[targetLoc.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
-
-            // Exit due to cache miss; need to compile new block
-            CompileExit();
-        }
+        CompileDirectLink(block.GetTerminalLocation(), blockLocKey);
         break;
     }
     case Terminal::IndirectLink: {
@@ -273,8 +260,28 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
     }
 }
 
+void x64Host::Compiler::CompileDirectLinkToSuccessor(const ir::BasicBlock &block) {
+    CompileDirectLink(block.NextLocation(), block.Location().ToUint64());
+}
+
 void x64Host::Compiler::CompileExit() {
     codegen.jmp(compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+}
+
+void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocKey) {
+    auto it = compiledCode.blockCache.find(target.ToUint64());
+    if (it != compiledCode.blockCache.end()) {
+        auto code = it->second.code;
+
+        // Jump to the compiled code's address directly
+        codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
+    } else {
+        // Store this code location to be patched later
+        compiledCode.patches[target.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
+
+        // Exit due to cache miss; need to compile new block
+        CompileExit();
+    }
 }
 
 void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) {
