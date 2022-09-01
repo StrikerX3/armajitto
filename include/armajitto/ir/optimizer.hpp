@@ -6,28 +6,24 @@
 
 namespace armajitto::ir {
 
-enum class OptimizerPasses {
-    None = 0,
+struct OptimizationParams {
+    struct Passes {
+        bool constantPropagation = true;
 
-    ConstantPropagation = (1 << 0),
-    DeadRegisterStoreElimination = (1 << 1),
-    DeadGPRStoreElimination = (1 << 2),
-    DeadHostFlagStoreElimination = (1 << 3),
-    DeadFlagValueStoreElimination = (1 << 4),
-    DeadVarStoreElimination = (1 << 5),
-    BitwiseOpsCoalescence = (1 << 6),
-    ArithmeticOpsCoalescence = (1 << 7),
-    HostFlagsOpsCoalescence = (1 << 8),
+        bool deadRegisterStoreElimination = true;
+        bool deadGPRStoreElimination = true;
+        bool deadHostFlagStoreElimination = true;
+        bool deadFlagValueStoreElimination = true;
+        bool deadVariableStoreElimination = true;
 
-    DeadStoreElimination = DeadRegisterStoreElimination | DeadGPRStoreElimination | DeadHostFlagStoreElimination |
-                           DeadFlagValueStoreElimination | DeadVarStoreElimination,
+        bool bitwiseOpsCoalescence = true;
+        bool arithmeticOpsCoalescence = true;
+        bool hostFlagsOpsCoalescence = true;
+    } passes;
 
-    All = ConstantPropagation | DeadStoreElimination | BitwiseOpsCoalescence | ArithmeticOpsCoalescence |
-          HostFlagsOpsCoalescence,
+    bool repeatWhileDirty = true;
 };
 
-bool Optimize(BasicBlock &block, OptimizerPasses passes = OptimizerPasses::All, bool repeatWhileDirty = true);
+bool Optimize(BasicBlock &block, const OptimizationParams &params = {});
 
 } // namespace armajitto::ir
-
-ENABLE_BITMASK_OPERATORS(armajitto::ir::OptimizerPasses);

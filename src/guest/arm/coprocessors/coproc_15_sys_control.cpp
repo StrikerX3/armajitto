@@ -21,9 +21,9 @@ void SystemControlCoprocessor::ConfigureID(cp15::id::Implementor implementor, ui
                                            cp15::id::Architecture architecture, uint32_t primaryPartNumber,
                                            uint32_t revision) {
     m_id = {
-        .implementor = static_cast<uint32_t>(implementor),
+        .implementor = implementor,
         .variant = variant,
-        .architecture = static_cast<uint32_t>(architecture),
+        .architecture = architecture,
         .primaryPartNumber = primaryPartNumber,
         .revision = revision,
     };

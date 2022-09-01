@@ -90,15 +90,117 @@ private:
     }
 };
 
+void printState(armajitto::arm::State &state) {
+    printf("Registers in current mode:\n");
+    for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < 4; i++) {
+            int index = i * 4 + j;
+            if (index >= 4 && index < 10) {
+                printf("   R%d", index);
+            } else {
+                printf("  R%d", index);
+            }
+            printf(" = %08X", state.GPR(static_cast<armajitto::arm::GPR>(index)));
+        }
+        printf("\n");
+    }
+
+    auto printPSR = [](armajitto::arm::PSR &psr, const char *name) {
+        auto flag = [](bool set, char c) { return (set ? c : '.'); };
+
+        printf("%s = %08X   ", name, psr.u32);
+        switch (psr.mode) {
+        case armajitto::arm::Mode::User: printf("USR"); break;
+        case armajitto::arm::Mode::FIQ: printf("FIQ"); break;
+        case armajitto::arm::Mode::IRQ: printf("IRQ"); break;
+        case armajitto::arm::Mode::Supervisor: printf("SVC"); break;
+        case armajitto::arm::Mode::Abort: printf("ABT"); break;
+        case armajitto::arm::Mode::Undefined: printf("UND"); break;
+        case armajitto::arm::Mode::System: printf("SYS"); break;
+        default: printf("%02Xh", static_cast<uint8_t>(psr.mode)); break;
+        }
+        if (psr.t) {
+            printf("  THUMB  ");
+        } else {
+            printf("   ARM   ");
+        }
+        printf("%c%c%c%c%c%c%c\n", flag(psr.n, 'N'), flag(psr.z, 'Z'), flag(psr.c, 'C'), flag(psr.v, 'V'),
+               flag(psr.q, 'Q'), flag(psr.i, 'I'), flag(psr.f, 'F'));
+    };
+
+    printPSR(state.CPSR(), "CPSR");
+    for (auto mode : {armajitto::arm::Mode::FIQ, armajitto::arm::Mode::IRQ, armajitto::arm::Mode::Supervisor,
+                      armajitto::arm::Mode::Abort, armajitto::arm::Mode::Undefined}) {
+        auto spsrName = std::format("SPSR_{}", armajitto::arm::ToString(mode));
+        printPSR(state.SPSR(mode), spsrName.c_str());
+    }
+    printf("\nBanked registers:\n");
+    printf("usr              svc              abt              und              irq              fiq\n");
+    for (int i = 0; i <= 15; i++) {
+        auto printReg = [&](armajitto::arm::Mode mode) {
+            if (mode == armajitto::arm::Mode::User || (i >= 13 && i <= 14) ||
+                (mode == armajitto::arm::Mode::FIQ && i >= 8 && i <= 12)) {
+                const auto gpr = static_cast<armajitto::arm::GPR>(i);
+                if (i < 10) {
+                    printf(" R%d = ", i);
+                } else {
+                    printf("R%d = ", i);
+                }
+                printf("%08X", state.GPR(gpr, mode));
+            } else {
+                printf("              ");
+            }
+
+            if (mode != armajitto::arm::Mode::FIQ) {
+                printf("   ");
+            } else {
+                printf("\n");
+            }
+        };
+
+        printReg(armajitto::arm::Mode::User);
+        printReg(armajitto::arm::Mode::Supervisor);
+        printReg(armajitto::arm::Mode::Abort);
+        printReg(armajitto::arm::Mode::Undefined);
+        printReg(armajitto::arm::Mode::IRQ);
+        printReg(armajitto::arm::Mode::FIQ);
+    }
+    printf("Execution state: ");
+    switch (state.ExecutionState()) {
+    case armajitto::arm::ExecState::Running: printf("Running\n"); break;
+    case armajitto::arm::ExecState::Halted: printf("Halted\n"); break;
+    case armajitto::arm::ExecState::Stopped: printf("Stopped\n"); break;
+    default: printf("Unknown (0x%X)\n", static_cast<uint8_t>(state.ExecutionState())); break;
+    }
+};
+
 void testBasic() {
     // System implements the armajitto::ISystem interface
     System sys{};
 
     // Fill in the ROM with some code
+    const uint32_t baseAddress = 0x02000100;
+
+    uint32_t address = baseAddress;
+    auto mode = armajitto::arm::Mode::FIQ;
     bool thumb = false;
-    sys.ROMWriteWord(0x0100, 0xE3A00012); // mov r0, #0x12
-    sys.ROMWriteWord(0x0104, 0xE3801B0D); // orr r1, r0, #0x3400
-    sys.ROMWriteWord(0x0108, 0xEAFFFFFC); // b #0
+
+    [[maybe_unused]] auto writeThumb = [&](uint16_t opcode) {
+        sys.ROMWriteHalf(address, opcode);
+        address += sizeof(opcode);
+        thumb = true;
+    };
+
+    [[maybe_unused]] auto writeARM = [&](uint32_t opcode) {
+        sys.ROMWriteWord(address, opcode);
+        address += sizeof(opcode);
+        thumb = false;
+    };
+
+    writeARM(0xE3A00034); //       mov r0, #0x34
+    writeARM(0xE3801C12); //       orr r1, r0, #0x1200
+    writeARM(0xE1A01261); // loop: ror r1, r1, #4   (mov r1, r1, ror #4)
+    writeARM(0xEAFFFFFD); //       b loop
 
     // Define a specification for the recompiler
     armajitto::Specification spec{
@@ -112,21 +214,44 @@ void testBasic() {
     // Get the ARM state -- registers, coprocessors, etc.
     auto &armState = jit.GetARMState();
 
-    // Start execution at the specified address and execution state
-    armState.JumpTo(0x0100, thumb);
-    // The above is equivalent to:
-    // armState.GPR(armajitto::arm::GPR::PC) = 0x0100 + (thumb ? 4 : 8);
-    // armState.CPSR().t = thumb;
+    // Configure CP15
+    // These specs match the NDS's ARM946E-S core
+    auto &cp15 = armState.GetSystemControlCoprocessor();
+    cp15.ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
+    cp15.ConfigureCache({
+        .type = armajitto::arm::cp15::cache::Type::WriteBackReg7CleanLockdownB,
+        .separateCodeDataCaches = true,
+        .code =
+            {
+                .size = 0x2000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+        .data =
+            {
+                .size = 0x1000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+    });
 
-    printf("PC = %08X  T = %u\n", armState.GPR(armajitto::arm::GPR::PC), armState.CPSR().t);
+    // Start execution at the specified address and execution state
+    armState.SetMode(mode);
+    armState.JumpTo(baseAddress, thumb);
+
+    printf("State before execution:\n");
+    printState(armState);
 
     // Run for at least 32 cycles
     uint64_t cyclesExecuted = jit.Run(32);
-    printf("Executed %llu cycles\n", cyclesExecuted);
+    printf("\nExecuted %llu cycles\n\n", cyclesExecuted);
+
+    printf("State after execution:\n");
+    printState(armState);
 
     /*
     // Raise the IRQ line
-    sys.IRQLine() = true;
+    armState.IRQLine() = true;
     // Interrupts are handled in Run()
 
     // Switch to FIQ mode (also switches banked registers and updates I and F flags)
@@ -403,10 +528,7 @@ void testTranslatorAndOptimizer() {
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator::Parameters params{
-        .maxBlockSize = 32,
-    };
-    armajitto::ir::Translator translator{context, params};
+    armajitto::ir::Translator translator{context};
     translator.Translate(*block);
 
     // Emit IR code manually
@@ -599,16 +721,29 @@ void testTranslatorAndOptimizer() {
     printf("translated %u instructions:\n\n", block->InstructionCount());
     printBlock();
 
-    using OptPass = armajitto::ir::OptimizerPasses;
-
     bool printSep = false;
 
-    auto runOptimizer = [&](OptPass pass, const char *name) {
+    using Passes = armajitto::ir::OptimizationParams::Passes;
+
+    armajitto::ir::OptimizationParams optNoPasses;
+    optNoPasses.passes.constantPropagation = false;
+    optNoPasses.passes.deadRegisterStoreElimination = false;
+    optNoPasses.passes.deadGPRStoreElimination = false;
+    optNoPasses.passes.deadHostFlagStoreElimination = false;
+    optNoPasses.passes.deadFlagValueStoreElimination = false;
+    optNoPasses.passes.deadVariableStoreElimination = false;
+    optNoPasses.passes.bitwiseOpsCoalescence = false;
+    optNoPasses.passes.arithmeticOpsCoalescence = false;
+    optNoPasses.passes.hostFlagsOpsCoalescence = false;
+
+    auto runOptimizer = [&](bool Passes::*field, const char *name) {
+        armajitto::ir::OptimizationParams optParams = optNoPasses;
+        optParams.passes.*field = true;
         if (printSep) {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(*block, pass, false)) {
+        if (armajitto::ir::Optimize(*block, optParams)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
@@ -630,15 +765,15 @@ void testTranslatorAndOptimizer() {
         printf("  iteration %d\n", i);
         printf("==================================================\n\n");
 
-        optimized |= runOptimizer(OptPass::ConstantPropagation, "constant propagation");
-        optimized |= runOptimizer(OptPass::DeadRegisterStoreElimination, "dead register store elimination");
-        optimized |= runOptimizer(OptPass::DeadGPRStoreElimination, "dead GPR store elimination");
-        optimized |= runOptimizer(OptPass::DeadHostFlagStoreElimination, "dead host flag store elimination");
-        optimized |= runOptimizer(OptPass::DeadFlagValueStoreElimination, "dead flag value store elimination");
-        optimized |= runOptimizer(OptPass::DeadVarStoreElimination, "dead variable store elimination");
-        optimized |= runOptimizer(OptPass::BitwiseOpsCoalescence, "bitwise operations coalescence");
-        optimized |= runOptimizer(OptPass::ArithmeticOpsCoalescence, "arithmetic operations coalescence");
-        optimized |= runOptimizer(OptPass::HostFlagsOpsCoalescence, "host flags operations coalescence");
+        optimized |= runOptimizer(&Passes::constantPropagation, "constant propagation");
+        optimized |= runOptimizer(&Passes::deadRegisterStoreElimination, "dead register store elimination");
+        optimized |= runOptimizer(&Passes::deadGPRStoreElimination, "dead GPR store elimination");
+        optimized |= runOptimizer(&Passes::deadHostFlagStoreElimination, "dead host flag store elimination");
+        optimized |= runOptimizer(&Passes::deadFlagValueStoreElimination, "dead flag value store elimination");
+        optimized |= runOptimizer(&Passes::deadVariableStoreElimination, "dead variable store elimination");
+        optimized |= runOptimizer(&Passes::bitwiseOpsCoalescence, "bitwise operations coalescence");
+        optimized |= runOptimizer(&Passes::arithmeticOpsCoalescence, "arithmetic operations coalescence");
+        optimized |= runOptimizer(&Passes::hostFlagsOpsCoalescence, "host flags operations coalescence");
     } while (optimized);
 
     printf("\n==================================================\n");
@@ -980,10 +1115,8 @@ void testCompiler() {
                 blockAlloc, armajitto::LocationRef{currAddress, mode, thumb});
 
             // Translate code from memory
-            armajitto::ir::Translator::Parameters params{
-                .maxBlockSize = 64,
-            };
-            armajitto::ir::Translator translator{context, params};
+            armajitto::ir::Translator translator{context};
+            translator.GetParameters().maxBlockSize = 64;
             translator.Translate(*block);
 
             // Optimize code
@@ -1009,91 +1142,6 @@ void testCompiler() {
             currAddress += block->InstructionCount() * instrSize;
         }
     }
-
-    // Define function to display ARM state
-    auto printState = [&] {
-        printf("Registers in current mode:\n");
-        for (int j = 0; j < 4; j++) {
-            for (int i = 0; i < 4; i++) {
-                int index = i * 4 + j;
-                if (index >= 4 && index < 10) {
-                    printf("   R%d", index);
-                } else {
-                    printf("  R%d", index);
-                }
-                printf(" = %08X", state.GPR(static_cast<armajitto::arm::GPR>(index)));
-            }
-            printf("\n");
-        }
-
-        auto printPSR = [](armajitto::arm::PSR &psr, const char *name) {
-            auto flag = [](bool set, char c) { return (set ? c : '.'); };
-
-            printf("%s = %08X   ", name, psr.u32);
-            switch (psr.mode) {
-            case armajitto::arm::Mode::User: printf("USR"); break;
-            case armajitto::arm::Mode::FIQ: printf("FIQ"); break;
-            case armajitto::arm::Mode::IRQ: printf("IRQ"); break;
-            case armajitto::arm::Mode::Supervisor: printf("SVC"); break;
-            case armajitto::arm::Mode::Abort: printf("ABT"); break;
-            case armajitto::arm::Mode::Undefined: printf("UND"); break;
-            case armajitto::arm::Mode::System: printf("SYS"); break;
-            default: printf("%02Xh", static_cast<uint8_t>(psr.mode)); break;
-            }
-            if (psr.t) {
-                printf("  THUMB  ");
-            } else {
-                printf("   ARM   ");
-            }
-            printf("%c%c%c%c%c%c%c\n", flag(psr.n, 'N'), flag(psr.z, 'Z'), flag(psr.c, 'C'), flag(psr.v, 'V'),
-                   flag(psr.q, 'Q'), flag(psr.i, 'I'), flag(psr.f, 'F'));
-        };
-
-        printPSR(state.CPSR(), "CPSR");
-        for (auto mode : {armajitto::arm::Mode::FIQ, armajitto::arm::Mode::IRQ, armajitto::arm::Mode::Supervisor,
-                          armajitto::arm::Mode::Abort, armajitto::arm::Mode::Undefined}) {
-            auto spsrName = std::format("SPSR_{}", armajitto::arm::ToString(mode));
-            printPSR(state.SPSR(mode), spsrName.c_str());
-        }
-        printf("\nBanked registers:\n");
-        printf("usr              svc              abt              und              irq              fiq\n");
-        for (int i = 0; i <= 15; i++) {
-            auto printReg = [&](armajitto::arm::Mode mode) {
-                if (mode == armajitto::arm::Mode::User || (i >= 13 && i <= 14) ||
-                    (mode == armajitto::arm::Mode::FIQ && i >= 8 && i <= 12)) {
-                    const auto gpr = static_cast<armajitto::arm::GPR>(i);
-                    if (i < 10) {
-                        printf(" R%d = ", i);
-                    } else {
-                        printf("R%d = ", i);
-                    }
-                    printf("%08X", state.GPR(gpr, mode));
-                } else {
-                    printf("              ");
-                }
-
-                if (mode != armajitto::arm::Mode::FIQ) {
-                    printf("   ");
-                } else {
-                    printf("\n");
-                }
-            };
-
-            printReg(armajitto::arm::Mode::User);
-            printReg(armajitto::arm::Mode::Supervisor);
-            printReg(armajitto::arm::Mode::Abort);
-            printReg(armajitto::arm::Mode::Undefined);
-            printReg(armajitto::arm::Mode::IRQ);
-            printReg(armajitto::arm::Mode::FIQ);
-        }
-        printf("Execution state: ");
-        switch (state.ExecutionState()) {
-        case armajitto::arm::ExecState::Running: printf("Running\n"); break;
-        case armajitto::arm::ExecState::Halted: printf("Halted\n"); break;
-        case armajitto::arm::ExecState::Stopped: printf("Stopped\n"); break;
-        default: printf("Unknown (0x%X)\n", static_cast<uint8_t>(state.ExecutionState())); break;
-        }
-    };
 
     // Setup initial ARM state
     auto &armState = context.GetARMState();
@@ -1185,7 +1233,7 @@ void testCompiler() {
     // armState.GetSystemControlCoprocessor().GetControlRegister().value.preARMv5 = 1;
 
     printf("state before execution:\n");
-    printState();
+    printState(armState);
 
     // Execute code using LocationRef
     /*auto entryLocStr = entryLoc.ToString();
@@ -1195,19 +1243,19 @@ void testCompiler() {
 
     // Execute code using HostCode
     printf("\ninvoking code at %p\n", (void *)entryCode);
-    uint64_t cyclesExecuted = host.Call(entryCode, 64);
-    printf("executed %llu cycles\n", cyclesExecuted);
+    int64_t cyclesRemaining = host.Call(entryCode, 64);
+    printf("executed %llu cycles\n", 64 - cyclesRemaining);
     printf("\nstate after execution:\n");
-    printState();
+    printState(armState);
 }
 
 int main() {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testCPUID();
-    // testBasic();
+    testBasic();
     // testTranslatorAndOptimizer();
-    testCompiler();
+    // testCompiler();
 
     return EXIT_SUCCESS;
 }

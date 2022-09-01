@@ -15,46 +15,45 @@
 
 namespace armajitto::ir {
 
-bool Optimize(BasicBlock &block, OptimizerPasses passes, bool repeatWhileDirty) {
+bool Optimize(BasicBlock &block, const OptimizationParams &params) {
     memory::PMRAllocator pmrAlloc{};
     std::pmr::monotonic_buffer_resource buffer{&pmrAlloc};
 
     Emitter emitter{block};
 
-    auto bmPasses = BitmaskEnum(passes);
     bool optimized = false;
     bool dirty;
     do {
         dirty = false;
-        if (bmPasses.AllOf(OptimizerPasses::ConstantPropagation)) {
+        if (params.passes.constantPropagation) {
             dirty |= ConstPropagationOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::DeadRegisterStoreElimination)) {
+        if (params.passes.deadRegisterStoreElimination) {
             dirty |= DeadRegisterStoreEliminationOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::DeadGPRStoreElimination)) {
+        if (params.passes.deadGPRStoreElimination) {
             dirty |= DeadGPRStoreEliminationOptimizerPass{emitter}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::DeadHostFlagStoreElimination)) {
+        if (params.passes.deadHostFlagStoreElimination) {
             dirty |= DeadHostFlagStoreEliminationOptimizerPass{emitter}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::DeadFlagValueStoreElimination)) {
+        if (params.passes.deadFlagValueStoreElimination) {
             dirty |= DeadFlagValueStoreEliminationOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::DeadVarStoreElimination)) {
+        if (params.passes.deadVariableStoreElimination) {
             dirty |= DeadVarStoreEliminationOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::BitwiseOpsCoalescence)) {
+        if (params.passes.bitwiseOpsCoalescence) {
             dirty |= BitwiseOpsCoalescenceOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::ArithmeticOpsCoalescence)) {
+        if (params.passes.arithmeticOpsCoalescence) {
             dirty |= ArithmeticOpsCoalescenceOptimizerPass{emitter, buffer}.Optimize();
         }
-        if (bmPasses.AllOf(OptimizerPasses::HostFlagsOpsCoalescence)) {
+        if (params.passes.hostFlagsOpsCoalescence) {
             dirty |= HostFlagsOpsCoalescenceOptimizerPass{emitter}.Optimize();
         }
         optimized |= dirty;
-    } while (repeatWhileDirty && dirty);
+    } while (params.repeatWhileDirty && dirty);
     return optimized;
 }
 

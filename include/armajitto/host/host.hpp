@@ -24,14 +24,20 @@ public:
     virtual HostCode GetCodeForLocation(LocationRef loc) = 0;
 
     // Calls the compiled code at LocationRef, if present, and runs for the specified amount of cycles.
-    // Returns the number of cycles executed (or skipped due to halting).
-    // Returns 0 if there is no function at the specified location.
-    virtual uint64_t Call(LocationRef loc, uint64_t cycles) = 0;
+    // Returns the number of cycles remaining after execution.
+    // If negative, the call executed more cycles than requested.
+    // If positive, the call executed less cycles than requested.
+    // If zero, the call executed for exactly the requested amount of cycles.
+    // Returns <cycles> if there is no function at the specified location.
+    virtual int64_t Call(LocationRef loc, uint64_t cycles) = 0;
 
     // Calls the specified compiled code, if present.
-    // Returns the number of cycles executed (or skipped due to halting).
-    // Returns 0 if the code pointer is null.
-    virtual uint64_t Call(HostCode code, uint64_t cycles) = 0;
+    // Returns the number of cycles remaining after execution.
+    // If negative, the call executed more cycles than requested.
+    // If positive, the call executed less cycles than requested.
+    // If zero, the call executed for exactly the requested amount of cycles.
+    // Returns <cycles> if there is no function at the specified location.
+    virtual int64_t Call(HostCode code, uint64_t cycles) = 0;
 
     // Clears all compiled code.
     virtual void Clear() = 0;

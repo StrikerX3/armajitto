@@ -20,10 +20,10 @@ struct CompiledCode {
         // TODO: patch type?
     };
 
-    using PrologFn = int64_t (*)(uintptr_t blockFn, uint64_t cycles);
+    using PrologFn = int64_t (*)(HostCode blockFn, uint64_t cycles);
     PrologFn prolog;
     HostCode epilog;
-    HostCode enterIRQ;
+    HostCode irqEntry;
 
     // Cached blocks by LocationRef::ToUint64()
     std::unordered_map<uint64_t, CachedBlock> blockCache;
@@ -38,7 +38,7 @@ struct CompiledCode {
         if (it != blockCache.end()) {
             return it->second.code;
         } else {
-            return CastUintPtr(nullptr);
+            return nullptr;
         }
     }
 
@@ -51,8 +51,8 @@ struct CompiledCode {
         blockCache.clear();
         patches.clear();
         prolog = nullptr;
-        epilog = HostCode(nullptr);
-        enterIRQ = HostCode(nullptr);
+        epilog = nullptr;
+        irqEntry = nullptr;
     }
 };
 

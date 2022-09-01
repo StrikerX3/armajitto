@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cp15_defs.hpp"
+
 #include <cstdint>
 
 namespace armajitto::arm::cp15 {
@@ -12,9 +14,9 @@ union Identification {
     struct {
         uint32_t revision : 4;
         uint32_t primaryPartNumber : 12;
-        uint32_t architecture : 4;
+        id::Architecture architecture : 4;
         uint32_t variant : 4;
-        uint32_t implementor : 8;
+        id::Implementor implementor : 8;
     };
 };
 

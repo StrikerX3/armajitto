@@ -1,6 +1,7 @@
 #pragma once
 
 #include "coprocessor.hpp"
+#include "exceptions.hpp"
 #include "exec_state.hpp"
 #include "gpr.hpp"
 #include "mode.hpp"
@@ -27,6 +28,38 @@ public:
     void JumpTo(uint32_t address, bool thumb) {
         GPR(GPR::PC) = address + (thumb ? 4 : 8);
         CPSR().t = thumb;
+    }
+
+    // Convenience method to switch to the specified mode, automatically storing SPSR if necessary.
+    void SetMode(Mode mode) {
+        auto spsrIndex = NormalizedIndex(mode);
+        if (spsrIndex > 0) {
+            SPSR(mode) = CPSR();
+        }
+        CPSR().mode = mode;
+    }
+
+    // Convenience method that forces the processor to enter the specified exception vector.
+    void EnterException(Exception vector) {
+        const auto &vectorInfo = arm::kExceptionVectorInfos[static_cast<size_t>(vector)];
+
+        const bool t = CPSR().t;
+        const uint32_t instrSize = t ? sizeof(uint16_t) : sizeof(uint32_t);
+        const uint32_t nn = t ? vectorInfo.thumbOffset : vectorInfo.armOffset;
+        const uint32_t pc = GPR(GPR::PC) - instrSize * 2;
+
+        SetMode(vectorInfo.mode);
+        CPSR().t = 0;
+        CPSR().i = 1;
+        if (vectorInfo.F) {
+            CPSR().f = 1;
+        }
+
+        const uint32_t baseVectorAddress =
+            (m_cp15.IsPresent() ? m_cp15.GetControlRegister().baseVectorAddress : 0x00000000);
+
+        GPR(GPR::LR) = pc + nn;
+        GPR(GPR::PC) = baseVectorAddress + static_cast<uint32_t>(vector) * 4 + instrSize * 2;
     }
 
     uint32_t &GPR(GPR gpr, Mode mode) {

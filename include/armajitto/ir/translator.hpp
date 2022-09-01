@@ -12,18 +12,21 @@ namespace armajitto::ir {
 class Translator {
 public:
     struct Parameters {
-        uint32_t maxBlockSize;
+        uint32_t maxBlockSize = 32;
     };
 
-    Translator(Context &context, Parameters params)
-        : m_context(context)
-        , m_params(params) {}
+    Translator(Context &context)
+        : m_context(context) {}
+
+    Parameters &GetParameters() {
+        return m_params;
+    }
 
     void Translate(BasicBlock &block);
 
 private:
     Context &m_context;
-    const Parameters m_params;
+    Parameters m_params;
 
     // Indicates if the flags have been potentially changed, which might change the result of the current block's
     // condition check.

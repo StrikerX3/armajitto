@@ -28,6 +28,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     Compiler compiler{m_context, m_compiledCode, m_codegen, block};
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
+    cachedBlock.code = fnPtr;
     m_codegen.setProtectModeRW();
 
     Xbyak::Label lblCondFail{};
@@ -51,7 +52,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
         m_codegen.sub(kCycleCountOperand, block.InstructionCount());
 
         // Bail out if we ran out of cycles
-        m_codegen.jle((void *)m_compiledCode.epilog);
+        m_codegen.jle(m_compiledCode.epilog);
     }
 
     if (block.Condition() != arm::Condition::AL) {
@@ -73,7 +74,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
             m_codegen.sub(kCycleCountOperand, block.InstructionCount());
 
             // Bail out if we ran out of cycles
-            m_codegen.jle((void *)m_compiledCode.epilog);
+            m_codegen.jle(m_compiledCode.epilog);
         }
     }
 
@@ -87,8 +88,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
     // Cleanup, cache block and return pointer to code
     m_codegen.setProtectModeRE();
-    vtune::ReportBasicBlock(fnPtr, m_codegen.getCurr<uintptr_t>(), block.Location());
-    cachedBlock.code = fnPtr;
+    vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
     return fnPtr;
 }
 
@@ -101,7 +101,7 @@ void x64Host::Clear() {
 
 void x64Host::CompileCommon() {
     CompileEpilog();
-    CompileEnterIRQ();
+    CompileIRQEntry();
     CompileProlog(); // Depends on Epilog and ExitIRQ being compiled
 }
 
@@ -177,7 +177,7 @@ void x64Host::CompileProlog() {
             // IRQ line is asserted
             // Change execution state to Running and jump to IRQ vector
             m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
-            m_codegen.jmp((void *)m_compiledCode.enterIRQ);
+            m_codegen.jmp(m_compiledCode.irqEntry);
 
             // --
 
@@ -186,7 +186,7 @@ void x64Host::CompileProlog() {
 
             // Set remaining cycles to 0 and go to epilog
             m_codegen.mov(kCycleCountOperand, 0);
-            m_codegen.jmp((void *)m_compiledCode.epilog);
+            m_codegen.jmp(m_compiledCode.epilog);
         }
 
         // Continuation from the halt check -- CPU is running
@@ -222,11 +222,11 @@ void x64Host::CompileEpilog() {
     m_codegen.ret();
 
     m_codegen.setProtectModeRE();
-    vtune::ReportCode(m_compiledCode.epilog, m_codegen.getCurr<uintptr_t>(), "__epilog");
+    vtune::ReportCode(CastUintPtr(m_compiledCode.epilog), m_codegen.getCurr<uintptr_t>(), "__epilog");
 }
 
-void x64Host::CompileEnterIRQ() {
-    m_compiledCode.enterIRQ = m_codegen.getCurr<HostCode>();
+void x64Host::CompileIRQEntry() {
+    m_compiledCode.irqEntry = m_codegen.getCurr<HostCode>();
     m_codegen.setProtectModeRW();
 
     auto &armState = m_context.GetARMState();
@@ -325,12 +325,13 @@ void x64Host::CompileEnterIRQ() {
 
     // Jump to block if present, or epilog if not
     m_codegen.test(abi::kIntReturnValueReg, abi::kIntReturnValueReg);
-    m_codegen.mov(cpsrReg32.cvt64(), m_compiledCode.epilog);
+    m_codegen.mov(cpsrReg32.cvt64(), CastUintPtr(m_compiledCode.epilog));
     m_codegen.cmovnz(cpsrReg32.cvt64(), abi::kIntReturnValueReg);
     m_codegen.pop(abi::kIntReturnValueReg); // Restore return register
     m_codegen.jmp(cpsrReg32.cvt64());
 
     m_codegen.setProtectModeRE();
+    vtune::ReportCode(CastUintPtr(m_compiledCode.irqEntry), m_codegen.getCurr<uintptr_t>(), "__irqEntry");
 }
 
 } // namespace armajitto::x86_64

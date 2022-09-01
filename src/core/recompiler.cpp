@@ -3,15 +3,31 @@
 namespace armajitto {
 
 uint64_t Recompiler::Run(uint64_t minCycles) {
-    uint64_t cyclesExecuted = 0;
-    while (cyclesExecuted < minCycles) {
-        // TODO: do the JIT magic here
-        // - check for cached block; if not found, translate/optimize/compile/cache block
-        // - execute cached block
+    auto &armState = m_context.GetARMState();
+    uint32_t &pc = armState.GPR(arm::GPR::PC);
+    int64_t cyclesRemaining = minCycles;
+    while (cyclesRemaining > 0) {
+        // Build location reference and get its code
+        const LocationRef loc{pc, armState.CPSR().u32};
+        auto code = m_host.GetCodeForLocation(loc);
 
-        ++cyclesExecuted;
+        // Compile code if not yet compiled
+        if (code == nullptr) {
+            auto *block = m_allocator.Allocate<ir::BasicBlock>(m_allocator, loc);
+            m_translator.Translate(*block);
+            ir::Optimize(*block, m_optParams);
+            code = m_host.Compile(*block);
+        }
+
+        // Invoke code
+        cyclesRemaining = m_host.Call(code, cyclesRemaining);
     }
-    return cyclesExecuted;
+    return minCycles - cyclesRemaining;
+}
+
+void Recompiler::FlushCachedBlocks() {
+    m_host.Clear();
+    m_allocator.Release();
 }
 
 } // namespace armajitto

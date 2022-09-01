@@ -4,6 +4,6 @@
 
 namespace armajitto {
 
-using HostCode = uintptr_t;
+using HostCode = void *;
 
 } // namespace armajitto

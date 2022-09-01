@@ -26,17 +26,16 @@ public:
         return m_compiledCode.GetCodeForLocation(loc);
     }
 
-    uint64_t Call(LocationRef loc, uint64_t cycles) final {
+    int64_t Call(LocationRef loc, uint64_t cycles) final {
         auto code = GetCodeForLocation(loc);
         return Call(code, cycles);
     }
 
-    uint64_t Call(HostCode code, uint64_t cycles) final {
+    int64_t Call(HostCode code, uint64_t cycles) final {
         if (code != 0) {
-            int64_t remaining = m_compiledCode.prolog(code, cycles);
-            return cycles - remaining;
+            return m_compiledCode.prolog(code, cycles);
         } else {
-            return 0;
+            return cycles;
         }
     }
 
@@ -78,7 +77,7 @@ private:
 
     void CompileProlog();
     void CompileEpilog();
-    void CompileEnterIRQ();
+    void CompileIRQEntry();
 };
 
 } // namespace armajitto::x86_64

@@ -142,7 +142,7 @@ void x64Host::Compiler::CompileIRQLineCheck() {
     codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
 
     // Jump to IRQ switch code if the IRQ line is raised and interrupts are not inhibited
-    codegen.jnz((void *)compiledCode.enterIRQ);
+    codegen.jnz(compiledCode.irqEntry);
 }
 
 void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
@@ -229,7 +229,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
             auto code = it->second.code;
 
             // Jump to the compiled code's address directly
-            codegen.jmp((void *)code, Xbyak::CodeGenerator::T_NEAR);
+            codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
         } else {
             // Store this code location to be patched later
             compiledCode.patches[targetLoc.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
@@ -275,7 +275,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 }
 
 void x64Host::Compiler::CompileExit() {
-    codegen.jmp((void *)compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+    codegen.jmp(compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
 }
 
 void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) {
@@ -304,7 +304,7 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) 
                         }
                     }
                 } else {
-                    codegen.jmp((void *)blockCode, Xbyak::CodeGenerator::T_NEAR);
+                    codegen.jmp(blockCode, Xbyak::CodeGenerator::T_NEAR);
                 }
 
                 // Restore code generator position
