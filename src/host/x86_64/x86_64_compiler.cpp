@@ -277,15 +277,17 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
     } else {
         // Store this code location to be patched later
-        compiledCode.patches[target.ToUint64()].push_back({blockLocKey, codegen.getCurr()});
+        CompiledCode::PatchInfo patchInfo{.cachedBlockKey = blockLocKey, .codePos = codegen.getCurr()};
 
         // Exit due to cache miss; need to compile new block
         CompileExit();
+        patchInfo.codeEnd = codegen.getCurr();
+        compiledCode.patches[target.ToUint64()].push_back(patchInfo);
     }
 }
 
-void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) {
-    auto itPatches = compiledCode.patches.find(loc.ToUint64());
+void x64Host::Compiler::PatchIndirectLinks(LocationRef target, HostCode blockCode) {
+    auto itPatches = compiledCode.patches.find(target.ToUint64());
     if (itPatches != compiledCode.patches.end()) {
         for (auto &patchInfo : itPatches->second) {
             auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
@@ -299,7 +301,7 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef loc, HostCode blockCode) 
 
                 // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
                 auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
-                if (distToTarget >= 1 && distToTarget <= 27) {
+                if (distToTarget >= 1 && distToTarget <= 27 && blockCode == patchInfo.codeEnd) {
                     for (;;) {
                         if (distToTarget > 9) {
                             codegen.nop(9);

@@ -17,6 +17,7 @@ struct CompiledCode {
     struct PatchInfo {
         uint64_t cachedBlockKey;
         const uint8_t *codePos;
+        const uint8_t *codeEnd;
         // TODO: patch type?
     };
 
