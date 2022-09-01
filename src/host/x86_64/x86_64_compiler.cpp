@@ -676,10 +676,11 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
             // Write to ITCM
             if (op->src.immediate) {
+                const uint32_t value = op->src.imm.value;
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], static_cast<uint8_t>(value)); break;
+                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], static_cast<uint16_t>(value)); break;
+                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], value); break;
                 }
             } else {
                 auto srcReg32 = regAlloc.Get(op->src.var.var);
@@ -732,10 +733,11 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
             // Write to DTCM
             if (op->src.immediate) {
+                const uint32_t value = op->src.imm.value;
                 switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], op->src.imm.value); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], op->src.imm.value); break;
+                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], static_cast<uint8_t>(value)); break;
+                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], static_cast<uint16_t>(value)); break;
+                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], value); break;
                 }
             } else {
                 auto srcReg32 = regAlloc.Get(op->src.var.var);
