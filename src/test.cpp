@@ -5,9 +5,13 @@
 #include <armajitto/ir/translator.hpp>
 
 #include <array>
+#include <chrono>
 #include <cstdio>
+#include <fstream>
+#include <iostream>
+#include <memory>
 
-class System : public armajitto::ISystem {
+class TestSystem : public armajitto::ISystem {
 public:
     uint8_t MemReadByte(uint32_t address) final {
         return Read<uint8_t>(address);
@@ -87,6 +91,85 @@ private:
     template <typename T>
     void MMIOWrite(uint32_t address, T value) {
         // TODO: implement some basic hardware emulation for MMIO tests
+    }
+};
+
+class MinimalNDSSystem : public armajitto::ISystem {
+public:
+    uint8_t MemReadByte(uint32_t address) final {
+        return Read<uint8_t>(address);
+    }
+    uint16_t MemReadHalf(uint32_t address) final {
+        return Read<uint16_t>(address);
+    }
+    uint32_t MemReadWord(uint32_t address) final {
+        return Read<uint32_t>(address);
+    }
+
+    void MemWriteByte(uint32_t address, uint8_t value) final {
+        Write(address, value);
+    }
+    void MemWriteHalf(uint32_t address, uint16_t value) final {
+        Write(address, value);
+    }
+    void MemWriteWord(uint32_t address, uint32_t value) final {
+        Write(address, value);
+    }
+
+    void CopyToRAM(uint32_t baseAddress, const uint8_t *data, uint32_t size) {
+        if ((baseAddress >> 24) == 0x02) {
+            baseAddress &= 0x3FFFFF;
+            size = std::min(size, 0x400000 - baseAddress);
+            std::copy_n(data, size, mainRAM.begin() + baseAddress);
+        }
+    }
+
+    std::array<uint8_t, 0x400000> mainRAM;
+    std::array<uint8_t, 0x200000> vram;
+
+    template <typename T>
+    T Read(uint32_t address) {
+        auto page = address >> 24;
+        switch (page) {
+        case 0x02: return *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]);
+        case 0x04: return MMIORead<T>(address);
+        default: return 0;
+        }
+    }
+
+    template <typename T>
+    void Write(uint32_t address, T value) {
+        auto page = address >> 12;
+        switch (page) {
+        case 0x02: *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]) = value; break;
+        case 0x04: MMIOWrite<T>(address, value); break;
+        }
+    }
+
+    bool vblank = false;
+    int vblankCount = 0;
+    uint16_t buttons = 0x03FF;
+
+    template <typename T>
+    T MMIORead(uint32_t address) {
+        // Fake VBLANK counter
+        if (address == 0x4000004) {
+            ++vblankCount;
+            if (vblankCount == 560190) {
+                vblankCount = 0;
+                vblank ^= true;
+            }
+            return vblank;
+        }
+        if (address == 0x4000130) {
+            return buttons;
+        }
+        return 0;
+    }
+
+    template <typename T>
+    void MMIOWrite(uint32_t address, T value) {
+        // Not needed
     }
 };
 
@@ -175,8 +258,8 @@ void printState(armajitto::arm::State &state) {
 };
 
 void testBasic() {
-    // System implements the armajitto::ISystem interface
-    System sys{};
+    // TestSystem implements the armajitto::ISystem interface
+    TestSystem sys{};
 
     // Fill in the ROM with some code
     const uint32_t baseAddress = 0x02000100;
@@ -279,7 +362,7 @@ void testCPUID() {
 }
 
 void testTranslatorAndOptimizer() {
-    System sys{};
+    TestSystem sys{};
 
     const uint32_t baseAddress = 0x0100;
 
@@ -786,7 +869,7 @@ void testTranslatorAndOptimizer() {
 }
 
 void testCompiler() {
-    System sys{};
+    TestSystem sys{};
 
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     auto &state = context.GetARMState();
@@ -1249,13 +1332,93 @@ void testCompiler() {
     printState(armState);
 }
 
+void testNDS() {
+    auto sys = std::make_unique<MinimalNDSSystem>();
+
+    struct CodeDesc {
+        uint32_t romOffset;
+        uint32_t entrypoint;
+        uint32_t loadAddress;
+        uint32_t size;
+    } codeDesc;
+
+    {
+        std::ifstream ifsROM{"armwrestler.nds"};
+        if (!ifsROM) {
+            printf("Could not open armwrestler.nds\n");
+            return;
+        }
+
+        // 0x20: offset to ARM9 code in ROM file
+        // 0x24: ARM9 entry point address
+        // 0x28: offset in memory to load ARM9 code
+        // 0x2C: size of ARM9 code
+        ifsROM.seekg(0x20, std::ios::beg);
+        ifsROM.read((char *)&codeDesc, sizeof(codeDesc));
+
+        uint8_t *code = new uint8_t[codeDesc.size];
+        ifsROM.seekg(codeDesc.romOffset, std::ios::beg);
+        ifsROM.read((char *)code, codeDesc.size);
+        sys->CopyToRAM(codeDesc.loadAddress, code, codeDesc.size);
+        delete[] code;
+    }
+
+    // Create recompiler for ARM946E-S
+    armajitto::Recompiler jit{{
+        .system = *sys,
+        .model = armajitto::CPUModel::ARM946ES,
+    }};
+    auto &armState = jit.GetARMState();
+
+    // Configure CP15
+    // These specs match the NDS's ARM946E-S core
+    auto &cp15 = armState.GetSystemControlCoprocessor();
+    cp15.ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
+    cp15.ConfigureCache({
+        .type = armajitto::arm::cp15::cache::Type::WriteBackReg7CleanLockdownB,
+        .separateCodeDataCaches = true,
+        .code =
+            {
+                .size = 0x2000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+        .data =
+            {
+                .size = 0x1000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+    });
+
+    // Start execution at the specified address and execution state
+    armState.SetMode(armajitto::arm::Mode::System);
+    armState.JumpTo(codeDesc.entrypoint, false);
+
+    using clk = std::chrono::steady_clock;
+    using namespace std::chrono_literals;
+
+    auto t = clk::now();
+    uint32_t frames = 0;
+    for (;;) {
+        // Run for a full frame, assuming each instruction takes 3 cycles to complete
+        jit.Run(560190 / 3);
+        ++frames;
+        if (clk::now() - t >= 1s) {
+            printf("%u fps\n", frames);
+            frames = 0;
+        }
+    }
+}
+
 int main() {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testCPUID();
-    testBasic();
+    // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
+    testNDS();
 
     return EXIT_SUCCESS;
 }
