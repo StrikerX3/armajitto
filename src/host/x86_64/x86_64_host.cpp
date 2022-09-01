@@ -24,6 +24,10 @@ x64Host::x64Host(Context &context, size_t maxCodeSize)
     CompileCommon();
 }
 
+x64Host::~x64Host() {
+    m_codegen.setProtectModeRW();
+}
+
 HostCode x64Host::Compile(ir::BasicBlock &block) {
     auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
     Compiler compiler{m_context, m_compiledCode, m_codegen, block};

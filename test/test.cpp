@@ -4,6 +4,8 @@
 #include <armajitto/ir/optimizer.hpp>
 #include <armajitto/ir/translator.hpp>
 
+#include <SDL2/SDL.h>
+
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -1429,12 +1431,62 @@ void testNDS() {
             }
         }
     }};
-    for (;;) {
-        std::this_thread::sleep_for(1000ms);
+
+    SDL_Init(SDL_INIT_VIDEO);
+    auto window = SDL_CreateWindow("[REDACTED]", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 2, 192 * 2,
+                                   SDL_WINDOW_ALLOW_HIGHDPI);
+
+    auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR1555, SDL_TEXTUREACCESS_STREAMING, 256, 192);
+
+    while (running) {
+        SDL_UpdateTexture(texture, nullptr, sys->vram.data(), sizeof(uint16_t) * 256);
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        SDL_RenderPresent(renderer);
+
+        auto evt = SDL_Event{};
+        while (SDL_PollEvent(&evt)) {
+            if (evt.type == SDL_QUIT) {
+                running = false;
+                break;
+            }
+
+            if (evt.type == SDL_KEYUP || evt.type == SDL_KEYDOWN) {
+                auto bit = -1;
+                bool down = evt.type == SDL_KEYDOWN;
+
+                switch (reinterpret_cast<SDL_KeyboardEvent *>(&evt)->keysym.sym) {
+                case SDLK_c: bit = 0; break;
+                case SDLK_x: bit = 1; break;
+                case SDLK_RSHIFT: bit = 2; break;
+                case SDLK_RETURN: bit = 3; break;
+                case SDLK_RIGHT: bit = 4; break;
+                case SDLK_LEFT: bit = 5; break;
+                case SDLK_UP: bit = 6; break;
+                case SDLK_DOWN: bit = 7; break;
+                case SDLK_f: bit = 8; break;
+                case SDLK_a: bit = 9; break;
+                }
+
+                if (bit != -1) {
+                    if (down) {
+                        sys->buttons &= ~(1 << bit);
+                    } else {
+                        sys->buttons |= (1 << bit);
+                    }
+                }
+            }
+        }
     }
+
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testCPUID();

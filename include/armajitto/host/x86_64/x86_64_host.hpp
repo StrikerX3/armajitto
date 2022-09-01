@@ -21,6 +21,7 @@ public:
     static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(32) * 1024 * 1024;
 
     x64Host(Context &context, size_t maxCodeSize = kDefaultMaxCodeSize);
+    ~x64Host();
 
     HostCode Compile(ir::BasicBlock &block) final;
 
