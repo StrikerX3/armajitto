@@ -14,16 +14,11 @@
 
 namespace armajitto::x86_64 {
 
+inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycleCountOffset];
+
 x64Host::x64Host(Context &context)
     : Host(context)
     , m_codegen(Xbyak::DEFAULT_MAX_CODE_SIZE, nullptr, &m_alloc) {
-
-    // Calculate reserved stack size
-    uint64_t stackSize = abi::kNonvolatileRegs.size() * sizeof(uint64_t);
-    stackSize += sizeof(uint64_t); // +1 for RIP pushed by call
-
-    // Calculate offset needed to compensate for stack misalignment
-    m_stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(stackSize) - stackSize;
 
     CompileCommon();
 }
@@ -38,6 +33,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     Xbyak::Label lblCondFail{};
     Xbyak::Label lblCondPass{};
 
+    // Compile pre-execution checks
     compiler.CompileIRQLineCheck();
     compiler.CompileCondCheck(block.Condition(), lblCondFail);
 
@@ -50,32 +46,48 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
         op = op->Next();
     }
 
+    // Decrement cycles for this block
+    // TODO: proper cycle counting
+    m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+
+    // Bail out if we ran out of cycles
+    m_codegen.jle((void *)m_compiledCode.epilog);
+
     // Skip over condition fail block
     m_codegen.jmp(lblCondPass);
 
-    // Update PC if condition fails
-    m_codegen.L(lblCondFail);
-    const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
-    const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
-    m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset], block.Location().PC() + block.InstructionCount() * instrSize);
-    // TODO: increment cycles for failing the check
+    // Condition fail block
+    {
+        m_codegen.L(lblCondFail);
+
+        // Update PC if condition fails
+        const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
+        const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+        m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
+                      block.Location().PC() + block.InstructionCount() * instrSize);
+
+        // Decrement cycles for this block's condition fail branch
+        // TODO: properly decrement cycles for failing the check
+        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+
+        // Bail out if we ran out of cycles
+        m_codegen.jle((void *)m_compiledCode.epilog);
+    }
 
     m_codegen.L(lblCondPass);
-
-    // TODO: cycle counting
-    // TODO: check cycles
 
     // Go to next block or epilog
     compiler.CompileTerminal(block);
 
-    m_codegen.setProtectModeRE();
-
-    cachedBlock.code = fnPtr;
-    vtune::ReportBasicBlock(fnPtr, m_codegen.getCurr<uintptr_t>(), block.Location());
+    // -----------------------------------------------------------------------------------------------------------------
 
     // Patch references to this block
     compiler.PatchIndirectLinks(block.Location(), fnPtr);
 
+    // Cleanup, cache block and return pointer to code
+    m_codegen.setProtectModeRE();
+    vtune::ReportBasicBlock(fnPtr, m_codegen.getCurr<uintptr_t>(), block.Location());
+    cachedBlock.code = fnPtr;
     return fnPtr;
 }
 
@@ -106,13 +118,18 @@ void x64Host::CompileProlog() {
         m_codegen.push(reg);
     }
 
-    // Setup stack -- make space for register spill area
-    // Also include the stack alignment offset
-    m_codegen.sub(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
+    // Setup static registers and stack
+    // Make space for variable spill area + cycle counter, including the stack alignment offset
+    m_codegen.sub(rsp, abi::kStackReserveSize);
+    m_codegen.mov(abi::kVarSpillBaseReg, rsp);                // rbp = Variable spill and cycle counter base register
+    m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // rbx = ARM state pointer
+
+    // Copy cycle count to its slot in the stack (2nd argument passed to prolog function)
+    m_codegen.mov(kCycleCountOperand, abi::kIntArgRegs[1]);
 
     // Copy CPSR NZCV and I flags to EAX
     auto flagsReg32 = abi::kHostFlagsReg;
-    auto iFlagReg32 = abi::kNonvolatileRegs[1].cvt32(); // Use this as scratch register for the I flag
+    auto iFlagReg32 = r15d;
     m_codegen.mov(flagsReg32, dword[CastUintPtr(&armState.CPSR())]);
     m_codegen.mov(iFlagReg32, flagsReg32);
     m_codegen.and_(iFlagReg32, (1 << ARMflgIPos));      // Keep I flag
@@ -122,51 +139,63 @@ void x64Host::CompileProlog() {
         // AH       AL
         // SZ0A0P1C -------V
         // NZ.....C .......V
-        auto depMask = abi::kNonvolatileRegs[0];
-        m_codegen.mov(depMask.cvt32(), 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
-        m_codegen.pdep(flagsReg32, flagsReg32, depMask.cvt32());
+        auto depMaskReg32 = r14d;
+        m_codegen.mov(depMaskReg32, 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
+        m_codegen.pdep(flagsReg32, flagsReg32, depMaskReg32);
     } else {
         m_codegen.imul(flagsReg32, flagsReg32, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
         m_codegen.and_(flagsReg32, x64FlagsMask);                  // -------- -------- NZ-----C -------V
     }
     m_codegen.or_(flagsReg32, iFlagReg32); // -------- -------I NZ-----C -------V
 
-    // Setup other static registers
-    m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // ARM state pointer
-
     // -----------------------------------------------------------------------------------------------------------------
     // Execution state check
 
-    // Check if the CPU is running
-    Xbyak::Label lblContinue{};
-    const auto execStateOfs = armState.ExecutionStateOffset();
-    m_codegen.cmp(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
-    m_codegen.je(lblContinue);
+    {
+        Xbyak::Label lblContinue{};
 
-    // At this point, the CPU is halted
+        // Check if the CPU is running
+        const auto execStateOfs = armState.ExecutionStateOffset();
+        m_codegen.cmp(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
+        m_codegen.je(lblContinue);
 
-    // Get inverted CPSR I bit
-    auto tmpReg8 = abi::kNonvolatileRegs.back().cvt8();
-    m_codegen.test(abi::kHostFlagsReg, x64flgI);
-    m_codegen.sete(tmpReg8);
+        // At this point, the CPU is halted
+        {
+            Xbyak::Label lblNoIRQ{};
 
-    // Compare against IRQ line
-    const auto irqLineOffset = armState.IRQLineOffset();
-    m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
+            // Get inverted CPSR I bit
+            auto tmpReg8 = r15b;
+            m_codegen.test(abi::kHostFlagsReg, x64flgI);
+            m_codegen.sete(tmpReg8);
 
-    // Exit if IRQ is not raised
-    // TODO: set "executed" cycles to requested cycles
-    m_codegen.jz((void *)m_compiledCode.epilog);
+            // Compare against IRQ line
+            const auto irqLineOffset = armState.IRQLineOffset();
+            m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
+            m_codegen.jz(lblNoIRQ);
 
-    // Change execution state to Running otherwise, and enter IRQ
-    m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
-    m_codegen.jmp((void *)m_compiledCode.enterIRQ);
+            // IRQ line is asserted
+            // Change execution state to Running and jump to IRQ vector
+            m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
+            m_codegen.jmp((void *)m_compiledCode.enterIRQ);
+
+            // --
+
+            // IRQ line is not asserted
+            m_codegen.L(lblNoIRQ);
+
+            // Set remaining cycles to 0 and go to epilog
+            m_codegen.mov(kCycleCountOperand, 0);
+            m_codegen.jmp((void *)m_compiledCode.epilog);
+        }
+
+        // Continuation from the halt check -- CPU is running
+        m_codegen.L(lblContinue);
+    }
 
     // -----------------------------------------------------------------------------------------------------------------
     // Block execution
 
     // Call block function
-    m_codegen.L(lblContinue);
     m_codegen.jmp(abi::kIntArgRegs[0]); // Jump to block code (1st argument passed to prolog function)
 
     m_codegen.setProtectModeRE();
@@ -177,16 +206,16 @@ void x64Host::CompileEpilog() {
     m_compiledCode.epilog = m_codegen.getCurr<HostCode>();
     m_codegen.setProtectModeRW();
 
+    // Copy remaining cycles to return value
+    m_codegen.mov(abi::kIntReturnValueReg, kCycleCountOperand);
+
     // Cleanup stack
-    m_codegen.add(rsp, abi::kStackReserveSize + m_stackAlignmentOffset);
+    m_codegen.add(rsp, abi::kStackReserveSize);
 
     // Pop all nonvolatile registers
     for (auto it = abi::kNonvolatileRegs.rbegin(); it != abi::kNonvolatileRegs.rend(); it++) {
         m_codegen.pop(*it);
     }
-
-    // TODO: Put executed/remaining/whatever cycles in return value
-    // m_codegen.mov(abi::kIntReturnValueReg.cvt32(), <executed cycles>);
 
     // Return from call
     m_codegen.ret();

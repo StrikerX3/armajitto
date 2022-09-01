@@ -23,11 +23,15 @@ public:
     // Returns 0 if no code was compiled at that location.
     virtual HostCode GetCodeForLocation(LocationRef loc) = 0;
 
-    // Calls the compiled code at LocationRef, if present.
-    virtual void Call(LocationRef loc) = 0;
+    // Calls the compiled code at LocationRef, if present, and runs for the specified amount of cycles.
+    // Returns the number of cycles executed (or skipped due to halting).
+    // Returns 0 if there is no function at the specified location.
+    virtual uint64_t Call(LocationRef loc, uint64_t cycles) = 0;
 
     // Calls the specified compiled code, if present.
-    virtual void Call(HostCode code) = 0;
+    // Returns the number of cycles executed (or skipped due to halting).
+    // Returns 0 if the code pointer is null.
+    virtual uint64_t Call(HostCode code, uint64_t cycles) = 0;
 
     // Clears all compiled code.
     virtual void Clear() = 0;

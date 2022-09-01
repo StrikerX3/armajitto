@@ -26,14 +26,17 @@ public:
         return m_compiledCode.GetCodeForLocation(loc);
     }
 
-    void Call(LocationRef loc) final {
+    uint64_t Call(LocationRef loc, uint64_t cycles) final {
         auto code = GetCodeForLocation(loc);
-        return Call(code);
+        return Call(code, cycles);
     }
 
-    void Call(HostCode code) final {
+    uint64_t Call(HostCode code, uint64_t cycles) final {
         if (code != 0) {
-            m_compiledCode.prolog(code);
+            int64_t remaining = m_compiledCode.prolog(code, cycles);
+            return cycles - remaining;
+        } else {
+            return 0;
         }
     }
 
@@ -68,7 +71,6 @@ private:
     XbyakAllocator m_alloc;
     XbyakCodeGen m_codegen;
     CompiledCode m_compiledCode;
-    uint64_t m_stackAlignmentOffset;
 
     struct Compiler;
 

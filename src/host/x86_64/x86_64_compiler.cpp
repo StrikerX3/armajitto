@@ -2737,8 +2737,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
                 codegen.mov(argReg64, arg);
             }
         } else {
-            // TODO: push onto stack in the order specified by the ABI
-            // abi::kStackGrowsDownward
+            // TODO: push onto stack
             throw std::runtime_error("host function call argument-passing through the stack is unimplemented");
         }
         ++argIndex;

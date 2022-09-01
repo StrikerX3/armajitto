@@ -20,7 +20,7 @@ struct CompiledCode {
         // TODO: patch type?
     };
 
-    using PrologFn = void (*)(uintptr_t blockFn);
+    using PrologFn = int64_t (*)(uintptr_t blockFn, uint64_t cycles);
     PrologFn prolog;
     HostCode epilog;
     HostCode enterIRQ;

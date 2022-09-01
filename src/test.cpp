@@ -754,7 +754,7 @@ void testCompiler() {
     // writeARM(0xE126F001); // msr cpsr_xs, r1
     // writeARM(0xE368F4A5); // msr spsr_f, 0xA5
     // writeARM(0xE361F01F); // msr spsr_c, 0x1F
-    writeARM(0xE321F09F); // msr cpsr_c, 0x9F
+    // writeARM(0xE321F09F); // msr cpsr_c, 0x9F
 
     // LDR, STR, LDRB, STRB
     // writeARM(0xE5920000); // ldr r0, [r2]
@@ -960,7 +960,6 @@ void testCompiler() {
     writeARM(0x13830C01); // orrne r0, r3, #0x0100
     writeARM(0x112FFF10); // bxne r0
 
-    // TODO: implement CPU halt state, bail out if halted
     // TODO: implement cycle counting and bailing out of execution when cycles run out
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
 
@@ -1196,7 +1195,8 @@ void testCompiler() {
 
     // Execute code using HostCode
     printf("\ninvoking code at %p\n", (void *)entryCode);
-    host.Call(entryCode);
+    uint64_t cyclesExecuted = host.Call(entryCode, 64);
+    printf("executed %llu cycles\n", cyclesExecuted);
     printf("\nstate after execution:\n");
     printState();
 }
