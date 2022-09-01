@@ -34,8 +34,8 @@ struct TCM {
     uint32_t dtcmWriteSize;
     uint32_t dtcmReadSize;
 
-    uint8_t *itcm;
-    uint8_t *dtcm;
+    uint8_t *itcm = nullptr;
+    uint8_t *dtcm = nullptr;
     uint32_t itcmSize;
     uint32_t dtcmSize;
 

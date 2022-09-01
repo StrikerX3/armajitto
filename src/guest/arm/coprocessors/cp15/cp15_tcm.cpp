@@ -7,8 +7,12 @@
 namespace armajitto::arm::cp15 {
 
 void TCM::Reset() {
-    std::fill_n(itcm, itcmSize, 0);
-    std::fill_n(dtcm, dtcmSize, 0);
+    if (itcm != nullptr) {
+        std::fill_n(itcm, itcmSize, 0);
+    }
+    if (dtcm != nullptr) {
+        std::fill_n(dtcm, dtcmSize, 0);
+    }
 
     itcmWriteSize = itcmReadSize = 0;
     itcmParams = 0;
