@@ -1407,10 +1407,11 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
+    using namespace std::chrono_literals;
+
     bool running = true;
     std::jthread emuThread{[&] {
         using clk = std::chrono::steady_clock;
-        using namespace std::chrono_literals;
 
         auto t = clk::now();
         uint32_t frames = 0;
@@ -1429,7 +1430,7 @@ void testNDS() {
         }
     }};
     for (;;) {
-        Sleep(1000);
+        std::this_thread::sleep_for(1000ms);
     }
 }
 
