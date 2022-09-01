@@ -195,7 +195,7 @@ target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_PATCH=${armajitto_
 ######### TEMPORARY #########
 ## Add a test executable to aid development
 add_executable(armajitto-test
-    src/test.cpp
+    test/test.cpp
 )
 add_executable(armajitto::armajitto-test ALIAS armajitto-test)
 set_target_properties(armajitto-test PROPERTIES

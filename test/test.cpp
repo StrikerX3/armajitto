@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <thread>
 
 class TestSystem : public armajitto::ISystem {
 public:
@@ -1406,23 +1407,29 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
-    using clk = std::chrono::steady_clock;
-    using namespace std::chrono_literals;
+    bool running = true;
+    std::jthread emuThread{[&] {
+        using clk = std::chrono::steady_clock;
+        using namespace std::chrono_literals;
 
-    auto t = clk::now();
-    uint32_t frames = 0;
-    uint64_t cycles = 0;
-    for (;;) {
-        // Run for a full frame, assuming each instruction takes 3 cycles to complete
-        cycles += jit.Run(560190 / 3);
-        ++frames;
-        auto t2 = clk::now();
-        if (t2 - t >= 1s) {
-            printf("%u fps, %llu cycles\n", frames, cycles);
-            frames = 0;
-            cycles = 0;
-            t = t2;
+        auto t = clk::now();
+        uint32_t frames = 0;
+        uint64_t cycles = 0;
+        while (running) {
+            // Run for a full frame, assuming each instruction takes 3 cycles to complete
+            cycles += jit.Run(560190 / 3);
+            ++frames;
+            auto t2 = clk::now();
+            if (t2 - t >= 1s) {
+                printf("%u fps, %llu cycles\n", frames, cycles);
+                frames = 0;
+                cycles = 0;
+                t = t2;
+            }
         }
+    }};
+    for (;;) {
+        Sleep(1000);
     }
 }
 
