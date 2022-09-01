@@ -54,29 +54,27 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
         m_codegen.jle((void *)m_compiledCode.epilog);
     }
 
-    // Condition fail block
     if (block.Condition() != arm::Condition::AL) {
-        Xbyak::Label lblCondPass{};
+        // Go to next block or epilog
+        compiler.CompileTerminal(block);
 
-        // Skip over condition fail block
-        m_codegen.jmp(lblCondPass);
+        // Condition fail block
+        {
+            m_codegen.L(lblCondFail);
 
-        m_codegen.L(lblCondFail);
+            // Update PC if condition fails
+            const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
+            const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+            m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
+                          block.Location().PC() + block.InstructionCount() * instrSize);
 
-        // Update PC if condition fails
-        const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
-        const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
-        m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
-                      block.Location().PC() + block.InstructionCount() * instrSize);
+            // Decrement cycles for this block's condition fail branch
+            // TODO: properly decrement cycles for failing the check
+            m_codegen.sub(kCycleCountOperand, block.InstructionCount());
 
-        // Decrement cycles for this block's condition fail branch
-        // TODO: properly decrement cycles for failing the check
-        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
-
-        // Bail out if we ran out of cycles
-        m_codegen.jle((void *)m_compiledCode.epilog);
-
-        m_codegen.L(lblCondPass);
+            // Bail out if we ran out of cycles
+            m_codegen.jle((void *)m_compiledCode.epilog);
+        }
     }
 
     // Go to next block or epilog
