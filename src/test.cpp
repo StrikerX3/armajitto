@@ -1411,14 +1411,16 @@ void testNDS() {
 
     auto t = clk::now();
     uint32_t frames = 0;
+    uint64_t cycles = 0;
     for (;;) {
         // Run for a full frame, assuming each instruction takes 3 cycles to complete
-        jit.Run(560190 / 3);
+        cycles += jit.Run(560190 / 3);
         ++frames;
         auto t2 = clk::now();
         if (t2 - t >= 1s) {
-            printf("%u fps\n", frames);
+            printf("%u fps, %llu cycles\n", frames, cycles);
             frames = 0;
+            cycles = 0;
             t = t2;
         }
     }
