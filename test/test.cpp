@@ -136,6 +136,7 @@ public:
         switch (page) {
         case 0x02: return *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]);
         case 0x04: return MMIORead<T>(address);
+        case 0x06: return *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]);
         default: return 0;
         }
     }
@@ -146,6 +147,7 @@ public:
         switch (page) {
         case 0x02: *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]) = value; break;
         case 0x04: MMIOWrite<T>(address, value); break;
+        case 0x06: *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]) = value; break;
         }
     }
 
@@ -1437,7 +1439,7 @@ void testNDS() {
                                    SDL_WINDOW_ALLOW_HIGHDPI);
 
     auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR1555, SDL_TEXTUREACCESS_STREAMING, 256, 192);
+    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, 256, 192);
 
     while (running) {
         SDL_UpdateTexture(texture, nullptr, sys->vram.data(), sizeof(uint16_t) * 256);
