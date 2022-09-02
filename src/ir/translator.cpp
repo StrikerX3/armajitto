@@ -680,6 +680,9 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
         emitter.SetSPSR(psr);
     } else {
         emitter.SetCPSR(psr);
+        if (instr.f) {
+            emitter.StoreFlags(arm::Flags::NZCV, psr);
+        }
     }
 
     emitter.FetchInstruction();
