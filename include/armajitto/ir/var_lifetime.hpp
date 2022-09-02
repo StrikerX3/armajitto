@@ -1,11 +1,11 @@
 #pragma once
 
-#include "armajitto/ir/basic_block.hpp"
-#include "armajitto/ir/ir_ops.hpp"
+#include "basic_block.hpp"
+#include "ir_ops.hpp"
 
 #include <vector>
 
-namespace armajitto::x86_64 {
+namespace armajitto::ir {
 
 class VarLifetimeTracker {
 public:
@@ -19,4 +19,4 @@ private:
     void SetLastVarUseOp(ir::Variable var, const ir::IROp *op);
 };
 
-} // namespace armajitto::x86_64
+} // namespace armajitto::ir

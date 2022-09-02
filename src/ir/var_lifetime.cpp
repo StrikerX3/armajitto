@@ -1,8 +1,8 @@
-#include "var_lifetime.hpp"
+#include "armajitto/ir/var_lifetime.hpp"
 
 #include "armajitto/ir/ops/ir_ops_visitor.hpp"
 
-namespace armajitto::x86_64 {
+namespace armajitto::ir {
 
 void VarLifetimeTracker::Analyze(const ir::BasicBlock &block) {
     m_lastVarUseOps.clear();
@@ -30,4 +30,4 @@ void VarLifetimeTracker::SetLastVarUseOp(ir::Variable var, const ir::IROp *op) {
     m_lastVarUseOps[index] = op;
 }
 
-} // namespace armajitto::x86_64
+} // namespace armajitto::ir

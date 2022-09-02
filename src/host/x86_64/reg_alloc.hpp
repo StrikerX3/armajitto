@@ -3,7 +3,7 @@
 #include "abi.hpp"
 #include "armajitto/ir/basic_block.hpp"
 #include "armajitto/ir/ir_ops.hpp"
-#include "var_lifetime.hpp"
+#include "armajitto/ir/var_lifetime.hpp"
 
 #include <xbyak/xbyak.h>
 
@@ -65,7 +65,7 @@ public:
 
 private:
     Xbyak::CodeGenerator &m_code;
-    VarLifetimeTracker m_varLifetimes;
+    ir::VarLifetimeTracker m_varLifetimes;
 
     const ir::IROp *m_currOp = nullptr;
 
