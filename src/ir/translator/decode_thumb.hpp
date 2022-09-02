@@ -237,7 +237,7 @@ inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
     instr.address.immediate = true;
     instr.address.positiveOffset = true;
     instr.address.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.address.immValue = bit::extract<6, 5>(opcode);
+    instr.address.immValue = bit::extract<6, 5>(opcode) * 4;
 
     return instr;
 }
