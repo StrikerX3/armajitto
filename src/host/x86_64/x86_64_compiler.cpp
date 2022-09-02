@@ -149,70 +149,71 @@ void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblC
     switch (cond) {
     case arm::Condition::EQ: // Z=1
         codegen.sahf();
-        codegen.jnz(lblCondFail);
+        codegen.jnz(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::NE: // Z=0
         codegen.sahf();
-        codegen.jz(lblCondFail);
+        codegen.jz(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::CS: // C=1
         codegen.sahf();
-        codegen.jnc(lblCondFail);
+        codegen.jnc(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::CC: // C=0
         codegen.sahf();
-        codegen.jc(lblCondFail);
+        codegen.jc(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::MI: // N=1
         codegen.sahf();
-        codegen.jns(lblCondFail);
+        codegen.jns(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::PL: // N=0
         codegen.sahf();
-        codegen.js(lblCondFail);
+        codegen.js(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::VS: // V=1
         codegen.cmp(al, 0x81);
-        codegen.jno(lblCondFail);
+        codegen.jno(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::VC: // V=0
         codegen.cmp(al, 0x81);
-        codegen.jo(lblCondFail);
+        codegen.jo(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::HI: // C=1 && Z=0
         codegen.sahf();
         codegen.cmc();
-        codegen.jna(lblCondFail);
+        codegen.jna(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::LS: // C=0 || Z=1
         codegen.sahf();
         codegen.cmc();
-        codegen.ja(lblCondFail);
+        codegen.ja(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::GE: // N=V
         codegen.cmp(al, 0x81);
         codegen.sahf();
-        codegen.jnge(lblCondFail);
+        codegen.jnge(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::LT: // N!=V
         codegen.cmp(al, 0x81);
         codegen.sahf();
-        codegen.jge(lblCondFail);
+        codegen.jge(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::GT: // Z=0 && N=V
         codegen.cmp(al, 0x81);
         codegen.sahf();
-        codegen.jng(lblCondFail);
+        codegen.jng(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::LE: // Z=1 || N!=V
         codegen.cmp(al, 0x81);
         codegen.sahf();
-        codegen.jg(lblCondFail);
+        codegen.jg(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     case arm::Condition::AL: // always
         break;
     case arm::Condition::NV: // never
-        // codegen.jmp(lblCondFail); // not needed as the block code is not compiled
+        // not needed as the block code is not compiled
+        // codegen.jmp(lblCondFail, Xbyak::CodeGenerator::T_NEAR);
         break;
     }
 }
