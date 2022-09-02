@@ -395,10 +395,11 @@ void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter
 
 void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter) {
     auto lr = emitter.GetRegister(GPR::LR);
-    auto targetAddrBase = emitter.Add(lr, instr.offset, false);
+    auto targetAddrBase = emitter.Add(lr, instr.offset + 1, false);
 
     emitter.LinkBeforeBranch();
     if (instr.blx) {
+        targetAddrBase = emitter.BitClear(targetAddrBase, 3, false);
         emitter.BranchExchange(targetAddrBase);
     } else {
         emitter.Branch(targetAddrBase);
@@ -413,7 +414,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     const bool dstPC = instr.dstReg == GPR::PC;
 
     // PC is incremented before if using a register-specified shift
-    if (!instr.rhs.shift.immediate) {
+    if (!instr.immediate && !instr.rhs.shift.immediate) {
         emitter.FetchInstruction();
     }
 
@@ -488,8 +489,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     } else {
         m_flagsUpdated = instr.setFlags;
 
-        // PC is incremented before if using an immediate shift
-        if (instr.rhs.shift.immediate) {
+        // PC is incremented before if using an immediate or shift by immediate
+        if (instr.immediate || instr.rhs.shift.immediate) {
             emitter.FetchInstruction();
         }
     }
