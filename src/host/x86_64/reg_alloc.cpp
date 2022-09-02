@@ -9,7 +9,7 @@ RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code)
 
     // TODO: include ECX
     for (auto reg : {/*ecx,*/ edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {
-        m_freeRegs.push_back(reg);
+        m_freeRegs.Push(reg);
     }
 }
 
@@ -49,7 +49,7 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
 
 Xbyak::Reg32 RegisterAllocator::GetTemporary() {
     auto reg = AllocateRegister();
-    m_tempRegs.push_back(reg);
+    m_tempRegs.Push(reg);
     return reg;
 }
 
@@ -93,13 +93,13 @@ bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
     }
 
     // Check if the register was temporarily allocated
-    auto it = std::find(m_tempRegs.begin(), m_tempRegs.end(), tmpReg);
-    if (it == m_tempRegs.end()) {
+    auto it = m_tempRegs.Find(tmpReg);
+    if (it == m_tempRegs.Capacity()) {
         return false;
     }
 
     // Turn temporary register into "permanent" by assigning it to the variable
-    m_tempRegs.erase(it);
+    m_tempRegs.Erase(it);
     entry.allocated = true;
     entry.reg = tmpReg;
     return true;
@@ -115,11 +115,11 @@ void RegisterAllocator::ReleaseVars() {
 }
 
 void RegisterAllocator::ReleaseTemporaries() {
-    for (auto reg : m_tempRegs) {
+    while (!m_tempRegs.IsEmpty()) {
+        auto reg = m_tempRegs.Pop();
         m_allocatedRegs.set(reg.getIdx(), false);
+        m_freeRegs.Push(reg);
     }
-    m_freeRegs.insert(m_freeRegs.end(), m_tempRegs.begin(), m_tempRegs.end());
-    m_tempRegs.clear();
 }
 
 bool RegisterAllocator::IsRegisterAllocated(Xbyak::Reg reg) const {
@@ -128,9 +128,8 @@ bool RegisterAllocator::IsRegisterAllocated(Xbyak::Reg reg) const {
 
 Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     // TODO: prefer nonvolatiles if available
-    if (!m_freeRegs.empty()) {
-        auto reg = m_freeRegs.front();
-        m_freeRegs.pop_front();
+    if (!m_freeRegs.IsEmpty()) {
+        auto reg = m_freeRegs.Pop();
         m_allocatedRegs.set(reg.getIdx());
         return reg;
     }
@@ -148,7 +147,7 @@ void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
         if (entry.allocated) {
             entry.allocated = false;
             if (entry.spillSlot == ~0) {
-                m_freeRegs.push_back(entry.reg);
+                m_freeRegs.Push(entry.reg);
                 m_allocatedRegs.set(entry.reg.getIdx(), false);
             }
         }

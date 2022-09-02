@@ -4,11 +4,11 @@
 #include "armajitto/ir/basic_block.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 #include "armajitto/ir/var_lifetime.hpp"
+#include "armajitto/util/unsafe_circular_buffer.hpp"
 
 #include <xbyak/xbyak.h>
 
 #include <bitset>
-#include <deque>
 #include <optional>
 #include <vector>
 
@@ -72,8 +72,9 @@ private:
     // -------------------------------------------------------------------------
     // Registers allocation
 
-    std::deque<Xbyak::Reg32> m_freeRegs;
-    std::deque<Xbyak::Reg32> m_tempRegs;
+    util::CircularBuffer<Xbyak::Reg32, 16> m_freeRegs;
+    util::CircularBuffer<Xbyak::Reg32, 16> m_tempRegs;
+
     std::bitset<16> m_allocatedRegs;
 
     Xbyak::Reg32 AllocateRegister();
