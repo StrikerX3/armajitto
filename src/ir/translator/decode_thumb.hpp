@@ -70,10 +70,10 @@ inline auto MovCmpAddSubImm(uint16_t opcode) {
     arm::instrs::DataProcessing instr{};
 
     switch (bit::extract<11, 2>(opcode)) {
-    case 0b00: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV;
-    case 0b01: instr.opcode = arm::instrs::DataProcessing::Opcode::CMP;
-    case 0b10: instr.opcode = arm::instrs::DataProcessing::Opcode::ADD;
-    case 0b11: instr.opcode = arm::instrs::DataProcessing::Opcode::SUB;
+    case 0b00: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV; break;
+    case 0b01: instr.opcode = arm::instrs::DataProcessing::Opcode::CMP; break;
+    case 0b10: instr.opcode = arm::instrs::DataProcessing::Opcode::ADD; break;
+    case 0b11: instr.opcode = arm::instrs::DataProcessing::Opcode::SUB; break;
     }
     instr.immediate = true;
     instr.setFlags = true;
@@ -90,9 +90,9 @@ inline auto DataProcessingStandard(uint16_t opcode, arm::instrs::DataProcessing:
     instr.opcode = dpOpcode;
     instr.immediate = false;
     instr.setFlags = true;
-    instr.dstReg = static_cast<GPR>(bit::extract<12, 3>(opcode));
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.lhsReg = instr.dstReg;
-    instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<0, 3>(opcode)));
+    instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<3, 3>(opcode)));
 
     return instr;
 }
