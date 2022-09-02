@@ -819,7 +819,7 @@ void ConstPropagationOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
         const auto dstCPSR = op->dstCPSR;
 
         if (BitmaskEnum(hostFlags).AnyOf(arm::Flags::V)) {
-            auto cpsr = m_emitter.BitwiseOr(srcCPSR, static_cast<uint32_t>(arm::Flags::V), false);
+            auto cpsr = m_emitter.BitwiseOr(srcCPSR, (1u << 27u), false);
             Assign(dstCPSR, cpsr);
         } else if (srcCPSR.immediate) {
             Assign(dstCPSR, srcCPSR.imm.value);
