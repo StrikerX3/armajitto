@@ -64,6 +64,7 @@ add_library(armajitto
     include/armajitto/ir/ir_ops.hpp
     include/armajitto/ir/optimizer.hpp
     include/armajitto/ir/translator.hpp
+    include/armajitto/ir/var_lifetime.hpp
     include/armajitto/ir/defs/arguments.hpp
     include/armajitto/ir/defs/memory_access.hpp
     include/armajitto/ir/defs/opcode_types.hpp
@@ -94,8 +95,6 @@ add_library(armajitto
     src/host/x86_64/cpuid.cpp
     src/host/x86_64/reg_alloc.cpp
     src/host/x86_64/reg_alloc.hpp
-    src/host/x86_64/var_lifetime.cpp
-    src/host/x86_64/var_lifetime.hpp
     src/host/x86_64/vtune.hpp
     src/host/x86_64/x86_64_compiler.cpp
     src/host/x86_64/x86_64_compiler.hpp
@@ -105,6 +104,7 @@ add_library(armajitto
     src/ir/emitter.cpp
     src/ir/optimizer.cpp
     src/ir/translator.cpp
+    src/ir/var_lifetime.cpp
     src/ir/optimizer/arithmetic_ops_coalescence.cpp
     src/ir/optimizer/arithmetic_ops_coalescence.hpp
     src/ir/optimizer/bitwise_ops_coalescence.cpp
