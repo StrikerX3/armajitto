@@ -88,6 +88,8 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
         if (op->amount.imm.value == 0) {
             Assign(op->dst, op->value.var);
             m_emitter.Erase(op);
+        } else {
+            ClearKnownHostFlags(arm::Flags::C);
         }
     }
 }
@@ -119,6 +121,8 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
         if (op->amount.imm.value == 0) {
             Assign(op->dst, op->value.var);
             m_emitter.Erase(op);
+        } else {
+            ClearKnownHostFlags(arm::Flags::C);
         }
     }
 }
@@ -150,6 +154,8 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
         if (op->amount.imm.value == 0) {
             Assign(op->dst, op->value.var);
             m_emitter.Erase(op);
+        } else {
+            ClearKnownHostFlags(arm::Flags::C);
         }
     }
 }
@@ -181,6 +187,8 @@ void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
         if (op->amount.imm.value == 0) {
             Assign(op->dst, op->value.var);
             m_emitter.Erase(op);
+        } else {
+            ClearKnownHostFlags(arm::Flags::C);
         }
     }
 }
