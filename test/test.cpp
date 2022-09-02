@@ -616,11 +616,11 @@ void testTranslatorAndOptimizer() {
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator translator{context};
-    translator.Translate(*block);
+    /*armajitto::ir::Translator translator{context};
+    translator.Translate(*block);*/
 
     // Emit IR code manually
-    // armajitto::ir::Emitter emitter{*block};
+    armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -798,6 +798,30 @@ void testTranslatorAndOptimizer() {
     auto [lo, hi] = emitter.MultiplyLong(r0, r1, true, true, false); // smullh $v3:$v2, $v0, $v1
     emitter.SetRegister(armajitto::arm::GPR::R2, lo);                // st r2, $v2
     emitter.SetRegister(armajitto::arm::GPR::R3, hi);                // st r3, $v3*/
+
+    // Broken arithmetic optimization
+    const auto memD = armajitto::ir::MemAccessBus::Data;
+    const auto memU = armajitto::ir::MemAccessMode::Unaligned;
+    const auto memH = armajitto::ir::MemAccessSize::Half;
+    const auto memW = armajitto::ir::MemAccessSize::Word;
+    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R8);  // ld $v0, r8_usr
+    auto v1 = emitter.Add(v0, 8, false);                     // add $v1, $v0, #0x8
+    emitter.SetRegister(armajitto::arm::GPR::R8, v1);        // st r8_usr, $v1
+    emitter.SetRegister(armajitto::arm::GPR::R1, 0);         // st r1, #0x0
+    auto v2 = emitter.MemRead(memD, memU, memW, 0x2005674);  // ld.duw, $v2, [#0x2005674]
+    auto v3 = emitter.Subtract(v2, 1, false);                // sub $v3, $v2, #0x1
+    auto v4 = emitter.Subtract(v3, 3, false);                // sub $v4, $v3, #0x3
+    emitter.SetRegister(armajitto::arm::GPR::R2, v4);        // st r2, $v4
+    emitter.SetRegister(armajitto::arm::GPR::R3, v4);        // st r3, $v4
+    auto v5 = emitter.Add(v3, 1, false);                     // add $v5, $v3, #0x1
+    auto v6 = emitter.MemRead(memD, memU, memH, v5);         // ld.duh, $v6, [$v5]
+    emitter.SetRegister(armajitto::arm::GPR::R0, v6);        // st r0, $v6
+    emitter.SetRegister(armajitto::arm::GPR::R5, 0x8f00);    // st r5, #0x8f00
+    emitter.Compare(v6, 0x8f00);                             // cmp.nzcv $v6, #0x8f00
+    emitter.LoadFlags(armajitto::arm::Flags::NZCV);          // ld $v7, cpsr
+                                                             // ldflg.nzcv $v8, $v7
+                                                             // st cpsr, $v8
+    emitter.SetRegister(armajitto::arm::GPR::PC, 0x200555c); // st pc, #0x200555c
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
@@ -1410,6 +1434,10 @@ void testNDS() {
     cp15.StoreRegister(0x0910, 0x0300000A);
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
+
+    auto &optParams = jit.GetOptimizationParameters();
+    // optParams.passes.arithmeticOpsCoalescence = false;
+    // optParams.passes.bitwiseOpsCoalescence = false;
 
     using namespace std::chrono_literals;
 
