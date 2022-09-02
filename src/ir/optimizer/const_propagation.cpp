@@ -673,7 +673,8 @@ void ConstPropagationOptimizerPass::Process(IRMultiplyLongOp *op) {
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
         if (op->signedMul) {
-            auto result = (int64_t)op->lhs.imm.value * (int64_t)op->rhs.imm.value;
+            auto result =
+                bit::sign_extend<32, int64_t>(op->lhs.imm.value) * bit::sign_extend<32, int64_t>(op->rhs.imm.value);
             if (op->shiftDownHalf) {
                 result >>= 16ll;
             }
