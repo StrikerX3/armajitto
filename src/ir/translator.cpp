@@ -412,6 +412,11 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 
     const bool dstPC = instr.dstReg == GPR::PC;
 
+    // PC is incremented before if using a register-specified shift
+    if (!instr.rhs.shift.immediate) {
+        emitter.FetchInstruction();
+    }
+
     Variable lhs;
     if (instr.opcode != Opcode::MOV && instr.opcode != Opcode::MVN) {
         lhs = emitter.GetRegister(instr.lhsReg);
@@ -483,7 +488,10 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     } else {
         m_flagsUpdated = instr.setFlags;
 
-        emitter.FetchInstruction();
+        // PC is incremented before if using an immediate shift
+        if (instr.rhs.shift.immediate) {
+            emitter.FetchInstruction();
+        }
     }
 }
 
