@@ -698,10 +698,13 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     Variable address;
+    Variable finalAddress;
     if (instr.preindexed) {
         address = emitter.ComputeAddress(instr.address);
+        finalAddress = address;
     } else {
         address = emitter.GetRegister(instr.address.baseReg);
+        finalAddress = emitter.ApplyAddressOffset(address, instr.address);
     }
 
     // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
@@ -740,17 +743,16 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
     // Write back address if requested
     if (!instr.load || instr.reg != instr.address.baseReg) {
         if (!instr.preindexed) {
-            address = emitter.ApplyAddressOffset(address, instr.address);
             if (instr.address.baseReg == GPR::PC) {
-                pcValue = address;
+                pcValue = finalAddress;
             } else {
-                emitter.SetRegister(instr.address.baseReg, address);
+                emitter.SetRegister(instr.address.baseReg, finalAddress);
             }
         } else if (instr.writeback) {
             if (instr.address.baseReg == GPR::PC) {
-                pcValue = address;
+                pcValue = finalAddress;
             } else {
-                emitter.SetRegister(instr.address.baseReg, address);
+                emitter.SetRegister(instr.address.baseReg, finalAddress);
             }
         }
     }
