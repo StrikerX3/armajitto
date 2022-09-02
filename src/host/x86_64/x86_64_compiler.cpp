@@ -353,20 +353,37 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
     auto offset = armState.CPSROffset();
     if (op->src.immediate) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
-        // Update I in EAX
-        if (bit::test<ARMflgIPos>(op->src.imm.value)) {
-            codegen.or_(abi::kHostFlagsReg, x64flgI);
-        } else {
-            codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-        }
+
+        // Update flags in EAX
+        const uint32_t nzcv = op->src.imm.value >> ARMflgNZCVShift;
+        const uint32_t i = bit::extract<ARMflgIPos, 1>(op->src.imm.value);
+        const uint32_t x64nzcv = (nzcv * ARMTox64FlagsMult) & x64FlagsMask;
+        const uint32_t hostFlags = x64nzcv | (i << x64flgIPos);
+        codegen.mov(abi::kHostFlagsReg, hostFlags);
     } else {
         auto srcReg32 = regAlloc.Get(op->src.var.var);
         codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
-        // Update I in EAX
-        codegen.and_(srcReg32, (1 << ARMflgIPos));
-        codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-        codegen.shl(srcReg32, x64flgIPos - ARMflgIPos);
-        codegen.or_(abi::kHostFlagsReg, srcReg32);
+
+        // Update flags in EAX
+        auto flagsReg32 = abi::kHostFlagsReg;
+        auto iFlagReg32 = regAlloc.GetTemporary();
+        codegen.mov(flagsReg32, srcReg32);
+        codegen.mov(iFlagReg32, flagsReg32);
+        codegen.and_(iFlagReg32, (1 << ARMflgIPos));      // Keep I flag
+        codegen.shl(iFlagReg32, x64flgIPos - ARMflgIPos); // Shift I flag to correct place
+        codegen.shr(flagsReg32, ARMflgNZCVShift);         // Shift NZCV bits to [3..0]
+        if (CPUID::HasFastPDEPAndPEXT()) {
+            // AH       AL
+            // SZ0A0P1C -------V
+            // NZ.....C .......V
+            auto depMaskReg32 = regAlloc.GetTemporary();
+            codegen.mov(depMaskReg32, 0b11000001'00000001u); // Deposit bit mask: NZ-----C -------V
+            codegen.pdep(flagsReg32, flagsReg32, depMaskReg32);
+        } else {
+            codegen.imul(flagsReg32, flagsReg32, ARMTox64FlagsMult); // -------- -------- NZCV-NZC V---NZCV
+            codegen.and_(flagsReg32, x64FlagsMask);                  // -------- -------- NZ-----C -------V
+        }
+        codegen.or_(flagsReg32, iFlagReg32); // -------- -------I NZ-----C -------V
     }
 }
 
