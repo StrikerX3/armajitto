@@ -293,11 +293,10 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef target, HostCode blockCod
         for (auto &patchInfo : itPatches->second) {
             auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
             if (itPatchBlock != compiledCode.blockCache.end()) {
-                // Edit code
-                codegen.setProtectModeRW();
+                // Remember current location
+                auto prevSize = codegen.getSize();
 
                 // Go to patch location
-                auto prevSize = codegen.getSize();
                 codegen.setSize(patchInfo.codePos - codegen.getCode());
 
                 // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
@@ -318,7 +317,6 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef target, HostCode blockCod
 
                 // Restore code generator position
                 codegen.setSize(prevSize);
-                codegen.setProtectModeRE();
             }
         }
         compiledCode.patches.erase(itPatches);

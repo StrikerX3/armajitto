@@ -36,6 +36,7 @@ public:
 
     int64_t Call(HostCode code, uint64_t cycles) final {
         if (code != 0) {
+            ProtectRE();
             return m_compiledCode.prolog(code, cycles);
         } else {
             return cycles;
@@ -56,6 +57,14 @@ private:
     void CompileProlog();
     void CompileEpilog();
     void CompileIRQEntry();
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Memory protection control
+
+    bool m_isExecutable;
+
+    void ProtectRW();
+    void ProtectRE();
 };
 
 } // namespace armajitto::x86_64

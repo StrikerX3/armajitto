@@ -21,6 +21,9 @@ x64Host::x64Host(Context &context, size_t maxCodeSize)
     , m_codeBuffer(new uint8_t[maxCodeSize])
     , m_codegen(maxCodeSize, m_codeBuffer.get()) {
 
+    m_codegen.setProtectModeRW();
+    m_isExecutable = false;
+
     CompileCommon();
 }
 
@@ -34,7 +37,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
     cachedBlock.code = fnPtr;
-    m_codegen.setProtectModeRW();
+    ProtectRW();
 
     Xbyak::Label lblCondFail{};
 
@@ -95,7 +98,6 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     compiler.PatchIndirectLinks(block.Location(), fnPtr);
 
     // Cleanup, cache block and return pointer to code
-    m_codegen.setProtectModeRE();
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
     return fnPtr;
 }
@@ -117,7 +119,7 @@ void x64Host::CompileProlog() {
     auto &armState = m_context.GetARMState();
 
     m_compiledCode.prolog = m_codegen.getCurr<CompiledCode::PrologFn>();
-    m_codegen.setProtectModeRW();
+    ProtectRW();
 
     // -----------------------------------------------------------------------------------------------------------------
     // Entry setup
@@ -207,13 +209,12 @@ void x64Host::CompileProlog() {
     // Call block function
     m_codegen.jmp(abi::kIntArgRegs[0]); // Jump to block code (1st argument passed to prolog function)
 
-    m_codegen.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_compiledCode.prolog), m_codegen.getCurr<uintptr_t>(), "__prolog");
 }
 
 void x64Host::CompileEpilog() {
     m_compiledCode.epilog = m_codegen.getCurr<HostCode>();
-    m_codegen.setProtectModeRW();
+    ProtectRW();
 
     // Copy remaining cycles to return value
     m_codegen.mov(abi::kIntReturnValueReg, kCycleCountOperand);
@@ -229,13 +230,12 @@ void x64Host::CompileEpilog() {
     // Return from call
     m_codegen.ret();
 
-    m_codegen.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_compiledCode.epilog), m_codegen.getCurr<uintptr_t>(), "__epilog");
 }
 
 void x64Host::CompileIRQEntry() {
     m_compiledCode.irqEntry = m_codegen.getCurr<HostCode>();
-    m_codegen.setProtectModeRW();
+    ProtectRW();
 
     auto &armState = m_context.GetARMState();
 
@@ -338,8 +338,21 @@ void x64Host::CompileIRQEntry() {
     m_codegen.pop(abi::kIntReturnValueReg); // Restore return register
     m_codegen.jmp(cpsrReg32.cvt64());
 
-    m_codegen.setProtectModeRE();
     vtune::ReportCode(CastUintPtr(m_compiledCode.irqEntry), m_codegen.getCurr<uintptr_t>(), "__irqEntry");
+}
+
+void x64Host::ProtectRW() {
+    if (m_isExecutable) {
+        m_codegen.setProtectModeRW();
+        m_isExecutable = false;
+    }
+}
+
+void x64Host::ProtectRE() {
+    if (!m_isExecutable) {
+        m_codegen.setProtectModeRE();
+        m_isExecutable = true;
+    }
 }
 
 } // namespace armajitto::x86_64
