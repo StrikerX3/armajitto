@@ -153,7 +153,11 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
             const bool s = bit::test<6>(opcode);
             const bool h = bit::test<5>(opcode);
             if (l) {
-                Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                if (!s && !h) {
+                    Translate(arm_decoder::Undefined(), emitter);
+                } else {
+                    Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+                }
             } else if (s && h) {
                 if (arch == CPUArch::ARMv5TE) {
                     if (bit12) {
