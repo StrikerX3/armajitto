@@ -452,6 +452,7 @@ auto ArithmeticOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, Variabl
         dstValue.source = srcValue.source;
         dstValue.runningSum = srcValue.runningSum;
         dstValue.negated = srcValue.negated;
+        srcValue.derived = true;
     } else {
         dstValue.source = src.var;
     }
@@ -488,7 +489,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
         return;
     }
 
-    // Don't optimize if the variable is still used after this point
+    // Don't optimize now if the variable is not expired at this point
     if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
         value->valid = false;
         return;
@@ -568,7 +569,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
     if (!match) {
         // Erase previous instructions if changed
         value = GetValue(value->prev);
-        while (value != nullptr) {
+        while (value != nullptr && !value->derived) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }

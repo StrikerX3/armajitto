@@ -152,9 +152,11 @@ private:
         uint32_t flippedBits = 0;  // EOR or MVN; for unknown bits only
         uint32_t rotateOffset = 0; // LSL, LSR, ASR, ROR and RRX; rotate right, clamped to 0..31
 
-        IROp *writerOp = nullptr; // pointer to the instruction that produced this variable
-        Variable source;          // original source of the value for this variable
-        Variable prev;            // previous variable from which this was derived
+        IROp *writerOp = nullptr; // Pointer to the instruction that produced this variable
+        Variable source;          // Original source of the value for this variable
+        Variable prev;            // Previous variable from which this was derived
+
+        bool derived = false; // Marks this value as derived, to track forks
 
         uint32_t Ones() const {
             return knownBitsValue & knownBitsMask;

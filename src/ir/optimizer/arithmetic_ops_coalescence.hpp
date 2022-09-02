@@ -95,6 +95,8 @@ private:
         Variable source;          // original source of the value for this variable
         Variable prev;            // previous variable from which this was derived
 
+        bool derived = false; // Marks this value as derived, to track forks
+
         void Add(uint32_t amount) {
             if (amount != 0) {
                 valid = true;

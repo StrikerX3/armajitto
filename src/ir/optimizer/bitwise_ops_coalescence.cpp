@@ -525,6 +525,7 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
         dstValue.knownBitsValue = srcValue.knownBitsValue;
         dstValue.flippedBits = srcValue.flippedBits;
         dstValue.rotateOffset = srcValue.rotateOffset;
+        srcValue.derived = true;
     } else {
         dstValue.source = src.var;
     }
@@ -561,7 +562,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
         return;
     }
 
-    // Don't optimize if the variable is still used after this point
+    // Don't optimize now if the variable is not expired at this point
     if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
         value->valid = false;
         return;
@@ -674,7 +675,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
     // Erase previous instructions if changed
     if (!match) {
         value = GetValue(value->prev);
-        while (value != nullptr) {
+        while (value != nullptr && !value->derived) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
