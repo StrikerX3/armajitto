@@ -119,8 +119,8 @@ inline auto DataProcessingNegate(uint16_t opcode) {
     instr.opcode = arm::instrs::DataProcessing::Opcode::RSB;
     instr.immediate = true;
     instr.setFlags = true;
-    instr.dstReg = static_cast<GPR>(bit::extract<12, 3>(opcode));
-    instr.lhsReg = instr.dstReg;
+    instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
+    instr.lhsReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     instr.rhs.imm = 0;
 
     return instr;
