@@ -387,14 +387,14 @@ void ConstPropagationOptimizerPass::Process(IRBitClearOp *op) {
 
                 // Replace BIC by 0x00000000 with a copy of the variable
                 // Replace BIC by 0xFFFFFFFF with the constant 0
-                if (immValue == 0) {
+                if (op->rhs.immediate && op->rhs.imm.value == 0) {
                     Assign(op->dst, var);
                     if (setFlags) {
                         m_emitter.Overwrite().Move(op->dst, var, true);
                     } else {
                         m_emitter.Erase(op);
                     }
-                } else if (immValue == ~0) {
+                } else if (op->rhs.immediate && op->rhs.imm.value == ~0) {
                     Assign(op->dst, 0);
                     if (setFlags) {
                         m_emitter.Overwrite().Move(op->dst, 0, true);
@@ -504,8 +504,8 @@ void ConstPropagationOptimizerPass::Process(IRSubtractOp *op) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [immValue, var] = *optPair;
 
-            // Replace SUB by 0 with a copy of the other variable
-            if (immValue == 0) {
+            // Replace SUB by 0 (rhs only) with a copy of the other variable
+            if (op->rhs.immediate && op->rhs.imm.value == 0) {
                 Assign(op->dst, var);
                 m_emitter.Erase(op);
             }
@@ -533,8 +533,8 @@ void ConstPropagationOptimizerPass::Process(IRSubtractCarryOp *op) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [immValue, var] = *optPair;
 
-            // Replace SBC by 0 when the carry is set with a copy of the other variable
-            if (immValue == 0) {
+            // Replace SBC by 0 (rhs only) when the carry is set with a copy of the other variable
+            if (op->rhs.immediate && op->rhs.imm.value == 0) {
                 Assign(op->dst, var);
                 m_emitter.Erase(op);
             }
@@ -625,8 +625,8 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
         if (auto optPair = SplitImmVarPair(op->lhs, op->rhs)) {
             auto [immValue, var] = *optPair;
 
-            // Replace QSUB by 0 with a copy of the other variable
-            if (immValue == 0) {
+            // Replace QSUB by 0 (rhs only) with a copy of the other variable
+            if (op->rhs.immediate && op->rhs.imm.value == 0) {
                 Assign(op->dst, var);
                 m_emitter.Erase(op);
             }
