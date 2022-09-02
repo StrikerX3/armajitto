@@ -180,6 +180,7 @@ inline auto PCRelativeLoad(uint16_t opcode) {
     instr.address.positiveOffset = true;
     instr.address.baseReg = GPR::PC;
     instr.address.immValue = bit::extract<0, 8>(opcode) * 4;
+    instr.thumbPCAdjust = true;
 
     return instr;
 }
@@ -283,6 +284,7 @@ inline auto AddToSPOrPC(uint16_t opcode) {
     instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.lhsReg = bit::test<11>(opcode) ? GPR::SP : GPR::PC;
     instr.rhs.imm = bit::extract<0, 8>(opcode) * 4;
+    instr.thumbPCAdjust = true;
 
     return instr;
 }

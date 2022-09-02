@@ -421,6 +421,9 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     Variable lhs;
     if (instr.opcode != Opcode::MOV && instr.opcode != Opcode::MVN) {
         lhs = emitter.GetRegister(instr.lhsReg);
+        if (instr.thumbPCAdjust) {
+            lhs = emitter.BitClear(lhs, 3, false);
+        }
     }
 
     VarOrImmArg rhs;
@@ -706,14 +709,15 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
-    Variable address;
-    Variable finalAddress;
+    // Compute address
+    auto address = emitter.GetRegister(instr.address.baseReg);
+    if (instr.thumbPCAdjust) {
+        address = emitter.BitClear(address, 3, false);
+    }
+    auto finalAddress = emitter.ApplyAddressOffset(address, instr.address);
+
     if (instr.preindexed) {
-        address = emitter.ComputeAddress(instr.address);
-        finalAddress = address;
-    } else {
-        address = emitter.GetRegister(instr.address.baseReg);
-        finalAddress = emitter.ApplyAddressOffset(address, instr.address);
+        address = finalAddress;
     }
 
     // When the W bit is set in a post-indexed operation, the transfer affects user mode registers

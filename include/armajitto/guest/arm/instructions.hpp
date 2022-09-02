@@ -78,6 +78,7 @@ namespace instrs {
             uint32_t imm;                 // (when immediate == true)
             RegisterSpecifiedShift shift; // (when immediate == false)
         } rhs;
+        bool thumbPCAdjust = false; // AND value with ~3 if lhsReg == PC (for Thumb Load Address instruction)
     };
 
     // CLZ
@@ -199,6 +200,7 @@ namespace instrs {
         bool load;       // L bit
         GPR reg;         // Rd
         Addressing address;
+        bool thumbPCAdjust = false; // AND value with ~3 if reg == PC (for Thumb PC-Relative Load instruction)
     };
 
     // LDRH,STRH,LDRSH,LDRSB,LDRD,STRD
