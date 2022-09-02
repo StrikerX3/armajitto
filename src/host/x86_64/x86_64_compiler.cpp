@@ -2528,12 +2528,11 @@ void x64Host::Compiler::SetCFromValue(bool carry) {
 }
 
 void x64Host::Compiler::SetCFromFlags() {
-    auto tmp32 = regAlloc.GetTemporary();
-    codegen.setc(tmp32.cvt8());                 // Put new C into a temporary register
-    codegen.movzx(tmp32, tmp32.cvt8());         // Zero-extend to 32 bits
-    codegen.shl(tmp32, x64flgCPos);             // Move it to the correct position
-    codegen.and_(abi::kHostFlagsReg, ~x64flgC); // Clear existing C flag from EAX
-    codegen.or_(abi::kHostFlagsReg, tmp32);     // Write new C flag into EAX
+    auto tmp16 = regAlloc.GetTemporary().cvt16();
+    codegen.setc(tmp16.cvt8());                         // Put new C into a temporary register
+    codegen.shl(tmp16, x64flgCPos);                     // Move it to the correct position
+    codegen.and_(abi::kHostFlagsReg.cvt16(), ~x64flgC); // Clear existing C flag from AX
+    codegen.or_(abi::kHostFlagsReg.cvt16(), tmp16);     // Write new C flag into AX
 }
 
 void x64Host::Compiler::SetVFromValue(bool overflow) {
