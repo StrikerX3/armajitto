@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/ir/var_lifetime.hpp"
 #include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
@@ -297,8 +298,8 @@ private:
 
     Value *GetValue(VariableArg var);
 
-    void ConsumeValue(VariableArg &var);
-    void ConsumeValue(VarOrImmArg &var);
+    void ConsumeValue(VariableArg &var, IROp *op);
+    void ConsumeValue(VarOrImmArg &var, IROp *op);
 
     // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, BIC and EOR instructions
     // matching the ones, zeros and flip bits as well as the rotation offset and input and output variables from the
@@ -364,6 +365,7 @@ private:
     // -------------------------------------------------------------------------
     // Helpers
 
+    VarLifetimeTracker m_varLifetimes;
     VarSubstitutor m_varSubst;
     HostFlagStateTracker m_hostFlagsStateTracker;
 };

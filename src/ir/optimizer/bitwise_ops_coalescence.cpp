@@ -23,28 +23,28 @@ void BitwiseOpsCoalescenceOptimizerPass::PostProcess(IROp *op) {
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetCPSROp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSetSPSROp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemReadOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMemWriteOp *op) {
-    ConsumeValue(op->src);
-    ConsumeValue(op->address);
+    ConsumeValue(op->src, op);
+    ConsumeValue(op->address, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRPreloadOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
@@ -71,8 +71,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
-        ConsumeValue(op->amount);
+        ConsumeValue(op->value, op);
+        ConsumeValue(op->amount, op);
     }
 }
 
@@ -100,8 +100,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
-        ConsumeValue(op->amount);
+        ConsumeValue(op->value, op);
+        ConsumeValue(op->amount, op);
     }
 }
 
@@ -129,8 +129,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
-        ConsumeValue(op->amount);
+        ConsumeValue(op->value, op);
+        ConsumeValue(op->amount, op);
     }
 }
 
@@ -158,8 +158,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
-        ConsumeValue(op->amount);
+        ConsumeValue(op->value, op);
+        ConsumeValue(op->amount, op);
     }
 }
 
@@ -193,7 +193,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
+        ConsumeValue(op->value, op);
     }
 }
 
@@ -224,8 +224,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -256,8 +256,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -288,8 +288,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -320,33 +320,33 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    ConsumeValue(op->value);
+    ConsumeValue(op->value, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
@@ -367,7 +367,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
+        ConsumeValue(op->value, op);
     }
 }
 
@@ -395,59 +395,59 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
+        ConsumeValue(op->value, op);
     }
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
-    ConsumeValue(op->lhsLo);
-    ConsumeValue(op->lhsHi);
-    ConsumeValue(op->rhsLo);
-    ConsumeValue(op->rhsHi);
+    ConsumeValue(op->lhsLo, op);
+    ConsumeValue(op->lhsHi, op);
+    ConsumeValue(op->rhsLo, op);
+    ConsumeValue(op->rhsHi, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
-    ConsumeValue(op->values);
+    ConsumeValue(op->values, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
-    ConsumeValue(op->srcCPSR);
+    ConsumeValue(op->srcCPSR, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    ConsumeValue(op->srcCPSR);
+    ConsumeValue(op->srcCPSR, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRBranchExchangeOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    ConsumeValue(op->srcValue);
+    ConsumeValue(op->srcValue, op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRConstantOp *op) {
@@ -548,7 +548,7 @@ auto BitwiseOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value * {
     return nullptr;
 }
 
-void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -558,6 +558,12 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         return;
     }
     if (!value->valid) {
+        return;
+    }
+
+    // Don't optimize if the variable is still used after this point
+    if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
+        value->valid = false;
         return;
     }
 
@@ -678,9 +684,9 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
     }
 }
 
-void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
+void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var, IROp *op) {
     if (!var.immediate) {
-        ConsumeValue(var.var);
+        ConsumeValue(var.var, op);
     }
 }
 

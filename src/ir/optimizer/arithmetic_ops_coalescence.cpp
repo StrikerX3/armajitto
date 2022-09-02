@@ -10,6 +10,8 @@ ArithmeticOpsCoalescenceOptimizerPass::ArithmeticOpsCoalescenceOptimizerPass(
 
     const uint32_t varCount = emitter.VariableCount();
     m_values.resize(varCount);
+
+    m_varLifetimes.Analyze(emitter.GetBlock());
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
@@ -23,62 +25,62 @@ void ArithmeticOpsCoalescenceOptimizerPass::PostProcess(IROp *op) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetCPSROp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetSPSROp *op) {
-    ConsumeValue(op->src);
+    ConsumeValue(op->src, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMemReadOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMemWriteOp *op) {
-    ConsumeValue(op->src);
-    ConsumeValue(op->address);
+    ConsumeValue(op->src, op);
+    ConsumeValue(op->address, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRPreloadOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+    ConsumeValue(op->value, op);
+    ConsumeValue(op->amount, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+    ConsumeValue(op->value, op);
+    ConsumeValue(op->amount, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+    ConsumeValue(op->value, op);
+    ConsumeValue(op->amount, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
-    ConsumeValue(op->value);
-    ConsumeValue(op->amount);
+    ConsumeValue(op->value, op);
+    ConsumeValue(op->amount, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    ConsumeValue(op->value);
+    ConsumeValue(op->value, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
@@ -113,18 +115,18 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    ConsumeValue(op->value);
+    ConsumeValue(op->value, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
@@ -154,8 +156,8 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -197,8 +199,8 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -235,8 +237,8 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -289,8 +291,8 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs);
-        ConsumeValue(op->rhs);
+        ConsumeValue(op->lhs, op);
+        ConsumeValue(op->rhs, op);
     }
 }
 
@@ -312,7 +314,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
+        ConsumeValue(op->value, op);
     }
 }
 
@@ -340,59 +342,59 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value);
+        ConsumeValue(op->value, op);
     }
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
-    ConsumeValue(op->lhs);
-    ConsumeValue(op->rhs);
+    ConsumeValue(op->lhs, op);
+    ConsumeValue(op->rhs, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
-    ConsumeValue(op->lhsLo);
-    ConsumeValue(op->lhsHi);
-    ConsumeValue(op->rhsLo);
-    ConsumeValue(op->rhsHi);
+    ConsumeValue(op->lhsLo, op);
+    ConsumeValue(op->lhsHi, op);
+    ConsumeValue(op->rhsLo, op);
+    ConsumeValue(op->rhsHi, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
-    ConsumeValue(op->values);
+    ConsumeValue(op->values, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
-    ConsumeValue(op->srcCPSR);
+    ConsumeValue(op->srcCPSR, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    ConsumeValue(op->srcCPSR);
+    ConsumeValue(op->srcCPSR, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBranchOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBranchExchangeOp *op) {
-    ConsumeValue(op->address);
+    ConsumeValue(op->address, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    ConsumeValue(op->srcValue);
+    ConsumeValue(op->srcValue, op);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRCopyVarOp *op) {
@@ -473,7 +475,7 @@ auto ArithmeticOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value *
     return nullptr;
 }
 
-void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op) {
     if (!var.var.IsPresent()) {
         return;
     }
@@ -483,6 +485,12 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
         return;
     }
     if (!value->valid) {
+        return;
+    }
+
+    // Don't optimize if the variable is still used after this point
+    if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
+        value->valid = false;
         return;
     }
 
@@ -570,9 +578,9 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var) {
     }
 }
 
-void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var) {
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var, IROp *op) {
     if (!var.immediate) {
-        ConsumeValue(var.var);
+        ConsumeValue(var.var, op);
     }
 }
 

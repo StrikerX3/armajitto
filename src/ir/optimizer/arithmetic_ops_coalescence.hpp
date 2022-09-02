@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/ir/var_lifetime.hpp"
 #include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
 #include "optimizer_pass_base.hpp"
@@ -131,12 +132,13 @@ private:
 
     Value *GetValue(VariableArg var);
 
-    void ConsumeValue(VariableArg &var);
-    void ConsumeValue(VarOrImmArg &var);
+    void ConsumeValue(VariableArg &var, IROp *op);
+    void ConsumeValue(VarOrImmArg &var, IROp *op);
 
     // -------------------------------------------------------------------------
     // Helpers
 
+    VarLifetimeTracker m_varLifetimes;
     VarSubstitutor m_varSubst;
     HostFlagStateTracker m_hostFlagsStateTracker;
 };

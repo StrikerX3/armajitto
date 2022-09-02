@@ -20,7 +20,11 @@ bool VarLifetimeTracker::IsEndOfLife(ir::Variable var, const ir::IROp *op) const
     if (!var.IsPresent()) {
         return false;
     }
-    return m_lastVarUseOps[var.Index()] == op;
+    const auto varIndex = var.Index();
+    if (var.Index() >= m_lastVarUseOps.size()) {
+        return false;
+    }
+    return m_lastVarUseOps[varIndex] == op;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
