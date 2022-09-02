@@ -1144,7 +1144,9 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
     const bool valueImm = op->value.immediate;
     const bool amountImm = op->amount.immediate;
 
-    // ARM ROR works exactly the same as x86 ROR, including carry flag behavior.
+    // x86 masks the shift amount to 31 or 63.
+    // ARM does not, though the output value is the same for shifts by 32 or more.
+    // For offsets that are positive multiples of 32, the carry flag is set to bit 31.
 
     if (valueImm && amountImm) {
         // Both are immediates
@@ -1156,47 +1158,67 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         auto valueReg32 = regAlloc.Get(op->value.var.var);
         auto amountReg32 = regAlloc.Get(op->amount.var.var);
 
-        // Put shift amount into CL
-        codegen.mov(shiftReg8, amountReg32.cvt8());
+        // Skip if rotation amount is zero
+        Xbyak::Label lblNoRotation{};
+        codegen.test(amountReg32, amountReg32);
+        codegen.jz(lblNoRotation);
 
-        // Put value to shift into the result register
-        Xbyak::Reg32 dstReg32{};
-        if (op->dst.var.IsPresent()) {
-            dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-            CopyIfDifferent(dstReg32, valueReg32);
-        } else {
-            dstReg32 = regAlloc.GetTemporary();
-            codegen.mov(dstReg32, valueReg32);
+        {
+            // Put shift amount into CL
+            codegen.mov(shiftReg8, amountReg32.cvt8());
+
+            // Put value to shift into the result register
+            Xbyak::Reg32 dstReg32{};
+            if (op->dst.var.IsPresent()) {
+                dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                CopyIfDifferent(dstReg32, valueReg32);
+            } else {
+                dstReg32 = regAlloc.GetTemporary();
+                codegen.mov(dstReg32, valueReg32);
+            }
+
+            // Compute the shift
+            codegen.ror(dstReg32, shiftReg8);
+            if (op->setCarry) {
+                codegen.bt(dstReg32, 31);
+                SetCFromFlags();
+            }
         }
 
-        // Compute the shift
-        codegen.ror(dstReg32, shiftReg8);
-        if (op->setCarry) {
-            SetCFromFlags();
-        }
+        codegen.L(lblNoRotation);
     } else if (valueImm) {
         // value is immediate, amount is variable
         auto shiftReg8 = regAlloc.GetRCX().cvt8();
         auto value = op->value.imm.value;
         auto amountReg32 = regAlloc.Get(op->amount.var.var);
 
-        // Put shift amount into CL
-        codegen.mov(shiftReg8, amountReg32.cvt8());
+        // Skip if rotation amount is zero
+        Xbyak::Label lblNoRotation{};
+        codegen.test(amountReg32, amountReg32);
+        codegen.jz(lblNoRotation);
 
-        // Put value to shift into the result register
-        Xbyak::Reg32 dstReg32{};
-        if (op->dst.var.IsPresent()) {
-            dstReg32 = regAlloc.Get(op->dst.var);
-        } else if (op->setCarry) {
-            dstReg32 = regAlloc.GetTemporary();
+        {
+            // Put shift amount into CL
+            codegen.mov(shiftReg8, amountReg32.cvt8());
+
+            // Put value to shift into the result register
+            Xbyak::Reg32 dstReg32{};
+            if (op->dst.var.IsPresent()) {
+                dstReg32 = regAlloc.Get(op->dst.var);
+            } else if (op->setCarry) {
+                dstReg32 = regAlloc.GetTemporary();
+            }
+
+            // Compute the shift
+            codegen.mov(dstReg32, value);
+            codegen.ror(dstReg32, shiftReg8);
+            if (op->setCarry) {
+                codegen.bt(dstReg32, 31);
+                SetCFromFlags();
+            }
         }
 
-        // Compute the shift
-        codegen.mov(dstReg32, value);
-        codegen.ror(dstReg32, shiftReg8);
-        if (op->setCarry) {
-            SetCFromFlags();
-        }
+        codegen.L(lblNoRotation);
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = regAlloc.Get(op->value.var.var);
@@ -1220,6 +1242,10 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             // Compute the shift
             codegen.ror(dstReg32, amount);
             if (op->setCarry) {
+                // If rotating by a positive multiple of 32, set the carry to the MSB
+                if (amount == 0 && op->amount.imm.value != 0) {
+                    codegen.bt(dstReg32, 31);
+                }
                 SetCFromFlags();
             }
         }
