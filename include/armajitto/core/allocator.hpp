@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <bit>
 #include <limits>
 #include <vector>
@@ -16,10 +17,9 @@ public:
     // Must be a power of two.
     static constexpr std::size_t kChunkMemAlignment = 4096u;
 
-    // TODO: allocate and free Chunks in page-sized sets using this constant
     // Memory for the chunk structs is allocated in pages of this size.
-    // Must be a power of two and no smaller than the host page size.
-    static constexpr std::size_t kChunkPageSize = 4096u;
+    // Must be a multiple of the host page size.
+    static constexpr std::size_t kChunkPageSize = 65536u;
 
     // Reference to a non-trivially-destructible object allocated by this allocator.
     // Invokes the object's destructor upon destruction.
@@ -93,7 +93,6 @@ public:
         while (chunk != nullptr) {
             void *ptr = chunk->Allocate(bytes, alignment);
             if (ptr != nullptr) {
-                // printf("  alloc %zu -> %p (chunk: %p)\n", bytes, ptr, chunk);
                 // This chunk allocated the block successfully
                 if (chunk != m_head) {
                     // Move it to the head since it is likely to have free space for future allocations
@@ -111,18 +110,9 @@ public:
 
         // No chunks have enough space to fulfill the requested allocation, so we need to create a new chunk
 
-        // Chunk memory is allocated in kChunkSize units
-        const std::size_t chunkSize = (bytes + kChunkMemSize - 1) & ~(kChunkMemSize - 1);
-        void *basePtr = AlignedAlloc(chunkSize, kChunkMemAlignment);
-        if (basePtr == nullptr) {
-            // Failed to allocate memory for the chunk data
-            return nullptr;
-        }
-
-        chunk = new Chunk(basePtr, chunkSize);
+        // Allocate chunk from the current page
+        chunk = AllocateChunk(bytes);
         if (chunk == nullptr) {
-            // Failed to allocate memory for the Chunk object
-            AlignedFree(basePtr);
             return nullptr;
         }
 
@@ -131,9 +121,7 @@ public:
         m_head = chunk;
 
         // At this point, the chunk should have room for the requested allocation
-        void *ptr = chunk->Allocate(bytes, alignment);
-        // printf("  alloc %zu -> %p (chunk: %p)\n", bytes, ptr, chunk);
-        return ptr;
+        return chunk->Allocate(bytes, alignment);
     }
 
     template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
@@ -163,7 +151,6 @@ public:
         Chunk *prevChunk = nullptr;
         while (chunk != nullptr) {
             if (chunk->Release(p)) {
-                // printf("  free %p (chunk: %p)\n", p, chunk);
                 // This chunk owned p and has released it
                 // If the chunk no longer has any allocations, free it
                 if (chunk->IsEmpty()) {
@@ -173,7 +160,7 @@ public:
                     if (chunk == m_head) {
                         m_head = chunk->next;
                     }
-                    delete chunk;
+                    FreeChunk(chunk);
                 }
                 break;
             }
@@ -183,27 +170,27 @@ public:
     }
 
     void Release() {
-        // printf("#### RELEASING MEMORY! ####\n");
         Chunk *chunk = m_head;
         while (chunk != nullptr) {
             Chunk *next = chunk->next;
-            delete chunk;
+            FreeChunk(chunk);
             chunk = next;
         }
         m_head = nullptr;
     }
 
 private:
+    struct ChunkPage;
+
     struct Chunk {
-        Chunk(void *basePtr, std::size_t size)
+        Chunk(void *basePtr, std::size_t size, ChunkPage *page)
             : basePtr(basePtr)
-            , size(size) {
-            // printf("  ** chunk allocated: %p\n", this);
+            , size(size)
+            , page(page) {
             freeRegions.push_back({basePtr, size});
         }
 
         ~Chunk() {
-            // printf("  ** chunk deleted: %p\n", this);
             AlignedFree(basePtr);
         }
 
@@ -303,6 +290,7 @@ private:
         std::size_t size;
 
         Chunk *next = nullptr;
+        ChunkPage *page;
 
     private:
         struct Region {
@@ -323,17 +311,81 @@ private:
         }
     };
 
+    // A chunk page contains multiple chunk descriptor slots which are handed out sequentially on chunk allocation
+    // requests. Once all slots have been allocated and freed, the page is freed.
+    struct ChunkPage {
+        ChunkPage(ChunkPage *&currChunkPageRef)
+            : m_currChunkPageRef(currChunkPageRef) {}
+
+        Chunk *NextChunk() {
+            if (m_usedChunks < kNumChunks) {
+                return reinterpret_cast<Chunk *>(&m_chunks[(m_usedChunks++) * sizeof(Chunk)]);
+            } else {
+                return nullptr;
+            }
+        }
+
+        bool FreeChunk() {
+            m_freedChunks++;
+            bool freed = (m_freedChunks == m_usedChunks) && (m_freedChunks == kNumChunks);
+            if (freed && m_currChunkPageRef == this) {
+                m_currChunkPageRef = nullptr;
+            }
+            return freed;
+        }
+
+    private:
+        static constexpr auto kNumChunks = kChunkPageSize / sizeof(Chunk);
+        alignas(kChunkMemAlignment) std::array<uint8_t, kNumChunks * sizeof(Chunk)> m_chunks;
+        uint32_t m_usedChunks = 0;
+        uint32_t m_freedChunks = 0;
+        ChunkPage *&m_currChunkPageRef;
+    };
+
+    Chunk *AllocateChunk(std::size_t bytes) {
+        // Chunk memory is allocated in kChunkSize units
+        const std::size_t chunkSize = (bytes + kChunkMemSize - 1) & ~(kChunkMemSize - 1);
+        void *basePtr = AlignedAlloc(chunkSize, kChunkMemAlignment);
+        if (basePtr == nullptr) {
+            // Failed to allocate memory for the chunk data
+            return nullptr;
+        }
+
+        // Allocate chunk from the current page if possible
+        Chunk *chunk = m_currChunkPage->NextChunk();
+        if (chunk == nullptr) {
+            // Not enough space in the current page; allocate new page
+            m_currChunkPage = new ChunkPage(m_currChunkPage);
+            if (m_currChunkPage == nullptr) {
+                // Failed to allocate memory for the chunk page
+                AlignedFree(basePtr);
+                return nullptr;
+            }
+            chunk = m_currChunkPage->NextChunk();
+        }
+
+        // Initialize chunk
+        new (chunk) Chunk(basePtr, chunkSize, m_currChunkPage);
+        return chunk;
+    }
+
+    static void FreeChunk(Chunk *chunk) {
+        ChunkPage *page = chunk->page;
+        chunk->~Chunk();
+        if (page->FreeChunk()) {
+            delete page;
+        }
+    }
+
     Chunk *m_head = nullptr;
+    ChunkPage *m_currChunkPage = new ChunkPage(m_currChunkPage);
 
 #ifdef _WIN32
     static inline void *AlignedAlloc(std::size_t size, std::size_t alignment) {
-        void *ptr = _aligned_malloc(size, alignment);
-        // printf("heap alloc %zu -> %p\n", size, ptr);
-        return ptr;
+        return _aligned_malloc(size, alignment);
     }
 
     static inline void AlignedFree(void *ptr) {
-        // printf("heap free %p\n", ptr);
         _aligned_free(ptr);
     }
 #else
