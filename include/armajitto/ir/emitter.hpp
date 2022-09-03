@@ -1,15 +1,11 @@
 #pragma once
 
-#include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/guest/arm/coprocessor.hpp"
 #include "armajitto/guest/arm/exceptions.hpp"
 #include "armajitto/guest/arm/flags.hpp"
 #include "armajitto/ir/defs/arguments.hpp"
 #include "armajitto/ir/defs/memory_access.hpp"
 #include "basic_block.hpp"
-
-#include <set>
-#include <vector>
 
 namespace armajitto::ir {
 
