@@ -8,6 +8,7 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &
     : OptimizerPassBase(emitter)
     , m_buffer(buffer)
     , m_values(&buffer)
+    , m_varLifetimes(buffer)
     , m_varSubst(emitter.VariableCount(), buffer) {
 
     const uint32_t varCount = emitter.VariableCount();

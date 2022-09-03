@@ -13,8 +13,8 @@ DeadRegisterStoreEliminationOptimizerPass::DeadRegisterStoreEliminationOptimizer
     , m_varToVersionMap(&buffer) {
 
     const uint32_t varCount = emitter.VariableCount();
-    m_versionToVarMap.resize(varCount);
-    m_varToVersionMap.resize(varCount);
+    m_versionToVarMap.resize(varCount * 2);
+    m_varToVersionMap.resize(varCount * 2);
 
     m_nextVersion = 1;
     for (auto &ver : m_psrVersions) {

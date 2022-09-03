@@ -14,13 +14,15 @@
 #endif
 #include <xbyak/xbyak.h>
 
+#include <memory_resource>
+
 namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
 public:
     static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(32) * 1024 * 1024;
 
-    x64Host(Context &context, size_t maxCodeSize = kDefaultMaxCodeSize);
+    x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize = kDefaultMaxCodeSize);
     ~x64Host();
 
     HostCode Compile(ir::BasicBlock &block) final;
@@ -48,6 +50,7 @@ private:
     std::unique_ptr<uint8_t[]> m_codeBuffer;
     Xbyak::CodeGenerator m_codegen;
     CompiledCode m_compiledCode;
+    std::pmr::memory_resource &m_alloc;
 
     struct Compiler;
 

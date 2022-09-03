@@ -9,6 +9,7 @@
 #include <xbyak/xbyak.h>
 
 #include <bitset>
+#include <memory_resource>
 #include <optional>
 #include <vector>
 
@@ -16,7 +17,7 @@ namespace armajitto::x86_64 {
 
 class RegisterAllocator {
 public:
-    RegisterAllocator(Xbyak::CodeGenerator &code);
+    RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc);
 
     // Analyzes the given basic block, building the variable lifetime table.
     void Analyze(const ir::BasicBlock &block);

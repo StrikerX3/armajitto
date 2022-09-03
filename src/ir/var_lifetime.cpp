@@ -4,6 +4,9 @@
 
 namespace armajitto::ir {
 
+VarLifetimeTracker::VarLifetimeTracker(std::pmr::memory_resource &alloc)
+    : m_lastVarUseOps(&alloc) {}
+
 void VarLifetimeTracker::Analyze(const ir::BasicBlock &block) {
     m_lastVarUseOps.clear();
     m_lastVarUseOps.resize(block.VariableCount());

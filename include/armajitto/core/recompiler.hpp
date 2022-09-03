@@ -15,8 +15,9 @@ public:
     Recompiler(const Specification &spec)
         : m_spec(spec)
         , m_context(spec.model, spec.system)
+        , m_pmrAllocator(m_allocator)
         , m_translator(m_context)
-        , m_host(m_context) {}
+        , m_host(m_context, m_pmrAllocator, spec.maxHostCodeSize) {}
 
     arm::State &GetARMState() {
         return m_context.GetARMState();
@@ -51,6 +52,8 @@ private:
     Context m_context;
 
     memory::Allocator m_allocator;
+    memory::PMRRefAllocator m_pmrAllocator;
+
     ir::Translator m_translator;
     ir::OptimizationParams m_optParams;
 

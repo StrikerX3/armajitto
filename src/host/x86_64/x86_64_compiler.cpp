@@ -109,12 +109,12 @@ static void SystemStoreCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t
 // ---------------------------------------------------------------------------------------------------------------------
 
 x64Host::Compiler::Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen,
-                            const ir::BasicBlock &block)
+                            const ir::BasicBlock &block, std::pmr::memory_resource &alloc)
     : context(context)
     , compiledCode(compiledCode)
     , armState(context.GetARMState())
     , codegen(codegen)
-    , regAlloc(codegen) {
+    , regAlloc(codegen, alloc) {
 
     regAlloc.Analyze(block);
     mode = block.Location().Mode();

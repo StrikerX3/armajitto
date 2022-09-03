@@ -4,8 +4,9 @@
 
 namespace armajitto::x86_64 {
 
-RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code)
-    : m_code(code) {
+RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc)
+    : m_code(code)
+    , m_varLifetimes(alloc) {
 
     // TODO: include ECX
     for (auto reg : {/*ecx,*/ edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {

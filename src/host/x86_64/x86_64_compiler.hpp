@@ -9,10 +9,13 @@
 #endif
 #include <xbyak/xbyak.h>
 
+#include <memory_resource>
+
 namespace armajitto::x86_64 {
 
 struct x64Host::Compiler {
-    Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block);
+    Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block,
+             std::pmr::memory_resource &alloc);
 
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);

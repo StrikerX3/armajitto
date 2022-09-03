@@ -16,10 +16,11 @@ namespace armajitto::x86_64 {
 
 inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycleCountOffset];
 
-x64Host::x64Host(Context &context, size_t maxCodeSize)
+x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize)
     : Host(context)
     , m_codeBuffer(new uint8_t[maxCodeSize])
-    , m_codegen(maxCodeSize, m_codeBuffer.get()) {
+    , m_codegen(maxCodeSize, m_codeBuffer.get())
+    , m_alloc(alloc) {
 
     m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
 
@@ -32,7 +33,7 @@ x64Host::~x64Host() {
 
 HostCode x64Host::Compile(ir::BasicBlock &block) {
     auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
-    Compiler compiler{m_context, m_compiledCode, m_codegen, block};
+    Compiler compiler{m_context, m_compiledCode, m_codegen, block, m_alloc};
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
     cachedBlock.code = fnPtr;

@@ -1212,7 +1212,9 @@ void testCompiler() {
     // TODO: implement memory region descriptors, virtual memory, optimizations, etc.
 
     // Create host compiler
-    armajitto::x86_64::x64Host host{context};
+    armajitto::memory::Allocator blockAlloc{};
+    armajitto::memory::PMRRefAllocator pmrAlloc{blockAlloc};
+    armajitto::x86_64::x64Host host{context, pmrAlloc};
     armajitto::HostCode entryCode{};
     armajitto::LocationRef entryLoc{};
 
@@ -1220,7 +1222,6 @@ void testCompiler() {
 
     // Compile multiple blocks
     {
-        armajitto::memory::Allocator blockAlloc{};
         uint32_t currAddress = baseAddress + 2 * instrSize;
         for (int i = 0; i < 2; i++) {
             // Create basic block
@@ -1545,8 +1546,11 @@ void compilerStressTest() {
     auto mode = armajitto::arm::Mode::FIQ;
     bool thumb = false;
 
+    armajitto::memory::Allocator blockAlloc{};
+    armajitto::memory::PMRRefAllocator pmrRefAlloc{blockAlloc};
+
     // Create host compiler
-    armajitto::x86_64::x64Host host{context};
+    armajitto::x86_64::x64Host host{context, pmrRefAlloc};
     armajitto::LocationRef entryLoc{};
 
     const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
@@ -1562,12 +1566,12 @@ void compilerStressTest() {
         sys.ROMWriteWord(finalAddress + instrSize, 0xEAFFFFFE); // b $
     }
 
-    armajitto::memory::Allocator blockAlloc{};
-    armajitto::memory::PMRRefAllocator pmrRefAlloc{blockAlloc};
+    using clk = std::chrono::steady_clock;
 
     // Compile blocks in a loop
     const int numBlocks = 50'000;
     printf("compiling %d blocks with %u instructions...\n", numBlocks, blockSize);
+    auto t1 = clk::now();
     for (int i = 0; i < numBlocks; ++i) {
         // Generate enough random instructions to fill the block
         for (size_t offset = 0; offset < blockSize; offset++) {
@@ -1602,7 +1606,9 @@ void compilerStressTest() {
             printf("  %d\n", i);
         }
     }
+    auto t2 = clk::now();
     printf("done!\n");
+    printf("took %llu ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count());
 }
 
 int main(int argc, char *argv[]) {
@@ -1612,8 +1618,8 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    testNDS();
-    // compilerStressTest();
+    // testNDS();
+    compilerStressTest();
 
     return EXIT_SUCCESS;
 }
