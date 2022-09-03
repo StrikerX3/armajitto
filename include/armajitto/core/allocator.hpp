@@ -102,6 +102,8 @@ public:
                     chunk->next = m_head;
                     m_head = chunk;
                 }
+                auto *desc = GetDescriptor(ptr);
+                desc->allocator = this;
                 return ptr;
             }
             prevChunk = chunk;
@@ -121,7 +123,10 @@ public:
         m_head = chunk;
 
         // At this point, the chunk should have room for the requested allocation
-        return chunk->Allocate(bytes, alignment);
+        void *ptr = chunk->Allocate(bytes, alignment);
+        auto *desc = GetDescriptor(ptr);
+        desc->allocator = this;
+        return ptr;
     }
 
     template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
@@ -146,26 +151,31 @@ public:
 
     void Free(void *p) {
         // Find the chunk that allocated this pointer and release the pointer
-        // TODO: speed up pointer -> chunk lookups somehow
-        Chunk *chunk = m_head;
-        Chunk *prevChunk = nullptr;
-        while (chunk != nullptr) {
-            if (chunk->Release(p)) {
-                // This chunk owned p and has released it
-                // If the chunk no longer has any allocations, free it
-                if (chunk->IsEmpty()) {
-                    if (prevChunk != nullptr) {
+        auto *desc = GetDescriptor(p); // NOTE: might fail if the pointer was allocated elsewhere
+
+        // Bail out if the pointer was not allocated by this allocator
+        if (desc->allocator != this) {
+            return;
+        }
+
+        Chunk *chunk = desc->chunk;
+        if (chunk->Release(p)) {
+            // This chunk owned p and has released it
+            // If the chunk no longer has any allocations, free it
+            if (chunk->IsEmpty()) {
+                // TODO: speed this up somehow; maybe use doubly-linked list
+                Chunk *prevChunk = m_head;
+                while (prevChunk != nullptr) {
+                    if (prevChunk->next == chunk) {
                         prevChunk->next = chunk->next;
+                        break;
                     }
-                    if (chunk == m_head) {
-                        m_head = chunk->next;
-                    }
-                    FreeChunk(chunk);
                 }
-                break;
+                if (chunk == m_head) {
+                    m_head = chunk->next;
+                }
+                FreeChunk(chunk);
             }
-            prevChunk = chunk;
-            chunk = chunk->next;
         }
     }
 
@@ -181,6 +191,19 @@ public:
 
 private:
     struct ChunkPage;
+    struct Chunk;
+
+    // This is prepended to all allocated objects to speed up operations.
+    struct AllocationDescriptor {
+        Allocator *allocator;
+        Chunk *chunk;
+        void *ptr;
+        std::size_t size;
+    };
+
+    static AllocationDescriptor *GetDescriptor(void *ptr) {
+        return reinterpret_cast<AllocationDescriptor *>(reinterpret_cast<char *>(ptr) - sizeof(AllocationDescriptor));
+    }
 
     struct Chunk {
         Chunk(void *basePtr, std::size_t size, ChunkPage *page)
@@ -196,23 +219,32 @@ private:
 
         void *Allocate(std::size_t bytes, std::size_t alignment) {
             const std::size_t alignMask = alignment - 1;
+            constexpr std::size_t descSize = sizeof(AllocationDescriptor);
 
             // Align entry size
             bytes = (bytes + alignMask) & ~alignMask;
 
+            auto setupDescriptor = [this, bytes](void *ptr) {
+                auto *desc = reinterpret_cast<AllocationDescriptor *>(ptr);
+                desc->chunk = this;
+                desc->ptr = ptr;
+                desc->size = bytes;
+            };
+
             Region *bestFit = nullptr;
             for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
                 auto &region = *it;
-                const auto alignOffset = ((uintptr_t(region.ptr) + alignMask) & ~alignMask) - uintptr_t(region.ptr);
-                if (region.size == bytes + alignOffset) {
+                const auto alignOffset =
+                    ((uintptr_t(region.ptr) + alignMask) & ~alignMask) - uintptr_t(region.ptr) + descSize;
+                const auto totalSize = bytes + alignOffset;
+                if (region.size == totalSize) {
                     // Perfect fit; erase the region and return its pointer
                     void *ptr = region.ptr;
+                    setupDescriptor(ptr);
                     freeRegions.erase(it);
-                    InsertSorted(ptr, bytes, allocRegions);
                     return static_cast<char *>(ptr) + alignOffset;
                 }
-                if (region.size >= bytes + alignOffset &&
-                    (bestFit == nullptr || region.size < bestFit->size + alignOffset)) {
+                if (region.size >= totalSize && (bestFit == nullptr || region.size < bestFit->size + alignOffset)) {
                     // Record best fit or use the first available region
                     bestFit = &region;
                 }
@@ -220,12 +252,13 @@ private:
             if (bestFit != nullptr) {
                 // Best fit found; resize and move region pointer
                 char *ptr = static_cast<char *>(bestFit->ptr);
-                const auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr);
-                bestFit->ptr = ptr + bytes + alignOffset;
-                bestFit->size -= bytes + alignOffset;
-                ptr += alignOffset;
-                InsertSorted(ptr, bytes, allocRegions);
-                return ptr;
+                setupDescriptor(ptr);
+
+                const auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + descSize;
+                const auto totalSize = bytes + alignOffset;
+                bestFit->ptr = ptr + totalSize;
+                bestFit->size -= totalSize;
+                return ptr + alignOffset;
             }
 
             // No free region found with the requested size
@@ -239,15 +272,12 @@ private:
             }
 
             // Remove allocated region
-            auto itAlloc = Find(ptr, allocRegions);
-            if (itAlloc == allocRegions.end()) {
+            const auto *desc = GetDescriptor(ptr);
+            if (desc->chunk != this) {
                 return false;
             }
-            if (itAlloc->ptr != ptr) {
-                return false;
-            }
-            auto size = itAlloc->size;
-            allocRegions.erase(itAlloc);
+            const auto size = desc->size + sizeof(AllocationDescriptor);
+            ptr = desc->ptr;
 
             // Merge free regions if possible
             auto itFree = Find(ptr, freeRegions);
@@ -299,7 +329,6 @@ private:
         };
 
         std::vector<Region> freeRegions;
-        std::vector<Region> allocRegions;
 
         void InsertSorted(void *ptr, std::size_t size, std::vector<Region> &vec) {
             auto it = Find(ptr, vec);
