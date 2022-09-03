@@ -283,13 +283,13 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         // Exit due to cache miss; need to compile new block
         CompileExit();
         patchInfo.codeEnd = codegen.getCurr();
-        compiledCode.patches[target.ToUint64()].push_back(patchInfo);
+        compiledCode.pendingPatches[target.ToUint64()].push_back(patchInfo);
     }
 }
 
-void x64Host::Compiler::PatchIndirectLinks(LocationRef target, HostCode blockCode) {
-    auto itPatches = compiledCode.patches.find(target.ToUint64());
-    if (itPatches != compiledCode.patches.end()) {
+void x64Host::Compiler::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
+    auto itPatches = compiledCode.pendingPatches.find(target.ToUint64());
+    if (itPatches != compiledCode.pendingPatches.end()) {
         for (auto &patchInfo : itPatches->second) {
             auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
             if (itPatchBlock != compiledCode.blockCache.end()) {
@@ -319,7 +319,34 @@ void x64Host::Compiler::PatchIndirectLinks(LocationRef target, HostCode blockCod
                 codegen.setSize(prevSize);
             }
         }
-        compiledCode.patches.erase(itPatches);
+        auto &appliedPatches = compiledCode.appliedPatches[target.ToUint64()];
+        appliedPatches.insert(appliedPatches.end(), itPatches->second.begin(), itPatches->second.end());
+        compiledCode.pendingPatches.erase(itPatches);
+    }
+}
+
+void x64Host::Compiler::RevertDirectLinkPatches(LocationRef target, HostCode blockCode) {
+    auto itPatches = compiledCode.appliedPatches.find(target.ToUint64());
+    if (itPatches != compiledCode.appliedPatches.end()) {
+        for (auto &patchInfo : itPatches->second) {
+            auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+            if (itPatchBlock != compiledCode.blockCache.end()) {
+                // Remember current location
+                auto prevSize = codegen.getSize();
+
+                // Go to patch location
+                codegen.setSize(patchInfo.codePos - codegen.getCode());
+
+                // Overwrite with a jump to the epilog
+                CompileExit();
+
+                // Restore code generator position
+                codegen.setSize(prevSize);
+            }
+        }
+        auto &pendingPatches = compiledCode.pendingPatches[target.ToUint64()];
+        pendingPatches.insert(pendingPatches.end(), itPatches->second.begin(), itPatches->second.end());
+        compiledCode.appliedPatches.erase(itPatches);
     }
 }
 

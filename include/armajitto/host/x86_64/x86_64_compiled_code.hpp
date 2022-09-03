@@ -30,7 +30,8 @@ struct CompiledCode {
     std::unordered_map<uint64_t, CachedBlock> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
-    std::unordered_map<uint64_t, std::vector<PatchInfo>> patches;
+    std::unordered_map<uint64_t, std::vector<PatchInfo>> pendingPatches;
+    std::unordered_map<uint64_t, std::vector<PatchInfo>> appliedPatches;
 
     // Helper function to retrieve a cached block, to be invoked by compiled code
     static HostCode GetCodeForLocationTrampoline(std::unordered_map<uint64_t, CachedBlock> &blockCache,
@@ -50,7 +51,8 @@ struct CompiledCode {
 
     void Clear() {
         blockCache.clear();
-        patches.clear();
+        pendingPatches.clear();
+        appliedPatches.clear();
         prolog = nullptr;
         epilog = nullptr;
         irqEntry = nullptr;

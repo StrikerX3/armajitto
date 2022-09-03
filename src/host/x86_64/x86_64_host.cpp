@@ -94,7 +94,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     // -----------------------------------------------------------------------------------------------------------------
 
     // Patch references to this block
-    compiler.PatchIndirectLinks(block.Location(), fnPtr);
+    compiler.ApplyDirectLinkPatches(block.Location(), fnPtr);
 
     // Cleanup, cache block and return pointer to code
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
