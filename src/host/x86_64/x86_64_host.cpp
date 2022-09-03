@@ -358,69 +358,67 @@ void x64Host::CompileIRQEntry() {
 }
 
 void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
-    auto itPatches = m_compiledCode.pendingPatches.find(target.ToUint64());
-    if (itPatches != m_compiledCode.pendingPatches.end()) {
-        for (auto &patchInfo : itPatches->second) {
-            auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-            if (itPatchBlock != m_compiledCode.blockCache.end()) {
-                // Remember current location
-                auto prevSize = m_codegen.getSize();
+    const uint64_t key = target.ToUint64();
+    auto itPatch = m_compiledCode.pendingPatches.find(key);
+    while (itPatch != m_compiledCode.pendingPatches.end() && itPatch->first == key) {
+        auto &patchInfo = itPatch->second;
+        auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+        if (itPatchBlock != m_compiledCode.blockCache.end()) {
+            // Remember current location
+            auto prevSize = m_codegen.getSize();
 
-                // Go to patch location
-                m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
+            // Go to patch location
+            m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
 
-                // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
-                auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
-                if (distToTarget >= 1 && distToTarget <= 27 && blockCode == patchInfo.codeEnd) {
-                    for (;;) {
-                        if (distToTarget > 9) {
-                            m_codegen.nop(9);
-                            distToTarget -= 9;
-                        } else {
-                            m_codegen.nop(distToTarget);
-                            break;
-                        }
+            // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
+            auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
+            if (distToTarget >= 1 && distToTarget <= 27 && blockCode == patchInfo.codeEnd) {
+                for (;;) {
+                    if (distToTarget > 9) {
+                        m_codegen.nop(9);
+                        distToTarget -= 9;
+                    } else {
+                        m_codegen.nop(distToTarget);
+                        break;
                     }
-                } else {
-                    m_codegen.jmp(blockCode, Xbyak::CodeGenerator::T_NEAR);
                 }
-
-                // Restore code generator position
-                m_codegen.setSize(prevSize);
+            } else {
+                m_codegen.jmp(blockCode, Xbyak::CodeGenerator::T_NEAR);
             }
+
+            // Restore code generator position
+            m_codegen.setSize(prevSize);
         }
 
-        // Move patches to the applied patches list
-        auto &appliedPatches = m_compiledCode.appliedPatches[target.ToUint64()];
-        appliedPatches.insert(appliedPatches.end(), itPatches->second.begin(), itPatches->second.end());
+        // Move patch to the applied patches list
+        m_compiledCode.appliedPatches.insert({key, patchInfo});
 
-        // Remove these patches from the pending list
-        m_compiledCode.pendingPatches.erase(itPatches);
+        // Remove the patch from the pending list
+        itPatch = m_compiledCode.pendingPatches.erase(itPatch);
     }
 }
 
-void x64Host::RevertDirectLinkPatches(uint64_t target) {
-    auto itPatches = m_compiledCode.appliedPatches.find(target);
-    if (itPatches != m_compiledCode.appliedPatches.end()) {
-        for (auto &patchInfo : itPatches->second) {
-            auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-            if (itPatchBlock != m_compiledCode.blockCache.end()) {
-                // Remember current location
-                auto prevSize = m_codegen.getSize();
+void x64Host::RevertDirectLinkPatches(uint64_t key) {
+    auto itPatch = m_compiledCode.appliedPatches.find(key);
+    while (itPatch != m_compiledCode.appliedPatches.end() && itPatch->first == key) {
+        auto &patchInfo = itPatch->second;
+        auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+        if (itPatchBlock != m_compiledCode.blockCache.end()) {
+            // Remember current location
+            auto prevSize = m_codegen.getSize();
 
-                // Go to patch location
-                m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
+            // Go to patch location
+            m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
 
-                // Overwrite with a jump to the epilog
-                m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+            // Overwrite with a jump to the epilog
+            m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
 
-                // Restore code generator position
-                m_codegen.setSize(prevSize);
-            }
+            // Restore code generator position
+            m_codegen.setSize(prevSize);
         }
 
-        // Remove these patches from the applied list
-        m_compiledCode.appliedPatches.erase(itPatches);
+        // Remove the patch from the applied list
+        itPatch = m_compiledCode.appliedPatches.erase(itPatch);
     }
 }
 

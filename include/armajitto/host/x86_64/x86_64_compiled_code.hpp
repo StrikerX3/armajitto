@@ -31,8 +31,8 @@ struct CompiledCode {
     std::map<uint64_t, CachedBlock> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
-    std::unordered_map<uint64_t, std::vector<PatchInfo>> pendingPatches;
-    std::unordered_map<uint64_t, std::vector<PatchInfo>> appliedPatches;
+    std::unordered_multimap<uint64_t, PatchInfo> pendingPatches;
+    std::unordered_multimap<uint64_t, PatchInfo> appliedPatches;
 
     // Helper function to retrieve a cached block, to be invoked by compiled code
     static HostCode GetCodeForLocationTrampoline(std::map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {

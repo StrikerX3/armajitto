@@ -283,7 +283,7 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         // Exit due to cache miss; need to compile new block
         CompileExit();
         patchInfo.codeEnd = codegen.getCurr();
-        compiledCode.pendingPatches[target.ToUint64()].push_back(patchInfo);
+        compiledCode.pendingPatches.insert({target.ToUint64(), patchInfo});
     }
 }
 
