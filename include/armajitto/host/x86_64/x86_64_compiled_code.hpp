@@ -5,6 +5,7 @@
 #include "armajitto/util/pointer_cast.hpp"
 
 #include <cstdint>
+#include <map>           // TODO: I'll probably regret this...
 #include <unordered_map> // TODO: I'll probably regret this...
 
 namespace armajitto::x86_64 {
@@ -27,15 +28,14 @@ struct CompiledCode {
     HostCode irqEntry;
 
     // Cached blocks by LocationRef::ToUint64()
-    std::unordered_map<uint64_t, CachedBlock> blockCache;
+    std::map<uint64_t, CachedBlock> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
     std::unordered_map<uint64_t, std::vector<PatchInfo>> pendingPatches;
     std::unordered_map<uint64_t, std::vector<PatchInfo>> appliedPatches;
 
     // Helper function to retrieve a cached block, to be invoked by compiled code
-    static HostCode GetCodeForLocationTrampoline(std::unordered_map<uint64_t, CachedBlock> &blockCache,
-                                                 uint64_t lochash) {
+    static HostCode GetCodeForLocationTrampoline(std::map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
         auto it = blockCache.find(lochash);
         if (it != blockCache.end()) {
             return it->second.code;

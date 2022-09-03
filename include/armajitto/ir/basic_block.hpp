@@ -22,7 +22,7 @@ namespace armajitto::ir {
 class BasicBlock {
     // true = less translator/optimizer performance, lower memory usage
     // false = faster, but memory is wasted on optimization passes until allocator is released
-    static constexpr bool kFreeErasedIROps = false;
+    static constexpr bool kFreeErasedIROps = true;
 
 public:
     enum class Terminal {

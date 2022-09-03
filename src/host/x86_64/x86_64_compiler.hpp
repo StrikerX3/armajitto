@@ -30,9 +30,6 @@ private:
     void CompileDirectLink(LocationRef target, uint64_t blockLocKey);
 
 public:
-    void ApplyDirectLinkPatches(LocationRef loc, HostCode blockCode);
-    void RevertDirectLinkPatches(LocationRef loc, HostCode blockCode);
-
     // Catch-all method for unimplemented ops, required by the visitor
     template <typename T>
     void CompileOp(const T *op) {}

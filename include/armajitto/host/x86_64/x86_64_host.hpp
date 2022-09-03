@@ -46,6 +46,9 @@ public:
 
     void Clear() final;
 
+    void InvalidateCodeCache() final;
+    void InvalidateCodeCacheRange(uint32_t start, uint32_t end) final;
+
 private:
     std::unique_ptr<uint8_t[]> m_codeBuffer;
     Xbyak::CodeGenerator m_codegen;
@@ -59,6 +62,9 @@ private:
     void CompileProlog();
     void CompileEpilog();
     void CompileIRQEntry();
+
+    void ApplyDirectLinkPatches(LocationRef target, HostCode blockCode);
+    void RevertDirectLinkPatches(uint64_t target);
 };
 
 } // namespace armajitto::x86_64

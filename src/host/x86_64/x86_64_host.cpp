@@ -94,7 +94,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
     // -----------------------------------------------------------------------------------------------------------------
 
     // Patch references to this block
-    compiler.ApplyDirectLinkPatches(block.Location(), fnPtr);
+    ApplyDirectLinkPatches(block.Location(), fnPtr);
 
     // Cleanup, cache block and return pointer to code
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
@@ -106,6 +106,26 @@ void x64Host::Clear() {
     m_codegen.reset();
 
     CompileCommon();
+}
+
+void x64Host::InvalidateCodeCache() {
+    m_compiledCode.blockCache.clear();
+    m_compiledCode.pendingPatches.clear();
+    m_compiledCode.appliedPatches.clear();
+}
+
+void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
+    auto it = m_compiledCode.blockCache.lower_bound(start);
+    while (it != m_compiledCode.blockCache.end() && it->first >= start && it->first <= end) {
+        // Undo patches
+        RevertDirectLinkPatches(it->first);
+
+        // Remove any pending patches for this block
+        m_compiledCode.pendingPatches.erase(it->first);
+
+        // Remove the block from the cache
+        it = m_compiledCode.blockCache.erase(it);
+    }
 }
 
 void x64Host::CompileCommon() {
@@ -335,6 +355,73 @@ void x64Host::CompileIRQEntry() {
     m_codegen.jmp(cpsrReg32.cvt64());
 
     vtune::ReportCode(CastUintPtr(m_compiledCode.irqEntry), m_codegen.getCurr<uintptr_t>(), "__irqEntry");
+}
+
+void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
+    auto itPatches = m_compiledCode.pendingPatches.find(target.ToUint64());
+    if (itPatches != m_compiledCode.pendingPatches.end()) {
+        for (auto &patchInfo : itPatches->second) {
+            auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+            if (itPatchBlock != m_compiledCode.blockCache.end()) {
+                // Remember current location
+                auto prevSize = m_codegen.getSize();
+
+                // Go to patch location
+                m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
+
+                // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
+                auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
+                if (distToTarget >= 1 && distToTarget <= 27 && blockCode == patchInfo.codeEnd) {
+                    for (;;) {
+                        if (distToTarget > 9) {
+                            m_codegen.nop(9);
+                            distToTarget -= 9;
+                        } else {
+                            m_codegen.nop(distToTarget);
+                            break;
+                        }
+                    }
+                } else {
+                    m_codegen.jmp(blockCode, Xbyak::CodeGenerator::T_NEAR);
+                }
+
+                // Restore code generator position
+                m_codegen.setSize(prevSize);
+            }
+        }
+
+        // Move patches to the applied patches list
+        auto &appliedPatches = m_compiledCode.appliedPatches[target.ToUint64()];
+        appliedPatches.insert(appliedPatches.end(), itPatches->second.begin(), itPatches->second.end());
+
+        // Remove these patches from the pending list
+        m_compiledCode.pendingPatches.erase(itPatches);
+    }
+}
+
+void x64Host::RevertDirectLinkPatches(uint64_t target) {
+    auto itPatches = m_compiledCode.appliedPatches.find(target);
+    if (itPatches != m_compiledCode.appliedPatches.end()) {
+        for (auto &patchInfo : itPatches->second) {
+            auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
+            if (itPatchBlock != m_compiledCode.blockCache.end()) {
+                // Remember current location
+                auto prevSize = m_codegen.getSize();
+
+                // Go to patch location
+                m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
+
+                // Overwrite with a jump to the epilog
+                m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+
+                // Restore code generator position
+                m_codegen.setSize(prevSize);
+            }
+        }
+
+        // Remove these patches from the applied list
+        m_compiledCode.appliedPatches.erase(itPatches);
+    }
 }
 
 } // namespace armajitto::x86_64

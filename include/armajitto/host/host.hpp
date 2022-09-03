@@ -42,6 +42,12 @@ public:
     // Clears all compiled code.
     virtual void Clear() = 0;
 
+    // Invalidates all cached code blocks.
+    virtual void InvalidateCodeCache() = 0;
+
+    // Invalidates all cached code blocks in the specified range. Both <start> and <end> are inclusive.
+    virtual void InvalidateCodeCacheRange(uint32_t start, uint32_t end) = 0;
+
 protected:
     Context &m_context;
 };

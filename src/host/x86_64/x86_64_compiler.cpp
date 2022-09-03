@@ -287,69 +287,6 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
     }
 }
 
-void x64Host::Compiler::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
-    auto itPatches = compiledCode.pendingPatches.find(target.ToUint64());
-    if (itPatches != compiledCode.pendingPatches.end()) {
-        for (auto &patchInfo : itPatches->second) {
-            auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-            if (itPatchBlock != compiledCode.blockCache.end()) {
-                // Remember current location
-                auto prevSize = codegen.getSize();
-
-                // Go to patch location
-                codegen.setSize(patchInfo.codePos - codegen.getCode());
-
-                // If target is close enough, emit up to three NOPs, otherwise emit a JMP to the target address
-                auto distToTarget = (const uint8_t *)blockCode - patchInfo.codePos;
-                if (distToTarget >= 1 && distToTarget <= 27 && blockCode == patchInfo.codeEnd) {
-                    for (;;) {
-                        if (distToTarget > 9) {
-                            codegen.nop(9);
-                            distToTarget -= 9;
-                        } else {
-                            codegen.nop(distToTarget);
-                            break;
-                        }
-                    }
-                } else {
-                    codegen.jmp(blockCode, Xbyak::CodeGenerator::T_NEAR);
-                }
-
-                // Restore code generator position
-                codegen.setSize(prevSize);
-            }
-        }
-        auto &appliedPatches = compiledCode.appliedPatches[target.ToUint64()];
-        appliedPatches.insert(appliedPatches.end(), itPatches->second.begin(), itPatches->second.end());
-        compiledCode.pendingPatches.erase(itPatches);
-    }
-}
-
-void x64Host::Compiler::RevertDirectLinkPatches(LocationRef target, HostCode blockCode) {
-    auto itPatches = compiledCode.appliedPatches.find(target.ToUint64());
-    if (itPatches != compiledCode.appliedPatches.end()) {
-        for (auto &patchInfo : itPatches->second) {
-            auto itPatchBlock = compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-            if (itPatchBlock != compiledCode.blockCache.end()) {
-                // Remember current location
-                auto prevSize = codegen.getSize();
-
-                // Go to patch location
-                codegen.setSize(patchInfo.codePos - codegen.getCode());
-
-                // Overwrite with a jump to the epilog
-                CompileExit();
-
-                // Restore code generator position
-                codegen.setSize(prevSize);
-            }
-        }
-        auto &pendingPatches = compiledCode.pendingPatches[target.ToUint64()];
-        pendingPatches.insert(pendingPatches.end(), itPatches->second.begin(), itPatches->second.end());
-        compiledCode.appliedPatches.erase(itPatches);
-    }
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 
 void x64Host::Compiler::CompileOp(const ir::IRGetRegisterOp *op) {

@@ -17,6 +17,8 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
             m_translator.Translate(*block);
             ir::Optimize(*block, m_optParams);
             code = m_host.Compile(*block);
+            block->Clear();
+            m_allocator.Free(block);
         }
 
         // Invoke code
