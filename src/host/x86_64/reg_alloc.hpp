@@ -89,7 +89,7 @@ private:
 
         size_t spillSlot = ~0; // ~0 means "not spilled"
     };
-    std::vector<VarAllocState> m_varAllocStates;
+    std::pmr::vector<VarAllocState> m_varAllocStates;
 
     void Release(ir::Variable var, const ir::IROp *op);
 };
