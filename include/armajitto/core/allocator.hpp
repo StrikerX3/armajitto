@@ -93,6 +93,7 @@ public:
         while (chunk != nullptr) {
             void *ptr = chunk->Allocate(bytes, alignment);
             if (ptr != nullptr) {
+                // printf("  alloc %zu -> %p (chunk: %p)\n", bytes, ptr, chunk);
                 // This chunk allocated the block successfully
                 if (chunk != m_head) {
                     // Move it to the head since it is likely to have free space for future allocations
@@ -130,7 +131,9 @@ public:
         m_head = chunk;
 
         // At this point, the chunk should have room for the requested allocation
-        return chunk->Allocate(bytes, alignment);
+        void *ptr = chunk->Allocate(bytes, alignment);
+        // printf("  alloc %zu -> %p (chunk: %p)\n", bytes, ptr, chunk);
+        return ptr;
     }
 
     template <typename T, typename... Args, typename = std::enable_if_t<std::is_trivially_destructible_v<T>>>
@@ -160,6 +163,7 @@ public:
         Chunk *prevChunk = nullptr;
         while (chunk != nullptr) {
             if (chunk->Release(p)) {
+                // printf("  free %p (chunk: %p)\n", p, chunk);
                 // This chunk owned p and has released it
                 // If the chunk no longer has any allocations, free it
                 if (chunk->IsEmpty()) {
@@ -167,7 +171,7 @@ public:
                         prevChunk->next = chunk->next;
                     }
                     if (chunk == m_head) {
-                        m_head = nullptr;
+                        m_head = chunk->next;
                     }
                     delete chunk;
                 }
@@ -179,6 +183,7 @@ public:
     }
 
     void Release() {
+        // printf("#### RELEASING MEMORY! ####\n");
         Chunk *chunk = m_head;
         while (chunk != nullptr) {
             Chunk *next = chunk->next;
@@ -193,10 +198,12 @@ private:
         Chunk(void *basePtr, std::size_t size)
             : basePtr(basePtr)
             , size(size) {
+            // printf("  ** chunk allocated: %p\n", this);
             freeRegions.push_back({basePtr, size});
         }
 
         ~Chunk() {
+            // printf("  ** chunk deleted: %p\n", this);
             AlignedFree(basePtr);
         }
 
@@ -210,10 +217,6 @@ private:
             for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
                 auto &region = *it;
                 const auto alignOffset = ((uintptr_t(region.ptr) + alignMask) & ~alignMask) - uintptr_t(region.ptr);
-                if (region.size < bytes + alignOffset) {
-                    // Too small
-                    continue;
-                }
                 if (region.size == bytes + alignOffset) {
                     // Perfect fit; erase the region and return its pointer
                     void *ptr = region.ptr;
@@ -221,7 +224,8 @@ private:
                     InsertSorted(ptr, bytes, allocRegions);
                     return static_cast<char *>(ptr) + alignOffset;
                 }
-                if (bestFit == nullptr || region.size < bestFit->size + alignOffset) {
+                if (region.size >= bytes + alignOffset &&
+                    (bestFit == nullptr || region.size < bestFit->size + alignOffset)) {
                     // Record best fit or use the first available region
                     bestFit = &region;
                 }
@@ -267,7 +271,7 @@ private:
                 itFree->size += size;
                 merged = true;
             }
-            if (itFree != freeRegions.begin()) {
+            if (itFree != freeRegions.begin() && itFree != freeRegions.end()) {
                 auto itPrevFree = std::prev(itFree);
                 if (static_cast<char *>(itPrevFree->ptr) + itPrevFree->size == ptr) {
                     // Beginning of freed region connects to the end of the previous free region
@@ -323,10 +327,13 @@ private:
 
 #ifdef _WIN32
     static inline void *AlignedAlloc(std::size_t size, std::size_t alignment) {
-        return _aligned_malloc(size, alignment);
+        void *ptr = _aligned_malloc(size, alignment);
+        // printf("heap alloc %zu -> %p\n", size, ptr);
+        return ptr;
     }
 
     static inline void AlignedFree(void *ptr) {
+        // printf("heap free %p\n", ptr);
         _aligned_free(ptr);
     }
 #else

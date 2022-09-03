@@ -1,5 +1,6 @@
 #pragma once
 
+#include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/guest/arm/coprocessor.hpp"
 #include "armajitto/guest/arm/exceptions.hpp"
 #include "armajitto/guest/arm/flags.hpp"
@@ -21,7 +22,10 @@ class Emitter {
 public:
     Emitter(BasicBlock &block)
         : m_block(block)
-        , m_currOp(block.Tail()) {
+        , m_currOp(block.Tail())
+        , m_pmrAlloc(block.m_alloc)
+        , m_pmrBuffer(&m_pmrAlloc)
+        , m_erased(&m_pmrAlloc) {
 
         auto loc = block.Location();
         m_basePC = loc.PC();
@@ -327,7 +331,9 @@ private:
 
     IROp *m_currOp;
 
-    std::set<IROp *> m_erased;
+    memory::PMRRefAllocator m_pmrAlloc;
+    std::pmr::monotonic_buffer_resource m_pmrBuffer;
+    std::pmr::set<IROp *> m_erased;
     bool m_overwriteNext = false;
     bool m_prependNext = false;
 

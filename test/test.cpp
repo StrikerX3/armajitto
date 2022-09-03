@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <thread>
 
 class TestSystem : public armajitto::ISystem {
@@ -1435,7 +1436,7 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
-    auto &optParams = jit.GetOptimizationParameters();
+    // auto &optParams = jit.GetOptimizationParameters();
     // optParams.passes.arithmeticOpsCoalescence = false;
     // optParams.passes.bitwiseOpsCoalescence = false;
 
@@ -1516,6 +1517,94 @@ void testNDS() {
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
+void compilerStressTest() {
+    TestSystem sys{};
+
+    armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
+    auto &state = context.GetARMState();
+    state.GetSystemControlCoprocessor().ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
+    state.GetSystemControlCoprocessor().ConfigureCache({
+        .type = armajitto::arm::cp15::cache::Type::WriteBackReg7CleanLockdownB,
+        .separateCodeDataCaches = true,
+        .code =
+            {
+                .size = 0x2000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+        .data =
+            {
+                .size = 0x1000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+    });
+
+    const uint32_t baseAddress = 0x02000100;
+
+    auto mode = armajitto::arm::Mode::FIQ;
+    bool thumb = false;
+
+    // Create host compiler
+    armajitto::x86_64::x64Host host{context};
+    armajitto::LocationRef entryLoc{};
+
+    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+
+    std::default_random_engine generator;
+    std::uniform_int_distribution<uint32_t> distribution(0xE0000000, 0xEFFFFFFF);
+
+    const uint32_t blockSize = 32;
+    const uint32_t finalAddress = baseAddress + blockSize * instrSize;
+    if (thumb) {
+        sys.ROMWriteHalf(finalAddress + instrSize, 0xE7FE); // b $
+    } else {
+        sys.ROMWriteWord(finalAddress + instrSize, 0xEAFFFFFE); // b $
+    }
+
+    armajitto::memory::Allocator blockAlloc{};
+    armajitto::memory::PMRRefAllocator pmrRefAlloc{blockAlloc};
+
+    // Compile blocks in a loop
+    const int numBlocks = 50'000;
+    printf("compiling %d blocks with %u instructions...\n", numBlocks, blockSize);
+    for (int i = 0; i < numBlocks; ++i) {
+        // Generate enough random instructions to fill the block
+        for (size_t offset = 0; offset < blockSize; offset++) {
+            sys.ROMWriteWord(baseAddress, distribution(generator));
+        }
+
+        uint32_t currAddress = baseAddress + 2 * instrSize;
+        while (currAddress < finalAddress) {
+            // Create basic block
+            auto block = blockAlloc.Allocate<armajitto::ir::BasicBlock>(
+                blockAlloc, armajitto::LocationRef{currAddress, mode, thumb});
+
+            // Translate code from memory
+            armajitto::ir::Translator translator{context};
+            translator.GetParameters().maxBlockSize = blockSize;
+            translator.Translate(*block);
+
+            // Optimize code
+            armajitto::ir::Optimize(pmrRefAlloc, *block);
+
+            // Compile IR block into host code
+            host.Compile(*block);
+
+            // Advance to next instruction in the sequence
+            currAddress += block->InstructionCount() * instrSize;
+        }
+
+        // Release all memory after every 10000 iterations
+        if (i > 0 && i % 10'000 == 0) {
+            host.Clear();
+            blockAlloc.Release();
+            printf("  %d\n", i);
+        }
+    }
+    printf("done!\n");
+}
+
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
@@ -1523,7 +1612,8 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    testNDS();
+    // testNDS();
+    compilerStressTest();
 
     return EXIT_SUCCESS;
 }

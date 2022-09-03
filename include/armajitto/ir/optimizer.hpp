@@ -1,6 +1,7 @@
 #pragma once
 
 #include "armajitto/core/allocator.hpp"
+#include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/util/bitmask_enum.hpp"
 #include "basic_block.hpp"
 
@@ -25,5 +26,6 @@ struct OptimizationParams {
 };
 
 bool Optimize(BasicBlock &block, const OptimizationParams &params = {});
+bool Optimize(memory::PMRRefAllocator &alloc, BasicBlock &block, const OptimizationParams &params = {});
 
 } // namespace armajitto::ir

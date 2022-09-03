@@ -1,5 +1,6 @@
 #include "armajitto/ir/basic_block.hpp"
 
+#include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/ir/ir_ops.hpp"
 
 #include <type_traits>
@@ -7,18 +8,38 @@
 
 namespace armajitto::ir {
 
+template <typename Fn>
+struct ScopeGuard {
+    ScopeGuard(Fn &&fn)
+        : fn(std::move(fn)) {}
+
+    ~ScopeGuard() {
+        if (!cancelled) {
+            fn();
+        }
+    }
+
+    void Cancel() {
+        cancelled = true;
+    }
+
+private:
+    Fn fn;
+    bool cancelled = false;
+};
+
 void BasicBlock::RenameVariables() {
     uint32_t nextVarID = 0;
-    std::vector<Variable> varMap;
+    void *ptr = m_alloc.AllocateRaw(m_nextVarID * sizeof(Variable));
+    auto *varMap = new (ptr) Variable[m_nextVarID];
+
+    ScopeGuard freePtr{[&] { m_alloc.Free(ptr); }};
 
     auto mapVar = [&](Variable &var) {
         if (!var.IsPresent()) {
             return;
         }
         auto varIndex = var.Index();
-        if (varMap.size() <= varIndex) {
-            varMap.resize(varIndex + 1);
-        }
         if (!varMap[varIndex].IsPresent()) {
             varMap[varIndex] = Variable{nextVarID++};
         }
