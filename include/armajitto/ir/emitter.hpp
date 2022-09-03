@@ -22,10 +22,7 @@ class Emitter {
 public:
     Emitter(BasicBlock &block)
         : m_block(block)
-        , m_currOp(block.Tail())
-        , m_pmrAlloc(block.m_alloc)
-        , m_pmrBuffer(&m_pmrAlloc)
-        , m_erased(&m_pmrAlloc) {
+        , m_currOp(block.Tail()) {
 
         auto loc = block.Location();
         m_basePC = loc.PC();
@@ -88,7 +85,7 @@ public:
         m_currOp = m_block.Head();
         m_overwriteNext = false;
         m_prependNext = false;
-        m_erased.clear();
+        m_currOpErased = false;
     }
 
     // Moves the emitter's cursor to the tail of the IR block.
@@ -96,7 +93,7 @@ public:
         m_currOp = m_block.Tail();
         m_overwriteNext = false;
         m_prependNext = false;
-        m_erased.clear();
+        m_currOpErased = false;
     }
 
     struct GoToGuard {
@@ -159,14 +156,14 @@ public:
         if (op == m_currOp) {
             m_currOp = result;
             m_prependNext = true;
+            m_currOpErased = true;
         }
         m_dirty = true;
-        m_erased.insert(op);
     }
 
-    // Determines if the given op was erased.
-    bool WasErased(IROp *op) const {
-        return m_erased.contains(op);
+    // Determines if the current op was erased.
+    bool WasCurrentOpErased() const {
+        return m_currOpErased;
     }
 
     // Rename all variables in the block from scratch, eliminating all gaps in the sequence.
@@ -331,9 +328,7 @@ private:
 
     IROp *m_currOp;
 
-    memory::PMRRefAllocator m_pmrAlloc;
-    std::pmr::monotonic_buffer_resource m_pmrBuffer;
-    std::pmr::set<IROp *> m_erased;
+    bool m_currOpErased = false;
     bool m_overwriteNext = false;
     bool m_prependNext = false;
 

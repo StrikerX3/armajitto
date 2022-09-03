@@ -21,7 +21,7 @@ bool OptimizerPassBase::Optimize() {
     while (IROp *op = m_emitter.GetCurrentOp()) {
         PreProcess(op);
         VisitIROp(op, [this](auto op) -> void { Process(op); });
-        if (!m_emitter.WasErased(op)) {
+        if (!m_emitter.WasCurrentOpErased()) {
             PostProcess(op);
         }
 
