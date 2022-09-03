@@ -84,6 +84,7 @@ add_library(armajitto
     include/armajitto/util/type_traits.hpp
     include/armajitto/util/unreachable.hpp
     include/armajitto/util/unsafe_circular_buffer.hpp
+    src/core/allocator.cpp
     src/core/context.cpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
