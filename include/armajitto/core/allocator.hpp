@@ -9,6 +9,7 @@ namespace armajitto::memory {
 
 // TODO: customizable parameters
 // TODO: buckets for different sizes of objects or alignments
+// TODO: reset and reuse "spent" pages, free only if there are too many spent pages
 class Allocator {
 public:
     template <typename T>

@@ -8,6 +8,7 @@
 
 namespace armajitto::ir {
 
+// TODO: move this to util
 template <typename Fn>
 struct ScopeGuard {
     ScopeGuard(Fn &&fn)
