@@ -7,6 +7,8 @@
 
 namespace armajitto::memory {
 
+// TODO: customizable parameters
+// TODO: buckets for different sizes of objects or alignments
 class Allocator {
 public:
     template <typename T>
@@ -97,7 +99,7 @@ public:
     void Release();
 
 private:
-    static constexpr std::size_t kPageChunkSize = 256u * 1024u; // 65536u;
+    static constexpr std::size_t kPageChunkSize = 1024u * 1024u; // 65536u;
     static constexpr std::size_t kPageChunkAlign = kPageChunkSize - 1;
     static constexpr std::size_t kPageAlign = 4096u;
 
