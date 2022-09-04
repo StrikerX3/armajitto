@@ -1,20 +1,22 @@
 #pragma once
 
+#include "armajitto/core/location_ref.hpp"
+
 #if ARMAJITTO_USE_VTUNE
-
-    #include "armajitto/core/location_ref.hpp"
-
     #include <jitprofiling.h>
 
-    #include <cstdint>
     #include <format>
     #include <string>
+#endif
+
+#include <cstdint>
 
 namespace vtune {
 
 inline char moduleName[] = "armajitto";
 
 inline void ReportCode(uintptr_t codeStart, uintptr_t codeEnd, const char *fnName) {
+#if ARMAJITTO_USE_VTUNE
     if (iJIT_IsProfilingActive() != iJIT_SAMPLING_ON) {
         return;
     }
@@ -28,9 +30,11 @@ inline void ReportCode(uintptr_t codeStart, uintptr_t codeEnd, const char *fnNam
     method.method_size = static_cast<unsigned int>(codeEnd - codeStart);
     method.module_name = moduleName;
     iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2, static_cast<void *>(&method));
+#endif
 }
 
 inline void ReportBasicBlock(uintptr_t codeStart, uintptr_t codeEnd, armajitto::LocationRef loc) {
+#if ARMAJITTO_USE_VTUNE
     if (iJIT_IsProfilingActive() != iJIT_SAMPLING_ON) {
         return;
     }
@@ -53,8 +57,7 @@ inline void ReportBasicBlock(uintptr_t codeStart, uintptr_t codeEnd, armajitto::
     std::string fnName = std::format("block_{:08X}_{}_{}", loc.PC(), modeStr, thumbStr);
 
     ReportCode(codeStart, codeEnd, fnName.c_str());
+#endif
 }
 
 } // namespace vtune
-
-#endif
