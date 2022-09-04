@@ -74,7 +74,7 @@ namespace armajitto::ir {
 // variables are substituted in subsequent instructions.
 class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
-    ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
+    ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
     void PreProcess() final;

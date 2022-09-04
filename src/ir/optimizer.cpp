@@ -15,15 +15,8 @@
 
 namespace armajitto::ir {
 
-bool Optimize(BasicBlock &block, const OptimizationParams &params) {
-    memory::Allocator alloc{};
-    memory::PMRRefAllocator pmrAlloc{alloc};
-    return Optimize(pmrAlloc, block, params);
-}
-
-bool Optimize(memory::PMRRefAllocator &alloc, BasicBlock &block, const OptimizationParams &params) {
+bool Optimize(std::pmr::memory_resource &alloc, BasicBlock &block, const OptimizationParams &params) {
     std::pmr::monotonic_buffer_resource buffer{&alloc};
-
     Emitter emitter{block};
 
     bool optimized = false;

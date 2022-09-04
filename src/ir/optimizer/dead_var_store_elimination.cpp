@@ -7,15 +7,15 @@
 namespace armajitto::ir {
 
 DeadVarStoreEliminationOptimizerPass::DeadVarStoreEliminationOptimizerPass(Emitter &emitter,
-                                                                           std::pmr::monotonic_buffer_resource &buffer)
+                                                                           std::pmr::memory_resource &alloc)
     : DeadStoreEliminationOptimizerPassBase(emitter)
-    , m_buffer(buffer)
-    , m_varWrites(&buffer)
-    , m_dependencies(&buffer) {
+    , m_alloc(alloc)
+    , m_varWrites(&alloc)
+    , m_dependencies(&alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_varWrites.resize(varCount);
-    m_dependencies.resize(varCount, std::pmr::vector<Variable>{&buffer});
+    m_dependencies.resize(varCount, std::pmr::vector<Variable>{&alloc});
 }
 
 void DeadVarStoreEliminationOptimizerPass::PostProcessImpl() {
@@ -342,7 +342,7 @@ void DeadVarStoreEliminationOptimizerPass::ResizeWrites(size_t index) {
 
 void DeadVarStoreEliminationOptimizerPass::ResizeDependencies(size_t index) {
     if (m_dependencies.size() <= index) {
-        m_dependencies.resize(index + 1, std::pmr::vector<Variable>{&m_buffer});
+        m_dependencies.resize(index + 1, std::pmr::vector<Variable>{&m_alloc});
     }
 }
 

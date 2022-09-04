@@ -6,11 +6,11 @@
 
 namespace armajitto::ir {
 
-DeadRegisterStoreEliminationOptimizerPass::DeadRegisterStoreEliminationOptimizerPass(
-    Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer)
+DeadRegisterStoreEliminationOptimizerPass::DeadRegisterStoreEliminationOptimizerPass(Emitter &emitter,
+                                                                                     std::pmr::memory_resource &alloc)
     : DeadStoreEliminationOptimizerPassBase(emitter)
-    , m_versionToVarMap(&buffer)
-    , m_varToVersionMap(&buffer) {
+    , m_versionToVarMap(&alloc)
+    , m_varToVersionMap(&alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_versionToVarMap.resize(varCount * 2);

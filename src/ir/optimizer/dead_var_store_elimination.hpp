@@ -96,7 +96,7 @@ namespace armajitto::ir {
 // In those cases, the optimizer will follow every linked variable and erase all affected instructions.
 class DeadVarStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
-    DeadVarStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
+    DeadVarStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
     void PostProcessImpl() final;
@@ -151,7 +151,7 @@ private:
         bool consumed = false;
     };
 
-    std::pmr::monotonic_buffer_resource &m_buffer;
+    std::pmr::memory_resource &m_alloc;
     std::pmr::vector<VarWrite> m_varWrites;
     std::pmr::vector<std::pmr::vector<Variable>> m_dependencies;
 

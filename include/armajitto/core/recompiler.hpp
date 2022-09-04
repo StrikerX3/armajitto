@@ -1,6 +1,7 @@
 #pragma once
 
 #include "armajitto/core/allocator.hpp"
+#include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/guest/arm/state.hpp"
 #include "armajitto/host/x86_64/x86_64_host.hpp" // TODO: select based on host system
 #include "armajitto/ir/optimizer.hpp"
@@ -52,7 +53,7 @@ private:
     Context m_context;
 
     memory::Allocator m_allocator;
-    memory::PMRRefAllocator m_pmrAllocator;
+    memory::PMRAllocatorWrapper m_pmrAllocator;
 
     ir::Translator m_translator;
     ir::OptimizationParams m_optParams;

@@ -51,7 +51,7 @@ namespace armajitto::ir {
 // The BIC operation becomes an identity operation, which is removed by a later optimization pass.
 class DeadFlagValueStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
-    DeadFlagValueStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
+    DeadFlagValueStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
     // void Process(IRGetRegisterOp *op) final;

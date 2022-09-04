@@ -6,10 +6,10 @@
 
 namespace armajitto::ir {
 
-DeadFlagValueStoreEliminationOptimizerPass::DeadFlagValueStoreEliminationOptimizerPass(
-    Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer)
+DeadFlagValueStoreEliminationOptimizerPass::DeadFlagValueStoreEliminationOptimizerPass(Emitter &emitter,
+                                                                                       std::pmr::memory_resource &alloc)
     : DeadStoreEliminationOptimizerPassBase(emitter)
-    , m_flagWritesPerVar(&buffer) {
+    , m_flagWritesPerVar(&alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_flagWritesPerVar.resize(varCount);

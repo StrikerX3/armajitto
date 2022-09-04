@@ -64,7 +64,7 @@ namespace armajitto::ir {
 // Note that the BIC instruction is now a dead store and should be eliminated by the dead variable store pass.
 class DeadRegisterStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
-    DeadRegisterStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
+    DeadRegisterStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
     void Process(IRGetRegisterOp *op) final;

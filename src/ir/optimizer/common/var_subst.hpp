@@ -16,7 +16,7 @@ namespace armajitto::ir {
 // Does not work on a backward scan.
 class VarSubstitutor {
 public:
-    VarSubstitutor(size_t varCount, std::pmr::monotonic_buffer_resource &buffer);
+    VarSubstitutor(size_t varCount, std::pmr::memory_resource &alloc);
 
     // Assigns a substitution of all <src> variables to <dst>.
     void Assign(VariableArg dst, VariableArg src);

@@ -20,11 +20,11 @@ class Host;
 namespace armajitto::ir {
 
 class BasicBlock {
+public:
     // true = less translator/optimizer performance, lower memory usage
     // false = faster, but memory is wasted on optimization passes until allocator is released
-    static constexpr bool kFreeErasedIROps = true;
+    static constexpr bool kFreeErasedIROps = false;
 
-public:
     enum class Terminal {
         // Jump to specified LocationRef.
         // Used:

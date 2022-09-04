@@ -15,10 +15,14 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
         if (code == nullptr) {
             auto *block = m_allocator.Allocate<ir::BasicBlock>(m_allocator, loc);
             m_translator.Translate(*block);
-            ir::Optimize(*block, m_optParams);
+            ir::Optimize(m_pmrAllocator, *block, m_optParams);
             code = m_host.Compile(*block);
-            block->Clear();
-            m_allocator.Free(block);
+            if constexpr (ir::BasicBlock::kFreeErasedIROps) {
+                block->Clear();
+                m_allocator.Free(block);
+            } else {
+                m_allocator.Release();
+            }
         }
 
         // Invoke code

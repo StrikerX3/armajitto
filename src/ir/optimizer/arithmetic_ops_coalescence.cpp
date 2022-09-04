@@ -2,12 +2,12 @@
 
 namespace armajitto::ir {
 
-ArithmeticOpsCoalescenceOptimizerPass::ArithmeticOpsCoalescenceOptimizerPass(
-    Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer)
+ArithmeticOpsCoalescenceOptimizerPass::ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter,
+                                                                             std::pmr::memory_resource &alloc)
     : OptimizerPassBase(emitter)
-    , m_values(&buffer)
-    , m_varLifetimes(buffer)
-    , m_varSubst(emitter.VariableCount(), buffer) {
+    , m_values(&alloc)
+    , m_varLifetimes(alloc)
+    , m_varSubst(emitter.VariableCount(), alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
     m_values.resize(varCount);

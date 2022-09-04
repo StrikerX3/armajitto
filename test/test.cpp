@@ -613,6 +613,7 @@ void testTranslatorAndOptimizer() {
 
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
+    armajitto::memory::PMRAllocatorWrapper pmrAlloc{alloc};
     auto block = alloc.Allocate<armajitto::ir::BasicBlock>(
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
@@ -856,7 +857,7 @@ void testTranslatorAndOptimizer() {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(*block, optParams)) {
+        if (armajitto::ir::Optimize(pmrAlloc, *block, optParams)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
@@ -893,7 +894,7 @@ void testTranslatorAndOptimizer() {
     printf("  finished\n");
     printf("==================================================\n\n");
 
-    armajitto::ir::Optimize(*block);
+    armajitto::ir::Optimize(pmrAlloc, *block);
     printf("after all optimizations:\n\n");
     printBlock();
 }
@@ -1213,7 +1214,7 @@ void testCompiler() {
 
     // Create host compiler
     armajitto::memory::Allocator blockAlloc{};
-    armajitto::memory::PMRRefAllocator pmrAlloc{blockAlloc};
+    armajitto::memory::PMRAllocatorWrapper pmrAlloc{blockAlloc};
     armajitto::x86_64::x64Host host{context, pmrAlloc};
     armajitto::HostCode entryCode{};
     armajitto::LocationRef entryLoc{};
@@ -1234,7 +1235,7 @@ void testCompiler() {
             translator.Translate(*block);
 
             // Optimize code
-            armajitto::ir::Optimize(*block);
+            armajitto::ir::Optimize(pmrAlloc, *block);
 
             // Display IR code
             printf("translated %u instructions:\n\n", block->InstructionCount());
@@ -1547,7 +1548,7 @@ void compilerStressTest() {
     bool thumb = false;
 
     armajitto::memory::Allocator blockAlloc{};
-    armajitto::memory::PMRRefAllocator pmrRefAlloc{blockAlloc};
+    armajitto::memory::PMRAllocatorWrapper pmrRefAlloc{blockAlloc};
 
     // Create host compiler
     armajitto::x86_64::x64Host host{context, pmrRefAlloc};
@@ -1618,8 +1619,8 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    testNDS();
-    // compilerStressTest();
+    // testNDS();
+    compilerStressTest();
 
     return EXIT_SUCCESS;
 }

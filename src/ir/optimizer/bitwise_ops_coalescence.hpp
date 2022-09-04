@@ -95,7 +95,7 @@ namespace armajitto::ir {
 //    0x00000000  0x........    0xFFFFFFFF    0         mvn <final var>, <base var>
 class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
 public:
-    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter, std::pmr::monotonic_buffer_resource &buffer);
+    BitwiseOpsCoalescenceOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
     void PreProcess(IROp *op) final;
@@ -286,8 +286,6 @@ private:
             rotateOffset = (rotateOffset + 1u) & 31u;
         }
     };
-
-    std::pmr::monotonic_buffer_resource &m_buffer;
 
     // Value per variable
     std::pmr::vector<Value> m_values;
