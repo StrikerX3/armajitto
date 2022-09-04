@@ -143,6 +143,7 @@ void x64Host::Compiler::CompileIRQLineCheck() {
 
     // Jump to IRQ switch code if the IRQ line is raised and interrupts are not inhibited
     codegen.jnz(compiledCode.irqEntry);
+    regAlloc.ReleaseTemporaries();
 }
 
 void x64Host::Compiler::CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail) {
@@ -255,6 +256,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 
         // Entry found, jump to linked block
         codegen.jmp(cacheEntryReg64);
+        regAlloc.ReleaseTemporaries();
         break;
     }
     case Terminal::Return: CompileExit(); break;
@@ -2192,15 +2194,18 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
 
     // Compose two input variables (lo and hi) into a single 64-bit register
     auto compose64 = [&](const ir::VarOrImmArg &lo, const ir::VarOrImmArg &hi) {
-        auto outReg64 = regAlloc.GetTemporary().cvt64();
         if (lo.immediate && hi.immediate) {
             // Both are immediates
+            auto outReg64 = regAlloc.GetTemporary().cvt64();
             const uint64_t value = static_cast<uint64_t>(lo.imm.value) | (static_cast<uint64_t>(hi.imm.value) << 32ull);
             codegen.mov(outReg64, value);
+
+            return outReg64;
         } else if (!lo.immediate && !hi.immediate) {
             // Both are variables
             auto loReg64 = regAlloc.Get(lo.var.var).cvt64();
             auto hiReg64 = regAlloc.Get(hi.var.var).cvt64();
+            auto outReg64 = regAlloc.GetTemporary().cvt64();
 
             if (CPUID::HasBMI2()) {
                 codegen.shlx(outReg64, hiReg64, shiftBy32Reg64);
@@ -2209,9 +2214,12 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
                 codegen.shl(outReg64, 32);
             }
             codegen.or_(outReg64, loReg64);
+
+            return outReg64;
         } else if (lo.immediate) {
             // lo is immediate, hi is variable
             auto hiReg64 = regAlloc.Get(hi.var.var).cvt64();
+            auto outReg64 = regAlloc.GetTemporary().cvt64();
 
             if (outReg64 != hiReg64 && CPUID::HasBMI2()) {
                 codegen.shlx(outReg64, hiReg64, shiftBy32Reg64);
@@ -2220,9 +2228,12 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
                 codegen.shl(outReg64, 32);
             }
             codegen.or_(outReg64, lo.imm.value);
+
+            return outReg64;
         } else {
             // lo is variable, hi is immediate
             auto loReg64 = regAlloc.Get(lo.var.var).cvt64();
+            auto outReg64 = regAlloc.GetTemporary().cvt64();
 
             if (outReg64 != loReg64 && CPUID::HasBMI2()) {
                 codegen.shlx(outReg64, loReg64, shiftBy32Reg64);
@@ -2232,8 +2243,9 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
             }
             codegen.or_(outReg64, hi.imm.value);
             codegen.ror(outReg64, 32);
+
+            return outReg64;
         }
-        return outReg64;
     };
 
     // Build 64-bit values out of the 32-bit register/immediate pairs
