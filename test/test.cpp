@@ -624,11 +624,11 @@ void testTranslatorAndOptimizer() {
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    armajitto::ir::Translator translator{context};
-    translator.Translate(*block);
+    /*armajitto::ir::Translator translator{context};
+    translator.Translate(*block);*/
 
     // Emit IR code manually
-    // armajitto::ir::Emitter emitter{*block};
+    armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -830,6 +830,45 @@ void testTranslatorAndOptimizer() {
                                                              // ldflg.nzcv $v8, $v7
                                                              // st cpsr, $v8
     emitter.SetRegister(armajitto::arm::GPR::PC, 0x200555c); // st pc, #0x200555c*/
+
+    constexpr auto memD = armajitto::ir::MemAccessBus::Data;
+    constexpr auto memU = armajitto::ir::MemAccessMode::Unaligned;
+    constexpr auto memH = armajitto::ir::MemAccessSize::Half;
+    emitter.SetRegister(armajitto::arm::GPR::R14, 0x3804F80); // stgpr r14_sys, 0x03804F80
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057C4); // stgpr r15, 0x038057C4
+    emitter.SetRegister(armajitto::arm::GPR::R12, 0x4000000); // stgpr r12, 0x04000000
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057C8); // stgpr r15, 0x038057C8
+    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R12);  // ldgpr r12, var0_op1
+    auto v1 = emitter.Add(v0, 0x138, false);                  // add var1_result, var0_op1, 0x00000138
+    emitter.SetRegister(armajitto::arm::GPR::R12, v1);        // stgpr r12, var1_result
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057CC); // stgpr r15, 0x038057CC
+    auto v2 = emitter.GetRegister(armajitto::arm::GPR::R12);  // ldgpr r12, var2_base_old
+    auto v3 = emitter.Add(v2, 0x0, false);                    // add var3_base_new, var2_base_old, 0x00000000
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057D0); // stgpr r15, 0x038057D0
+    auto v5 = emitter.MemRead(memD, memU, memH, v3);          // ldr.h var5_data_a, [var3_base_new]
+    emitter.SetRegister(armajitto::arm::GPR::R0, v5);         // stgpr r0, var5_data_a
+    auto v7 = emitter.GetRegister(armajitto::arm::GPR::R0);   // ldgpr r0, var7_op1
+    auto v8 = emitter.BitClear(v7, 0x77, false);              // bic var8_result, var7_op1, 0x00000077
+    emitter.SetRegister(armajitto::arm::GPR::R0, v8);         // stgpr r0, var8_result
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057D4); // stgpr r15, 0x038057D4
+    auto v9 = emitter.GetRegister(armajitto::arm::GPR::R0);   // ldgpr r0, var9_op1
+    auto v10 = emitter.BitwiseOr(v9, 0x72, false);            // orr var10_result, var9_op1, 0x00000072
+    emitter.SetRegister(armajitto::arm::GPR::R0, v10);        // stgpr r0, var10_result
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057D8); // stgpr r15, 0x038057D8
+    auto v11 = emitter.GetRegister(armajitto::arm::GPR::R12); // ldgpr r12, var11_base_old
+    auto v12 = emitter.Add(v11, 0x0, false);                  // add var12_base_new, var11_base_old, 0x00000000
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057DC); // stgpr r15, 0x038057DC
+    auto v14 = emitter.GetRegister(armajitto::arm::GPR::R0);  // ldgpr r0, var14_data_a
+    emitter.MemWrite(memH, v14, v12);                         // str.h var14_data_a, [var12_base_new]
+    emitter.SetRegister(armajitto::arm::GPR::R3, 0x2);        // stgpr r3, 0x00000002
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057E0); // stgpr r15, 0x038057E0
+    auto v16 = emitter.GetRegister(armajitto::arm::GPR::R3);  // ldgpr r3, var16_op1
+    auto v17 = emitter.Subtract(v16, 0x1, true);              // subs var17_result, var16_op1, 0x00000001
+    emitter.SetRegister(armajitto::arm::GPR::R3, v17);        // stgpr r3, var17_result
+    emitter.LoadFlags(armajitto::arm::Flags::NZCV);           // ldcpsr var18_cpsr_in
+                                                              // update.nzcv var19_cpsr_out, var18_cpsr_in
+                                                              // stcpsr var19_cpsr_out
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057E4); // stgpr r15, 0x038057E4
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
