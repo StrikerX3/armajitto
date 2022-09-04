@@ -2776,7 +2776,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     }
 
     // Pop all saved registers
-    for (int i = savedRegsCount; i >= 0; --i) {
+    for (int i = savedRegsCount - 1; i >= 0; --i) {
         codegen.pop(savedRegs[i]);
     }
 

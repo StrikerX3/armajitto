@@ -1675,8 +1675,8 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    // testNDS();
-    compilerStressTest();
+    testNDS();
+    // compilerStressTest();
 
     return EXIT_SUCCESS;
 }
