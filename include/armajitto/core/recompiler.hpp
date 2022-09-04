@@ -60,6 +60,9 @@ private:
 
     // TODO: select based on host system
     x86_64::x64Host m_host;
+
+    uint32_t m_compiledBlocks = 0;
+    static constexpr uint32_t kCompiledBlocksReleaseThreshold = 500;
 };
 
 } // namespace armajitto

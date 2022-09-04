@@ -21,7 +21,10 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
                 block->Clear();
                 m_allocator.Free(block);
             } else {
-                m_allocator.Release();
+                if (++m_compiledBlocks == kCompiledBlocksReleaseThreshold) {
+                    m_compiledBlocks = 0;
+                    m_allocator.Release();
+                }
             }
         }
 
