@@ -2349,9 +2349,9 @@ void x64Host::Compiler::CompileOp(const ir::IRLoadStickyOverflowOp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRBranchOp *op) {
     const auto pcFieldOffset = armState.GPROffset(arm::GPR::PC, mode);
-    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-    const auto pcOffset = 2 * instrSize;
-    const auto addrMask = ~(instrSize - 1);
+    const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+    const uint32_t pcOffset = 2 * instrSize;
+    const uint32_t addrMask = ~(instrSize - 1);
 
     if (op->address.immediate) {
         codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
@@ -2385,8 +2385,8 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
             codegen.je(lblExchange);
 
             // Perform branch without exchange
-            const auto pcOffset = 2 * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-            const auto addrMask = (thumb ? ~1 : ~3);
+            const uint32_t pcOffset = 2 * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+            const uint32_t addrMask = (thumb ? ~1 : ~3);
             if (op->address.immediate) {
                 codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
             } else {
