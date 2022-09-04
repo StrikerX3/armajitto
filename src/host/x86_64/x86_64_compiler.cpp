@@ -1810,15 +1810,25 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingAddOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, var);
                 CopyIfDifferent(dstReg32, varReg32);
+
+                // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
+                constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
+                auto overflowValueReg32 = regAlloc.GetTemporary();
+                if (lhsImm) {
+                    codegen.mov(overflowValueReg32, maxValue + bit::extract<31>(op->lhs.imm.value));
+                } else {
+                    codegen.xor_(overflowValueReg32, overflowValueReg32);
+                    codegen.bt(dstReg32, 31);
+                    codegen.adc(overflowValueReg32, maxValue);
+                }
+
                 codegen.add(dstReg32, imm);
                 if (setFlags) {
                     SetVFromFlags();
                 }
 
                 // Clamp on overflow
-                auto maxValReg32 = regAlloc.GetTemporary();
-                codegen.mov(maxValReg32, std::numeric_limits<int32_t>::max());
-                codegen.cmovo(dstReg32, maxValReg32);
+                codegen.cmovo(dstReg32, overflowValueReg32);
             } else if (setFlags) {
                 auto tmpReg32 = regAlloc.GetTemporary();
                 codegen.mov(tmpReg32, varReg32);
@@ -1835,6 +1845,13 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingAddOp *op) {
                 regAlloc.Reuse(op->dst.var, op->rhs.var.var);
                 auto dstReg32 = regAlloc.Get(op->dst.var);
 
+                // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
+                constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
+                auto overflowValueReg32 = regAlloc.GetTemporary();
+                codegen.xor_(overflowValueReg32, overflowValueReg32);
+                codegen.bt(dstReg32, 31);
+                codegen.adc(overflowValueReg32, maxValue);
+
                 if (dstReg32 == lhsReg32) {
                     codegen.add(dstReg32, rhsReg32);
                 } else if (dstReg32 == rhsReg32) {
@@ -1849,9 +1866,7 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingAddOp *op) {
                 }
 
                 // Clamp on overflow
-                auto maxValReg32 = regAlloc.GetTemporary();
-                codegen.mov(maxValReg32, std::numeric_limits<int32_t>::max());
-                codegen.cmovo(dstReg32, maxValReg32);
+                codegen.cmovo(dstReg32, overflowValueReg32);
             } else if (setFlags) {
                 auto tmpReg32 = regAlloc.GetTemporary();
                 codegen.mov(tmpReg32, lhsReg32);
@@ -1873,63 +1888,96 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingSubtractOp *op) {
         const int64_t rhsVal = bit::sign_extend<32, int64_t>(op->rhs.imm.value);
         const auto [result, overflow] = arm::Saturate(lhsVal - rhsVal);
         AssignImmResultWithOverflow(op->dst, result, overflow, setFlags);
+    } else if (!lhsImm && !rhsImm) {
+        // Both are variables
+        auto lhsReg32 = regAlloc.Get(op->lhs.var.var);
+        auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
+
+        if (op->dst.var.IsPresent()) {
+            regAlloc.Reuse(op->dst.var, op->lhs.var.var);
+            regAlloc.Reuse(op->dst.var, op->rhs.var.var);
+            auto dstReg32 = regAlloc.Get(op->dst.var);
+
+            // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
+            constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
+            auto overflowValueReg32 = regAlloc.GetTemporary();
+            codegen.xor_(overflowValueReg32, overflowValueReg32);
+            codegen.bt(dstReg32, 31);
+            codegen.adc(overflowValueReg32, maxValue);
+
+            if (dstReg32 == lhsReg32) {
+                codegen.sub(dstReg32, rhsReg32);
+            } else if (dstReg32 == rhsReg32) {
+                codegen.sub(dstReg32, lhsReg32);
+            } else {
+                codegen.mov(dstReg32, lhsReg32);
+                codegen.sub(dstReg32, rhsReg32);
+            }
+
+            if (setFlags) {
+                SetVFromFlags();
+            }
+
+            // Clamp on overflow
+            codegen.cmovo(dstReg32, overflowValueReg32);
+        } else if (setFlags) {
+            codegen.cmp(lhsReg32, rhsReg32);
+            SetVFromFlags();
+        }
+    } else if (rhsImm) {
+        // lhs is variable, rhs is immediate
+        auto lhsReg32 = regAlloc.Get(op->lhs.var.var);
+        auto rhsValue = op->rhs.imm.value;
+
+        if (op->dst.var.IsPresent()) {
+            auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+
+            // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
+            constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
+            auto overflowValueReg32 = regAlloc.GetTemporary();
+            codegen.xor_(overflowValueReg32, overflowValueReg32);
+            codegen.bt(dstReg32, 31);
+            codegen.adc(overflowValueReg32, maxValue);
+
+            codegen.sub(dstReg32, rhsValue);
+
+            if (setFlags) {
+                SetVFromFlags();
+            }
+
+            // Clamp on overflow
+            codegen.cmovo(dstReg32, overflowValueReg32);
+        } else if (setFlags) {
+            codegen.cmp(lhsReg32, rhsValue);
+            SetVFromFlags();
+        }
     } else {
-        // At least one of the operands is a variable
-        if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [imm, var] = *split;
-            auto varReg32 = regAlloc.Get(var);
+        // lhs is immediate, rhs is variable
+        auto lhsValue = op->lhs.imm.value;
+        auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
 
-            if (op->dst.var.IsPresent()) {
-                auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, var);
-                CopyIfDifferent(dstReg32, varReg32);
-                codegen.sub(dstReg32, imm);
-                if (setFlags) {
-                    SetVFromFlags();
-                }
+        if (op->dst.var.IsPresent()) {
+            auto dstReg32 = regAlloc.Get(op->dst.var);
 
-                // Clamp on overflow
-                auto maxValReg32 = regAlloc.GetTemporary();
-                codegen.mov(maxValReg32, std::numeric_limits<int32_t>::min());
-                codegen.cmovo(dstReg32, maxValReg32);
-            } else if (setFlags) {
-                auto tmpReg32 = regAlloc.GetTemporary();
-                codegen.mov(tmpReg32, varReg32);
-                codegen.sub(tmpReg32, imm);
+            // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
+            constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
+            auto overflowValueReg32 = regAlloc.GetTemporary();
+            codegen.mov(overflowValueReg32, maxValue + bit::extract<31>(lhsValue));
+
+            codegen.mov(dstReg32, lhsValue);
+            codegen.sub(dstReg32, rhsReg32);
+
+            if (setFlags) {
                 SetVFromFlags();
             }
-        } else {
-            // lhs and rhs are vars
-            auto lhsReg32 = regAlloc.Get(op->lhs.var.var);
-            auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
 
-            if (op->dst.var.IsPresent()) {
-                regAlloc.Reuse(op->dst.var, op->lhs.var.var);
-                regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-                auto dstReg32 = regAlloc.Get(op->dst.var);
-
-                if (dstReg32 == lhsReg32) {
-                    codegen.sub(dstReg32, rhsReg32);
-                } else if (dstReg32 == rhsReg32) {
-                    codegen.sub(dstReg32, lhsReg32);
-                } else {
-                    codegen.mov(dstReg32, lhsReg32);
-                    codegen.sub(dstReg32, rhsReg32);
-                }
-
-                if (setFlags) {
-                    SetVFromFlags();
-                }
-
-                // Clamp on overflow
-                auto maxValReg32 = regAlloc.GetTemporary();
-                codegen.mov(maxValReg32, std::numeric_limits<int32_t>::min());
-                codegen.cmovo(dstReg32, maxValReg32);
-            } else if (setFlags) {
-                auto tmpReg32 = regAlloc.GetTemporary();
-                codegen.mov(tmpReg32, lhsReg32);
-                codegen.sub(tmpReg32, rhsReg32);
-                SetVFromFlags();
-            }
+            // Clamp on overflow
+            codegen.cmovo(dstReg32, overflowValueReg32);
+        } else if (setFlags) {
+            auto dstReg32 = regAlloc.Get(op->dst.var);
+            codegen.mov(dstReg32, lhsValue);
+            codegen.cmp(dstReg32, rhsReg32);
+            SetVFromFlags();
         }
     }
 }
