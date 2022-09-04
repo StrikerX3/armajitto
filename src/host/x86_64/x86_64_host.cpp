@@ -75,7 +75,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 
             // Update PC if condition fails
             const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
-            const auto instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+            const uint32_t instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
             m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
                           block.Location().PC() + block.InstructionCount() * instrSize);
 
