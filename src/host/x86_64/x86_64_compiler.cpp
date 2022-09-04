@@ -1081,7 +1081,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         } else if (op->setCarry) {
             auto valueReg64 = regAlloc.GetTemporary().cvt64();
             codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
-            codegen.bt(valueReg64, shiftReg32);
+            codegen.bt(valueReg64, shiftReg32.cvt64());
             SetCFromFlags();
         }
     } else {
