@@ -54,6 +54,7 @@ inline auto BranchOffset(uint32_t opcode, bool switchToThumb) {
     if (switchToThumb) {
         instr.type = Type::BLX;
         instr.offset |= static_cast<int32_t>(bit24) << 1;
+        instr.offset |= 1;
     } else {
         instr.type = bit24 ? Type::BL : Type::B; // L bit
     }
