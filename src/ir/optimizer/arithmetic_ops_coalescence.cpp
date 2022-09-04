@@ -507,32 +507,28 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
         // Check if the sequence of instructions contains exactly one of the instructions above
         if (value->prev == value->source) {
             if (value->negated) {
-                if (auto maybeSubOp = Cast<IRSubtractOp>(value->writerOp)) {
-                    auto *subOp = *maybeSubOp;
+                if (auto subOp = Cast<IRSubtractOp>(value->writerOp)) {
                     const bool dstMatch = (subOp->dst == var);
                     const bool fwdMatch = (subOp->lhs == value->runningSum) && (subOp->rhs == value->source);
                     const bool revMatch = (subOp->lhs == value->source) && (subOp->rhs == value->runningSum);
                     const bool paramsMatch = (fwdMatch || revMatch);
                     const bool flagsMatch = (subOp->flags == arm::Flags::None);
                     match = dstMatch && paramsMatch && flagsMatch;
-                } else if (auto maybeMvnOp = Cast<IRMoveNegatedOp>(value->writerOp)) {
-                    auto *mvnOp = *maybeMvnOp;
+                } else if (auto mvnOp = Cast<IRMoveNegatedOp>(value->writerOp)) {
                     const bool dstMatch = (mvnOp->dst == var);
                     const bool srcMatch = (mvnOp->value == value->source);
                     const bool flagsMatch = (mvnOp->flags == arm::Flags::None);
                     match = dstMatch && srcMatch && flagsMatch;
                 }
             } else {
-                if (auto maybeAddOp = Cast<IRAddOp>(value->writerOp)) {
-                    auto *addOp = *maybeAddOp;
+                if (auto addOp = Cast<IRAddOp>(value->writerOp)) {
                     const bool dstMatch = (addOp->dst == var);
                     const bool fwdMatch = (addOp->lhs == value->runningSum) && (addOp->rhs == value->source);
                     const bool revMatch = (addOp->lhs == value->source) && (addOp->rhs == value->runningSum);
                     const bool paramsMatch = (fwdMatch || revMatch);
                     const bool flagsMatch = (addOp->flags == arm::Flags::None);
                     match = dstMatch && paramsMatch && flagsMatch;
-                } else if (auto maybeSubOp = Cast<IRSubtractOp>(value->writerOp)) {
-                    auto *subOp = *maybeSubOp;
+                } else if (auto subOp = Cast<IRSubtractOp>(value->writerOp)) {
                     const bool dstMatch = (subOp->dst == var);
                     const bool fwdMatch = (subOp->lhs == -value->runningSum) && (subOp->rhs == value->source);
                     const bool revMatch = (subOp->lhs == value->source) && (subOp->rhs == -value->runningSum);

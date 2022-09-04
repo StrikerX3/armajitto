@@ -2,7 +2,6 @@
 
 #include "armajitto/ir/defs/opcode_types.hpp"
 
-#include <optional>
 #include <string>
 
 namespace armajitto::ir {
@@ -88,13 +87,13 @@ struct IROpBase : public IROp {
 };
 
 template <typename T>
-std::optional<T *> Cast(IROp *op) {
+inline T *Cast(IROp *op) {
     if (op == nullptr) {
-        return std::nullopt;
+        return nullptr;
     } else if (T::kOpcodeType == op->GetType()) {
         return static_cast<T *>(op);
     } else {
-        return std::nullopt;
+        return nullptr;
     }
 }
 

@@ -575,8 +575,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
         // Check if the sequence of instructions contains exactly this instruction:
         //   const <var>, <value->value>
         if (value->prev == value->source) {
-            if (auto maybeConstOp = Cast<IRConstantOp>(value->writerOp)) {
-                auto *constOp = *maybeConstOp;
+            if (auto constOp = Cast<IRConstantOp>(value->writerOp)) {
                 match = (constOp->dst == var) && (constOp->value == value->knownBitsValue);
             }
         }

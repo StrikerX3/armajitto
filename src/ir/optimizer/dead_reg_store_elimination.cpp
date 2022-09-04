@@ -302,7 +302,7 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordGPRRead(GPRArg gpr, Variab
     // instructions
     if (versionEntry.writeOp != nullptr) {
         if (auto gprStoreOp = Cast<IRSetRegisterOp>(versionEntry.writeOp)) {
-            if (gprStoreOp.value()->dst == gpr) {
+            if (gprStoreOp->dst == gpr) {
                 m_emitter.Erase(loadOp);
                 m_emitter.Erase(versionEntry.writeOp);
                 versionEntry.writeOp = nullptr;
@@ -393,7 +393,7 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRRead(size_t index, Vari
                 versionEntry.writeOp = nullptr;
             }
         } else if (auto spsrStoreOp = Cast<IRSetSPSROp>(versionEntry.writeOp)) {
-            if (index == SPSRIndex(spsrStoreOp.value()->mode)) {
+            if (index == SPSRIndex(spsrStoreOp->mode)) {
                 m_emitter.Erase(loadOp);
                 m_emitter.Erase(versionEntry.writeOp);
                 versionEntry.writeOp = nullptr;
