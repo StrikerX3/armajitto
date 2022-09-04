@@ -39,6 +39,10 @@ public:
         return false;
     }
 
+    void Clear() {
+        m_head = m_tail;
+    }
+
 private:
     std::array<T, capacity> m_items;
     size_t m_head = 0;

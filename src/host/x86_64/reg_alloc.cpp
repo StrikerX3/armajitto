@@ -7,20 +7,25 @@ namespace armajitto::x86_64 {
 // TODO: include ECX
 inline constexpr auto kAvailableRegs = {/*ecx,*/ edx, esi, edi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d};
 
+inline uint32_t SpillSlotOffset(size_t spillSlot) {
+    return abi::kVarSpillBaseOffset + spillSlot * sizeof(uint32_t);
+}
+
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc)
     : m_codegen(code)
     , m_varLifetimes(alloc)
-    , m_varAllocStates(&alloc) {
+    , m_varAllocStates(&alloc) {}
 
+void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
+    m_freeRegs.Clear();
     for (auto reg : kAvailableRegs) {
         m_freeRegs.Push(reg);
     }
+    m_freeSpillSlots.Clear();
     for (uint32_t i = 0; i < abi::kMaxSpilledRegs; i++) {
         m_freeSpillSlots.Push(i);
     }
-}
 
-void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
     m_varAllocStates.resize(block.VariableCount());
     m_varLifetimes.Analyze(block);
     m_regToVar.fill({});
@@ -45,19 +50,18 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
         if (entry.spillSlot != ~0) {
             // Variable was spilled; bring it back to a register
             entry.reg = AllocateRegister();
-            m_codegen.mov(entry.reg, dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)]);
+            m_codegen.mov(entry.reg, dword[rbp + SpillSlotOffset(entry.spillSlot)]);
             m_freeSpillSlots.Push(entry.spillSlot);
             entry.spillSlot = ~0;
-            m_regToVar[entry.reg.getIdx()] = var;
         }
     } else {
         // Variable is not allocated; allocate now
         entry.reg = AllocateRegister();
         entry.allocated = true;
         entry.spillSlot = ~0;
-        m_regToVar[entry.reg.getIdx()] = var;
     }
 
+    m_regToVar[entry.reg.getIdx()] = var;
     m_regsInUse.set(entry.reg.getIdx());
     UpdateLRUQueue(entry.reg.getIdx());
     return entry.reg;
@@ -187,7 +191,7 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     // Spill the variable
     auto &entry = m_varAllocStates[varIndex];
     entry.spillSlot = m_freeSpillSlots.Pop();
-    m_codegen.mov(dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)], entry.reg);
+    m_codegen.mov(dword[rbp + SpillSlotOffset(entry.spillSlot)], entry.reg);
     return reg.cvt32();
 }
 
