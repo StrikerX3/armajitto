@@ -33,7 +33,7 @@ inline constexpr T Align(T value) {
 // Register spill area definitions
 
 // Maximum number of spilled registers -- determines the stack reserve size
-inline constexpr size_t kMaxSpilledRegs = 32;
+inline constexpr uint32_t kMaxSpilledRegs = 32;
 
 // Size of variable spill area in bytes
 inline constexpr size_t kVarSpillStackSize = kMaxSpilledRegs * sizeof(uint32_t);

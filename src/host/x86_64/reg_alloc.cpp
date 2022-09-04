@@ -13,6 +13,9 @@ RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memor
     for (auto reg : {/*ecx,*/ edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {
         m_freeRegs.Push(reg);
     }
+    for (uint32_t i = 0; i < abi::kMaxSpilledRegs; i++) {
+        m_freeSpillSlots.Push(i);
+    }
 }
 
 void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
@@ -136,9 +139,28 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
         return reg;
     }
 
-    // No more free registers
+    // No more free registers; spill a register onto the stack
+    if (m_freeSpillSlots.IsEmpty()) {
+        throw std::runtime_error("No more free registers or spill slots");
+    }
+
+    // Choose a register to spill
+    // TODO: use LRU queue
+    // auto reg = m_usedRegs.Pop();
+
+    // Find out which variable is currently using the register
+    // TODO: reg -> variable map
+    // auto varIndex = m_regToVar[reg.getIdx()];
+
+    // Spill the variable
+    // TODO: implement the above
+    // auto &entry = m_varAllocStates[varIndex];
+    // entry.spillSlot = m_freeSpillSlots.Pop();
+    // m_code.mov(dword[rsp - entry.spillSlot * sizeof(uint32_t)], entry.reg);
+
     // TODO: implement spilling
-    throw std::runtime_error("No more free registers; variable spilling is not yet implemented");
+    // return reg;
+    throw std::runtime_error("Variable spilling is not yet implemented");
 }
 
 void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
