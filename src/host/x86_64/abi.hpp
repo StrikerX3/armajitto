@@ -37,6 +37,7 @@ inline constexpr uint32_t kMaxSpilledRegs = 32;
 
 // Size of variable spill area in bytes
 inline constexpr size_t kVarSpillStackSize = kMaxSpilledRegs * sizeof(uint32_t);
+inline constexpr size_t kStackCycleCounterSize = sizeof(uint64_t);
 
 // Statically allocaated registers
 inline constexpr auto kHostFlagsReg = eax;    // eax = host flags (ah = NZC, al = V)
@@ -44,8 +45,9 @@ inline constexpr auto kARMStateReg = rbx;     // rbx = pointer to ARM state stru
 inline constexpr auto kShiftCounterReg = rcx; // rcx = shift counter (for use in shift operations)
 inline constexpr auto kVarSpillBaseReg = rbp; // rbp = cycle counter (rbp+0) and variable spill (rbp+0x10 + index*4)
 
-inline constexpr auto kCycleCountOffset = 0x0;    // rbp + 0x0 = cycle counter (qword)
-inline constexpr auto kVarSpillBaseOffset = 0x10; // rbp + 0x10 = variable spill area base offset (dwords)
+inline constexpr auto kCycleCountOffset = 0x0; // rbp+0x0 = cycle counter (qword)
+inline constexpr auto kVarSpillBaseOffset = kCycleCountOffset + kStackCycleCounterSize; // rbp+0x8 = variable spill area
+                                                                                        // base offset (dwords)
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ABI specifications for each supported system.
@@ -99,7 +101,6 @@ inline constexpr size_t kMinStackReserveSize = 0;
 inline constexpr size_t kSavedRegsSize = (kNonvolatileRegs.size() + 1) * sizeof(uint64_t); // All volatile regs + RIP
 inline constexpr size_t kStackAlignmentOffset = Align<kStackAlignmentShift>(kSavedRegsSize) - kSavedRegsSize;
 
-inline constexpr size_t kStackCycleCounterSize = sizeof(uint64_t);
 inline constexpr size_t kStackReserveSize =
     kStackAlignmentOffset + ((kVarSpillStackSize + kStackCycleCounterSize < kMinStackReserveSize)
                                  ? kMinStackReserveSize

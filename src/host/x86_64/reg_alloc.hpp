@@ -76,8 +76,10 @@ private:
     util::CircularBuffer<Xbyak::Reg32, 16> m_freeRegs;
     util::CircularBuffer<Xbyak::Reg32, 16> m_tempRegs;
     util::CircularBuffer<uint32_t, abi::kMaxSpilledRegs + 1> m_freeSpillSlots;
+    std::array<ir::Variable, 16> m_regToVar;
 
     std::bitset<16> m_allocatedRegs;
+    std::bitset<16> m_regsInUse;
 
     Xbyak::Reg32 AllocateRegister();
 

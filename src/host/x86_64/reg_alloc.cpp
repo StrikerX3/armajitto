@@ -4,13 +4,15 @@
 
 namespace armajitto::x86_64 {
 
+// TODO: include ECX
+inline constexpr auto kAvailableRegs = {/*ecx,*/ edx, esi, edi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d};
+
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc)
     : m_codegen(code)
     , m_varLifetimes(alloc)
     , m_varAllocStates(&alloc) {
 
-    // TODO: include ECX
-    for (auto reg : {/*ecx,*/ edx, edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {
+    for (auto reg : kAvailableRegs) {
         m_freeRegs.Push(reg);
     }
     for (uint32_t i = 0; i < abi::kMaxSpilledRegs; i++) {
@@ -21,6 +23,7 @@ RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memor
 void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
     m_varAllocStates.resize(block.VariableCount());
     m_varLifetimes.Analyze(block);
+    m_regToVar.fill({});
 }
 
 void RegisterAllocator::SetInstruction(const ir::IROp *op) {
@@ -29,32 +32,47 @@ void RegisterAllocator::SetInstruction(const ir::IROp *op) {
 
 Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
     if (!var.IsPresent()) {
-        throw std::runtime_error("attempted to allocate a register to an absent variable");
+        throw std::runtime_error("Attempted to allocate a register to an absent variable");
     }
 
     const auto varIndex = var.Index();
+    // printf("getting register for var %zu\n", varIndex);
     auto &entry = m_varAllocStates[varIndex];
     if (entry.allocated) {
         // Variable is allocated
         if (entry.spillSlot != ~0) {
+            // printf("  unspilling from slot %zu\n", entry.spillSlot);
             // Variable was spilled; bring it back to a register
             entry.reg = AllocateRegister();
-            m_codegen.mov(entry.reg, dword[rsp - entry.spillSlot * sizeof(uint32_t)]);
+            m_codegen.mov(entry.reg, dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)]);
+            m_freeSpillSlots.Push(entry.spillSlot);
             entry.spillSlot = ~0;
+            m_regToVar[entry.reg.getIdx()] = var;
         }
     } else {
+        // printf("  allocating new register\n");
         // Variable is not allocated; allocate now
         entry.reg = AllocateRegister();
         entry.allocated = true;
         entry.spillSlot = ~0;
+        m_regToVar[entry.reg.getIdx()] = var;
     }
 
+    /*if (!m_regsInUse.test(entry.reg.getIdx())) {
+        printf("  register %d in use by current op\n", entry.reg.getIdx());
+    }*/
+    m_regsInUse.set(entry.reg.getIdx());
     return entry.reg;
 }
 
 Xbyak::Reg32 RegisterAllocator::GetTemporary() {
+    // printf("  allocating temporary register\n");
     auto reg = AllocateRegister();
     m_tempRegs.Push(reg);
+    /*if (!m_regsInUse.test(reg.getIdx())) {
+        printf("  register %d in use by current op\n", reg.getIdx());
+    }*/
+    m_regsInUse.set(reg.getIdx());
     return reg;
 }
 
@@ -82,6 +100,7 @@ void RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
     // Copy allocation and mark src as deallocated
     dstEntry = srcEntry;
     srcEntry.allocated = false;
+    // printf("reused register %d from var %zu to var %zu\n", dstEntry.reg.getIdx(), srcIndex, dstIndex);
 }
 
 bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
@@ -98,15 +117,14 @@ bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
     }
 
     // Check if the register was temporarily allocated
-    auto it = m_tempRegs.Find(tmpReg);
-    if (it == m_tempRegs.Capacity()) {
+    if (!m_tempRegs.Erase(tmpReg)) {
         return false;
     }
 
     // Turn temporary register into "permanent" by assigning it to the variable
-    m_tempRegs.Erase(it);
     entry.allocated = true;
     entry.reg = tmpReg;
+    // printf("assigned temporary register %d to var %zu\n", tmpReg.getIdx(), varIndex);
     return true;
 }
 
@@ -124,6 +142,11 @@ void RegisterAllocator::ReleaseTemporaries() {
         auto reg = m_tempRegs.Pop();
         m_allocatedRegs.set(reg.getIdx(), false);
         m_freeRegs.Push(reg);
+        /*printf("released temporary register %d\n", reg.getIdx());
+        if (m_regsInUse.test(reg.getIdx())) {
+            printf("  register %d no longer in use by current op\n", reg.getIdx());
+        }*/
+        m_regsInUse.set(reg.getIdx(), false);
     }
 }
 
@@ -136,44 +159,65 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     if (!m_freeRegs.IsEmpty()) {
         auto reg = m_freeRegs.Pop();
         m_allocatedRegs.set(reg.getIdx());
+        // printf("    allocated free register %d\n", reg.getIdx());
         return reg;
     }
 
     // No more free registers; spill a register onto the stack
     if (m_freeSpillSlots.IsEmpty()) {
-        throw std::runtime_error("No more free registers or spill slots");
+        throw std::runtime_error("Ran out of free registers and spill slots");
     }
 
     // Choose a register to spill
     // TODO: use LRU queue
-    // auto reg = m_usedRegs.Pop();
+    Xbyak::Reg reg{};
+    for (auto possibleReg : kAvailableRegs) {
+        // Skip registers in use by the current instruction
+        if (m_regsInUse.test(possibleReg.getIdx())) {
+            continue;
+        }
+        // The register should be allocated to a variable
+        assert(m_allocatedRegs.test(possibleReg.getIdx()));
+        assert(m_regToVar[possibleReg.getIdx()].IsPresent());
+        reg = possibleReg;
+        break;
+    }
+    if (reg.isNone()) {
+        throw std::runtime_error("Current op uses too many registers");
+    }
 
     // Find out which variable is currently using the register
-    // TODO: reg -> variable map
-    // auto varIndex = m_regToVar[reg.getIdx()];
+    auto varIndex = m_regToVar[reg.getIdx()].Index();
 
     // Spill the variable
-    // TODO: implement the above
-    // auto &entry = m_varAllocStates[varIndex];
-    // entry.spillSlot = m_freeSpillSlots.Pop();
-    // m_codegen.mov(dword[rsp - entry.spillSlot * sizeof(uint32_t)], entry.reg);
-
-    // TODO: implement spilling
-    // return reg;
-    throw std::runtime_error("Variable spilling is not yet implemented");
+    auto &entry = m_varAllocStates[varIndex];
+    entry.spillSlot = m_freeSpillSlots.Pop();
+    m_codegen.mov(dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)], entry.reg);
+    // printf("    spilled variable %zu to slot %zu\n", varIndex, entry.spillSlot);
+    // printf("    allocated register %d\n", reg.getIdx());
+    return reg.cvt32();
 }
 
 void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
-    if (m_varLifetimes.IsEndOfLife(var, op)) {
-        // Deallocate if allocated
-        const auto varIndex = var.Index();
-        auto &entry = m_varAllocStates[varIndex];
-        if (entry.allocated) {
+    // Deallocate if allocated
+    const auto varIndex = var.Index();
+    auto &entry = m_varAllocStates[varIndex];
+    if (entry.allocated) {
+        // Deallocate register
+        if (m_varLifetimes.IsEndOfLife(var, op)) {
             entry.allocated = false;
             if (entry.spillSlot == ~0) {
                 m_freeRegs.Push(entry.reg);
                 m_allocatedRegs.set(entry.reg.getIdx(), false);
+                m_regToVar[entry.reg.getIdx()] = {};
+                // printf("released register %d\n", entry.reg.getIdx());
             }
+        }
+
+        // Mark register as not in use by current op
+        if (entry.spillSlot == ~0) {
+            m_regsInUse.set(entry.reg.getIdx(), false);
+            // printf("  register %d no longer in use by current op\n", entry.reg.getIdx());
         }
     }
 }

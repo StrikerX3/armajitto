@@ -25,19 +25,18 @@ public:
         return capacity;
     }
 
-    size_t Find(const T &item) {
+    bool Erase(const T &item) {
+        if (m_head == m_tail) {
+            return false;
+        }
         for (size_t i = m_head; i != m_tail; Advance(i)) {
             if (m_items[i] == item) {
-                return i;
+                Retrocede(m_tail);
+                std::swap(m_items[i], m_items[m_tail]);
+                return true;
             }
         }
-        return capacity;
-    }
-
-    void Erase(size_t position) {
-        assert((m_head >= m_tail) ? position >= m_head : position < m_tail);
-        std::swap(m_items[position], m_items[m_tail]);
-        Retrocede(m_tail);
+        return false;
     }
 
 private:
