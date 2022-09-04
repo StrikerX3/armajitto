@@ -546,7 +546,7 @@ void testTranslatorAndOptimizer() {
     // LDM, STM
     // writeARM(0xE8A00006); // stmia r0!, {r1-r2}
     // writeARM(0xE8800018); // stmia r0, {r3-r4}
-    writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
+    // writeARM(0xE9300060); // ldmdb r0!, {r5-r6}
     // writeARM(0xE9100180); // ldmdb r0, {r7-r8}
     // writeARM(0xE9A00006); // stmib r0!, {r1-r2}
     // writeARM(0xE9800018); // stmib r0, {r3-r4}
@@ -558,7 +558,7 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE8AF0001); // stmia r15!, {r0}
     // writeARM(0xE8BF0000); // ldmia r15!, {}
     // writeARM(0xE9BF0000); // ldmib r15!, {}
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xEAFFFFFE); // b $
 
     // SWI, BKPT, UDF
     // writeARM(0xEF123456); // swi #0x123456
@@ -611,6 +611,12 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xE8F84210); // ldmia r8!, {r4, r9, r14}^
     // writeARM(0xEAFFFFFE); // b $
 
+    // Large amount of variables/registers (requires variable spilling)
+    writeARM(0xE2108734); // ands r8, r0, #52, #14
+    writeARM(0xE98E5C9D); // stmib lr, {r0, r2, r3, r4, r7, sl, fp, ip, lr}
+    writeARM(0xE8A1DD2B); // stm r1!, {r0, r1, r3, r5, r8, sl, fp, ip, lr, pc}
+    writeARM(0xEAFFFFFE); // b $
+
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
     armajitto::memory::PMRAllocatorWrapper pmrAlloc{alloc};
@@ -618,11 +624,11 @@ void testTranslatorAndOptimizer() {
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    /*armajitto::ir::Translator translator{context};
-    translator.Translate(*block);*/
+    armajitto::ir::Translator translator{context};
+    translator.Translate(*block);
 
     // Emit IR code manually
-    armajitto::ir::Emitter emitter{*block};
+    // armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -802,7 +808,7 @@ void testTranslatorAndOptimizer() {
     emitter.SetRegister(armajitto::arm::GPR::R3, hi);                // st r3, $v3*/
 
     // Broken arithmetic optimization
-    const auto memD = armajitto::ir::MemAccessBus::Data;
+    /*const auto memD = armajitto::ir::MemAccessBus::Data;
     const auto memU = armajitto::ir::MemAccessMode::Unaligned;
     const auto memH = armajitto::ir::MemAccessSize::Half;
     const auto memW = armajitto::ir::MemAccessSize::Word;
@@ -823,7 +829,7 @@ void testTranslatorAndOptimizer() {
     emitter.LoadFlags(armajitto::arm::Flags::NZCV);          // ld $v7, cpsr
                                                              // ldflg.nzcv $v8, $v7
                                                              // st cpsr, $v8
-    emitter.SetRegister(armajitto::arm::GPR::PC, 0x200555c); // st pc, #0x200555c
+    emitter.SetRegister(armajitto::arm::GPR::PC, 0x200555c); // st pc, #0x200555c*/
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
@@ -1551,32 +1557,37 @@ void compilerStressTest() {
     armajitto::memory::PMRAllocatorWrapper pmrRefAlloc{blockAlloc};
 
     // Create host compiler
-    armajitto::x86_64::x64Host host{context, pmrRefAlloc};
+    armajitto::x86_64::x64Host host{context, pmrRefAlloc, 32u * 1024u * 1024u};
     armajitto::LocationRef entryLoc{};
 
     const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
 
     std::default_random_engine generator;
-    std::uniform_int_distribution<uint32_t> distribution(0xE0000000, 0xEFFFFFFF);
+    std::uniform_int_distribution<uint32_t> distARM(0xE0000000, 0xEFFFFFFF);
+    std::uniform_int_distribution<uint16_t> distThumb(0x0000, 0xFFFF);
 
     const uint32_t blockSize = 32;
     const uint32_t finalAddress = baseAddress + blockSize * instrSize;
     if (thumb) {
-        sys.ROMWriteHalf(finalAddress + instrSize, 0xE7FE); // b $
+        sys.ROMWriteHalf(finalAddress, 0xE7FE); // b $
     } else {
-        sys.ROMWriteWord(finalAddress + instrSize, 0xEAFFFFFE); // b $
+        sys.ROMWriteWord(finalAddress, 0xEAFFFFFE); // b $
     }
 
     using clk = std::chrono::steady_clock;
 
     // Compile blocks in a loop
-    const int numBlocks = 50'000;
+    const int numBlocks = 1'000'000;
     printf("compiling %d blocks with %u instructions...\n", numBlocks, blockSize);
     auto t1 = clk::now();
     for (int i = 0; i < numBlocks; ++i) {
         // Generate enough random instructions to fill the block
         for (size_t offset = 0; offset < blockSize; offset++) {
-            sys.ROMWriteWord(baseAddress, distribution(generator));
+            if (thumb) {
+                sys.ROMWriteHalf(baseAddress + offset * instrSize, distThumb(generator));
+            } else {
+                sys.ROMWriteWord(baseAddress + offset * instrSize, distARM(generator));
+            }
         }
 
         uint32_t currAddress = baseAddress + 2 * instrSize;
