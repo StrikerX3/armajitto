@@ -9,7 +9,7 @@ namespace armajitto::ir {
 template <typename Visitor, typename ReturnType = std::invoke_result_t<Visitor, IROp *>>
 ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
     if (op != nullptr) {
-        switch (op->GetType()) {
+        switch (op->type) {
         case IROpcodeType::GetRegister: return visitor(Cast<IRGetRegisterOp>(op));
         case IROpcodeType::SetRegister: return visitor(Cast<IRSetRegisterOp>(op));
         case IROpcodeType::GetCPSR: return visitor(Cast<IRGetCPSROp>(op));

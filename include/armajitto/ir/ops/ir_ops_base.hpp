@@ -7,7 +7,11 @@
 namespace armajitto::ir {
 
 struct IROp {
-    virtual IROpcodeType GetType() const = 0;
+    const IROpcodeType type;
+
+    IROp(IROpcodeType type)
+        : type(type) {}
+
     virtual std::string ToString() const = 0;
 
     IROp *Prev() {
@@ -81,16 +85,15 @@ template <IROpcodeType opcodeType>
 struct IROpBase : public IROp {
     static constexpr IROpcodeType kOpcodeType = opcodeType;
 
-    IROpcodeType GetType() const final {
-        return opcodeType;
-    }
+    IROpBase()
+        : IROp(opcodeType) {}
 };
 
 template <typename T>
 inline T *Cast(IROp *op) {
     if (op == nullptr) {
         return nullptr;
-    } else if (T::kOpcodeType == op->GetType()) {
+    } else if (T::kOpcodeType == op->type) {
         return static_cast<T *>(op);
     } else {
         return nullptr;

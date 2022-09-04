@@ -386,7 +386,7 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRRead(size_t index, Vari
     // If the current version of the PSR comes from a previous store to the same PSR without modifications, erase both
     // instructions
     if (versionEntry.writeOp != nullptr) {
-        if (versionEntry.writeOp->GetType() == IROpcodeType::SetCPSR) {
+        if (versionEntry.writeOp->type == IROpcodeType::SetCPSR) {
             if (index == 0) {
                 m_emitter.Erase(loadOp);
                 m_emitter.Erase(versionEntry.writeOp);

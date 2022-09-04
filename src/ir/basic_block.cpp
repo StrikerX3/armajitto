@@ -61,7 +61,7 @@ void BasicBlock::RenameVariables() {
 
     IROp *op = m_opsHead;
     while (op != nullptr) {
-        switch (op->GetType()) {
+        switch (op->type) {
         case IROpcodeType::GetRegister: {
             auto opImpl = Cast<IRGetRegisterOp>(op);
             map(opImpl->dst);
