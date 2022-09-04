@@ -80,6 +80,7 @@ add_library(armajitto
     include/armajitto/ir/ops/impl/ir_reg_ops.hpp
     include/armajitto/util/bitmask_enum.hpp
     include/armajitto/util/bit_ops.hpp
+    include/armajitto/util/callback.hpp
     include/armajitto/util/pointer_cast.hpp
     include/armajitto/util/scope_guard.hpp
     include/armajitto/util/type_traits.hpp

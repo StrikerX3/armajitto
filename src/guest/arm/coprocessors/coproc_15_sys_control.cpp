@@ -192,12 +192,12 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
         break;
 
     case 0x0750: // 0,C7,C5,0 - Invalidate Entire Instruction Cache
-        // TODO: m_cache.InvalidateCodeCache();
+        m_invalidateCodeCacheCallback(0, 0xFFFFFFFF);
         break;
     case 0x0751: { // 0,C7,C5,1 - Invalidate Instruction Cache Line
-        // uint32_t start = (value & ~0x1F);
-        // uint32_t end = start + 0x1F;
-        // TODO: m_cache.InvalidateCodeCacheRange(start, end);
+        uint32_t start = (value & ~0x1F);
+        uint32_t end = start + 0x1F;
+        m_invalidateCodeCacheCallback(start, end);
         break;
     }
     case 0x0752: // 0,C7,C5,2 - Invalidate Instruction Cache Line

@@ -22,6 +22,9 @@ x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxC
     , m_codegen(maxCodeSize, m_codeBuffer.get())
     , m_alloc(alloc) {
 
+    context.GetARMState().GetSystemControlCoprocessor().SetInvalidateCodeCacheCallback(
+        util::MakeClassMemberCallback<&x64Host::InvalidateCodeCacheRange>(this));
+
     m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
 
     CompileCommon();
@@ -115,6 +118,10 @@ void x64Host::InvalidateCodeCache() {
 }
 
 void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
+    if (start == 0 && end == 0xFFFFFFFF) {
+        InvalidateCodeCache();
+        return;
+    }
     auto it = m_compiledCode.blockCache.lower_bound(start);
     while (it != m_compiledCode.blockCache.end() && it->first >= start && it->first <= end) {
         // Undo patches

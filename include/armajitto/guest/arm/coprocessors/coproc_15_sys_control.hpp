@@ -2,6 +2,7 @@
 
 #include "armajitto/guest/arm/coprocessor.hpp"
 #include "armajitto/guest/arm/exec_state.hpp"
+#include "armajitto/util/callback.hpp"
 
 #include "cp15/cp15_cache.hpp"
 #include "cp15/cp15_control.hpp"
@@ -14,6 +15,8 @@
 #include <vector>
 
 namespace armajitto::arm {
+
+using InvalidateCodeCacheCallback = util::Callback<void(uint32_t start, uint32_t end)>;
 
 class SystemControlCoprocessor : public Coprocessor {
 public:
@@ -42,6 +45,12 @@ public:
 
     // Configures the cache with the specified parameters.
     void ConfigureCache(const cp15::Cache::Configuration &config);
+
+    // Configures the callback invoked when the code cache is invalidated.
+    // Should be automatically invoked by hosts.
+    void SetInvalidateCodeCacheCallback(InvalidateCodeCacheCallback callback) {
+        m_invalidateCodeCacheCallback = callback;
+    }
 
     cp15::Identification &GetIdentification() {
         return m_id;
@@ -82,6 +91,8 @@ private:
     bool m_installed = false;
 
     ExecState &m_execState;
+
+    InvalidateCodeCacheCallback m_invalidateCodeCacheCallback;
 
     cp15::Identification m_id;
     cp15::ControlRegister m_ctl;
