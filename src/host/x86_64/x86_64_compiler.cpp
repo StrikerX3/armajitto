@@ -2715,7 +2715,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     codegen.push(abi::kIntReturnValueReg);
 
     // Save all used volatile registers
-    std::vector<Xbyak::Reg64> savedRegs;
+    std::array<Xbyak::Reg64, abi::kVolatileRegs.size()> savedRegs;
+    size_t savedRegsCount = 0;
     for (auto reg : abi::kVolatileRegs) {
         // The return register is handled on its own
         if (reg == abi::kIntReturnValueReg) {
@@ -2725,11 +2726,11 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         // Only push allocated registers
         if (regAlloc.IsRegisterAllocated(reg)) {
             codegen.push(reg);
-            savedRegs.push_back(reg);
+            savedRegs[savedRegsCount++] = reg;
         }
     }
 
-    const uint64_t volatileRegsSize = (savedRegs.size() + 1) * sizeof(uint64_t);
+    const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
     // Put arguments in the corresponding argument registers
@@ -2775,8 +2776,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     }
 
     // Pop all saved registers
-    for (auto it = savedRegs.rbegin(); it != savedRegs.rend(); it++) {
-        codegen.pop(*it);
+    for (int i = savedRegsCount; i >= 0; --i) {
+        codegen.pop(savedRegs[i]);
     }
 
     // Copy result to destination register if present
