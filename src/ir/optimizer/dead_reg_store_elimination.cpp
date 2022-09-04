@@ -13,7 +13,6 @@ DeadRegisterStoreEliminationOptimizerPass::DeadRegisterStoreEliminationOptimizer
     , m_varToVersionMap(&alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
-    m_versionToVarMap.resize(varCount * 2);
     m_varToVersionMap.resize(varCount * 2);
 
     m_nextVersion = 1;
@@ -26,6 +25,8 @@ DeadRegisterStoreEliminationOptimizerPass::DeadRegisterStoreEliminationOptimizer
         ver = m_nextVersion++;
     }
     m_gprWrites.fill(nullptr);
+
+    m_versionToVarMap.resize(m_nextVersion + varCount * 2);
 }
 
 void DeadRegisterStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
