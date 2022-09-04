@@ -588,7 +588,8 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
-        auto [result, q] = arm::Saturate((int64_t)op->lhs.imm.value + op->rhs.imm.value);
+        auto [result, q] = arm::Saturate(bit::sign_extend<32, int64_t>(op->lhs.imm.value) +
+                                         bit::sign_extend<32, int64_t>(op->rhs.imm.value));
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
@@ -617,7 +618,8 @@ void ConstPropagationOptimizerPass::Process(IRSaturatingSubtractOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);
     if (op->lhs.immediate && op->rhs.immediate) {
-        auto [result, q] = arm::Saturate((int64_t)op->lhs.imm.value - op->rhs.imm.value);
+        auto [result, q] = arm::Saturate(bit::sign_extend<32, int64_t>(op->lhs.imm.value) -
+                                         bit::sign_extend<32, int64_t>(op->rhs.imm.value));
         Assign(op->dst, result);
         m_emitter.Erase(op);
 
