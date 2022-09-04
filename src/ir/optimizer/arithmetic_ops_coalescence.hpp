@@ -39,6 +39,8 @@ public:
     ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
     void PreProcess(IROp *op) final;
     void PostProcess(IROp *op) final;
 

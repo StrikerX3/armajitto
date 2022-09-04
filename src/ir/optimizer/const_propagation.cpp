@@ -18,6 +18,13 @@ ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter, s
     m_varSubsts.resize(varCount);
 }
 
+void ConstPropagationOptimizerPass::Reset() {
+    std::fill(m_varSubsts.begin(), m_varSubsts.end(), Value{});
+    m_gprSubsts.fill({});
+    m_knownHostFlagsMask = arm::Flags::None;
+    m_knownHostFlagsValues = arm::Flags::None;
+}
+
 void ConstPropagationOptimizerPass::PreProcess() {
     // PC is known at entry
     Assign(arm::GPR::PC, m_emitter.BasePC());

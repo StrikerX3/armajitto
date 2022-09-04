@@ -15,6 +15,12 @@ ArithmeticOpsCoalescenceOptimizerPass::ArithmeticOpsCoalescenceOptimizerPass(Emi
     m_varLifetimes.Analyze(emitter.GetBlock());
 }
 
+void ArithmeticOpsCoalescenceOptimizerPass::Reset() {
+    std::fill(m_values.begin(), m_values.end(), Value{});
+    m_varSubst.Reset();
+    m_hostFlagsStateTracker.Reset();
+}
+
 void ArithmeticOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
     MarkDirty(m_varSubst.Substitute(op));
 }

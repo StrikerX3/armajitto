@@ -9,6 +9,10 @@ VarSubstitutor::VarSubstitutor(size_t varCount, std::pmr::memory_resource &alloc
     m_varSubsts.resize(varCount);
 }
 
+void VarSubstitutor::Reset() {
+    std::fill(m_varSubsts.begin(), m_varSubsts.end(), Variable{});
+}
+
 void VarSubstitutor::Assign(VariableArg dst, VariableArg src) {
     if (!dst.var.IsPresent() || !src.var.IsPresent()) {
         return;

@@ -6,6 +6,10 @@
 
 namespace armajitto::ir {
 
+void DeadHostFlagStoreEliminationOptimizerPass::Reset() {
+    m_writtenFlags = arm::Flags::None;
+}
+
 void DeadHostFlagStoreEliminationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     if (op->setCarry) {
         RecordHostFlagsWrite(arm::Flags::C, op);

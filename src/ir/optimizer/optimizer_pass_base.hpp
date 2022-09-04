@@ -18,6 +18,8 @@ protected:
     Emitter &m_emitter;
     bool m_backward;
 
+    virtual void Reset() {}
+
     virtual void PreProcess() {}
     virtual void PostProcess() {}
 

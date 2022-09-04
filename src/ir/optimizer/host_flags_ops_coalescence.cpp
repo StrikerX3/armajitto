@@ -7,6 +7,14 @@ namespace armajitto::ir {
 HostFlagsOpsCoalescenceOptimizerPass::HostFlagsOpsCoalescenceOptimizerPass(Emitter &emitter)
     : OptimizerPassBase(emitter) {}
 
+void HostFlagsOpsCoalescenceOptimizerPass::Reset() {
+    m_storeFlagsOp = nullptr;
+    m_loadFlagsOpN = nullptr;
+    m_loadFlagsOpZ = nullptr;
+    m_loadFlagsOpC = nullptr;
+    m_loadFlagsOpV = nullptr;
+}
+
 void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     if (op->setCarry) {
         UpdateFlags(arm::Flags::C);

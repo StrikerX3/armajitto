@@ -10,12 +10,15 @@
 namespace armajitto::ir {
 
 bool OptimizerPassBase::Optimize() {
+    m_dirty = false;
     m_emitter.ClearDirtyFlag();
     if (m_backward) {
         m_emitter.GoToTail();
     } else {
         m_emitter.GoToHead();
     }
+
+    Reset();
 
     PreProcess();
     while (IROp *op = m_emitter.GetCurrentOp()) {

@@ -4,6 +4,11 @@
 
 namespace armajitto::ir {
 
+void HostFlagStateTracker::Reset() {
+    m_known = arm::Flags::None;
+    m_state = arm::Flags::None;
+}
+
 void HostFlagStateTracker::Update(IROp *op) {
     VisitIROp(op, [this](auto *op) { return UpdateImpl(op); });
 }

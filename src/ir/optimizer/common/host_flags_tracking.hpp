@@ -15,6 +15,8 @@ namespace armajitto::ir {
 // Does not work on a backward scan.
 class HostFlagStateTracker {
 public:
+    void Reset();
+
     // Update the state of the host flags from the specified IROp.
     void Update(IROp *op);
 

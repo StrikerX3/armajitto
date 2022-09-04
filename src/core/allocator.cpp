@@ -60,6 +60,34 @@ void *Allocator::AllocateRaw(std::size_t bytes, std::size_t alignment) {
     m_head->nextAlloc += bytes + alignOffset;
     ++m_head->numAllocs;
     return ptr + alignOffset;
+
+    /*Page *page = m_head;
+    uint8_t *ptr = nullptr;
+    while (page != nullptr) {
+        auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
+        const auto freeSize = page->size - (page->nextAlloc - page->ptr);
+        if (bytes + alignOffset <= freeSize) {
+            ptr = page->nextAlloc;
+            break;
+        }
+        page = page->next;
+    }
+    if (page == nullptr || ptr == nullptr) {
+        if (!AllocatePage(bytes)) {
+            return nullptr;
+        }
+        page = m_head;
+        ptr = m_head->nextAlloc;
+    }
+
+    auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
+    assert(ptr < page->ptr + page->size);
+    assert(ptr + alignOffset + bytes <= page->ptr + page->size);
+
+    *reinterpret_cast<Page **>(ptr) = page;
+    page->nextAlloc += bytes + alignOffset;
+    ++page->numAllocs;
+    return ptr + alignOffset;*/
 }
 
 void Allocator::Free(void *p) {

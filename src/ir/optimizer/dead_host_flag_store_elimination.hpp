@@ -49,6 +49,8 @@ public:
         : DeadStoreEliminationOptimizerPassBase(emitter, true) {}
 
 private:
+    void Reset() final;
+
     // void Process(IRGetRegisterOp *op) final;
     // void Process(IRSetRegisterOp *op) final;
     // void Process(IRGetCPSROp *op) final;

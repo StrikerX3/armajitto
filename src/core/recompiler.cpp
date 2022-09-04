@@ -15,7 +15,7 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
         if (code == nullptr) {
             auto *block = m_allocator.Allocate<ir::BasicBlock>(m_allocator, loc);
             m_translator.Translate(*block);
-            ir::Optimize(m_pmrAllocator, *block, m_optParams);
+            m_optimizer.Optimize(*block);
             code = m_host.Compile(*block);
             if constexpr (ir::BasicBlock::kFreeErasedIROps) {
                 block->Clear();
@@ -37,6 +37,7 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
 void Recompiler::FlushCachedBlocks() {
     m_host.Clear();
     m_allocator.Release();
+    m_pmrBuffer.release();
 }
 
 } // namespace armajitto

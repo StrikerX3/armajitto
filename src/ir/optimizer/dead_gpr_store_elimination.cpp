@@ -6,6 +6,15 @@
 
 namespace armajitto::ir {
 
+DeadGPRStoreEliminationOptimizerPass::DeadGPRStoreEliminationOptimizerPass(Emitter &emitter)
+    : DeadStoreEliminationOptimizerPassBase(emitter) {
+    Reset();
+}
+
+void DeadGPRStoreEliminationOptimizerPass::Reset() {
+    m_gprWrites.fill(nullptr);
+}
+
 void DeadGPRStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
     RecordGPRRead(op->src);
 }

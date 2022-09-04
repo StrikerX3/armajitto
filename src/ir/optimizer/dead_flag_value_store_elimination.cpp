@@ -15,6 +15,10 @@ DeadFlagValueStoreEliminationOptimizerPass::DeadFlagValueStoreEliminationOptimiz
     m_flagWritesPerVar.resize(varCount);
 }
 
+void DeadFlagValueStoreEliminationOptimizerPass::Reset() {
+    std::fill(m_flagWritesPerVar.begin(), m_flagWritesPerVar.end(), FlagWrites{});
+}
+
 void DeadFlagValueStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
     ConsumeFlags(op->src);
 }

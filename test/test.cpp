@@ -882,9 +882,10 @@ void testTranslatorAndOptimizer() {
 
     bool printSep = false;
 
-    using Passes = armajitto::ir::OptimizationParams::Passes;
+    using OptParams = armajitto::ir::Optimizer::Parameters;
+    using Passes = OptParams::Passes;
 
-    armajitto::ir::OptimizationParams optNoPasses;
+    OptParams optNoPasses;
     optNoPasses.passes.constantPropagation = false;
     optNoPasses.passes.deadRegisterStoreElimination = false;
     optNoPasses.passes.deadGPRStoreElimination = false;
@@ -895,14 +896,15 @@ void testTranslatorAndOptimizer() {
     optNoPasses.passes.arithmeticOpsCoalescence = false;
     optNoPasses.passes.hostFlagsOpsCoalescence = false;
 
+    armajitto::ir::Optimizer optimizer{pmrAlloc};
     auto runOptimizer = [&](bool Passes::*field, const char *name) {
-        armajitto::ir::OptimizationParams optParams = optNoPasses;
+        OptParams optParams = optNoPasses;
         optParams.passes.*field = true;
         if (printSep) {
             printSep = false;
             printf("--------------------------------\n");
         }
-        if (armajitto::ir::Optimize(pmrAlloc, *block, optParams)) {
+        if (optimizer.Optimize(*block)) {
             printf("after %s:\n\n", name);
             printBlock();
             printSep = true;
@@ -939,7 +941,7 @@ void testTranslatorAndOptimizer() {
     printf("  finished\n");
     printf("==================================================\n\n");
 
-    armajitto::ir::Optimize(pmrAlloc, *block);
+    optimizer.Optimize(*block);
     printf("after all optimizations:\n\n");
     printBlock();
 }
@@ -1260,6 +1262,7 @@ void testCompiler() {
     // Create host compiler
     armajitto::memory::Allocator blockAlloc{};
     armajitto::memory::PMRAllocatorWrapper pmrAlloc{blockAlloc};
+    armajitto::ir::Optimizer optimizer{pmrAlloc};
     armajitto::x86_64::x64Host host{context, pmrAlloc};
     armajitto::HostCode entryCode{};
     armajitto::LocationRef entryLoc{};
@@ -1280,7 +1283,7 @@ void testCompiler() {
             translator.Translate(*block);
 
             // Optimize code
-            armajitto::ir::Optimize(pmrAlloc, *block);
+            optimizer.Optimize(*block);
 
             // Display IR code
             printf("translated %u instructions:\n\n", block->InstructionCount());
@@ -1593,19 +1596,19 @@ void compilerStressTest() {
     bool thumb = false;
 
     armajitto::memory::Allocator blockAlloc{};
-    armajitto::memory::PMRAllocatorWrapper pmrRefAlloc{blockAlloc};
+    std::pmr::monotonic_buffer_resource pmrBuffer{std::pmr::get_default_resource()};
 
-    // Create host compiler
-    armajitto::x86_64::x64Host host{context, pmrRefAlloc, 32u * 1024u * 1024u};
-    armajitto::LocationRef entryLoc{};
-
-    const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+    // Create compiler chain
+    armajitto::ir::Translator translator{context};
+    armajitto::ir::Optimizer optimizer{pmrBuffer};
+    armajitto::x86_64::x64Host host{context, pmrBuffer, 96u * 1024u * 1024u};
 
     std::default_random_engine generator;
     std::uniform_int_distribution<uint32_t> distARM(0xE0000000, 0xEFFFFFFF);
     std::uniform_int_distribution<uint16_t> distThumb(0x0000, 0xFFFF);
 
     const uint32_t blockSize = 32;
+    const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
     const uint32_t finalAddress = baseAddress + blockSize * instrSize;
     if (thumb) {
         sys.ROMWriteHalf(finalAddress, 0xE7FE); // b $
@@ -1616,7 +1619,8 @@ void compilerStressTest() {
     using clk = std::chrono::steady_clock;
 
     // Compile blocks in a loop
-    const int numBlocks = 1'000'000;
+    // const int numBlocks = 1'000'000;
+    const int numBlocks = 50'000;
     printf("compiling %d blocks with %u instructions...\n", numBlocks, blockSize);
     auto t1 = clk::now();
     for (int i = 0; i < numBlocks; ++i) {
@@ -1634,14 +1638,15 @@ void compilerStressTest() {
             // Create basic block
             auto block = blockAlloc.Allocate<armajitto::ir::BasicBlock>(
                 blockAlloc, armajitto::LocationRef{currAddress, mode, thumb});
+            /*auto *blockPtr = optBuffer.allocate(sizeof(armajitto::ir::BasicBlock));
+            auto *block = new (blockPtr) armajitto::ir::BasicBlock(blockAlloc, {currAddress, mode, thumb});*/
 
             // Translate code from memory
-            armajitto::ir::Translator translator{context};
             translator.GetParameters().maxBlockSize = blockSize;
             translator.Translate(*block);
 
             // Optimize code
-            armajitto::ir::Optimize(pmrRefAlloc, *block);
+            optimizer.Optimize(*block);
 
             // Compile IR block into host code
             host.Compile(*block);
@@ -1654,6 +1659,7 @@ void compilerStressTest() {
         if (i > 0 && i % 10'000 == 0) {
             host.Clear();
             blockAlloc.Release();
+            pmrBuffer.release();
             printf("  %d\n", i);
         }
     }

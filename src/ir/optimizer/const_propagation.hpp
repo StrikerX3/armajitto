@@ -77,6 +77,8 @@ public:
     ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
     void PreProcess() final;
 
     void Process(IRGetRegisterOp *op) final;

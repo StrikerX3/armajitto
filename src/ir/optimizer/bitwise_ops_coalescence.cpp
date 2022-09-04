@@ -14,6 +14,12 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &
     m_values.resize(varCount);
 }
 
+void BitwiseOpsCoalescenceOptimizerPass::Reset() {
+    std::fill(m_values.begin(), m_values.end(), Value{});
+    m_varSubst.Reset();
+    m_hostFlagsStateTracker.Reset();
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
     MarkDirty(m_varSubst.Substitute(op));
 }

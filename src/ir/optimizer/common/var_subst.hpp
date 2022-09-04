@@ -18,6 +18,9 @@ class VarSubstitutor {
 public:
     VarSubstitutor(size_t varCount, std::pmr::memory_resource &alloc);
 
+    // Clears all variable substitutions.
+    void Reset();
+
     // Assigns a substitution of all <src> variables to <dst>.
     void Assign(VariableArg dst, VariableArg src);
 

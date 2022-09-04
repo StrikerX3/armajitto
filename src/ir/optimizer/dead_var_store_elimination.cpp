@@ -18,6 +18,13 @@ DeadVarStoreEliminationOptimizerPass::DeadVarStoreEliminationOptimizerPass(Emitt
     m_dependencies.resize(varCount, std::pmr::vector<Variable>{&alloc});
 }
 
+void DeadVarStoreEliminationOptimizerPass::Reset() {
+    std::fill(m_varWrites.begin(), m_varWrites.end(), VarWrite{});
+    for (auto &dep : m_dependencies) {
+        dep.clear();
+    }
+}
+
 void DeadVarStoreEliminationOptimizerPass::PostProcessImpl() {
     // Reset all unread variables
     for (size_t i = 0; i < m_varWrites.size(); i++) {

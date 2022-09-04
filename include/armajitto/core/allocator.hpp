@@ -101,7 +101,8 @@ public:
     void Release();
 
 private:
-    static constexpr std::size_t kPageChunkSize = 1024u * 1024u; // 65536u;
+    // static constexpr std::size_t kPageChunkSize = 65536u;
+    static constexpr std::size_t kPageChunkSize = 1024u * 1024u;
     static constexpr std::size_t kPageChunkAlign = kPageChunkSize - 1;
     static constexpr std::size_t kPageAlign = 4096u;
 

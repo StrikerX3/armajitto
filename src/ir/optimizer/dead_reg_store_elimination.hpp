@@ -67,6 +67,8 @@ public:
     DeadRegisterStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
     void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     void Process(IRGetCPSROp *op) final;
@@ -112,7 +114,7 @@ private:
     // GPR/PSR read and write tracking
 
     struct VarWrite {
-        Variable var;
+        Variable var = {};
         IROp *writeOp = nullptr;
     };
 

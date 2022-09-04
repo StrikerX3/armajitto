@@ -54,6 +54,8 @@ public:
     DeadFlagValueStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
     // void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     void Process(IRGetCPSROp *op) final;
@@ -99,7 +101,7 @@ private:
     // Flags tracking
 
     struct FlagWrites {
-        Variable base; // the base variable from which this chain originates
+        Variable base = {}; // the base variable from which this chain originates
 
         IROp *writerOpN = nullptr; // last instruction that wrote to N
         IROp *writerOpZ = nullptr; // last instruction that wrote to Z

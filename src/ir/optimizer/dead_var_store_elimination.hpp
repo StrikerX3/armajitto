@@ -99,6 +99,8 @@ public:
     DeadVarStoreEliminationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
     void PostProcessImpl() final;
 
     void Process(IRGetRegisterOp *op) final;

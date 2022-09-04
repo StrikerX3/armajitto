@@ -16,9 +16,9 @@ public:
     Recompiler(const Specification &spec)
         : m_spec(spec)
         , m_context(spec.model, spec.system)
-        , m_pmrAllocator(m_allocator)
         , m_translator(m_context)
-        , m_host(m_context, m_pmrAllocator, spec.maxHostCodeSize) {}
+        , m_optimizer(m_pmrBuffer)
+        , m_host(m_context, m_pmrBuffer, spec.maxHostCodeSize) {}
 
     arm::State &GetARMState() {
         return m_context.GetARMState();
@@ -40,8 +40,8 @@ public:
         return m_translator.GetParameters();
     }
 
-    ir::OptimizationParams &GetOptimizationParameters() {
-        return m_optParams;
+    ir::Optimizer::Parameters &GetOptimizationParameters() {
+        return m_optimizer.GetParameters();
     }
 
     uint64_t Run(uint64_t minCycles);
@@ -53,10 +53,10 @@ private:
     Context m_context;
 
     memory::Allocator m_allocator;
-    memory::PMRAllocatorWrapper m_pmrAllocator;
+    std::pmr::monotonic_buffer_resource m_pmrBuffer{std::pmr::get_default_resource()};
 
     ir::Translator m_translator;
-    ir::OptimizationParams m_optParams;
+    ir::Optimizer m_optimizer;
 
     // TODO: select based on host system
     x86_64::x64Host m_host;

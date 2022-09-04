@@ -35,12 +35,11 @@ namespace armajitto::ir {
 //  8. This instruction is recorded as the last instruction that wrote to R0.
 class DeadGPRStoreEliminationOptimizerPass final : public DeadStoreEliminationOptimizerPassBase {
 public:
-    DeadGPRStoreEliminationOptimizerPass(Emitter &emitter)
-        : DeadStoreEliminationOptimizerPassBase(emitter) {
-        m_gprWrites.fill(nullptr);
-    }
+    DeadGPRStoreEliminationOptimizerPass(Emitter &emitter);
 
 private:
+    void Reset() final;
+
     void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     void Process(IRBranchOp *op) final;
