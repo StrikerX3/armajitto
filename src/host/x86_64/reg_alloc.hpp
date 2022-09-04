@@ -65,7 +65,7 @@ public:
     bool IsRegisterAllocated(Xbyak::Reg reg) const;
 
 private:
-    Xbyak::CodeGenerator &m_code;
+    Xbyak::CodeGenerator &m_codegen;
     ir::VarLifetimeTracker m_varLifetimes;
 
     const ir::IROp *m_currOp = nullptr;

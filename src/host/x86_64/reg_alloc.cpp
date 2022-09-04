@@ -5,12 +5,12 @@
 namespace armajitto::x86_64 {
 
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc)
-    : m_code(code)
+    : m_codegen(code)
     , m_varLifetimes(alloc)
     , m_varAllocStates(&alloc) {
 
     // TODO: include ECX
-    for (auto reg : {/*ecx,*/ edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {
+    for (auto reg : {/*ecx,*/ edx, edi, esi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d}) {
         m_freeRegs.Push(reg);
     }
     for (uint32_t i = 0; i < abi::kMaxSpilledRegs; i++) {
@@ -39,7 +39,7 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
         if (entry.spillSlot != ~0) {
             // Variable was spilled; bring it back to a register
             entry.reg = AllocateRegister();
-            m_code.mov(entry.reg, dword[rsp - entry.spillSlot * sizeof(uint32_t)]);
+            m_codegen.mov(entry.reg, dword[rsp - entry.spillSlot * sizeof(uint32_t)]);
             entry.spillSlot = ~0;
         }
     } else {
@@ -156,7 +156,7 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     // TODO: implement the above
     // auto &entry = m_varAllocStates[varIndex];
     // entry.spillSlot = m_freeSpillSlots.Pop();
-    // m_code.mov(dword[rsp - entry.spillSlot * sizeof(uint32_t)], entry.reg);
+    // m_codegen.mov(dword[rsp - entry.spillSlot * sizeof(uint32_t)], entry.reg);
 
     // TODO: implement spilling
     // return reg;
