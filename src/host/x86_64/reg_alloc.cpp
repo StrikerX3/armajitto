@@ -24,6 +24,9 @@ void RegisterAllocator::Analyze(const ir::BasicBlock &block) {
     m_varAllocStates.resize(block.VariableCount());
     m_varLifetimes.Analyze(block);
     m_regToVar.fill({});
+    m_lruRegs.fill({});
+    m_mostRecentReg = nullptr;
+    m_leastRecentReg = nullptr;
 }
 
 void RegisterAllocator::SetInstruction(const ir::IROp *op) {
@@ -36,12 +39,10 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
     }
 
     const auto varIndex = var.Index();
-    // printf("getting register for var %zu\n", varIndex);
     auto &entry = m_varAllocStates[varIndex];
     if (entry.allocated) {
         // Variable is allocated
         if (entry.spillSlot != ~0) {
-            // printf("  unspilling from slot %zu\n", entry.spillSlot);
             // Variable was spilled; bring it back to a register
             entry.reg = AllocateRegister();
             m_codegen.mov(entry.reg, dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)]);
@@ -50,7 +51,6 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
             m_regToVar[entry.reg.getIdx()] = var;
         }
     } else {
-        // printf("  allocating new register\n");
         // Variable is not allocated; allocate now
         entry.reg = AllocateRegister();
         entry.allocated = true;
@@ -58,21 +58,16 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
         m_regToVar[entry.reg.getIdx()] = var;
     }
 
-    /*if (!m_regsInUse.test(entry.reg.getIdx())) {
-        printf("  register %d in use by current op\n", entry.reg.getIdx());
-    }*/
     m_regsInUse.set(entry.reg.getIdx());
+    UpdateLRUQueue(entry.reg.getIdx());
     return entry.reg;
 }
 
 Xbyak::Reg32 RegisterAllocator::GetTemporary() {
-    // printf("  allocating temporary register\n");
     auto reg = AllocateRegister();
     m_tempRegs.Push(reg);
-    /*if (!m_regsInUse.test(reg.getIdx())) {
-        printf("  register %d in use by current op\n", reg.getIdx());
-    }*/
     m_regsInUse.set(reg.getIdx());
+    UpdateLRUQueue(reg.getIdx());
     return reg;
 }
 
@@ -100,7 +95,6 @@ void RegisterAllocator::Reuse(ir::Variable dst, ir::Variable src) {
     // Copy allocation and mark src as deallocated
     dstEntry = srcEntry;
     srcEntry.allocated = false;
-    // printf("reused register %d from var %zu to var %zu\n", dstEntry.reg.getIdx(), srcIndex, dstIndex);
 }
 
 bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
@@ -124,7 +118,6 @@ bool RegisterAllocator::AssignTemporary(ir::Variable var, Xbyak::Reg32 tmpReg) {
     // Turn temporary register into "permanent" by assigning it to the variable
     entry.allocated = true;
     entry.reg = tmpReg;
-    // printf("assigned temporary register %d to var %zu\n", tmpReg.getIdx(), varIndex);
     return true;
 }
 
@@ -142,11 +135,8 @@ void RegisterAllocator::ReleaseTemporaries() {
         auto reg = m_tempRegs.Pop();
         m_allocatedRegs.set(reg.getIdx(), false);
         m_freeRegs.Push(reg);
-        /*printf("released temporary register %d\n", reg.getIdx());
-        if (m_regsInUse.test(reg.getIdx())) {
-            printf("  register %d no longer in use by current op\n", reg.getIdx());
-        }*/
         m_regsInUse.set(reg.getIdx(), false);
+        RemoveFromLRUQueue(reg.getIdx());
     }
 }
 
@@ -159,7 +149,6 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     if (!m_freeRegs.IsEmpty()) {
         auto reg = m_freeRegs.Pop();
         m_allocatedRegs.set(reg.getIdx());
-        // printf("    allocated free register %d\n", reg.getIdx());
         return reg;
     }
 
@@ -168,22 +157,28 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
         throw std::runtime_error("Ran out of free registers and spill slots");
     }
 
+    // Ensure we have a least recently used register in the queue
+    assert(m_leastRecentReg != nullptr);
+
     // Choose a register to spill
-    // TODO: use LRU queue
     Xbyak::Reg reg{};
-    for (auto possibleReg : kAvailableRegs) {
+    auto *lruEntry = m_leastRecentReg;
+    while (lruEntry != nullptr) {
+        int idx = std::distance(&m_lruRegs[0], lruEntry);
         // Skip registers in use by the current instruction
-        if (m_regsInUse.test(possibleReg.getIdx())) {
+        if (m_regsInUse.test(idx)) {
+            lruEntry = lruEntry->next;
             continue;
         }
+
         // The register should be allocated to a variable
-        assert(m_allocatedRegs.test(possibleReg.getIdx()));
-        assert(m_regToVar[possibleReg.getIdx()].IsPresent());
-        reg = possibleReg;
+        assert(m_allocatedRegs.test(idx));
+        assert(m_regToVar[idx].IsPresent());
+        reg = Xbyak::Reg32{idx};
         break;
     }
     if (reg.isNone()) {
-        throw std::runtime_error("Current op uses too many registers");
+        throw std::runtime_error("Too many registers in use");
     }
 
     // Find out which variable is currently using the register
@@ -193,9 +188,58 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     auto &entry = m_varAllocStates[varIndex];
     entry.spillSlot = m_freeSpillSlots.Pop();
     m_codegen.mov(dword[rbp + abi::kVarSpillBaseOffset + entry.spillSlot * sizeof(uint32_t)], entry.reg);
-    // printf("    spilled variable %zu to slot %zu\n", varIndex, entry.spillSlot);
-    // printf("    allocated register %d\n", reg.getIdx());
     return reg.cvt32();
+}
+
+void RegisterAllocator::UpdateLRUQueue(int regIdx) {
+    auto *lruEntry = &m_lruRegs[regIdx];
+    if (lruEntry == m_mostRecentReg) {
+        return;
+    }
+
+    // Remove entry from its current position
+    if (lruEntry->prev != nullptr) {
+        lruEntry->prev->next = lruEntry->next;
+    }
+    if (lruEntry->next != nullptr) {
+        lruEntry->next->prev = lruEntry->prev;
+    }
+    if (lruEntry != m_mostRecentReg) {
+        lruEntry->prev = m_mostRecentReg;
+    }
+
+    // Update least recently used register
+    if (m_leastRecentReg == nullptr) {
+        m_leastRecentReg = lruEntry;
+    } else if (m_leastRecentReg == lruEntry) {
+        m_leastRecentReg = m_leastRecentReg->next;
+    }
+    lruEntry->next = nullptr;
+
+    // Update most recently used register
+    if (m_mostRecentReg != nullptr && m_mostRecentReg != lruEntry) {
+        m_mostRecentReg->next = lruEntry;
+    }
+    m_mostRecentReg = lruEntry;
+}
+
+void RegisterAllocator::RemoveFromLRUQueue(int regIdx) {
+    auto *lruEntry = &m_lruRegs[regIdx];
+
+    if (m_leastRecentReg == lruEntry) {
+        m_leastRecentReg = lruEntry->next;
+    }
+    if (m_mostRecentReg == lruEntry) {
+        m_mostRecentReg = lruEntry->prev;
+    }
+    if (lruEntry->next != nullptr) {
+        lruEntry->next->prev = lruEntry->prev;
+    }
+    if (lruEntry->prev != nullptr) {
+        lruEntry->prev->next = lruEntry->next;
+    }
+    lruEntry->next = nullptr;
+    lruEntry->prev = nullptr;
 }
 
 void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
@@ -210,14 +254,13 @@ void RegisterAllocator::Release(ir::Variable var, const ir::IROp *op) {
                 m_freeRegs.Push(entry.reg);
                 m_allocatedRegs.set(entry.reg.getIdx(), false);
                 m_regToVar[entry.reg.getIdx()] = {};
-                // printf("released register %d\n", entry.reg.getIdx());
+                RemoveFromLRUQueue(entry.reg.getIdx());
             }
         }
 
         // Mark register as not in use by current op
         if (entry.spillSlot == ~0) {
             m_regsInUse.set(entry.reg.getIdx(), false);
-            // printf("  register %d no longer in use by current op\n", entry.reg.getIdx());
         }
     }
 }

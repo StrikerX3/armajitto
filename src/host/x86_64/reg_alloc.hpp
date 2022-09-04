@@ -71,7 +71,7 @@ private:
     const ir::IROp *m_currOp = nullptr;
 
     // -------------------------------------------------------------------------
-    // Registers allocation
+    // Register allocation
 
     util::CircularBuffer<Xbyak::Reg32, 16> m_freeRegs;
     util::CircularBuffer<Xbyak::Reg32, 16> m_tempRegs;
@@ -81,7 +81,20 @@ private:
     std::bitset<16> m_allocatedRegs;
     std::bitset<16> m_regsInUse;
 
+    struct LRUEntry {
+        LRUEntry *prev = nullptr;
+        LRUEntry *next = nullptr;
+    };
+
+    LRUEntry *m_mostRecentReg = nullptr;
+    LRUEntry *m_leastRecentReg = nullptr;
+
+    alignas(16 * 16) std::array<LRUEntry, 16> m_lruRegs;
+
     Xbyak::Reg32 AllocateRegister();
+
+    void UpdateLRUQueue(int regIdx);
+    void RemoveFromLRUQueue(int regIdx);
 
     // -------------------------------------------------------------------------
     // Variable allocation states
