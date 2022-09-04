@@ -2,39 +2,19 @@
 
 #include "armajitto/core/pmr_allocator.hpp"
 #include "armajitto/ir/ir_ops.hpp"
+#include "armajitto/util/scope_guard.hpp"
 
 #include <type_traits>
 #include <vector>
 
 namespace armajitto::ir {
 
-// TODO: move this to util
-template <typename Fn>
-struct ScopeGuard {
-    ScopeGuard(Fn &&fn)
-        : fn(std::move(fn)) {}
-
-    ~ScopeGuard() {
-        if (!cancelled) {
-            fn();
-        }
-    }
-
-    void Cancel() {
-        cancelled = true;
-    }
-
-private:
-    Fn fn;
-    bool cancelled = false;
-};
-
 void BasicBlock::RenameVariables() {
     uint32_t nextVarID = 0;
     void *ptr = m_alloc.AllocateRaw(m_nextVarID * sizeof(Variable));
     auto *varMap = new (ptr) Variable[m_nextVarID];
 
-    ScopeGuard freePtr{[&] { m_alloc.Free(ptr); }};
+    util::ScopeGuard freePtr{[&] { m_alloc.Free(ptr); }};
 
     auto mapVar = [&](Variable &var) {
         if (!var.IsPresent()) {

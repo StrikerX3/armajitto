@@ -81,6 +81,7 @@ add_library(armajitto
     include/armajitto/util/bitmask_enum.hpp
     include/armajitto/util/bit_ops.hpp
     include/armajitto/util/pointer_cast.hpp
+    include/armajitto/util/scope_guard.hpp
     include/armajitto/util/type_traits.hpp
     include/armajitto/util/unreachable.hpp
     include/armajitto/util/unsafe_circular_buffer.hpp
