@@ -33,8 +33,11 @@ bool OptimizerPassBase::Optimize() {
     }
     PostProcess();
 
-    m_emitter.RenameVariables();
-    return m_dirty || m_emitter.IsDirty();
+    const bool dirty = m_dirty || m_emitter.IsDirty();
+    if (dirty) {
+        m_emitter.RenameVariables();
+    }
+    return dirty;
 }
 
 } // namespace armajitto::ir
