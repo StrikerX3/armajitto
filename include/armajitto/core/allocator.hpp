@@ -71,6 +71,7 @@ public:
         friend class Allocator;
     };
 
+    Allocator();
     ~Allocator();
 
     void *AllocateRaw(std::size_t bytes, std::size_t alignment = sizeof(void *));

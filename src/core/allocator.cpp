@@ -1,5 +1,7 @@
 #include "armajitto/core/allocator.hpp"
 
+#include <cassert>
+
 namespace armajitto::memory {
 
 #ifdef _WIN32
@@ -20,6 +22,10 @@ static inline void AlignedFree(void *ptr) {
 }
 #endif
 
+Allocator::Allocator() {
+    AllocatePage(kPageChunkSize);
+}
+
 Allocator::~Allocator() {
     Release();
 }
@@ -29,11 +35,12 @@ void *Allocator::AllocateRaw(std::size_t bytes, std::size_t alignment) {
     const std::size_t alignMask = alignment - 1;
     bytes = (bytes + alignMask) & ~alignMask;
 
-    if (m_head == nullptr) {
+    assert(m_head != nullptr);
+    /*if (m_head == nullptr) {
         if (!AllocatePage(bytes)) {
             return nullptr;
         }
-    }
+    }*/
 
     uint8_t *ptr = m_head->nextAlloc;
     auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
@@ -79,14 +86,20 @@ void Allocator::Free(void *p) {
 }
 
 void Allocator::Release() {
-    Page *page = m_head;
+    // Reset head page
+    m_head->nextAlloc = m_head->ptr;
+    m_head->numAllocs = 0;
+    m_head->numFrees = 0;
+
+    // Free all further pages
+    Page *page = m_head->next;
     while (page != nullptr) {
         Page *next = page->next;
         AlignedFree(page->ptr);
         delete page;
         page = next;
     }
-    m_head = nullptr;
+    m_head->next = nullptr;
 }
 
 bool Allocator::AllocatePage(std::size_t bytes) {
