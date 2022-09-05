@@ -2816,7 +2816,6 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
             auto nextReg = abiRegRefs[reg.getIdx()];
             while (!nextReg.isNone()) {
                 if (nextReg == reg) {
-                    printf("found cyclic reference: %d", reg.getIdx());
                     // Found a cyclic reference.
                     // Emit xchg sequence starting from reg.
                     handledRegs.set(reg.getIdx());
@@ -2825,11 +2824,9 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
                     while (rhsReg != reg) {
                         handledRegs.set(rhsReg.getIdx());
                         codegen.xchg(lhsReg, rhsReg);
-                        printf(" <- %d", rhsReg.getIdx());
                         lhsReg = rhsReg;
                         rhsReg = abiRegRefs[rhsReg.getIdx()].cvt64();
                     }
-                    printf(" <- %d\n", reg.getIdx());
                     break;
                 }
                 nextReg = abiRegRefs[nextReg.getIdx()];
@@ -2842,7 +2839,6 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
             if (argRegOrder[nextReg.getIdx()] < argRegOrder[reg.getIdx()]) {
                 // Found a backward reference.
                 // Emit them right away to avoid overwriting registers.
-                printf("found backward reference: %d <- %d\n", reg.getIdx(), nextReg.getIdx());
                 handledRegs.set(nextReg.getIdx());
                 codegen.mov(reg, nextReg.cvt64());
             }
