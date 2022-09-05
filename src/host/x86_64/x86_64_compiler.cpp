@@ -2773,18 +2773,6 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
-    // TODO: rework argument-passing
-    // Need to be extra careful when passing arguments in registers used by the function call ABI.
-    // The following cases have happened (on Windows):
-    // - Passing a register parameter ahead of its place in the ABI:
-    //     mov rcx, <some pointer>
-    //     mov edx, <some immediate>
-    //     mov r8, rdx   ; original value overwritten above
-    // - Passing two function call ABI registers in reverse order (or any other conflicting circular reference):
-    //     mov rdx, r8
-    //     mov r8, rdx  ; original value overwritten above
-
-
     // Maps registers to their order in the function call ABI.
     // TODO: this won't work on System V ABI if XMM registers are involved.
     constexpr auto argRegOrder = [] {
@@ -2797,44 +2785,78 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         return argRegOrder;
     }();
 
-    // Maps which registers have been handled by the first pass.
-    std::bitset<16> regsHandled{};
+    // Maps which ABI registers have been handled by the first pass.
+    std::bitset<16> handledRegs{};
 
-    size_t argIndex = 0;
-
-    // Put arguments in the corresponding argument registers.
-
-    // Handle register arguments specified to be function arguments by the ABI.
-    auto setRegArg = [&](auto &&arg) {
+    // Map ABI registers (values) are written to other ABI registers (indices).
+    std::array<Xbyak::Reg, 16> abiRegRefs{};
+    auto mapAbiRegRefs = [&, argIndex = 0](auto &&arg) mutable {
         using TArg = decltype(arg);
 
         if (argIndex < abi::kIntArgRegs.size()) {
-            auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Reg, TArg>) {
+                auto &argReg64 = abi::kIntArgRegs[argIndex];
                 if (arg.cvt64() == argReg64) {
                     // Register is already in the correct place (best case scenario)
-                    regsHandled.set(arg.getIdx());
-                } else if ((int)argIndex > argRegOrder[arg.getIdx()]) {
-                    // Register argument was passed in after its proper ABI location; copy it now
-                    regsHandled.set(arg.getIdx());
-                    codegen.mov(argReg64, arg.cvt64());
+                    handledRegs.set(arg.getIdx());
+                } else if (argRegOrder[arg.getIdx()] < abi::kIntArgRegs.size()) {
+                    // Register argument is a function call ABI register; map it to the corresponding argument slot
+                    abiRegRefs[argReg64.getIdx()] = arg.cvt64();
                 }
             }
-        } else {
-            // TODO: push onto stack
-            throw std::runtime_error("host function call argument-passing through the stack is unimplemented");
+            ++argIndex;
         }
-        ++argIndex;
     };
+    (mapAbiRegRefs(std::forward<Args>(args)), ...);
+
+    // Handle special cases
+    for (auto &reg : abi::kIntArgRegs) {
+        // Check for cyclic references
+        if (!handledRegs.test(reg.getIdx())) {
+            auto nextReg = abiRegRefs[reg.getIdx()];
+            while (!nextReg.isNone()) {
+                if (nextReg == reg) {
+                    printf("found cyclic reference: %d", reg.getIdx());
+                    // Found a cyclic reference.
+                    // Emit xchg sequence starting from reg.
+                    handledRegs.set(reg.getIdx());
+                    auto lhsReg = reg;
+                    auto rhsReg = abiRegRefs[reg.getIdx()].cvt64();
+                    while (rhsReg != reg) {
+                        handledRegs.set(rhsReg.getIdx());
+                        codegen.xchg(lhsReg, rhsReg);
+                        printf(" <- %d", rhsReg.getIdx());
+                        lhsReg = rhsReg;
+                        rhsReg = abiRegRefs[rhsReg.getIdx()].cvt64();
+                    }
+                    printf(" <- %d\n", reg.getIdx());
+                    break;
+                }
+                nextReg = abiRegRefs[nextReg.getIdx()];
+            }
+        }
+
+        // Check for backward references (reading from previous argument registers)
+        if (!handledRegs.test(reg.getIdx())) {
+            auto nextReg = abiRegRefs[reg.getIdx()];
+            if (argRegOrder[nextReg.getIdx()] < argRegOrder[reg.getIdx()]) {
+                // Found a backward reference.
+                // Emit them right away to avoid overwriting registers.
+                printf("found backward reference: %d <- %d\n", reg.getIdx(), nextReg.getIdx());
+                handledRegs.set(nextReg.getIdx());
+                codegen.mov(reg, nextReg.cvt64());
+            }
+        }
+    }
 
     // Process the rest of the arguments
-    auto setArg = [&](auto &&arg) {
+    auto setArg = [&, argIndex = 0](auto &&arg) mutable {
         using TArg = decltype(arg);
 
         if (argIndex < abi::kIntArgRegs.size()) {
             auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
-                if (!regsHandled.test(arg.getIdx()) && arg.cvt64() != argReg64) {
+                if (!handledRegs.test(arg.getIdx()) && arg.cvt64() != argReg64) {
                     codegen.mov(argReg64, arg.cvt64());
                 }
             } else if constexpr (is_raw_integral_v<TArg>) {
@@ -2852,9 +2874,6 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         }
         ++argIndex;
     };
-
-    (setRegArg(std::forward<Args>(args)), ...);
-    argIndex = 0;
     (setArg(std::forward<Args>(args)), ...);
 
     // Align stack to ABI requirement
