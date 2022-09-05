@@ -129,6 +129,7 @@ public:
     }
 
     std::array<uint8_t, 0x400000> mainRAM;
+    std::array<uint8_t, 0x8000> sharedWRAM;
     std::array<uint8_t, 0x200000> vram;
 
     template <typename T>
@@ -136,6 +137,7 @@ public:
         auto page = address >> 24;
         switch (page) {
         case 0x02: return *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]);
+        case 0x03: return *reinterpret_cast<T *>(&sharedWRAM[address & 0x7FFF]);
         case 0x04: return MMIORead<T>(address);
         case 0x06: return *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]);
         default: return 0;
@@ -147,6 +149,7 @@ public:
         auto page = address >> 24;
         switch (page) {
         case 0x02: *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]) = value; break;
+        case 0x03: *reinterpret_cast<T *>(&sharedWRAM[address & 0x7FFF]) = value; break;
         case 0x04: MMIOWrite<T>(address, value); break;
         case 0x06: *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]) = value; break;
         }
@@ -612,10 +615,16 @@ void testTranslatorAndOptimizer() {
     // writeARM(0xEAFFFFFE); // b $
 
     // Large amount of variables/registers (requires variable spilling)
-    writeARM(0xE2108734); // ands r8, r0, #52, #14
-    writeARM(0xE98E5C9D); // stmib lr, {r0, r2, r3, r4, r7, sl, fp, ip, lr}
-    writeARM(0xE8A1DD2B); // stm r1!, {r0, r1, r3, r5, r8, sl, fp, ip, lr, pc}
-    writeARM(0xEAFFFFFE); // b $
+    // writeARM(0xE2108734); // ands r8, r0, #52, #14
+    // writeARM(0xE98E5C9D); // stmib lr, {r0, r2, r3, r4, r7, sl, fp, ip, lr}
+    // writeARM(0xE8A1DD2B); // stm r1!, {r0, r1, r3, r5, r8, sl, fp, ip, lr, pc}
+    // writeARM(0xEAFFFFFE); // b $
+
+    writeARM(0xE3A00011); // mov r0, #0x011
+    writeARM(0xE3E02102); // mov r2, #0x7FFFFFFF
+    writeARM(0xE3A03000); // mov r3, #0
+    writeARM(0xE1231052); // qsub r1, r2, r3
+    writeARM(0xE1510002); // cmp r1, r2
 
     armajitto::Context context{armajitto::CPUModel::ARM946ES, sys};
     armajitto::memory::Allocator alloc{};
@@ -624,11 +633,11 @@ void testTranslatorAndOptimizer() {
         alloc, armajitto::LocationRef{baseAddress + (thumb ? 4 : 8), armajitto::arm::Mode::User, thumb});
 
     // Translate code from memory
-    /*armajitto::ir::Translator translator{context};
-    translator.Translate(*block);*/
+    armajitto::ir::Translator translator{context};
+    translator.Translate(*block);
 
     // Emit IR code manually
-    armajitto::ir::Emitter emitter{*block};
+    // armajitto::ir::Emitter emitter{*block};
 
     /*auto v0 = emitter.GetRegister(armajitto::arm::GPR::R0); // ld $v0, r0
     auto v1 = emitter.LogicalShiftRight(v0, 0xc, false);    // lsr $v1, $v0, #0xc
@@ -831,7 +840,7 @@ void testTranslatorAndOptimizer() {
                                                              // st cpsr, $v8
     emitter.SetRegister(armajitto::arm::GPR::PC, 0x200555c); // st pc, #0x200555c*/
 
-    constexpr auto memD = armajitto::ir::MemAccessBus::Data;
+    /*constexpr auto memD = armajitto::ir::MemAccessBus::Data;
     constexpr auto memU = armajitto::ir::MemAccessMode::Unaligned;
     constexpr auto memH = armajitto::ir::MemAccessSize::Half;
     emitter.SetRegister(armajitto::arm::GPR::R14, 0x3804F80); // stgpr r14_sys, 0x03804F80
@@ -868,7 +877,26 @@ void testTranslatorAndOptimizer() {
     emitter.LoadFlags(armajitto::arm::Flags::NZCV);           // ldcpsr var18_cpsr_in
                                                               // update.nzcv var19_cpsr_out, var18_cpsr_in
                                                               // stcpsr var19_cpsr_out
-    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057E4); // stgpr r15, 0x038057E4
+    emitter.SetRegister(armajitto::arm::GPR::R15, 0x38057E4); // stgpr r15, 0x038057E4*/
+
+    /*constexpr auto memW = armajitto::ir::MemAccessSize::Word;
+    auto v0 = emitter.GetRegister(armajitto::arm::GPR::R3); // ld $v0, r3
+    auto v1 = emitter.Add(v0, 4, false);                    // add $v1, $v0, #0x4
+    auto v2 = emitter.GetRegister(armajitto::arm::GPR::PC); // ld $v2, pc
+    auto v3 = emitter.Add(v2, 4, false);                    // add $v3, $v2, #0x4
+    emitter.SetRegister(armajitto::arm::GPR::PC, v3);       // st pc, $v3
+    auto v4 = emitter.GetRegister(armajitto::arm::GPR::R1); // ld $v4, r1
+    emitter.MemWrite(memW, v4, v0);                         // st.w, $v4, [$v0]
+    emitter.SetRegister(armajitto::arm::GPR::R3, v1);       // st r3, $v1
+    auto v5 = emitter.GetRegister(armajitto::arm::GPR::R3); // ld $v5, r3
+    auto v6 = emitter.GetRegister(armajitto::arm::GPR::R2); // ld $v6, r2
+    emitter.Compare(v5, v6);                                // cmp.nzcv $v5, $v6
+    emitter.LoadFlags(armajitto::arm::Flags::NZCV);         // ld $v7, cpsr
+                                                            // ldflg.nzcv $v8, $v7
+                                                            // st cpsr, $v8
+    auto v9 = emitter.GetRegister(armajitto::arm::GPR::PC); // ld $v9, pc
+    auto v10 = emitter.Add(v9, 4, false);                   // add $v10, $v9, #0x4
+    emitter.SetRegister(armajitto::arm::GPR::PC, v10);      // st pc, $v10*/
 
     auto printBlock = [&] {
         for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
@@ -897,8 +925,9 @@ void testTranslatorAndOptimizer() {
     optNoPasses.passes.hostFlagsOpsCoalescence = false;
 
     armajitto::ir::Optimizer optimizer{pmrAlloc};
+    auto &optParams = optimizer.GetParameters();
     auto runOptimizer = [&](bool Passes::*field, const char *name) {
-        OptParams optParams = optNoPasses;
+        optParams = optNoPasses;
         optParams.passes.*field = true;
         if (printSep) {
             printSep = false;
@@ -926,7 +955,7 @@ void testTranslatorAndOptimizer() {
         printf("  iteration %d\n", i);
         printf("==================================================\n\n");
 
-        optimized |= runOptimizer(&Passes::constantPropagation, "constant propagation");
+        // optimized |= runOptimizer(&Passes::constantPropagation, "constant propagation");
         optimized |= runOptimizer(&Passes::deadRegisterStoreElimination, "dead register store elimination");
         optimized |= runOptimizer(&Passes::deadGPRStoreElimination, "dead GPR store elimination");
         optimized |= runOptimizer(&Passes::deadHostFlagStoreElimination, "dead host flag store elimination");
@@ -1423,7 +1452,7 @@ void testNDS() {
     } codeDesc;
 
     {
-        std::ifstream ifsROM{"armwrestler.nds", std::ios::binary};
+        std::ifstream ifsROM{"rockwrestler.nds", std::ios::binary};
         if (!ifsROM) {
             printf("Could not open armwrestler.nds\n");
             return;
@@ -1478,7 +1507,7 @@ void testNDS() {
     // Setup direct boot
     armState.GPR(armajitto::arm::GPR::R12) = codeDesc.entrypoint;
     armState.GPR(armajitto::arm::GPR::LR) = codeDesc.entrypoint;
-    armState.GPR(armajitto::arm::GPR::PC) = codeDesc.entrypoint;
+    armState.GPR(armajitto::arm::GPR::PC) = codeDesc.entrypoint + 2 * sizeof(uint32_t);
     armState.GPR(armajitto::arm::GPR::SP) = 0x3002F7C;
     armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::IRQ) = 0x3003F80;
     armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::Supervisor) = 0x3003FC0;
@@ -1486,9 +1515,16 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
-    // auto &optParams = jit.GetOptimizationParameters();
-    // optParams.passes.arithmeticOpsCoalescence = false;
+    auto &optParams = jit.GetOptimizationParameters();
+    // optParams.passes.constantPropagation = false;
+    // optParams.passes.deadRegisterStoreElimination = false;
+    // optParams.passes.deadGPRStoreElimination = false;
+    // optParams.passes.deadHostFlagStoreElimination = false;
+    // optParams.passes.deadFlagValueStoreElimination = false;
+    // optParams.passes.deadVariableStoreElimination = false;
     // optParams.passes.bitwiseOpsCoalescence = false;
+    // optParams.passes.arithmeticOpsCoalescence = false;
+    // optParams.passes.hostFlagsOpsCoalescence = false;
 
     using namespace std::chrono_literals;
 
@@ -1499,10 +1535,21 @@ void testNDS() {
         auto t = clk::now();
         uint32_t frames = 0;
         uint64_t cycles = 0;
+        uint64_t totalFrames = 0;
         while (running) {
             // Run for a full frame, assuming each instruction takes 3 cycles to complete
             cycles += jit.Run(560190 / 3);
             ++frames;
+            ++totalFrames;
+            /*if (totalFrames >= 15u && totalFrames < 30u) {
+                sys->buttons &= ~(1 << 6);
+            } else if (totalFrames >= 30u && totalFrames < 45u) {
+                sys->buttons |= (1 << 6);
+            } else if (totalFrames >= 45u && totalFrames < 60u) {
+                sys->buttons &= ~(1 << 7);
+            } else if (totalFrames >= 60u && totalFrames < 75u) {
+                sys->buttons |= (1 << 7);
+            }*/
             auto t2 = clk::now();
             if (t2 - t >= 1s) {
                 printf("%u fps, %llu cycles\n", frames, cycles);
