@@ -24,6 +24,7 @@ void DeadRegisterStoreEliminationOptimizerPass::Reset() {
         ver = m_nextVersion++;
     }
     m_psrWrites.fill(nullptr);
+    m_psrsWritten.reset();
 
     for (auto &ver : m_gprVersions) {
         ver = m_nextVersion++;
@@ -304,14 +305,12 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordGPRRead(GPRArg gpr, Variab
     ResizeVarToVersionMap(varIndex);
     m_varToVersionMap[varIndex] = gprVersion;
 
-    // If the current version of the GPR comes from a previous store to the same GPR without modifications, erase both
-    // instructions
+    // If the current version of the GPR comes from a previous store to that GPR unmodified, erase the load.
+    // Redundant stores are eliminated on a separate pass.
     if (versionEntry.writeOp != nullptr) {
         if (auto gprStoreOp = Cast<IRSetRegisterOp>(versionEntry.writeOp)) {
             if (gprStoreOp->dst == gpr) {
                 m_emitter.Erase(loadOp);
-                m_emitter.Erase(versionEntry.writeOp);
-                versionEntry.writeOp = nullptr;
             }
         }
     }
@@ -390,19 +389,27 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRRead(size_t index, Vari
     m_varToVersionMap[varIndex] = psrVersion;
 
     // If the current version of the PSR comes from a previous store to the same PSR without modifications, erase both
-    // instructions
+    // instructions; keep the write if that was the first write to the PSR
     if (versionEntry.writeOp != nullptr) {
         if (versionEntry.writeOp->type == IROpcodeType::SetCPSR) {
             if (index == 0) {
                 m_emitter.Erase(loadOp);
-                m_emitter.Erase(versionEntry.writeOp);
-                versionEntry.writeOp = nullptr;
+                if (m_psrsWritten.test(0)) {
+                    m_emitter.Erase(versionEntry.writeOp);
+                    versionEntry.writeOp = nullptr;
+                } else {
+                    m_psrsWritten.set(0);
+                }
             }
         } else if (auto spsrStoreOp = Cast<IRSetSPSROp>(versionEntry.writeOp)) {
             if (index == SPSRIndex(spsrStoreOp->mode)) {
                 m_emitter.Erase(loadOp);
-                m_emitter.Erase(versionEntry.writeOp);
-                versionEntry.writeOp = nullptr;
+                if (m_psrsWritten.test(index)) {
+                    m_emitter.Erase(versionEntry.writeOp);
+                    versionEntry.writeOp = nullptr;
+                } else {
+                    m_psrsWritten.set(index);
+                }
             }
         }
     }
