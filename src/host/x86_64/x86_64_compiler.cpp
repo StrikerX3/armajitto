@@ -2773,6 +2773,18 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
+    // TODO: rework argument-passing
+    // Need to be extra careful when passing arguments in registers used by the function call ABI.
+    // The following cases have happened (on Windows):
+    // - Passing a register parameter ahead of its place in the ABI:
+    //     mov rcx, <some pointer>
+    //     mov edx, <some immediate>
+    //     mov r8, rdx   ; original value overwritten above
+    // - Passing two function call ABI registers in reverse order (or any other conflicting circular reference):
+    //     mov rdx, r8
+    //     mov r8, rdx  ; original value overwritten above
+
+
     // Maps registers to their order in the function call ABI.
     // TODO: this won't work on System V ABI if XMM registers are involved.
     constexpr auto argRegOrder = [] {
