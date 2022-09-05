@@ -2785,7 +2785,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     // TODO: this won't work on System V ABI if XMM registers are involved.
     constexpr auto argRegOrder = [] {
         std::array<int, 16> argRegOrder{};
-        argRegOrder.fill(-1);
+        argRegOrder.fill(17);
         int order = 0;
         for (auto &reg : abi::kIntArgRegs) {
             argRegOrder[reg.getIdx()] = order++;
@@ -2801,8 +2801,6 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     // Put arguments in the corresponding argument registers.
 
     // Handle register arguments specified to be function arguments by the ABI.
-    // If these registers we passed in after their original location, we'll have to set them before the other arguments,
-    // or else their values will be overwritten.
     auto setRegArg = [&](auto &&arg) {
         using TArg = decltype(arg);
 
