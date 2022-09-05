@@ -2386,9 +2386,9 @@ void x64Host::Compiler::CompileOp(const ir::IRLoadStickyOverflowOp *op) {
         auto dstReg32 = regAlloc.Get(op->dstCPSR.var);
 
         // Apply overflow flag in the Q position
-        codegen.mov(dstReg32, abi::kHostFlagsReg.cvt8()); // Copy overflow flag into destination register
-        codegen.shl(dstReg32, ARMflgQPos);                // Move Q into position
-        codegen.or_(dstReg32, srcReg32);                  // OR with srcCPSR
+        codegen.mov(dstReg32, abi::kHostFlagsReg); // Copy overflow flag into destination register
+        codegen.shl(dstReg32, ARMflgQPos);         // Move Q into position
+        codegen.or_(dstReg32, srcReg32);           // OR with srcCPSR
     } else if (op->srcCPSR.immediate) {
         auto dstReg32 = regAlloc.Get(op->dstCPSR.var);
         codegen.mov(dstReg32, op->srcCPSR.imm.value);
