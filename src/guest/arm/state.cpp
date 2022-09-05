@@ -71,6 +71,9 @@ void State::Reset() {
     m_regsFIQ.fill(0);
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
+    CPSR().i = 1;
+    CPSR().f = 1;
+    CPSR().t = 0;
 
     m_irqLine = false;
     m_execState = ExecState::Running;
