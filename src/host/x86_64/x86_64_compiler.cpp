@@ -1894,9 +1894,8 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingSubtractOp *op) {
         auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
 
         if (op->dst.var.IsPresent()) {
-            regAlloc.Reuse(op->dst.var, op->lhs.var.var);
-            regAlloc.Reuse(op->dst.var, op->rhs.var.var);
-            auto dstReg32 = regAlloc.Get(op->dst.var);
+            auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+            CopyIfDifferent(dstReg32, lhsReg32);
 
             // Setup overflow value to 0x7FFFFFFF (if lhs is positive) or 0x80000000 (if lhs is negative)
             constexpr uint32_t maxValue = std::numeric_limits<int32_t>::max();
@@ -1905,14 +1904,7 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingSubtractOp *op) {
             codegen.bt(dstReg32, 31);
             codegen.adc(overflowValueReg32, maxValue);
 
-            if (dstReg32 == lhsReg32) {
-                codegen.sub(dstReg32, rhsReg32);
-            } else if (dstReg32 == rhsReg32) {
-                codegen.sub(dstReg32, lhsReg32);
-            } else {
-                codegen.mov(dstReg32, lhsReg32);
-                codegen.sub(dstReg32, rhsReg32);
-            }
+            codegen.sub(dstReg32, rhsReg32);
 
             if (setFlags) {
                 SetVFromFlags();
