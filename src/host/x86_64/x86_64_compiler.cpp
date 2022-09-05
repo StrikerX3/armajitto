@@ -2781,15 +2781,58 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
-    // Put arguments in the corresponding argument registers
+    // Maps registers to their order in the function call ABI.
+    // TODO: this won't work on System V ABI if XMM registers are involved.
+    constexpr auto argRegOrder = [] {
+        std::array<int, 16> argRegOrder{};
+        argRegOrder.fill(-1);
+        int order = 0;
+        for (auto &reg : abi::kIntArgRegs) {
+            argRegOrder[reg.getIdx()] = order++;
+        }
+        return argRegOrder;
+    }();
+
+    // Maps which registers have been handled by the first pass.
+    std::bitset<16> regsHandled{};
+
     size_t argIndex = 0;
+
+    // Put arguments in the corresponding argument registers.
+
+    // Handle register arguments specified to be function arguments by the ABI.
+    // If these registers we passed in after their original location, we'll have to set them before the other arguments,
+    // or else their values will be overwritten.
+    auto setRegArg = [&](auto &&arg) {
+        using TArg = decltype(arg);
+
+        if (argIndex < abi::kIntArgRegs.size()) {
+            auto argReg64 = abi::kIntArgRegs[argIndex];
+            if constexpr (is_raw_base_of_v<Xbyak::Reg, TArg>) {
+                if (arg.cvt64() == argReg64) {
+                    // Register is already in the correct place (best case scenario)
+                    regsHandled.set(arg.getIdx());
+                } else if ((int)argIndex > argRegOrder[arg.getIdx()]) {
+                    // Register argument was passed in after its proper ABI location; copy it now
+                    regsHandled.set(arg.getIdx());
+                    codegen.mov(argReg64, arg.cvt64());
+                }
+            }
+        } else {
+            // TODO: push onto stack
+            throw std::runtime_error("host function call argument-passing through the stack is unimplemented");
+        }
+        ++argIndex;
+    };
+
+    // Process the rest of the arguments
     auto setArg = [&](auto &&arg) {
         using TArg = decltype(arg);
 
         if (argIndex < abi::kIntArgRegs.size()) {
             auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
-                if (argReg64 != arg.cvt64()) {
+                if (!regsHandled.test(arg.getIdx()) && arg.cvt64() != argReg64) {
                     codegen.mov(argReg64, arg.cvt64());
                 }
             } else if constexpr (is_raw_integral_v<TArg>) {
@@ -2807,6 +2850,9 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         }
         ++argIndex;
     };
+
+    (setRegArg(std::forward<Args>(args)), ...);
+    argIndex = 0;
     (setArg(std::forward<Args>(args)), ...);
 
     // Align stack to ABI requirement
