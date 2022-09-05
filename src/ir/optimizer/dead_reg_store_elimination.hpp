@@ -122,7 +122,6 @@ private:
     // 0=CPSR, 1..6=SPSR by mode
     std::array<uintmax_t, 1 + arm::kNumBankedModes> m_psrVersions;
     std::array<IROp *, 1 + arm::kNumBankedModes> m_psrWrites;
-    std::bitset<16 * arm::kNumBankedModes> m_psrsWritten;
 
     std::array<uintmax_t, 16 * arm::kNumBankedModes> m_gprVersions;
     std::array<IROp *, 16 * arm::kNumBankedModes> m_gprWrites;

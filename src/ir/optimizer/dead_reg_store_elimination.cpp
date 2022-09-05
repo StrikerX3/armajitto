@@ -24,7 +24,6 @@ void DeadRegisterStoreEliminationOptimizerPass::Reset() {
         ver = m_nextVersion++;
     }
     m_psrWrites.fill(nullptr);
-    m_psrsWritten.reset();
 
     for (auto &ver : m_gprVersions) {
         ver = m_nextVersion++;
@@ -311,6 +310,8 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordGPRRead(GPRArg gpr, Variab
         if (auto gprStoreOp = Cast<IRSetRegisterOp>(versionEntry.writeOp)) {
             if (gprStoreOp->dst == gpr) {
                 m_emitter.Erase(loadOp);
+                // m_emitter.Erase(versionEntry.writeOp);
+                versionEntry.writeOp = nullptr;
             }
         }
     }
@@ -394,22 +395,14 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRRead(size_t index, Vari
         if (versionEntry.writeOp->type == IROpcodeType::SetCPSR) {
             if (index == 0) {
                 m_emitter.Erase(loadOp);
-                if (m_psrsWritten.test(0)) {
-                    m_emitter.Erase(versionEntry.writeOp);
-                    versionEntry.writeOp = nullptr;
-                } else {
-                    m_psrsWritten.set(0);
-                }
+                m_emitter.Erase(versionEntry.writeOp);
+                versionEntry.writeOp = nullptr;
             }
         } else if (auto spsrStoreOp = Cast<IRSetSPSROp>(versionEntry.writeOp)) {
             if (index == SPSRIndex(spsrStoreOp->mode)) {
                 m_emitter.Erase(loadOp);
-                if (m_psrsWritten.test(index)) {
-                    m_emitter.Erase(versionEntry.writeOp);
-                    versionEntry.writeOp = nullptr;
-                } else {
-                    m_psrsWritten.set(index);
-                }
+                // m_emitter.Erase(versionEntry.writeOp);
+                versionEntry.writeOp = nullptr;
             }
         }
     }
