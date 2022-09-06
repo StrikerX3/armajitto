@@ -10,5 +10,5 @@ inline uintptr_t CastUintPtr(T *ptr) {
 }
 
 inline uintptr_t CastUintPtr(std::nullptr_t ptr) {
-    return 0;
+    return reinterpret_cast<uintptr_t>(ptr);
 }
