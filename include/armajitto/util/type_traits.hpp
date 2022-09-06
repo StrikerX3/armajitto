@@ -22,6 +22,12 @@ namespace detail {
 template <typename T, typename U>
 struct is_compatible : public detail::is_compatible_base<std::remove_cvref_t<T>, std::remove_cvref_t<U>> {};
 
+// nullptr is compatible with all pointer types.
+template <typename T>
+struct is_compatible<T *, std::nullptr_t> {
+    static constexpr bool value = true;
+};
+
 // Convenience wrapper for is_compatible<T, U>::value
 template <typename T, typename U>
 constexpr bool is_compatible_v = is_compatible<T, U>::value;
