@@ -1,4 +1,5 @@
 #include <armajitto/armajitto.hpp>
+#include <armajitto/core/memory_map.hpp>
 #include <armajitto/host/x86_64/cpuid.hpp>
 #include <armajitto/host/x86_64/x86_64_host.hpp>
 #include <armajitto/ir/optimizer.hpp>
@@ -1515,7 +1516,7 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
-    auto &optParams = jit.GetOptimizationParameters();
+    // auto &optParams = jit.GetOptimizationParameters();
     // optParams.passes.constantPropagation = false;
     // optParams.passes.deadRegisterStoreElimination = false;
     // optParams.passes.deadGPRStoreElimination = false;
@@ -1716,6 +1717,11 @@ void compilerStressTest() {
     printf("took %llu ms\n", std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count());
 }
 
+void testMemoryMap() {
+    armajitto::MemoryMap map{4096};
+    map.Map(0x2000000, 0x10000, (uint8_t *)&map);
+}
+
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
@@ -1725,6 +1731,7 @@ int main(int argc, char *argv[]) {
     // testCompiler();
     testNDS();
     // compilerStressTest();
+    // testMemoryMap();
 
     return EXIT_SUCCESS;
 }

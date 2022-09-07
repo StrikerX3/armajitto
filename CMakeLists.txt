@@ -26,6 +26,7 @@ add_library(armajitto
     include/armajitto/core/allocator.hpp
     include/armajitto/core/context.hpp
     include/armajitto/core/location_ref.hpp
+    include/armajitto/core/memory_map.hpp
     include/armajitto/core/pmr_allocator.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
@@ -88,6 +89,7 @@ add_library(armajitto
     include/armajitto/util/unsafe_circular_buffer.hpp
     src/core/allocator.cpp
     src/core/context.cpp
+    src/core/memory_map.cpp
     src/core/recompiler.cpp
     src/guest/arm/state.cpp
     src/guest/arm/coprocessors/coproc_15_sys_control.cpp
