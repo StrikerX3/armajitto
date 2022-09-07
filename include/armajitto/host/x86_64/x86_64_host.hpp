@@ -20,7 +20,7 @@ namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
 public:
-    static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(32) * 1024 * 1024;
+    static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(1) * 1024 * 1024;
 
     x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize = kDefaultMaxCodeSize);
     ~x64Host();
@@ -50,8 +50,20 @@ public:
     void InvalidateCodeCacheRange(uint32_t start, uint32_t end) final;
 
 private:
+    struct CustomCodeGenerator : public Xbyak::CodeGenerator {
+    public:
+        using Xbyak::CodeGenerator::CodeGenerator;
+
+        void setCodeBuffer(uint8_t *codeBuffer, size_t size) {
+            top_ = codeBuffer;
+            maxSize_ = size;
+            reset();
+        }
+    };
+
     std::unique_ptr<uint8_t[]> m_codeBuffer;
-    Xbyak::CodeGenerator m_codegen;
+    size_t m_codeBufferSize;
+    CustomCodeGenerator m_codegen;
     CompiledCode m_compiledCode;
     std::pmr::memory_resource &m_alloc;
 
@@ -62,6 +74,8 @@ private:
     void CompileProlog();
     void CompileEpilog();
     void CompileIRQEntry();
+
+    HostCode CompileImpl(ir::BasicBlock &block);
 
     void ApplyDirectLinkPatches(LocationRef target, HostCode blockCode);
     void RevertDirectLinkPatches(uint64_t target);

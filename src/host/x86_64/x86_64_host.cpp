@@ -19,6 +19,7 @@ inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycle
 x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize)
     : Host(context)
     , m_codeBuffer(new uint8_t[maxCodeSize])
+    , m_codeBufferSize(maxCodeSize)
     , m_codegen(maxCodeSize, m_codeBuffer.get())
     , m_alloc(alloc) {
 
@@ -35,73 +36,28 @@ x64Host::~x64Host() {
 }
 
 HostCode x64Host::Compile(ir::BasicBlock &block) {
-    auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
-    Compiler compiler{m_context, m_compiledCode, m_codegen, block, m_alloc};
-
-    auto fnPtr = m_codegen.getCurr<HostCode>();
-    cachedBlock.code = fnPtr;
-
-    Xbyak::Label lblCondFail{};
-
-    // Compile pre-execution checks
-    compiler.CompileIRQLineCheck();
-    compiler.CompileCondCheck(block.Condition(), lblCondFail);
-
-    // Compile block code
-    if (block.Condition() != arm::Condition::NV) {
-        auto *op = block.Head();
-        while (op != nullptr) {
-            compiler.PreProcessOp(op);
-            ir::VisitIROp(op, [&compiler](const auto *op) -> void { compiler.CompileOp(op); });
-            compiler.PostProcessOp(op);
-            op = op->Next();
+    for (;;) {
+        HostCode code = nullptr;
+        try {
+            // Try compiling the block
+            code = CompileImpl(block);
+        } catch (Xbyak::Error e) {
+            if ((int)e == Xbyak::ERR_CODE_IS_TOO_BIG) {
+                // If compilation fails due to filling up the code buffer, double its size and try compiling again
+                m_codeBufferSize *= 2;
+                m_codeBuffer.reset(new uint8_t[m_codeBufferSize]);
+                m_codegen.setCodeBuffer(m_codeBuffer.get(), m_codeBufferSize);
+                m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
+                Clear();
+            } else {
+                // Otherwise, rethrow exception
+                throw;
+            }
         }
-
-        // Decrement cycles for this block
-        // TODO: proper cycle counting
-        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
-
-        // Bail out if we ran out of cycles
-        m_codegen.jle(m_compiledCode.epilog);
-    }
-
-    if (block.Condition() != arm::Condition::AL) {
-        // Go to next block or epilog
-        compiler.CompileTerminal(block);
-
-        // Condition fail block
-        {
-            m_codegen.L(lblCondFail);
-
-            // Update PC if condition fails
-            const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
-            const uint32_t instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
-            m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
-                          block.Location().PC() + block.InstructionCount() * instrSize);
-
-            // Decrement cycles for this block's condition fail branch
-            // TODO: properly decrement cycles for failing the check
-            m_codegen.sub(kCycleCountOperand, block.InstructionCount());
-
-            // Bail out if we ran out of cycles
-            m_codegen.jle(m_compiledCode.epilog);
-
-            // Link to next instruction
-            compiler.CompileDirectLinkToSuccessor(block);
+        if (code != nullptr) {
+            return code;
         }
     }
-
-    // Go to next block or epilog
-    compiler.CompileTerminal(block);
-
-    // -----------------------------------------------------------------------------------------------------------------
-
-    // Patch references to this block
-    ApplyDirectLinkPatches(block.Location(), fnPtr);
-
-    // Cleanup, cache block and return pointer to code
-    vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
-    return fnPtr;
 }
 
 void x64Host::Clear() {
@@ -362,6 +318,76 @@ void x64Host::CompileIRQEntry() {
     m_codegen.jmp(cpsrReg32.cvt64());
 
     vtune::ReportCode(CastUintPtr(m_compiledCode.irqEntry), m_codegen.getCurr<uintptr_t>(), "__irqEntry");
+}
+
+HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
+    auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
+    Compiler compiler{m_context, m_compiledCode, m_codegen, block, m_alloc};
+
+    auto fnPtr = m_codegen.getCurr<HostCode>();
+    cachedBlock.code = fnPtr;
+
+    Xbyak::Label lblCondFail{};
+
+    // Compile pre-execution checks
+    compiler.CompileIRQLineCheck();
+    compiler.CompileCondCheck(block.Condition(), lblCondFail);
+
+    // Compile block code
+    if (block.Condition() != arm::Condition::NV) {
+        auto *op = block.Head();
+        while (op != nullptr) {
+            compiler.PreProcessOp(op);
+            ir::VisitIROp(op, [&compiler](const auto *op) -> void { compiler.CompileOp(op); });
+            compiler.PostProcessOp(op);
+            op = op->Next();
+        }
+
+        // Decrement cycles for this block
+        // TODO: proper cycle counting
+        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+
+        // Bail out if we ran out of cycles
+        m_codegen.jle(m_compiledCode.epilog);
+    }
+
+    if (block.Condition() != arm::Condition::AL) {
+        // Go to next block or epilog
+        compiler.CompileTerminal(block);
+
+        // Condition fail block
+        {
+            m_codegen.L(lblCondFail);
+
+            // Update PC if condition fails
+            const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
+            const uint32_t instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+            m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
+                          block.Location().PC() + block.InstructionCount() * instrSize);
+
+            // Decrement cycles for this block's condition fail branch
+            // TODO: properly decrement cycles for failing the check
+            m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+
+            // Bail out if we ran out of cycles
+            m_codegen.jle(m_compiledCode.epilog);
+
+            // Link to next instruction
+            compiler.CompileDirectLinkToSuccessor(block);
+        }
+    }
+
+    // Go to next block or epilog
+    compiler.CompileTerminal(block);
+
+    // -----------------------------------------------------------------------------------------------------------------
+
+    // Patch references to this block
+    ApplyDirectLinkPatches(block.Location(), fnPtr);
+
+    // Cleanup, cache block and return pointer to code
+    vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
+    return fnPtr;
 }
 
 void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
