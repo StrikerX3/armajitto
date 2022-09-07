@@ -53,7 +53,8 @@ private:
     Context m_context;
 
     memory::Allocator m_allocator;
-    std::pmr::monotonic_buffer_resource m_pmrBuffer{std::pmr::get_default_resource()};
+    // std::pmr::monotonic_buffer_resource m_pmrBuffer{std::pmr::get_default_resource()};
+    std::pmr::unsynchronized_pool_resource m_pmrBuffer{std::pmr::get_default_resource()};
 
     ir::Translator m_translator;
     ir::Optimizer m_optimizer;

@@ -1643,12 +1643,13 @@ void compilerStressTest() {
     bool thumb = false;
 
     armajitto::memory::Allocator blockAlloc{};
-    std::pmr::monotonic_buffer_resource pmrBuffer{std::pmr::get_default_resource()};
+    // std::pmr::monotonic_buffer_resource pmrBuffer{std::pmr::get_default_resource()};
+    std::pmr::unsynchronized_pool_resource pmrBuffer{std::pmr::get_default_resource()};
 
     // Create compiler chain
     armajitto::ir::Translator translator{context};
     armajitto::ir::Optimizer optimizer{pmrBuffer};
-    armajitto::x86_64::x64Host host{context, pmrBuffer, 96u * 1024u * 1024u};
+    armajitto::x86_64::x64Host host{context, pmrBuffer, 1u * 1024u * 1024u};
 
     std::default_random_engine generator;
     std::uniform_int_distribution<uint32_t> distARM(0xE0000000, 0xEFFFFFFF);
