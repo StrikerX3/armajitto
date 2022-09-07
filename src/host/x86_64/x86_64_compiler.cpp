@@ -2773,77 +2773,116 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
-    // Maps registers to their order in the function call ABI.
-    // TODO: this won't work on System V ABI if XMM registers are involved.
-    constexpr auto argRegOrder = [] {
-        std::array<int, 16> argRegOrder{};
-        argRegOrder.fill(17);
-        int order = 0;
-        for (auto &reg : abi::kIntArgRegs) {
-            argRegOrder[reg.getIdx()] = order++;
+    // -----------------------------------------------------------------------------------------------------------------
+    // Function call ABI registers handling
+    //
+    // These registers need special treatment to ensure they're not overwritten while passing arguments.
+    // This algorithm constructs an assignment graph (dst <- src), then assigns registers starting from the leaves.
+    // If forks are found (i.e. the same register is passed in multiple times), all of their assignments are handled
+    // before moving up the graph.
+    // If cycles are found, the algorithm emits a chain of xchgs to swap them.
+
+    enum class NodeType { Unused, Leaf, NonLeaf, Cycle };
+    std::array<NodeType, 16> nodes{};
+    std::bitset<16> handledArgs{};           // which registers have been assigned to?
+    std::array<int, 16> argRegAssignments{}; // what register is assigned to this register?
+    std::array<int, 16> assignmentCount{};   // number of times this register is assigned (to handle forks)
+    argRegAssignments.fill(-1);              // initialize with unknown
+
+    // which registers are ABI function call arguments?
+    constexpr auto isABIArg = [] {
+        uint16_t isABIArg = 0;
+        for (auto &abiReg : abi::kIntArgRegs) {
+            isABIArg |= (1 << abiReg.getIdx());
         }
-        return argRegOrder;
+        return isABIArg;
     }();
 
-    // Maps which ABI registers have been handled by the first pass.
-    std::bitset<16> handledRegs{};
-
-    // Map ABI registers (values) are written to other ABI registers (indices).
-    std::array<Xbyak::Reg, 16> abiRegRefs{};
-    auto mapAbiRegRefs = [&, argIndex = 0](auto &&arg) mutable {
+    // Evaluate argument assignments and build the graph
+    auto evalArgRegAssignment = [&, argIndex = 0](auto &&arg) mutable {
         using TArg = decltype(arg);
-
-        if (argIndex < abi::kIntArgRegs.size()) {
-            if constexpr (is_raw_base_of_v<Xbyak::Reg, TArg>) {
-                auto &argReg64 = abi::kIntArgRegs[argIndex];
-                if (arg.cvt64() == argReg64) {
-                    // Register is already in the correct place (best case scenario)
-                    handledRegs.set(arg.getIdx());
-                } else if (argRegOrder[arg.getIdx()] < abi::kIntArgRegs.size()) {
-                    // Register argument is a function call ABI register; map it to the corresponding argument slot
-                    abiRegRefs[argReg64.getIdx()] = arg.cvt64();
+        if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
+            if (isABIArg & (1 << arg.getIdx())) {
+                argRegAssignments[abi::kIntArgRegs[argIndex].getIdx()] = arg.getIdx();
+                if (nodes[abi::kIntArgRegs[argIndex].getIdx()] != NodeType::NonLeaf) {
+                    nodes[abi::kIntArgRegs[argIndex].getIdx()] = NodeType::Leaf;
                 }
+                nodes[arg.getIdx()] = NodeType::NonLeaf;
             }
-            ++argIndex;
         }
+        ++argIndex;
     };
-    (mapAbiRegRefs(std::forward<Args>(args)), ...);
+    (evalArgRegAssignment(std::forward<Args>(args)), ...);
 
-    // Handle special cases
-    for (auto &reg : abi::kIntArgRegs) {
-        // Check for cyclic references
-        if (!handledRegs.test(reg.getIdx())) {
-            auto nextReg = abiRegRefs[reg.getIdx()];
-            while (!nextReg.isNone()) {
-                if (nextReg == reg) {
-                    // Found a cyclic reference.
-                    // Emit xchg sequence starting from reg.
-                    handledRegs.set(reg.getIdx());
-                    auto lhsReg = reg;
-                    auto rhsReg = abiRegRefs[reg.getIdx()].cvt64();
-                    while (rhsReg != reg) {
-                        handledRegs.set(rhsReg.getIdx());
-                        codegen.xchg(lhsReg, rhsReg);
-                        lhsReg = rhsReg;
-                        rhsReg = abiRegRefs[rhsReg.getIdx()].cvt64();
+    // Find cycles and record the necessary exchanges (in reverse order)
+    std::array<std::pair<int, int>, 16> exchanges{};
+    size_t exchangeCount = 0;
+    for (int argReg = 0; argReg < 16; argReg++) {
+        std::bitset<16> seenRegs;
+        seenRegs.set(argReg);
+        int assignedReg = argRegAssignments[argReg];
+        while (assignedReg != -1 && nodes[assignedReg] != NodeType::Cycle) {
+            if (seenRegs.test(assignedReg)) {
+                int cycleStart = assignedReg;
+                int reg = cycleStart;
+                nodes[cycleStart] = NodeType::Cycle;
+                do {
+                    if (nodes[argRegAssignments[reg]] != NodeType::Cycle) {
+                        exchanges[exchangeCount++] = std::make_pair(argRegAssignments[reg], reg);
                     }
-                    break;
-                }
-                nextReg = abiRegRefs[nextReg.getIdx()];
+                    reg = argRegAssignments[reg];
+                    nodes[reg] = NodeType::Cycle;
+                } while (reg != cycleStart);
+                break;
             }
+            seenRegs.set(assignedReg);
+            assignedReg = argRegAssignments[assignedReg];
         }
+    }
 
-        // Check for backward references (reading from previous argument registers)
-        if (!handledRegs.test(reg.getIdx())) {
-            auto nextReg = abiRegRefs[reg.getIdx()];
-            if (argRegOrder[nextReg.getIdx()] < argRegOrder[reg.getIdx()]) {
-                // Found a backward reference.
-                // Emit them right away to avoid overwriting registers.
-                handledRegs.set(nextReg.getIdx());
-                codegen.mov(reg, nextReg.cvt64());
+    // Process assignment chains, starting from leaf nodes
+    for (int reg = 0; reg < 16; reg++) {
+        if (nodes[reg] == NodeType::Leaf) {
+            int nextReg = argRegAssignments[reg];
+            while (nextReg != -1 && nodes[nextReg] != NodeType::Cycle) {
+                ++assignmentCount[nextReg];
+                nextReg = argRegAssignments[nextReg];
             }
         }
     }
+
+    // Emit instruction sequences; direct assignments first, then cycle exchanges
+    for (int reg = 0; reg < 16; reg++) {
+        if (nodes[reg] == NodeType::Leaf) {
+            int currReg = reg;
+            int nextReg = argRegAssignments[reg];
+            while (nextReg != -1 && nodes[nextReg] != NodeType::Cycle) {
+                if (assignmentCount[nextReg] > 0) {
+                    --assignmentCount[nextReg];
+                }
+                if (assignmentCount[currReg] == 0 || assignmentCount[nextReg] == 0) {
+                    codegen.mov(Xbyak::Reg64{currReg}, Xbyak::Reg64{nextReg});
+                    handledArgs.set(currReg);
+                }
+                currReg = nextReg;
+                nextReg = argRegAssignments[nextReg];
+            }
+            if (nextReg != -1 && assignmentCount[currReg] == 0) {
+                codegen.mov(Xbyak::Reg64{currReg}, Xbyak::Reg64{nextReg});
+                handledArgs.set(currReg);
+            }
+        }
+    }
+    for (int i = exchangeCount - 1; i >= 0; i--) {
+        auto &xchg = exchanges[i];
+        Xbyak::Reg64 lhsReg64{xchg.first};
+        Xbyak::Reg64 rhsReg64{xchg.second};
+        codegen.xchg(lhsReg64, rhsReg64);
+        handledArgs.set(xchg.first);
+        handledArgs.set(xchg.second);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
 
     // Process the rest of the arguments
     auto setArg = [&, argIndex = 0](auto &&arg) mutable {
@@ -2852,7 +2891,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         if (argIndex < abi::kIntArgRegs.size()) {
             auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
-                if (!handledRegs.test(arg.getIdx()) && arg.cvt64() != argReg64) {
+                if (!handledArgs.test(argReg64.getIdx())) {
                     codegen.mov(argReg64, arg.cvt64());
                 }
             } else if constexpr (is_raw_integral_v<TArg>) {
@@ -2861,6 +2900,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
                 codegen.mov(argReg64, CastUintPtr(arg));
             } else if constexpr (std::is_reference_v<TArg>) {
                 codegen.mov(argReg64, CastUintPtr(&arg));
+            } else if constexpr (std::is_null_pointer_v<TArg>) {
+                codegen.mov(argReg64, CastUintPtr(arg));
             } else {
                 codegen.mov(argReg64, arg);
             }
