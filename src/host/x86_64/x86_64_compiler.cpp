@@ -1966,7 +1966,7 @@ void x64Host::Compiler::CompileOp(const ir::IRSaturatingSubtractOp *op) {
             // Clamp on overflow
             codegen.cmovo(dstReg32, overflowValueReg32);
         } else if (setFlags) {
-            auto dstReg32 = regAlloc.Get(op->dst.var);
+            auto dstReg32 = regAlloc.GetTemporary();
             codegen.mov(dstReg32, lhsValue);
             codegen.cmp(dstReg32, rhsReg32);
             SetVFromFlags();
