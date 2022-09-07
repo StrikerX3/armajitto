@@ -24,6 +24,7 @@ uint64_t Recompiler::Run(uint64_t minCycles) {
                 if (++m_compiledBlocks == kCompiledBlocksReleaseThreshold) {
                     m_compiledBlocks = 0;
                     m_allocator.Release();
+                    m_pmrBuffer.release();
                 }
             }
         }
