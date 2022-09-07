@@ -23,6 +23,18 @@ public:
         return CastUintPtr(m_map);
     }
 
+    uint32_t GetL1Shift() const {
+        return m_l1Shift;
+    }
+
+    uint32_t GetL2Shift() const {
+        return m_l2Shift;
+    }
+
+    uint32_t GetL2Mask() const {
+        return m_l2Mask;
+    }
+
 private:
     const uint32_t m_pageSize;
     const uint32_t m_pageMask;
