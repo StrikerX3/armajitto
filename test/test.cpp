@@ -1,5 +1,5 @@
 #include <armajitto/armajitto.hpp>
-#include <armajitto/core/memory_map.hpp>
+#include <armajitto/core/layered_memory_map.hpp>
 #include <armajitto/host/x86_64/cpuid.hpp>
 #include <armajitto/host/x86_64/x86_64_host.hpp>
 #include <armajitto/ir/optimizer.hpp>
@@ -1718,8 +1718,21 @@ void compilerStressTest() {
 }
 
 void testMemoryMap() {
-    armajitto::MemoryMap map{4096};
-    map.Map(0x2000000, 0x10000, (uint8_t *)&map);
+    armajitto::LayeredMemoryMap<3> map{4096};
+    
+    std::vector<uint8_t> ram;
+    ram.resize(0x10000);
+    
+    std::vector<uint8_t> dtcm;
+    dtcm.resize(0x4000);
+    
+    std::vector<uint8_t> itcm;
+    itcm.resize(0x8000);
+    
+    map.Map(0, 0x0000000, 0x10000, ram.data(), ram.size());
+    map.Map(0, 0x2000000, 0x100000, ram.data(), ram.size());
+    map.Map(1, 0x0000000, 0x8000, dtcm.data(), dtcm.size());
+    map.Map(2, 0x0000000, 0x8000, itcm.data(), itcm.size());
 }
 
 int main(int argc, char *argv[]) {
@@ -1729,9 +1742,9 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    testNDS();
+    // testNDS();
     // compilerStressTest();
-    // testMemoryMap();
+    testMemoryMap();
 
     return EXIT_SUCCESS;
 }
