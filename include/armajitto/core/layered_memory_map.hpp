@@ -63,15 +63,13 @@ public:
         assert((size & m_pageMask) == 0);        // size must be page-aligned
 
         const uint64_t finalAddress = (uint64_t)baseAddress + size;
-        for (uint64_t address = baseAddress; address < finalAddress; address += mirrorSize) {
-        const uint32_t finalAddress = baseAddress + size - 1;
 
         uint32_t address = baseAddress;
         while (address <= finalAddress) {
             if (auto range = m_layers[layer].LowerBound(baseAddress)) {
                 auto [lb, ub] = *range;
                 const uint32_t startAddress = std::max(address, lb);
-                const uint32_t endAddress = std::min(ub, finalAddress);
+                const uint32_t endAddress = std::min((uint64_t)ub, finalAddress);
                 UnmapSubrange(layer, startAddress, endAddress - startAddress + 1);
                 address = ub;
             } else {
