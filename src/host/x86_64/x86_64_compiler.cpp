@@ -445,6 +445,10 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     if (op->dst.var.IsPresent()) {
         Xbyak::Label lblSlowMem;
 
+        const uint32_t addrMask = (op->size == ir::MemAccessSize::Word)   ? ~3
+                                  : (op->size == ir::MemAccessSize::Half) ? ~1
+                                                                          : ~0;
+
         // Get memory map for the corresponding bus
         auto &memMap = context.GetSystem().GetMemoryMap();
         auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? memMap.codeRead : memMap.dataRead;
@@ -469,7 +473,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
             codegen.je(lblSlowMem);
 
             // Read from selected page
-            const uint32_t offset = address & memMapRef.GetPageMask();
+            uint32_t offset = address & memMapRef.GetPageMask() & addrMask;
             auto dstReg32 = regAlloc.Get(op->dst.var);
             compileRead(dstReg32, memMapReg64, offset);
         } else {
@@ -493,7 +497,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
             // Read from selected page
             codegen.mov(indexReg32, addrReg32);
-            codegen.and_(indexReg32, memMapRef.GetPageMask());
+            codegen.and_(indexReg32, memMapRef.GetPageMask() & addrMask);
             auto dstReg32 = regAlloc.Get(op->dst.var);
             compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
         }
