@@ -2,6 +2,11 @@
 
 namespace armajitto {
 
+void Recompiler::Reset() {
+    FlushCachedBlocks();
+    m_context.GetARMState().Reset();
+}
+
 uint64_t Recompiler::Run(uint64_t minCycles) {
     auto &armState = m_context.GetARMState();
     uint32_t &pc = armState.GPR(arm::GPR::PC);
@@ -39,6 +44,7 @@ void Recompiler::FlushCachedBlocks() {
     m_host.Clear();
     m_allocator.Release();
     m_pmrBuffer.release();
+    m_compiledBlocks = 0;
 }
 
 } // namespace armajitto

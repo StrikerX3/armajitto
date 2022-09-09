@@ -20,6 +20,8 @@ public:
         , m_optimizer(m_pmrBuffer)
         , m_host(m_context, m_pmrBuffer, spec.maxHostCodeSize) {}
 
+    void Reset();
+
     arm::State &GetARMState() {
         return m_context.GetARMState();
     }

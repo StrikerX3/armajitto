@@ -6,6 +6,8 @@ void SystemControlCoprocessor::Reset() {
     m_ctl.Reset();
     m_pu.Reset();
     m_tcm.Reset();
+    m_tcm.SetupITCM(m_ctl.value.itcmEnable, m_ctl.value.itcmLoad);
+    m_tcm.SetupDTCM(m_ctl.value.dtcmEnable, m_ctl.value.dtcmLoad);
 }
 
 void SystemControlCoprocessor::Install(cp15::id::Implementor implementor, uint32_t variant,
