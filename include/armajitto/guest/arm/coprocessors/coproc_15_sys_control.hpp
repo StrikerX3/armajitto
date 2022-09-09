@@ -53,7 +53,15 @@ public:
         return m_id;
     }
 
+    const cp15::Identification &GetIdentification() const {
+        return m_id;
+    }
+
     cp15::ControlRegister &GetControlRegister() {
+        return m_ctl;
+    }
+
+    const cp15::ControlRegister &GetControlRegister() const {
         return m_ctl;
     }
 
@@ -61,11 +69,23 @@ public:
         return m_pu;
     }
 
+    const cp15::ProtectionUnit &GetProtectionUnit() const {
+        return m_pu;
+    }
+
     cp15::TCM &GetTCM() {
         return m_tcm;
     }
 
+    const cp15::TCM &GetTCM() const {
+        return m_tcm;
+    }
+
     cp15::Cache &GetCache() {
+        return m_cache;
+    }
+
+    const cp15::Cache &GetCache() const {
         return m_cache;
     }
 
