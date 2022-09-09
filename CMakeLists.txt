@@ -5,6 +5,9 @@ project(armajitto VERSION 1.0.0)
 # GitHub: https://github.com/alexreinking/SharedStaticStarter
 # Blog: https://alexreinking.com/blog/building-a-dual-shared-and-static-library-with-cmake.html
 
+## Determine if this is a top-level build or included as a subproject
+string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
+
 option(ARMAJITTO_USE_VTUNE "Use VTune JIT Profiling API if available" OFF)
 
 ## C++ language configuration boilerplate
@@ -201,18 +204,20 @@ target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_MINOR=${armajitto_
 target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_PATCH=${armajitto_VERSION_PATCH}u)
 
 ######### TEMPORARY #########
-## Add a test executable to aid development
-add_executable(armajitto-test
-    test/test.cpp
-)
-add_executable(armajitto::armajitto-test ALIAS armajitto-test)
-set_target_properties(armajitto-test PROPERTIES
-                      VERSION ${armajitto_VERSION}
-                      SOVERSION ${armajitto_VERSION_MAJOR})
-find_package(SDL2 CONFIG REQUIRED)
-target_link_libraries(armajitto-test PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
-target_link_libraries(armajitto-test PRIVATE armajitto)
-target_compile_features(armajitto-test PUBLIC cxx_std_20)
+if(is_top_level)
+    ## Add a test executable to aid development
+    add_executable(armajitto-test
+        test/test.cpp
+    )
+    add_executable(armajitto::armajitto-test ALIAS armajitto-test)
+    set_target_properties(armajitto-test PROPERTIES
+                          VERSION ${armajitto_VERSION}
+                          SOVERSION ${armajitto_VERSION_MAJOR})
+    find_package(SDL2 CONFIG REQUIRED)
+    target_link_libraries(armajitto-test PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
+    target_link_libraries(armajitto-test PRIVATE armajitto)
+    target_compile_features(armajitto-test PUBLIC cxx_std_20)
+endif()
 ######### TEMPORARY #########
 
 ## Configure Visual Studio solution
@@ -238,9 +243,6 @@ include(GenerateExportHeader)
 generate_export_header(armajitto EXPORT_FILE_NAME include/armajitto/export.h)
 target_compile_definitions(armajitto PUBLIC "$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:armajitto_STATIC_DEFINE>")
 target_include_directories(armajitto PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>")
-
-## Determine if this is a top-level build or included as a subproject
-string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
 
 ## Include the install rules if the user wanted them (included by default when top-level)
 option(armajitto_INCLUDE_PACKAGING "Include packaging rules for armajitto" "${is_top_level}")
