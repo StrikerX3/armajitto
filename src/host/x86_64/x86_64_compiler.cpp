@@ -358,7 +358,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     // TODO: handle caches, permissions, etc.
     // TODO: virtual memory, exception handling, rewriting accessors
 
-    Xbyak::Label lblSkipTCM{};
     Xbyak::Label lblEnd{};
 
     auto compileRead = [this, op](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
@@ -502,6 +501,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
             compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
         }
 
+        // Skip slow memory handler
         codegen.jmp(lblEnd);
         codegen.L(lblSlowMem);
     }
@@ -564,135 +564,102 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     // TODO: handle caches, permissions, etc.
-    // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
 
-    Xbyak::Label lblSkipTCM{};
+    Xbyak::Label lblSlowMem;
     Xbyak::Label lblEnd{};
 
-    auto &cp15 = armState.GetSystemControlCoprocessor();
-    if (cp15.IsPresent()) {
-        auto &tcm = cp15.GetTCM();
+    const uint32_t addrMask = (op->size == ir::MemAccessSize::Word)   ? ~3
+                              : (op->size == ir::MemAccessSize::Half) ? ~1
+                                                                      : ~0;
+    // Get memory map for the corresponding bus
+    auto &memMap = context.GetSystem().GetMemoryMap();
+    auto &memMapRef = memMap.dataWrite;
 
-        auto tcmReg64 = regAlloc.GetTemporary().cvt64();
-        codegen.mov(tcmReg64, CastUintPtr(&tcm));
+    // Get map pointer
+    auto memMapReg64 = regAlloc.GetTemporary().cvt64();
+    codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
 
-        // Get temporary register for the address
-        auto addrReg64 = regAlloc.GetTemporary().cvt64();
+    if (op->address.immediate) {
+        const uint32_t address = op->address.imm.value;
 
-        // ITCM check
-        {
-            constexpr auto itcmWriteSizeOfs = offsetof(arm::cp15::TCM, itcmWriteSize);
+        // Get level 1 pointer
+        const uint32_t l1Index = address >> memMapRef.GetL1Shift();
+        codegen.mov(memMapReg64, qword[memMapReg64 + l1Index * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            Xbyak::Label lblSkipITCM{};
+        // Get level 2 pointer
+        const uint32_t l2Index = (address >> memMapRef.GetL2Shift()) & memMapRef.GetL2Mask();
+        codegen.mov(memMapReg64, qword[memMapReg64 + l2Index * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Get address
-            if (op->address.immediate) {
-                codegen.mov(addrReg64.cvt32(), op->address.imm.value);
-            } else {
-                auto addrReg32 = regAlloc.Get(op->address.var.var);
-                codegen.mov(addrReg64.cvt32(), addrReg32);
+        // Write to selected page
+        uint32_t offset = address & memMapRef.GetPageMask() & addrMask;
+        if (op->src.immediate) {
+            const uint32_t imm = op->src.imm.value;
+            switch (op->size) {
+            case ir::MemAccessSize::Byte: codegen.mov(byte[memMapReg64 + offset], (uint8_t)imm); break;
+            case ir::MemAccessSize::Half: codegen.mov(word[memMapReg64 + offset], (uint16_t)imm); break;
+            case ir::MemAccessSize::Word: codegen.mov(dword[memMapReg64 + offset], imm); break;
+            default: util::unreachable();
             }
-
-            // Check if address is in range
-            codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmWriteSizeOfs]);
-            codegen.jae(lblSkipITCM);
-
-            // Compute address mirror mask
-            assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
-            uint32_t addrMask = tcm.itcmSize - 1;
-            if (op->size == ir::MemAccessSize::Half) {
-                addrMask &= ~1;
-            } else if (op->size == ir::MemAccessSize::Word) {
-                addrMask &= ~3;
+        } else {
+            auto srcReg32 = regAlloc.Get(op->src.var.var);
+            switch (op->size) {
+            case ir::MemAccessSize::Byte: codegen.mov(byte[memMapReg64 + offset], srcReg32.cvt8()); break;
+            case ir::MemAccessSize::Half: codegen.mov(word[memMapReg64 + offset], srcReg32.cvt16()); break;
+            case ir::MemAccessSize::Word: codegen.mov(dword[memMapReg64 + offset], srcReg32); break;
+            default: util::unreachable();
             }
-
-            // Mirror and/or align address and use it as offset into the ITCM data
-            codegen.and_(addrReg64, addrMask);
-            codegen.mov(tcmReg64, CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
-            codegen.add(addrReg64, tcmReg64);
-
-            // Write to ITCM
-            if (op->src.immediate) {
-                const uint32_t value = op->src.imm.value;
-                switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], static_cast<uint8_t>(value)); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], static_cast<uint16_t>(value)); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], value); break;
-                }
-            } else {
-                auto srcReg32 = regAlloc.Get(op->src.var.var);
-                switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], srcReg32.cvt8()); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], srcReg32.cvt16()); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], srcReg32.cvt32()); break;
-                }
-            }
-
-            // Done!
-            codegen.jmp(lblEnd);
-
-            codegen.L(lblSkipITCM);
         }
+    } else {
+        auto addrReg32 = regAlloc.Get(op->address.var.var);
+        auto indexReg32 = regAlloc.GetTemporary();
 
-        // DTCM check
-        {
-            constexpr auto dtcmBaseOfs = offsetof(arm::cp15::TCM, dtcmBase);
-            constexpr auto dtcmWriteSizeOfs = offsetof(arm::cp15::TCM, dtcmWriteSize);
+        // Get level 1 pointer
+        codegen.mov(indexReg32, addrReg32);
+        codegen.shr(indexReg32, memMapRef.GetL1Shift());
+        codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Get address
-            if (op->address.immediate) {
-                codegen.mov(addrReg64.cvt32(), op->address.imm.value);
-            } else {
-                auto addrReg32 = regAlloc.Get(op->address.var.var);
-                codegen.mov(addrReg64.cvt32(), addrReg32);
+        // Get level 2 pointer
+        codegen.mov(indexReg32, addrReg32);
+        codegen.shr(indexReg32, memMapRef.GetL2Shift());
+        codegen.and_(indexReg32, memMapRef.GetL2Mask());
+        codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
+
+        // Write to selected page
+        codegen.mov(indexReg32, addrReg32);
+        codegen.and_(indexReg32, memMapRef.GetPageMask() & addrMask);
+        if (op->src.immediate) {
+            const uint32_t imm = op->src.imm.value;
+            switch (op->size) {
+            case ir::MemAccessSize::Byte: codegen.mov(byte[memMapReg64 + indexReg32.cvt64()], (uint8_t)imm); break;
+            case ir::MemAccessSize::Half: codegen.mov(word[memMapReg64 + indexReg32.cvt64()], (uint16_t)imm); break;
+            case ir::MemAccessSize::Word: codegen.mov(dword[memMapReg64 + indexReg32.cvt64()], imm); break;
+            default: util::unreachable();
             }
-
-            // Adjust address to base offset
-            codegen.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
-
-            // Check if address is in range
-            codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmWriteSizeOfs]);
-            codegen.jae(lblSkipTCM);
-
-            // Compute address mirror mask
-            assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
-            uint32_t addrMask = tcm.dtcmSize - 1;
-            if (op->size == ir::MemAccessSize::Half) {
-                addrMask &= ~1;
-            } else if (op->size == ir::MemAccessSize::Word) {
-                addrMask &= ~3;
+        } else {
+            auto srcReg32 = regAlloc.Get(op->src.var.var);
+            switch (op->size) {
+            case ir::MemAccessSize::Byte: codegen.mov(byte[memMapReg64 + indexReg32.cvt64()], srcReg32.cvt8()); break;
+            case ir::MemAccessSize::Half: codegen.mov(word[memMapReg64 + indexReg32.cvt64()], srcReg32.cvt16()); break;
+            case ir::MemAccessSize::Word: codegen.mov(dword[memMapReg64 + indexReg32.cvt64()], srcReg32); break;
+            default: util::unreachable();
             }
-
-            // Mirror and/or align address and use it as offset into the DTCM data
-            codegen.and_(addrReg64, addrMask);
-            codegen.mov(tcmReg64, CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
-            codegen.add(addrReg64, tcmReg64);
-
-            // Write to DTCM
-            if (op->src.immediate) {
-                const uint32_t value = op->src.imm.value;
-                switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], static_cast<uint8_t>(value)); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], static_cast<uint16_t>(value)); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], value); break;
-                }
-            } else {
-                auto srcReg32 = regAlloc.Get(op->src.var.var);
-                switch (op->size) {
-                case ir::MemAccessSize::Byte: codegen.mov(byte[addrReg64], srcReg32.cvt8()); break;
-                case ir::MemAccessSize::Half: codegen.mov(word[addrReg64], srcReg32.cvt16()); break;
-                case ir::MemAccessSize::Word: codegen.mov(dword[addrReg64], srcReg32.cvt32()); break;
-                }
-            }
-
-            // Done!
-            codegen.jmp(lblEnd);
         }
     }
 
+    // Skip slow memory handler
+    codegen.jmp(lblEnd);
+
     // Handle slow memory access
-    codegen.L(lblSkipTCM);
+    codegen.L(lblSlowMem);
 
     auto &system = context.GetSystem();
 
