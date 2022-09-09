@@ -441,70 +441,72 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
         }
     };
 
-    if (op->dst.var.IsPresent()) {
-        Xbyak::Label lblSlowMem;
+    Xbyak::Label lblSlowMem;
 
-        const uint32_t addrMask = (op->size == ir::MemAccessSize::Word)   ? ~3
-                                  : (op->size == ir::MemAccessSize::Half) ? ~1
-                                                                          : ~0;
+    const uint32_t addrMask = (op->size == ir::MemAccessSize::Word)   ? ~3
+                              : (op->size == ir::MemAccessSize::Half) ? ~1
+                                                                      : ~0;
 
-        // Get memory map for the corresponding bus
-        auto &memMap = context.GetSystem().GetMemoryMap();
-        auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? memMap.codeRead : memMap.dataRead;
+    // Get memory map for the corresponding bus
+    auto &memMap = context.GetSystem().GetMemoryMap();
+    auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? memMap.codeRead : memMap.dataRead;
 
-        // Get map pointer
-        auto memMapReg64 = regAlloc.GetTemporary().cvt64();
-        codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
+    // Get map pointer
+    auto memMapReg64 = regAlloc.GetTemporary().cvt64();
+    codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
 
-        if (op->address.immediate) {
-            const uint32_t address = op->address.imm.value;
+    if (op->address.immediate) {
+        const uint32_t address = op->address.imm.value;
 
-            // Get level 1 pointer
-            const uint32_t l1Index = address >> memMapRef.GetL1Shift();
-            codegen.mov(memMapReg64, qword[memMapReg64 + l1Index * sizeof(void *)]);
-            codegen.test(memMapReg64, memMapReg64);
-            codegen.je(lblSlowMem);
+        // Get level 1 pointer
+        const uint32_t l1Index = address >> memMapRef.GetL1Shift();
+        codegen.mov(memMapReg64, qword[memMapReg64 + l1Index * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Get level 2 pointer
-            const uint32_t l2Index = (address >> memMapRef.GetL2Shift()) & memMapRef.GetL2Mask();
-            codegen.mov(memMapReg64, qword[memMapReg64 + l2Index * sizeof(void *)]);
-            codegen.test(memMapReg64, memMapReg64);
-            codegen.je(lblSlowMem);
+        // Get level 2 pointer
+        const uint32_t l2Index = (address >> memMapRef.GetL2Shift()) & memMapRef.GetL2Mask();
+        codegen.mov(memMapReg64, qword[memMapReg64 + l2Index * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Read from selected page
-            uint32_t offset = address & memMapRef.GetPageMask() & addrMask;
+        // Read from selected page
+        if (op->dst.var.IsPresent()) {
+            const uint32_t offset = address & memMapRef.GetPageMask() & addrMask;
             auto dstReg32 = regAlloc.Get(op->dst.var);
             compileRead(dstReg32, memMapReg64, offset);
-        } else {
-            auto addrReg32 = regAlloc.Get(op->address.var.var);
-            auto indexReg32 = regAlloc.GetTemporary();
+        }
+    } else {
+        auto addrReg32 = regAlloc.Get(op->address.var.var);
+        auto indexReg32 = regAlloc.GetTemporary();
 
-            // Get level 1 pointer
-            codegen.mov(indexReg32, addrReg32);
-            codegen.shr(indexReg32, memMapRef.GetL1Shift());
-            codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
-            codegen.test(memMapReg64, memMapReg64);
-            codegen.je(lblSlowMem);
+        // Get level 1 pointer
+        codegen.mov(indexReg32, addrReg32);
+        codegen.shr(indexReg32, memMapRef.GetL1Shift());
+        codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Get level 2 pointer
-            codegen.mov(indexReg32, addrReg32);
-            codegen.shr(indexReg32, memMapRef.GetL2Shift());
-            codegen.and_(indexReg32, memMapRef.GetL2Mask());
-            codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
-            codegen.test(memMapReg64, memMapReg64);
-            codegen.je(lblSlowMem);
+        // Get level 2 pointer
+        codegen.mov(indexReg32, addrReg32);
+        codegen.shr(indexReg32, memMapRef.GetL2Shift());
+        codegen.and_(indexReg32, memMapRef.GetL2Mask());
+        codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // Read from selected page
+        // Read from selected page
+        if (op->dst.var.IsPresent()) {
+            auto dstReg32 = regAlloc.Get(op->dst.var);
             codegen.mov(indexReg32, addrReg32);
             codegen.and_(indexReg32, memMapRef.GetPageMask() & addrMask);
-            auto dstReg32 = regAlloc.Get(op->dst.var);
             compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
         }
-
-        // Skip slow memory handler
-        codegen.jmp(lblEnd);
-        codegen.L(lblSlowMem);
     }
+
+    // Skip slow memory handler
+    codegen.jmp(lblEnd);
+    codegen.L(lblSlowMem);
 
     // Select parameters based on size
     // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word
