@@ -131,11 +131,23 @@ public:
         }
     }
 
+    const Coprocessor &GetCoprocessor(uint8_t cpnum) const {
+        return const_cast<State *>(this)->GetCoprocessor(cpnum);
+    }
+
     DummyDebugCoprocessor &GetDummyDebugCoprocessor() {
         return m_cp14;
     }
 
+    const DummyDebugCoprocessor &GetDummyDebugCoprocessor() const {
+        return m_cp14;
+    }
+
     SystemControlCoprocessor &GetSystemControlCoprocessor() {
+        return m_cp15;
+    }
+
+    const SystemControlCoprocessor &GetSystemControlCoprocessor() const {
         return m_cp15;
     }
 
