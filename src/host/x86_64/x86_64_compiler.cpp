@@ -356,7 +356,6 @@ void x64Host::Compiler::CompileOp(const ir::IRSetSPSROp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     // TODO: handle caches, permissions, etc.
-    // TODO: fast memory LUT, including TCM blocks; replace the TCM checks below
     // TODO: virtual memory, exception handling, rewriting accessors
 
     Xbyak::Label lblSkipTCM{};
@@ -453,9 +452,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
         // Get map pointer
         auto memMapReg64 = regAlloc.GetTemporary().cvt64();
         codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
-        codegen.mov(memMapReg64, qword[memMapReg64]);
-        codegen.test(memMapReg64, memMapReg64);
-        codegen.je(lblSlowMem);
 
         if (op->address.immediate) {
             const uint32_t address = op->address.imm.value;

@@ -76,44 +76,73 @@ void TCM::Disable() {
 }
 
 void TCM::SetupITCM(bool enable, bool load) {
-    if (memMap != nullptr) {
-        memMap->codeRead.Unmap(kITCMLayer, 0, itcmReadSize);
-        memMap->dataRead.Unmap(kITCMLayer, 0, itcmReadSize);
-        memMap->dataWrite.Unmap(kITCMLayer, 0, itcmWriteSize);
-    }
+    const auto prevReadSize = itcmReadSize;
+    const auto prevWriteSize = itcmWriteSize;
 
     if (enable) {
         itcmWriteSize = 0x200 << ((itcmParams >> 1) & 0x1F);
         itcmReadSize = load ? 0 : itcmWriteSize;
-
-        if (memMap != nullptr) {
-            memMap->codeRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
-            memMap->dataRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
-            memMap->dataWrite.Map(kITCMLayer, 0, itcmWriteSize, itcm, itcmSize);
-        }
     } else {
         itcmWriteSize = itcmReadSize = 0;
+    }
+
+    // Apply changes to memory map
+    if (memMap != nullptr) {
+        if (itcmReadSize > prevReadSize) {
+            // TODO: be more efficient and only map what's added, aligned to itcmSize
+            memMap->codeRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
+            memMap->dataRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
+        } else if (itcmReadSize < prevReadSize) {
+            memMap->codeRead.Unmap(kITCMLayer, itcmReadSize, prevReadSize - itcmReadSize);
+            memMap->dataRead.Unmap(kITCMLayer, itcmReadSize, prevReadSize - itcmReadSize);
+        }
+
+        if (itcmWriteSize > prevWriteSize) {
+            // TODO: be more efficient and only map what's added, aligned to itcmSize
+            memMap->dataWrite.Map(kITCMLayer, 0, itcmWriteSize, itcm, itcmSize);
+        } else if (itcmWriteSize < prevWriteSize) {
+            memMap->dataWrite.Unmap(kITCMLayer, itcmWriteSize, prevWriteSize - itcmWriteSize);
+        }
     }
 }
 
 void TCM::SetupDTCM(bool enable, bool load) {
-    if (memMap != nullptr) {
-        memMap->dataRead.Unmap(kDTCMLayer, 0, dtcmReadSize);
-        memMap->dataWrite.Unmap(kDTCMLayer, 0, dtcmWriteSize);
-    }
+    const auto prevBase = dtcmBase;
+    const auto prevReadSize = dtcmReadSize;
+    const auto prevWriteSize = dtcmWriteSize;
 
     if (enable) {
         dtcmBase = dtcmParams & 0xFFFFF000;
         dtcmWriteSize = 0x200 << ((dtcmParams >> 1) & 0x1F);
         dtcmReadSize = load ? 0 : dtcmWriteSize;
-
-        if (memMap != nullptr) {
-            memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
-            memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
-        }
     } else {
         dtcmBase = 0xFFFFFFFF;
         dtcmWriteSize = dtcmReadSize = 0;
+    }
+
+    // Apply changes to the memory map
+    if (memMap != nullptr) {
+        if (prevBase != dtcmBase) {
+            memMap->dataRead.Unmap(kDTCMLayer, prevBase, prevReadSize);
+            memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+
+            memMap->dataWrite.Unmap(kDTCMLayer, prevBase, prevWriteSize);
+            memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
+        } else {
+            if (dtcmReadSize > prevReadSize) {
+                // TODO: be more efficient and only map what's added, aligned to dtcmSize
+                memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+            } else if (dtcmReadSize < prevReadSize) {
+                memMap->dataRead.Unmap(kDTCMLayer, dtcmBase + dtcmReadSize, prevReadSize - dtcmReadSize);
+            }
+
+            if (dtcmWriteSize > prevWriteSize) {
+                // TODO: be more efficient and only map what's added, aligned to dtcmSize
+                memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
+            } else if (dtcmWriteSize < prevWriteSize) {
+                memMap->dataWrite.Unmap(kDTCMLayer, dtcmBase + dtcmWriteSize, prevWriteSize - dtcmWriteSize);
+            }
+        }
     }
 }
 

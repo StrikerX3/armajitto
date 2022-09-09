@@ -54,7 +54,7 @@ public:
         }
     }
 
-    void Unmap(uint8_t layer, uint32_t baseAddress, uint64_t size, uint64_t mirrorSize = 0x1'0000'0000) {
+    void Unmap(uint8_t layer, uint32_t baseAddress, uint64_t size) {
         if (size == 0) {
             return;
         }
@@ -64,8 +64,19 @@ public:
 
         const uint64_t finalAddress = (uint64_t)baseAddress + size;
         for (uint64_t address = baseAddress; address < finalAddress; address += mirrorSize) {
-            const uint32_t blockSize = std::min((uint64_t)mirrorSize, finalAddress - address);
-            DoUnmap(layer, address, blockSize);
+        const uint32_t finalAddress = baseAddress + size - 1;
+
+        uint32_t address = baseAddress;
+        while (address <= finalAddress) {
+            if (auto range = m_layers[layer].LowerBound(baseAddress)) {
+                auto [lb, ub] = *range;
+                const uint32_t startAddress = std::max(address, lb);
+                const uint32_t endAddress = std::min(ub, finalAddress);
+                UnmapSubrange(layer, startAddress, endAddress - startAddress + 1);
+                address = ub;
+            } else {
+                break;
+            }
         }
     }
 
@@ -98,7 +109,7 @@ public:
     }
 
     uintptr_t GetL1MapAddress() const {
-        return CastUintPtr(&m_map);
+        return CastUintPtr(m_map);
     }
 
     uint32_t GetL1Shift() const {
@@ -165,23 +176,6 @@ private:
                 SetRange(fillStart, fillEnd - fillStart, ptr + offset);
             }
             address = nextAddress + 1;
-        }
-    }
-
-    void DoUnmap(uint8_t layer, uint32_t baseAddress, uint64_t size) {
-        const uint32_t finalAddress = baseAddress + size - 1;
-
-        uint32_t address = baseAddress;
-        while (address <= finalAddress) {
-            if (auto range = m_layers[layer].LowerBound(baseAddress)) {
-                auto [lb, ub] = *range;
-                const uint32_t startAddress = std::max(address, lb);
-                const uint32_t endAddress = std::min(ub, finalAddress);
-                UnmapSubrange(layer, startAddress, endAddress - startAddress + 1);
-                address = ub;
-            } else {
-                break;
-            }
         }
     }
 
