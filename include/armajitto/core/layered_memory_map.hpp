@@ -98,7 +98,7 @@ public:
     }
 
     uintptr_t GetL1MapAddress() const {
-        return CastUintPtr(m_map);
+        return CastUintPtr(&m_map);
     }
 
     uint32_t GetL1Shift() const {
@@ -111,6 +111,10 @@ public:
 
     uint32_t GetL2Mask() const {
         return m_l2Mask;
+    }
+
+    uint32_t GetPageMask() const {
+        return m_pageMask;
     }
 
 private:

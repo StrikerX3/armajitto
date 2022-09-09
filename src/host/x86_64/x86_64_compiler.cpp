@@ -362,13 +362,13 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     Xbyak::Label lblSkipTCM{};
     Xbyak::Label lblEnd{};
 
-    auto compileRead = [this, op](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64) {
+    auto compileRead = [this, op](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
         switch (op->size) {
         case ir::MemAccessSize::Byte:
             if (op->mode == ir::MemAccessMode::Signed) {
-                codegen.movsx(dstReg32, byte[addrReg64]);
+                codegen.movsx(dstReg32, byte[addrReg64 + offset]);
             } else { // aligned/unaligned
-                codegen.movzx(dstReg32, byte[addrReg64]);
+                codegen.movzx(dstReg32, byte[addrReg64 + offset]);
             }
             break;
         case ir::MemAccessSize::Half:
@@ -376,9 +376,9 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                 if (context.GetCPUArch() == CPUArch::ARMv4T) {
                     if (op->address.immediate) {
                         if (op->address.imm.value & 1) {
-                            codegen.movsx(dstReg32, byte[addrReg64 + 1]);
+                            codegen.movsx(dstReg32, byte[addrReg64 + offset + 1]);
                         } else {
-                            codegen.movsx(dstReg32, word[addrReg64]);
+                            codegen.movsx(dstReg32, word[addrReg64 + offset]);
                         }
                     } else {
                         Xbyak::Label lblByteRead{};
@@ -389,20 +389,20 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                         codegen.jnz(lblByteRead);
 
                         // Word read
-                        codegen.movsx(dstReg32, word[addrReg64]);
+                        codegen.movsx(dstReg32, word[addrReg64 + offset]);
                         codegen.jmp(lblDone);
 
                         // Byte read
                         codegen.L(lblByteRead);
-                        codegen.movsx(dstReg32, byte[addrReg64 + 1]);
+                        codegen.movsx(dstReg32, byte[addrReg64 + offset + 1]);
 
                         codegen.L(lblDone);
                     }
                 } else {
-                    codegen.movsx(dstReg32, word[addrReg64]);
+                    codegen.movsx(dstReg32, word[addrReg64 + offset]);
                 }
             } else if (op->mode == ir::MemAccessMode::Unaligned) {
-                codegen.movzx(dstReg32, word[addrReg64]);
+                codegen.movzx(dstReg32, word[addrReg64 + offset]);
                 if (context.GetCPUArch() == CPUArch::ARMv4T) {
                     if (op->address.immediate) {
                         const uint32_t shiftOffset = (op->address.imm.value & 1) * 8;
@@ -419,11 +419,11 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                     }
                 }
             } else { // aligned
-                codegen.movzx(dstReg32, word[addrReg64]);
+                codegen.movzx(dstReg32, word[addrReg64 + offset]);
             }
             break;
         case ir::MemAccessSize::Word:
-            codegen.mov(dstReg32, dword[addrReg64]);
+            codegen.mov(dstReg32, dword[addrReg64 + offset]);
             if (op->mode == ir::MemAccessMode::Unaligned) {
                 if (op->address.immediate) {
                     const uint32_t shiftOffset = (op->address.imm.value & 3) * 8;
@@ -444,106 +444,67 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     };
 
     if (op->dst.var.IsPresent()) {
-        auto &cp15 = armState.GetSystemControlCoprocessor();
-        if (cp15.IsPresent()) {
-            auto &tcm = cp15.GetTCM();
+        Xbyak::Label lblSlowMem;
 
-            auto tcmReg64 = regAlloc.GetTemporary().cvt64();
-            codegen.mov(tcmReg64, CastUintPtr(&tcm));
+        // Get memory map for the corresponding bus
+        auto &memMap = context.GetSystem().GetMemoryMap();
+        auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? memMap.codeRead : memMap.dataRead;
 
-            // Get temporary register for the address
-            auto addrReg64 = regAlloc.GetTemporary().cvt64();
+        // Get map pointer
+        auto memMapReg64 = regAlloc.GetTemporary().cvt64();
+        codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
+        codegen.mov(memMapReg64, qword[memMapReg64]);
+        codegen.test(memMapReg64, memMapReg64);
+        codegen.je(lblSlowMem);
 
-            // ITCM check
-            {
-                constexpr auto itcmReadSizeOfs = offsetof(arm::cp15::TCM, itcmReadSize);
+        if (op->address.immediate) {
+            const uint32_t address = op->address.imm.value;
 
-                Xbyak::Label lblSkipITCM{};
+            // Get level 1 pointer
+            const uint32_t l1Index = address >> memMapRef.GetL1Shift();
+            codegen.mov(memMapReg64, qword[memMapReg64 + l1Index * sizeof(void *)]);
+            codegen.test(memMapReg64, memMapReg64);
+            codegen.je(lblSlowMem);
 
-                // Get address
-                if (op->address.immediate) {
-                    codegen.mov(addrReg64.cvt32(), op->address.imm.value);
-                } else {
-                    auto addrReg32 = regAlloc.Get(op->address.var.var);
-                    codegen.mov(addrReg64.cvt32(), addrReg32);
-                }
+            // Get level 2 pointer
+            const uint32_t l2Index = (address >> memMapRef.GetL2Shift()) & memMapRef.GetL2Mask();
+            codegen.mov(memMapReg64, qword[memMapReg64 + l2Index * sizeof(void *)]);
+            codegen.test(memMapReg64, memMapReg64);
+            codegen.je(lblSlowMem);
 
-                // Check if address is in range
-                codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + itcmReadSizeOfs]);
-                codegen.jae(lblSkipITCM);
+            // Read from selected page
+            const uint32_t offset = address & memMapRef.GetPageMask();
+            auto dstReg32 = regAlloc.Get(op->dst.var);
+            compileRead(dstReg32, memMapReg64, offset);
+        } else {
+            auto addrReg32 = regAlloc.Get(op->address.var.var);
+            auto indexReg32 = regAlloc.GetTemporary();
 
-                // Compute address mirror mask
-                assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
-                uint32_t addrMask = tcm.itcmSize - 1;
-                if (op->size == ir::MemAccessSize::Half) {
-                    addrMask &= ~1;
-                } else if (op->size == ir::MemAccessSize::Word) {
-                    addrMask &= ~3;
-                }
+            // Get level 1 pointer
+            codegen.mov(indexReg32, addrReg32);
+            codegen.shr(indexReg32, memMapRef.GetL1Shift());
+            codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+            codegen.test(memMapReg64, memMapReg64);
+            codegen.je(lblSlowMem);
 
-                // Mirror and/or align address and use it as offset into the ITCM data
-                codegen.and_(addrReg64, addrMask);
-                codegen.mov(tcmReg64,
-                            CastUintPtr(tcm.itcm)); // Use TCM pointer register as scratch for the data pointer
-                codegen.add(addrReg64, tcmReg64);
+            // Get level 2 pointer
+            codegen.mov(indexReg32, addrReg32);
+            codegen.shr(indexReg32, memMapRef.GetL2Shift());
+            codegen.and_(indexReg32, memMapRef.GetL2Mask());
+            codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
+            codegen.test(memMapReg64, memMapReg64);
+            codegen.je(lblSlowMem);
 
-                // Read from ITCM
-                auto dstReg32 = regAlloc.Get(op->dst.var);
-                compileRead(dstReg32, addrReg64);
-
-                // Done!
-                codegen.jmp(lblEnd);
-
-                codegen.L(lblSkipITCM);
-            }
-
-            // DTCM check (data bus only)
-            if (op->bus == ir::MemAccessBus::Data) {
-                constexpr auto dtcmBaseOfs = offsetof(arm::cp15::TCM, dtcmBase);
-                constexpr auto dtcmReadSizeOfs = offsetof(arm::cp15::TCM, dtcmReadSize);
-
-                // Get address
-                if (op->address.immediate) {
-                    codegen.mov(addrReg64.cvt32(), op->address.imm.value);
-                } else {
-                    auto addrReg32 = regAlloc.Get(op->address.var.var);
-                    codegen.mov(addrReg64.cvt32(), addrReg32);
-                }
-
-                // Adjust address to base offset
-                codegen.sub(addrReg64.cvt32(), dword[tcmReg64 + dtcmBaseOfs]);
-
-                // Check if address is in range
-                codegen.cmp(addrReg64.cvt32(), dword[tcmReg64 + dtcmReadSizeOfs]);
-                codegen.jae(lblSkipTCM);
-
-                // Compute address mirror mask
-                assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
-                uint32_t addrMask = tcm.dtcmSize - 1;
-                if (op->size == ir::MemAccessSize::Half) {
-                    addrMask &= ~1;
-                } else if (op->size == ir::MemAccessSize::Word) {
-                    addrMask &= ~3;
-                }
-
-                // Mirror and/or align address and use it as offset into the DTCM data
-                codegen.and_(addrReg64, addrMask);
-                codegen.mov(tcmReg64,
-                            CastUintPtr(tcm.dtcm)); // Use TCM pointer register as scratch for the data pointer
-                codegen.add(addrReg64, tcmReg64);
-
-                // Read from DTCM
-                auto dstReg32 = regAlloc.Get(op->dst.var);
-                compileRead(dstReg32, addrReg64);
-
-                // Done!
-                codegen.jmp(lblEnd);
-            }
+            // Read from selected page
+            codegen.mov(indexReg32, addrReg32);
+            codegen.and_(indexReg32, memMapRef.GetPageMask());
+            auto dstReg32 = regAlloc.Get(op->dst.var);
+            compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
         }
-    }
 
-    // Handle slow memory access
-    codegen.L(lblSkipTCM);
+        codegen.jmp(lblEnd);
+        codegen.L(lblSlowMem);
+    }
 
     // Select parameters based on size
     // Valid combinations: aligned/signed byte, aligned/unaligned/signed half, aligned/unaligned word

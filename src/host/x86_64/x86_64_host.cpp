@@ -38,10 +38,10 @@ x64Host::~x64Host() {
 HostCode x64Host::Compile(ir::BasicBlock &block) {
     for (;;) {
         HostCode code = nullptr;
-        try {
+        //try {
             // Try compiling the block
             code = CompileImpl(block);
-        } catch (Xbyak::Error e) {
+        /*} catch (Xbyak::Error e) {
             if ((int)e == Xbyak::ERR_CODE_IS_TOO_BIG) {
                 // If compilation fails due to filling up the code buffer, double its size and try compiling again
                 m_codeBufferSize *= 2;
@@ -53,7 +53,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
                 // Otherwise, rethrow exception
                 throw;
             }
-        }
+        }*/
         if (code != nullptr) {
             return code;
         }
