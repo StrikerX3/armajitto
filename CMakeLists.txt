@@ -226,7 +226,9 @@ if (MSVC)
 
     ######### TEMPORARY #########
     ## Configure startup project
-    set_property(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}" PROPERTY VS_STARTUP_PROJECT armajitto-test)
+    if(is_top_level)
+        set_property(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}" PROPERTY VS_STARTUP_PROJECT armajitto-test)
+    endif()
 
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
