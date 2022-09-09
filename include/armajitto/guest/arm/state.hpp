@@ -99,6 +99,14 @@ public:
         return const_cast<State *>(this)->SPSR(mode);
     }
 
+    PSR &SPSR() {
+        return SPSR(CPSR().mode);
+    }
+
+    const PSR &SPSR() const {
+        return const_cast<State *>(this)->SPSR();
+    }
+
     bool &IRQLine() {
         return m_irqLine;
     }
