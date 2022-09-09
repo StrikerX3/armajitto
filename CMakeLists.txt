@@ -151,10 +151,11 @@ target_include_directories(armajitto
 )
 target_compile_features(armajitto PUBLIC cxx_std_20)
 
+add_subdirectory(vendor)
+
 ## Add xbyak
 # TODO: include on x86_64 systems only
-find_package(xbyak CONFIG REQUIRED)
-target_link_libraries(armajitto PUBLIC xbyak::xbyak)
+target_link_libraries(armajitto PUBLIC xbyak)
 
 ## Add VTune
 # TODO: include on x86_64 systems only
