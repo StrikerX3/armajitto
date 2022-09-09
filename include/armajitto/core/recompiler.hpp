@@ -26,6 +26,10 @@ public:
         return m_context.GetARMState();
     }
 
+    const arm::State &GetARMState() const {
+        return m_context.GetARMState();
+    }
+
     CPUModel GetCPUModel() const {
         return m_spec.model;
     }
