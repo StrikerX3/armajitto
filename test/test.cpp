@@ -102,6 +102,10 @@ private:
 class MinimalNDSSystem : public armajitto::ISystem {
 public:
     MinimalNDSSystem() {
+        mainRAM.fill(0);
+        sharedWRAM.fill(0);
+        vram.fill(0);
+
         m_memMap.codeRead.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
         m_memMap.dataRead.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
         m_memMap.dataWrite.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
