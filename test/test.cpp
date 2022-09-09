@@ -1468,6 +1468,7 @@ void testNDS() {
 
     {
         std::ifstream ifsROM{"rockwrestler.nds", std::ios::binary};
+        // std::ifstream ifsROM{"armwrestler.nds", std::ios::binary};
         if (!ifsROM) {
             printf("Could not open armwrestler.nds\n");
             return;
