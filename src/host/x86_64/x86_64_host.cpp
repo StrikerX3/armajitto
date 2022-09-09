@@ -175,8 +175,7 @@ void x64Host::CompileProlog() {
             // IRQ line is not asserted
             m_codegen.L(lblNoIRQ);
 
-            // Set remaining cycles to 0 and go to epilog
-            m_codegen.mov(kCycleCountOperand, 0);
+            // Go to epilog
             m_codegen.jmp(m_compiledCode.epilog);
         }
 
