@@ -6,6 +6,18 @@
 
 namespace armajitto::arm::cp15 {
 
+constexpr uint8_t kITCMLayer = 2;
+constexpr uint8_t kDTCMLayer = 1;
+
+TCM::~TCM() {
+    if (itcm != nullptr) {
+        delete[] itcm;
+    }
+    if (dtcm != nullptr) {
+        delete[] dtcm;
+    }
+}
+
 void TCM::Reset() {
     if (itcm != nullptr) {
         std::fill_n(itcm, itcmSize, 0);
@@ -20,15 +32,6 @@ void TCM::Reset() {
     dtcmBase = 0xFFFFFFFF;
     dtcmWriteSize = dtcmReadSize = 0;
     dtcmParams = 0;
-}
-
-TCM::~TCM() {
-    if (itcm != nullptr) {
-        delete[] itcm;
-    }
-    if (dtcm != nullptr) {
-        delete[] dtcm;
-    }
 }
 
 void TCM::Configure(const Configuration &config) {
@@ -73,19 +76,41 @@ void TCM::Disable() {
 }
 
 void TCM::SetupITCM(bool enable, bool load) {
+    if (memMap != nullptr) {
+        memMap->codeRead.Unmap(kITCMLayer, 0, itcmReadSize);
+        memMap->dataRead.Unmap(kITCMLayer, 0, itcmReadSize);
+        memMap->dataWrite.Unmap(kITCMLayer, 0, itcmWriteSize);
+    }
+
     if (enable) {
         itcmWriteSize = 0x200 << ((itcmParams >> 1) & 0x1F);
         itcmReadSize = load ? 0 : itcmWriteSize;
+
+        if (memMap != nullptr) {
+            memMap->codeRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
+            memMap->dataRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
+            memMap->dataWrite.Map(kITCMLayer, 0, itcmWriteSize, itcm, itcmSize);
+        }
     } else {
         itcmWriteSize = itcmReadSize = 0;
     }
 }
 
 void TCM::SetupDTCM(bool enable, bool load) {
+    if (memMap != nullptr) {
+        memMap->dataRead.Unmap(kDTCMLayer, 0, dtcmReadSize);
+        memMap->dataWrite.Unmap(kDTCMLayer, 0, dtcmWriteSize);
+    }
+
     if (enable) {
         dtcmBase = dtcmParams & 0xFFFFF000;
         dtcmWriteSize = 0x200 << ((dtcmParams >> 1) & 0x1F);
         dtcmReadSize = load ? 0 : dtcmWriteSize;
+
+        if (memMap != nullptr) {
+            memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+            memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
+        }
     } else {
         dtcmBase = 0xFFFFFFFF;
         dtcmWriteSize = dtcmReadSize = 0;

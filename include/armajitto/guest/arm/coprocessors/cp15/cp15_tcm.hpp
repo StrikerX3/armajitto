@@ -2,6 +2,7 @@
 
 #include "armajitto/guest/arm/coprocessors/cp15/cp15_defs.hpp"
 
+#include "armajitto/core/memory_map.hpp"
 #include "armajitto/util/bit_ops.hpp"
 
 #include <cstdint>
@@ -38,6 +39,8 @@ struct TCM {
     uint8_t *dtcm = nullptr;
     uint32_t itcmSize;
     uint32_t dtcmSize;
+
+    MemoryMap *memMap = nullptr;
 
     // -------------------------------------------------------------------------
 

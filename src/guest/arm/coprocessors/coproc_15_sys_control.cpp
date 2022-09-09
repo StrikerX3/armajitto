@@ -8,18 +8,10 @@ void SystemControlCoprocessor::Reset() {
     m_tcm.Reset();
 }
 
-void SystemControlCoprocessor::Install() {
+void SystemControlCoprocessor::Install(cp15::id::Implementor implementor, uint32_t variant,
+                                       cp15::id::Architecture architecture, uint32_t primaryPartNumber,
+                                       uint32_t revision) {
     m_installed = true;
-}
-
-void SystemControlCoprocessor::Uninstall() {
-    m_installed = false;
-    m_tcm.Disable();
-}
-
-void SystemControlCoprocessor::ConfigureID(cp15::id::Implementor implementor, uint32_t variant,
-                                           cp15::id::Architecture architecture, uint32_t primaryPartNumber,
-                                           uint32_t revision) {
     m_id = {
         .implementor = implementor,
         .variant = variant,
@@ -27,6 +19,11 @@ void SystemControlCoprocessor::ConfigureID(cp15::id::Implementor implementor, ui
         .primaryPartNumber = primaryPartNumber,
         .revision = revision,
     };
+}
+
+void SystemControlCoprocessor::Uninstall() {
+    m_installed = false;
+    m_tcm.Disable();
 }
 
 void SystemControlCoprocessor::ConfigureTCM(const cp15::TCM::Configuration &config) {

@@ -6,18 +6,21 @@ namespace armajitto {
 
 Context::Context(CPUModel model, ISystem &system)
     : m_system(system) {
+
     switch (model) {
     case CPUModel::ARM7TDMI:
         m_arch = CPUArch::ARMv4T;
         m_armState.GetDummyDebugCoprocessor().Install();
         break;
-    case CPUModel::ARM946ES:
+    case CPUModel::ARM946ES: {
+        using namespace arm::cp15::id;
+
         m_arch = CPUArch::ARMv5TE;
-        m_armState.GetSystemControlCoprocessor().Install();
-        m_armState.GetSystemControlCoprocessor().ConfigureID(arm::cp15::id::Implementor::ARM, 0,
-                                                             arm::cp15::id::Architecture::v5TE,
-                                                             arm::cp15::id::kPrimaryPartNumberARM946, 1);
+        auto &cp15 = m_armState.GetSystemControlCoprocessor();
+        cp15.Install(Implementor::ARM, 0, Architecture::v5TE, kPrimaryPartNumberARM946, 1);
+        cp15.GetTCM().memMap = const_cast<MemoryMap *>(&system.GetMemoryMap());
         break;
+    }
     }
 }
 

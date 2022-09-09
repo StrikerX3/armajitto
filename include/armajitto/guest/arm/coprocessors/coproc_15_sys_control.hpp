@@ -25,18 +25,15 @@ public:
 
     void Reset();
 
-    // Installs the coprocessor.
-    void Install();
-
-    // Uninstalls the coprocessor, freeing up TCM memory.
-    void Uninstall();
-
-    // Configures the ID returned by the ID codes register (0).
+    // Installs the coprocessor and configures the ID returned by the ID codes register (0).
     // This implementation only supports the post-ARM7 processors format:
     //  31         24 23     20 19          16 15                  4 3        0
     // | Implementor | Variant | Architecture | Primary part number | Revision |
-    void ConfigureID(cp15::id::Implementor implementor, uint32_t variant, cp15::id::Architecture architecture,
-                     uint32_t primaryPartNumber, uint32_t revision);
+    void Install(cp15::id::Implementor implementor, uint32_t variant, cp15::id::Architecture architecture,
+                 uint32_t primaryPartNumber, uint32_t revision);
+
+    // Uninstalls the coprocessor, freeing up TCM memory.
+    void Uninstall();
 
     // Configures the TCM with the specified parameters.
     // TCM memory sizes are rounded up to the next power of two not less than the value.

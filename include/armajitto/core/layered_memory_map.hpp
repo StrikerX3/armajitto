@@ -38,7 +38,10 @@ public:
         delete[] m_map;
     }
 
-    void Map(uint8_t layer, uint32_t baseAddress, uint32_t size, uint8_t *ptr, uint64_t mirrorSize = 0x1'0000'0000) {
+    void Map(uint8_t layer, uint32_t baseAddress, uint64_t size, uint8_t *ptr, uint64_t mirrorSize = 0x1'0000'0000) {
+        if (size == 0) {
+            return;
+        }
         assert(layer < numLayers);               // layer index must be in-bounds
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
@@ -51,7 +54,10 @@ public:
         }
     }
 
-    void Unmap(uint8_t layer, uint32_t baseAddress, uint32_t size, uint64_t mirrorSize = 0x1'0000'0000) {
+    void Unmap(uint8_t layer, uint32_t baseAddress, uint64_t size, uint64_t mirrorSize = 0x1'0000'0000) {
+        if (size == 0) {
+            return;
+        }
         assert(layer < numLayers);               // layer index must be in-bounds
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
@@ -128,7 +134,7 @@ private:
     using Page = Entry *;  // array of Entry
     Page *m_map = nullptr; // array of Page
 
-    void DoMap(uint8_t layer, uint32_t baseAddress, uint32_t size, uint8_t *ptr) {
+    void DoMap(uint8_t layer, uint32_t baseAddress, uint64_t size, uint8_t *ptr) {
         const uint32_t finalAddress = baseAddress + size - 1;
         m_layers[layer].Insert(baseAddress, finalAddress, ptr);
 
@@ -158,7 +164,7 @@ private:
         }
     }
 
-    void DoUnmap(uint8_t layer, uint32_t baseAddress, uint32_t size) {
+    void DoUnmap(uint8_t layer, uint32_t baseAddress, uint64_t size) {
         const uint32_t finalAddress = baseAddress + size - 1;
 
         uint32_t address = baseAddress;
@@ -175,7 +181,7 @@ private:
         }
     }
 
-    void SetRange(uint32_t baseAddress, uint32_t size, uint8_t *ptr) {
+    void SetRange(uint32_t baseAddress, uint64_t size, uint8_t *ptr) {
         const uint32_t numPages = size >> m_pageShift;
         const uint32_t startPage = baseAddress >> m_pageShift;
         const uint32_t endPage = startPage + numPages;
@@ -195,7 +201,7 @@ private:
         }
     }
 
-    void UnmapSubrange(uint8_t layer, uint32_t baseAddress, uint32_t size) {
+    void UnmapSubrange(uint8_t layer, uint32_t baseAddress, uint64_t size) {
         const uint32_t finalAddress = baseAddress + size - 1;
         m_layers[layer].Remove(baseAddress, finalAddress);
 

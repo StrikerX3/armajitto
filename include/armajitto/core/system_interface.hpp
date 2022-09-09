@@ -1,5 +1,7 @@
 #pragma once
 
+#include "armajitto/core/memory_map.hpp"
+
 #include <cstdint>
 
 namespace armajitto {
@@ -15,6 +17,13 @@ public:
     virtual void MemWriteByte(uint32_t address, uint8_t value) = 0;
     virtual void MemWriteHalf(uint32_t address, uint16_t value) = 0;
     virtual void MemWriteWord(uint32_t address, uint32_t value) = 0;
+
+    const MemoryMap &GetMemoryMap() const {
+        return m_memMap;
+    }
+
+protected:
+    MemoryMap m_memMap{4096};
 };
 
 } // namespace armajitto

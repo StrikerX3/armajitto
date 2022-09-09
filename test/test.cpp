@@ -101,6 +101,20 @@ private:
 
 class MinimalNDSSystem : public armajitto::ISystem {
 public:
+    MinimalNDSSystem() {
+        m_memMap.codeRead.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
+        m_memMap.dataRead.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
+        m_memMap.dataWrite.Map(0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
+
+        m_memMap.codeRead.Map(0, 0x3000000, 0x1000000, sharedWRAM.data(), sharedWRAM.size());
+        m_memMap.dataRead.Map(0, 0x3000000, 0x1000000, sharedWRAM.data(), sharedWRAM.size());
+        m_memMap.dataWrite.Map(0, 0x3000000, 0x1000000, sharedWRAM.data(), sharedWRAM.size());
+
+        m_memMap.codeRead.Map(0, 0x6800000, 0xA4000, vram.data(), vram.size());
+        m_memMap.dataRead.Map(0, 0x6800000, 0xA4000, vram.data(), vram.size());
+        m_memMap.dataWrite.Map(0, 0x6800000, 0xA4000, vram.data(), vram.size());
+    }
+
     uint8_t MemReadByte(uint32_t address) final {
         return Read<uint8_t>(address);
     }
@@ -131,7 +145,7 @@ public:
 
     std::array<uint8_t, 0x400000> mainRAM;
     std::array<uint8_t, 0x8000> sharedWRAM;
-    std::array<uint8_t, 0x200000> vram;
+    std::array<uint8_t, 0xA4000> vram;
 
     template <typename T>
     T Read(uint32_t address) {
@@ -1719,16 +1733,16 @@ void compilerStressTest() {
 
 void testMemoryMap() {
     armajitto::LayeredMemoryMap<3> map{4096};
-    
+
     std::vector<uint8_t> ram;
     ram.resize(0x10000);
-    
+
     std::vector<uint8_t> dtcm;
     dtcm.resize(0x4000);
-    
+
     std::vector<uint8_t> itcm;
     itcm.resize(0x8000);
-    
+
     map.Map(0, 0x0000000, 0x10000, ram.data(), ram.size());
     map.Map(0, 0x2000000, 0x100000, ram.data(), ram.size());
     map.Map(1, 0x0000000, 0x8000, dtcm.data(), dtcm.size());
@@ -1742,9 +1756,9 @@ int main(int argc, char *argv[]) {
     // testBasic();
     // testTranslatorAndOptimizer();
     // testCompiler();
-    // testNDS();
+    testNDS();
     // compilerStressTest();
-    testMemoryMap();
+    // testMemoryMap();
 
     return EXIT_SUCCESS;
 }

@@ -25,8 +25,9 @@ add_library(armajitto
     include/armajitto/version.hpp
     include/armajitto/core/allocator.hpp
     include/armajitto/core/context.hpp
-    include/armajitto/core/location_ref.hpp
     include/armajitto/core/layered_memory_map.hpp
+    include/armajitto/core/location_ref.hpp
+    include/armajitto/core/memory_map.hpp
     include/armajitto/core/pmr_allocator.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
