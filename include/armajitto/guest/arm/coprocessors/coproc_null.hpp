@@ -14,7 +14,7 @@ public:
         return false;
     }
 
-    uint32_t LoadRegister(CopRegister reg) final {
+    uint32_t LoadRegister(CopRegister reg) const final {
         return 0;
     }
 

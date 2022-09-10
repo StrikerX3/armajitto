@@ -40,7 +40,7 @@ void SystemControlCoprocessor::ConfigureCache(const cp15::Cache::Configuration &
 // ---------------------------------------------------------------------------------------------------------------------
 // Coprocessor interface implementation
 
-uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) {
+uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) const {
     switch (reg.u16) {
     case 0x0000: // 0,C0,C0,0 - Main ID Register
     case 0x0003: // 0,C0,C0,3 - Reserved - copy of C0,C0,0

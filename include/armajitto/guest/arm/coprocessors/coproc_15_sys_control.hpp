@@ -75,7 +75,7 @@ public:
         return m_installed;
     }
 
-    uint32_t LoadRegister(CopRegister reg) final;
+    uint32_t LoadRegister(CopRegister reg) const final;
     void StoreRegister(CopRegister reg, uint32_t value) final;
     bool RegStoreHasSideEffects(CopRegister reg) const final;
 

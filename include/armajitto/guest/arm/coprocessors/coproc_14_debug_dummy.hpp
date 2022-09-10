@@ -23,7 +23,7 @@ public:
         return m_installed;
     }
 
-    uint32_t LoadRegister(CopRegister reg) final {
+    uint32_t LoadRegister(CopRegister reg) const final {
         // TODO: return last fetched opcode
         return 0;
     }
