@@ -156,7 +156,7 @@ inline auto HiRegOps(uint16_t opcode) {
     instr.immediate = false;
     instr.setFlags = false;
     instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode) + h1 * 8);
-    instr.lhsReg = GPR::R0;
+    instr.lhsReg = instr.dstReg;
     instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<3, 3>(opcode) + h2 * 8));
 
     return instr;
@@ -241,7 +241,10 @@ inline auto LoadStoreByteWordImmOffset(uint16_t opcode) {
     instr.address.immediate = true;
     instr.address.positiveOffset = true;
     instr.address.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.address.immValue = bit::extract<6, 5>(opcode) * 4;
+    instr.address.immValue = bit::extract<6, 5>(opcode);
+    if (!instr.byte) {
+        instr.address.immValue *= 4;
+    }
 
     return instr;
 }
@@ -258,7 +261,7 @@ inline auto LoadStoreHalfImmOffset(uint16_t opcode) {
     instr.half = true;
     instr.reg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.baseReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.offset.imm = bit::extract<6, 5>(opcode);
+    instr.offset.imm = bit::extract<6, 5>(opcode) * 2;
 
     return instr;
 }
@@ -351,7 +354,7 @@ inline auto LoadStoreMultiple(uint16_t opcode) {
     instr.userModeOrPSRTransfer = false;
     instr.writeback = !load || !bit::test(rn, regList);
     instr.load = load;
-    instr.baseReg = GPR::SP;
+    instr.baseReg = static_cast<GPR>(rn);
     instr.regList = regList;
 
     return instr;
