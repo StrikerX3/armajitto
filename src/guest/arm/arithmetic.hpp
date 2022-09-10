@@ -16,7 +16,7 @@ inline std::pair<int32_t, bool> Saturate(const int64_t value) {
     return {result, (result != value)};
 }
 
-inline std::pair<uint32_t, std::optional<bool>> LSL(uint32_t value, uint32_t offset) {
+inline std::pair<uint32_t, std::optional<bool>> LSL(uint32_t value, uint8_t offset) {
     if (offset == 0) {
         return {value, std::nullopt};
     }
