@@ -5,8 +5,16 @@
 namespace armajitto::arm::cp15 {
 
 struct ControlRegister {
-    void Reset();
-    void Write(uint32_t value);
+    void Reset() {
+        value.u32 = 0x2078;
+        baseVectorAddress = 0xFFFF0000;
+    }
+
+    void Write(uint32_t value) {
+        this->value.u32 = (this->value.u32 & ~0x000FF085) | (value & 0x000FF085);
+        // TODO: check for big-endian mode, support it if needed
+        baseVectorAddress = (this->value.v) ? 0xFFFF0000 : 0x00000000;
+    }
 
     union Value {
         uint32_t u32;

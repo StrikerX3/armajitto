@@ -19,14 +19,29 @@ public:
     TranslatorParameters &GetTranslatorParameters();
     OptimizerParameters &GetOptimizerParameters();
 
-    CPUModel GetCPUModel() const;
-    CPUArch GetCPUArch() const;
+    CPUModel GetCPUModel() const {
+        return m_spec.model;
+    }
 
-    arm::State &GetARMState();
-    ISystem &GetSystem();
+    CPUArch GetCPUArch() const {
+        return m_context.GetCPUArch();
+    }
 
-    const arm::State &GetARMState() const;
-    const ISystem &GetSystem() const;
+    arm::State &GetARMState() {
+        return m_context.GetARMState();
+    }
+
+    ISystem &GetSystem() {
+        return m_spec.system;
+    }
+
+    const arm::State &GetARMState() const {
+        return const_cast<Recompiler *>(this)->GetARMState();
+    }
+
+    const ISystem &GetSystem() const {
+        return const_cast<Recompiler *>(this)->GetSystem();
+    }
 
     uint64_t Run(uint64_t minCycles);
 

@@ -105,30 +105,6 @@ OptimizerParameters &Recompiler::GetOptimizerParameters() {
     return m_impl->optimizer.GetParameters();
 }
 
-CPUModel Recompiler::GetCPUModel() const {
-    return m_spec.model;
-}
-
-CPUArch Recompiler::Recompiler::GetCPUArch() const {
-    return m_context.GetCPUArch();
-}
-
-arm::State &Recompiler::GetARMState() {
-    return m_context.GetARMState();
-}
-
-ISystem &Recompiler::GetSystem() {
-    return m_spec.system;
-}
-
-const arm::State &Recompiler::GetARMState() const {
-    return const_cast<Recompiler *>(this)->GetARMState();
-}
-
-const ISystem &Recompiler::GetSystem() const {
-    return const_cast<Recompiler *>(this)->GetSystem();
-}
-
 uint64_t Recompiler::Run(uint64_t minCycles) {
     return m_impl->Run(minCycles);
 }

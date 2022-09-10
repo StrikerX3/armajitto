@@ -72,8 +72,6 @@ add_library(armajitto
     src/guest/arm/coprocessors/coproc_15_sys_control.cpp
     src/guest/arm/coprocessors/cp15_host_access.hpp
     src/guest/arm/coprocessors/cp15/cp15_cache.cpp
-    src/guest/arm/coprocessors/cp15/cp15_control.cpp
-    src/guest/arm/coprocessors/cp15/cp15_pu.cpp
     src/guest/arm/coprocessors/cp15/cp15_tcm.cpp
     src/host/host.hpp
     src/host/host_code.hpp

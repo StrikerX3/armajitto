@@ -9,6 +9,7 @@
 
 #include "coprocessors/coproc_14_debug_dummy.hpp"
 #include "coprocessors/coproc_15_sys_control.hpp"
+#include "coprocessors/coproc_null.hpp"
 
 #include <array>
 #include <cassert>
@@ -27,7 +28,10 @@ public:
 
     // Convenience method that sets PC and the CPSR T bit to the specified values.
     // Also applies the pipeline offset to the address (+8 for ARM, +4 for Thumb).
-    void JumpTo(uint32_t address, bool thumb);
+    void JumpTo(uint32_t address, bool thumb) {
+        GPR(GPR::PC) = address + (thumb ? 4 : 8);
+        CPSR().t = thumb;
+    }
 
     // Convenience method to switch to the specified mode, automatically storing SPSR if necessary.
     void SetMode(Mode mode);
@@ -38,36 +42,97 @@ public:
     // -------------------------------------------------------------------------
     // State accessors
 
-    uint32_t &GPR(enum GPR gpr, Mode mode);
-    uint32_t &GPR(enum GPR gpr);
+    uint32_t &GPR(enum GPR gpr, Mode mode) {
+        const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
+        assert(static_cast<size_t>(gpr) < 16);
+        assert(static_cast<size_t>(mode) < 32);
+        return *m_gprPtrs[index];
+    }
 
-    PSR &CPSR();
-    PSR &SPSR(Mode mode);
-    PSR &SPSR();
+    uint32_t &GPR(enum GPR gpr) {
+        return GPR(gpr, CPSR().mode);
+    }
 
-    bool &IRQLine();
-    ExecState &ExecutionState();
+    PSR &CPSR() {
+        return m_psrs[0];
+    }
 
-    Coprocessor &GetCoprocessor(uint8_t cpnum);
-    DummyDebugCoprocessor &GetDummyDebugCoprocessor();
-    SystemControlCoprocessor &GetSystemControlCoprocessor();
+    PSR &SPSR(Mode mode) {
+        const auto index = static_cast<size_t>(mode);
+        assert(index < 32);
+        return *m_psrPtrs[index];
+    }
+
+    PSR &SPSR() {
+        return SPSR(CPSR().mode);
+    }
+
+    bool &IRQLine() {
+        return m_irqLine;
+    }
+
+    ExecState &ExecutionState() {
+        return m_execState;
+    }
+
+    Coprocessor &GetCoprocessor(uint8_t cpnum) {
+        switch (cpnum) {
+        case 14: return m_cp14;
+        case 15: return m_cp15;
+        default: return arm::NullCoprocessor::Instance();
+        }
+    }
+
+    DummyDebugCoprocessor &GetDummyDebugCoprocessor() {
+        return m_cp14;
+    }
+
+    SystemControlCoprocessor &GetSystemControlCoprocessor() {
+        return m_cp15;
+    }
 
     // -------------------------------------------------------------------------
     // Const state accessors
 
-    const uint32_t &GPR(enum GPR gpr, Mode mode) const;
-    const uint32_t &GPR(enum GPR gpr) const;
+    const uint32_t &GPR(enum GPR gpr, Mode mode) const {
+        return const_cast<State *>(this)->GPR(gpr, mode);
+    }
 
-    const PSR &CPSR() const;
-    const PSR &SPSR(Mode mode) const;
-    const PSR &SPSR() const;
+    const uint32_t &GPR(enum GPR gpr) const {
+        return const_cast<State *>(this)->GPR(gpr);
+    }
 
-    const bool &IRQLine() const;
-    const ExecState &ExecutionState() const;
+    const PSR &CPSR() const {
+        return const_cast<State *>(this)->CPSR();
+    }
 
-    const Coprocessor &GetCoprocessor(uint8_t cpnum) const;
-    const DummyDebugCoprocessor &GetDummyDebugCoprocessor() const;
-    const SystemControlCoprocessor &GetSystemControlCoprocessor() const;
+    const PSR &SPSR(Mode mode) const {
+        return const_cast<State *>(this)->SPSR(mode);
+    }
+
+    const PSR &SPSR() const {
+        return const_cast<State *>(this)->SPSR();
+    }
+
+    const bool &IRQLine() const {
+        return const_cast<State *>(this)->IRQLine();
+    }
+
+    const ExecState &ExecutionState() const {
+        return const_cast<State *>(this)->ExecutionState();
+    }
+
+    const Coprocessor &GetCoprocessor(uint8_t cpnum) const {
+        return const_cast<State *>(this)->GetCoprocessor(cpnum);
+    }
+
+    const DummyDebugCoprocessor &GetDummyDebugCoprocessor() const {
+        return const_cast<State *>(this)->GetDummyDebugCoprocessor();
+    }
+
+    const SystemControlCoprocessor &GetSystemControlCoprocessor() const {
+        return const_cast<State *>(this)->GetSystemControlCoprocessor();
+    }
 
 private:
     // ARM registers per mode (abridged)

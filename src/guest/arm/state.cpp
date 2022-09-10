@@ -1,7 +1,5 @@
 #include "armajitto/guest/arm/state.hpp"
 
-#include "armajitto/guest/arm/coprocessors/coproc_null.hpp"
-
 #include "guest/arm/exception_vectors.hpp"
 #include "guest/arm/mode_utils.hpp"
 
@@ -71,11 +69,6 @@ void State::Reset() {
     m_cp15.Reset();
 }
 
-void State::JumpTo(uint32_t address, bool thumb) {
-    GPR(GPR::PC) = address + (thumb ? 4 : 8);
-    CPSR().t = thumb;
-}
-
 void State::SetMode(Mode mode) {
     auto spsrIndex = NormalizedIndex(mode);
     if (spsrIndex > 0) {
@@ -104,95 +97,6 @@ void State::EnterException(Exception vector) {
 
     GPR(GPR::LR) = pc + nn;
     GPR(GPR::PC) = baseVectorAddress + static_cast<uint32_t>(vector) * 4 + instrSize * 2;
-}
-
-uint32_t &State::GPR(enum GPR gpr, Mode mode) {
-    const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
-    assert(static_cast<size_t>(gpr) < 16);
-    assert(static_cast<size_t>(mode) < 32);
-    return *m_gprPtrs[index];
-}
-
-uint32_t &State::GPR(enum GPR gpr) {
-    return GPR(gpr, CPSR().mode);
-}
-
-PSR &State::CPSR() {
-    return m_psrs[0];
-}
-
-PSR &State::SPSR(Mode mode) {
-    const auto index = static_cast<size_t>(mode);
-    assert(index < 32);
-    return *m_psrPtrs[index];
-}
-
-PSR &State::SPSR() {
-    return SPSR(CPSR().mode);
-}
-
-bool &State::IRQLine() {
-    return m_irqLine;
-}
-
-ExecState &State::ExecutionState() {
-    return m_execState;
-}
-
-Coprocessor &State::GetCoprocessor(uint8_t cpnum) {
-    switch (cpnum) {
-    case 14: return m_cp14;
-    case 15: return m_cp15;
-    default: return arm::NullCoprocessor::Instance();
-    }
-}
-
-DummyDebugCoprocessor &State::GetDummyDebugCoprocessor() {
-    return m_cp14;
-}
-
-SystemControlCoprocessor &State::GetSystemControlCoprocessor() {
-    return m_cp15;
-}
-
-const uint32_t &State::GPR(enum GPR gpr, Mode mode) const {
-    return const_cast<State *>(this)->GPR(gpr, mode);
-}
-
-const uint32_t &State::GPR(enum GPR gpr) const {
-    return const_cast<State *>(this)->GPR(gpr);
-}
-
-const PSR &State::CPSR() const {
-    return const_cast<State *>(this)->CPSR();
-}
-
-const PSR &State::SPSR(Mode mode) const {
-    return const_cast<State *>(this)->SPSR(mode);
-}
-
-const PSR &State::SPSR() const {
-    return const_cast<State *>(this)->SPSR();
-}
-
-const bool &State::IRQLine() const {
-    return const_cast<State *>(this)->IRQLine();
-}
-
-const ExecState &State::ExecutionState() const {
-    return const_cast<State *>(this)->ExecutionState();
-}
-
-const Coprocessor &State::GetCoprocessor(uint8_t cpnum) const {
-    return const_cast<State *>(this)->GetCoprocessor(cpnum);
-}
-
-const DummyDebugCoprocessor &State::GetDummyDebugCoprocessor() const {
-    return const_cast<State *>(this)->GetDummyDebugCoprocessor();
-}
-
-const SystemControlCoprocessor &State::GetSystemControlCoprocessor() const {
-    return const_cast<State *>(this)->GetSystemControlCoprocessor();
 }
 
 } // namespace armajitto::arm

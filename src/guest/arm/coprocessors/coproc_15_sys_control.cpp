@@ -37,32 +37,8 @@ void SystemControlCoprocessor::ConfigureCache(const cp15::Cache::Configuration &
     m_cache.Configure(config);
 }
 
-const cp15::Identification &SystemControlCoprocessor::GetIdentification() const {
-    return m_id;
-}
-
-const cp15::ControlRegister &SystemControlCoprocessor::GetControlRegister() const {
-    return m_ctl;
-}
-
-const cp15::ProtectionUnit &SystemControlCoprocessor::GetProtectionUnit() const {
-    return m_pu;
-}
-
-const cp15::TCM &SystemControlCoprocessor::GetTCM() const {
-    return m_tcm;
-}
-
-const cp15::Cache &SystemControlCoprocessor::GetCache() const {
-    return m_cache;
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 // Coprocessor interface implementation
-
-bool SystemControlCoprocessor::IsPresent() const {
-    return m_installed;
-}
 
 uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) {
     switch (reg.u16) {

@@ -48,16 +48,32 @@ public:
     // Configures the cache with the specified parameters.
     void ConfigureCache(const cp15::Cache::Configuration &config);
 
-    const cp15::Identification &GetIdentification() const;
-    const cp15::ControlRegister &GetControlRegister() const;
-    const cp15::ProtectionUnit &GetProtectionUnit() const;
-    const cp15::TCM &GetTCM() const;
-    const cp15::Cache &GetCache() const;
+    const cp15::Identification &GetIdentification() const {
+        return m_id;
+    }
+
+    const cp15::ControlRegister &GetControlRegister() const {
+        return m_ctl;
+    }
+
+    const cp15::ProtectionUnit &GetProtectionUnit() const {
+        return m_pu;
+    }
+
+    const cp15::TCM &GetTCM() const {
+        return m_tcm;
+    }
+
+    const cp15::Cache &GetCache() const {
+        return m_cache;
+    }
 
     // -------------------------------------------------------------------------
     // Coprocessor interface implementation
 
-    bool IsPresent() const final;
+    bool IsPresent() const final {
+        return m_installed;
+    }
 
     uint32_t LoadRegister(CopRegister reg) final;
     void StoreRegister(CopRegister reg, uint32_t value) final;
