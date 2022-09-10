@@ -26,7 +26,7 @@ public:
 
     uintptr_t GPROffset(enum GPR gpr, enum Mode mode) const {
         const auto index = static_cast<size_t>(gpr) + static_cast<size_t>(mode) * 16;
-        assert(index < kNumGPREntries);
+        assert(index < State::kNumGPREntries);
         return m_gprOffsets[index];
     }
 
@@ -40,7 +40,7 @@ public:
 
     uintptr_t SPSROffset(enum Mode mode) const {
         const auto index = static_cast<size_t>(mode);
-        assert(index < kNumPSREntries);
+        assert(index < State::kNumPSREntries);
         return m_psrOffsets[index];
     }
 
