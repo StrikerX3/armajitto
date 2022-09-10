@@ -10,6 +10,8 @@ namespace armajitto::arm {
 enum class Condition : uint8_t { EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV };
 enum class ShiftType : uint8_t { LSL, LSR, ASR, ROR };
 
+enum class CarryResult { NoChange, Clear, Set };
+
 struct RegisterSpecifiedShift {
     ShiftType type;
     bool immediate;
@@ -75,7 +77,10 @@ namespace instrs {
         GPR dstReg; // Rd
         GPR lhsReg; // Rn
         union {
-            uint32_t imm;                 // (when immediate == true)
+            struct {
+                uint32_t value;    // (when immediate == true)
+                CarryResult carry; // (when immediate == true)
+            } imm;
             RegisterSpecifiedShift shift; // (when immediate == false)
         } rhs;
         bool thumbPCAdjust = false; // AND value with ~3 if lhsReg == PC (for Thumb Load Address instruction)

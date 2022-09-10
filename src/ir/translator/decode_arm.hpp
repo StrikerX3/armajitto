@@ -7,10 +7,14 @@
 namespace armajitto::arm::arm_decoder {
 
 namespace detail {
-    inline uint32_t DecodeRotatedImm(uint32_t opcode) {
+    inline std::pair<uint32_t, CarryResult> DecodeRotatedImm(uint32_t opcode) {
         const uint32_t imm = bit::extract<0, 8>(opcode);
-        const uint32_t rotate = bit::extract<8, 4>(opcode);
-        return std::rotr(imm, rotate * 2);
+        const uint32_t rotate = bit::extract<8, 4>(opcode) * 2;
+        if (rotate == 0) {
+            return {imm, CarryResult::NoChange};
+        }
+        bool carry = (imm >> (rotate - 1)) & 1;
+        return {std::rotr(imm, rotate), (carry ? CarryResult::Set : CarryResult::Clear)};
     }
 
     inline auto DecodeShift(uint32_t opcode) {
@@ -83,7 +87,9 @@ inline auto DataProcessing(uint32_t opcode) {
     instr.dstReg = static_cast<GPR>(bit::extract<12, 4>(opcode));
     instr.lhsReg = static_cast<GPR>(bit::extract<16, 4>(opcode));
     if (instr.immediate) {
-        instr.rhs.imm = detail::DecodeRotatedImm(opcode);
+        auto [result, carry] = detail::DecodeRotatedImm(opcode);
+        instr.rhs.imm.value = result;
+        instr.rhs.imm.carry = carry;
     } else {
         instr.rhs.shift = detail::DecodeShift(opcode);
     }
@@ -207,7 +213,7 @@ inline auto PSRWrite(uint32_t opcode) {
     instr.x = bit::test<17>(opcode);
     instr.c = bit::test<16>(opcode);
     if (instr.immediate) {
-        instr.value.imm = detail::DecodeRotatedImm(opcode);
+        instr.value.imm = detail::DecodeRotatedImm(opcode).first;
     } else {
         instr.value.reg = static_cast<GPR>(bit::extract<0, 4>(opcode));
     }

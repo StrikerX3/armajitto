@@ -250,6 +250,11 @@ void Emitter::LoadStickyOverflow() {
     SetCPSR(dstCPSR);
 }
 
+void Emitter::SetC(bool value) {
+    arm::Flags flags = value ? arm::Flags::C : arm::Flags::None;
+    StoreFlags(arm::Flags::C, static_cast<uint32_t>(flags));
+}
+
 arm::Flags Emitter::SetNZ(uint32_t value) {
     arm::Flags flags = arm::Flags::None;
     if (value >> 31) {

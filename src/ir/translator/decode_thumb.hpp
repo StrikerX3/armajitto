@@ -59,7 +59,8 @@ inline auto AddSubRegImm(uint16_t opcode) {
     instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.lhsReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
     if (instr.immediate) {
-        instr.rhs.imm = bit::extract<6, 3>(opcode);
+        instr.rhs.imm.value = bit::extract<6, 3>(opcode);
+        instr.rhs.imm.carry = CarryResult::NoChange;
     } else {
         instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<6, 3>(opcode)));
     }
@@ -80,7 +81,8 @@ inline auto MovCmpAddSubImm(uint16_t opcode) {
     instr.setFlags = true;
     instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.lhsReg = instr.dstReg;
-    instr.rhs.imm = bit::extract<0, 8>(opcode);
+    instr.rhs.imm.value = bit::extract<0, 8>(opcode);
+    instr.rhs.imm.carry = CarryResult::NoChange;
 
     return instr;
 }
@@ -122,7 +124,8 @@ inline auto DataProcessingNegate(uint16_t opcode) {
     instr.setFlags = true;
     instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode));
     instr.lhsReg = static_cast<GPR>(bit::extract<3, 3>(opcode));
-    instr.rhs.imm = 0;
+    instr.rhs.imm.value = 0;
+    instr.rhs.imm.carry = CarryResult::NoChange;
 
     return instr;
 }
@@ -284,7 +287,8 @@ inline auto AddToSPOrPC(uint16_t opcode) {
     instr.setFlags = false;
     instr.dstReg = static_cast<GPR>(bit::extract<8, 3>(opcode));
     instr.lhsReg = bit::test<11>(opcode) ? GPR::SP : GPR::PC;
-    instr.rhs.imm = bit::extract<0, 8>(opcode) * 4;
+    instr.rhs.imm.value = bit::extract<0, 8>(opcode) * 4;
+    instr.rhs.imm.carry = CarryResult::NoChange;
     instr.thumbPCAdjust = true;
 
     return instr;
@@ -302,7 +306,8 @@ inline auto AdjustSP(uint16_t opcode) {
     instr.setFlags = false;
     instr.dstReg = GPR::SP;
     instr.lhsReg = GPR::SP;
-    instr.rhs.imm = bit::extract<0, 7>(opcode) * 4;
+    instr.rhs.imm.value = bit::extract<0, 7>(opcode) * 4;
+    instr.rhs.imm.carry = CarryResult::NoChange;
 
     return instr;
 }
@@ -387,7 +392,8 @@ inline auto LongBranchPrefix(uint16_t opcode) {
     instr.setFlags = false;
     instr.dstReg = GPR::LR;
     instr.lhsReg = GPR::PC;
-    instr.rhs.imm = bit::sign_extend<11>(bit::extract<0, 11>(opcode)) << 12;
+    instr.rhs.imm.value = bit::sign_extend<11>(bit::extract<0, 11>(opcode)) << 12;
+    instr.rhs.imm.carry = CarryResult::NoChange;
 
     return instr;
 }

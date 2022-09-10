@@ -225,6 +225,7 @@ public:
     void LoadFlags(arm::Flags flags);
     void LoadStickyOverflow();
 
+    void SetC(bool value);
     arm::Flags SetNZ(uint32_t value);
     arm::Flags SetNZ(uint64_t value);
     arm::Flags SetNZCV(uint32_t value, bool carry, bool overflow);

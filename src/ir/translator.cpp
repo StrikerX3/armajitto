@@ -473,11 +473,19 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     }
 
     VarOrImmArg rhs;
+    const bool carryInOpcode =
+        instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
     if (instr.immediate) {
-        rhs = instr.rhs.imm;
+        rhs = instr.rhs.imm.value;
+        if (instr.setFlags && !carryInOpcode && !dstPC) {
+            switch (instr.rhs.imm.carry) {
+            case CarryResult::Clear: emitter.SetC(false); break;
+            case CarryResult::Set: emitter.SetC(true); break;
+            default: break;
+            }
+            emitter.LoadFlags(arm::Flags::C);
+        }
     } else {
-        const bool carryInOpcode =
-            instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
         rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && !dstPC);
     }
 
