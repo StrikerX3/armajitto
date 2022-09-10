@@ -238,10 +238,12 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
 
         // Build cache key
         auto cacheKeyReg64 = regAlloc.GetTemporary().cvt64();
-        codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+        auto pcReg32 = regAlloc.GetTemporary();
+        codegen.mov(cacheKeyReg64.cvt32(), dword[abi::kARMStateReg + cpsrOffset]);
+        codegen.mov(pcReg32, dword[abi::kARMStateReg + pcRegOffset]);
         codegen.and_(cacheKeyReg64, 0x3F); // We only need the mode and T bits
-        codegen.shl(cacheKeyReg64.cvt64(), 32);
-        codegen.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
+        codegen.shl(cacheKeyReg64, 32);
+        codegen.or_(cacheKeyReg64, pcReg32.cvt64());
         regAlloc.ReleaseTemporaries(); // Temporary register not needed anymore
 
         // Lookup entry
