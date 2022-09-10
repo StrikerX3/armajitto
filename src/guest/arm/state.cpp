@@ -57,6 +57,7 @@ void State::Reset() {
     m_regsIRQ.fill(0);
     m_regsUND.fill(0);
     m_regsFIQ.fill(0);
+    m_psrs.fill({.u32 = 0});
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
     CPSR().i = 1;
