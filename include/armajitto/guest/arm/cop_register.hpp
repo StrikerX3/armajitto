@@ -20,10 +20,10 @@ union CopRegister {
         : u16(u16) {}
 
     CopRegister(uint8_t opcode1, uint8_t crn, uint8_t crm, uint8_t opcode2)
-        : opcode1(opcode1)
-        , crn(crn)
+        : opcode2(opcode2)
         , crm(crm)
-        , opcode2(opcode2) {}
+        , crn(crn)
+        , opcode1(opcode1) {}
 };
 
 } // namespace armajitto::arm
