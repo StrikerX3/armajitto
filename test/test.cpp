@@ -308,7 +308,8 @@ void testGBA() {
         ifsBIOS.read((char *)sys->bios.data(), size);
     }
     {
-        std::ifstream ifsROM{"c:/temp/jsmolka/arm.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/jsmolka/arm.gba", std::ios::binary};
+        std::ifstream ifsROM{"c:/temp/jsmolka/thumb.gba", std::ios::binary};
         if (!ifsROM) {
             printf("Could not open rom\n");
             return;
