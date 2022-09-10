@@ -478,12 +478,14 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     if (instr.immediate) {
         rhs = instr.rhs.imm.value;
         if (instr.setFlags && !carryInOpcode && !dstPC) {
-            switch (instr.rhs.imm.carry) {
-            case CarryResult::Clear: emitter.SetC(false); break;
-            case CarryResult::Set: emitter.SetC(true); break;
-            default: break;
+            if (instr.rhs.imm.carry != CarryResult::NoChange) {
+                if (instr.rhs.imm.carry == CarryResult::Clear) {
+                    emitter.SetC(false);
+                } else if (instr.rhs.imm.carry == CarryResult::Set) {
+                    emitter.SetC(true);
+                }
+                emitter.LoadFlags(arm::Flags::C);
             }
-            emitter.LoadFlags(arm::Flags::C);
         }
     } else {
         rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && !dstPC);
