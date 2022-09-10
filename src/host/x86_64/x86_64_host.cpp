@@ -259,7 +259,12 @@ void x64Host::CompileIRQEntry() {
     m_codegen.and_(cpsrReg32, ~0b11'1111);
     m_codegen.or_(cpsrReg32, setBits);
     m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], cpsrReg32);
-    // TODO: update I in EAX
+
+    // Update I in EAX
+    m_codegen.and_(cpsrReg32, (1 << ARMflgIPos));
+    m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+    m_codegen.shl(cpsrReg32, x64flgIPos - ARMflgIPos);
+    m_codegen.or_(abi::kHostFlagsReg, cpsrReg32);
 
     // Set PC
     constexpr uint32_t irqVectorOffset =
