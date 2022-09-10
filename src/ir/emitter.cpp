@@ -585,8 +585,8 @@ void Emitter::EnterException(arm::Exception vector) {
 
     auto lr = GetOffsetFromCurrentInstructionAddress(nn);
     auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);
-    SetRegister({arm::GPR::LR, m_mode}, lr);
-    SetRegister({arm::GPR::PC, m_mode}, pc);
+    SetRegister({arm::GPR::LR, vectorInfo.mode}, lr);
+    SetRegister({arm::GPR::PC, vectorInfo.mode}, pc);
 
     TerminateReturn();
 }

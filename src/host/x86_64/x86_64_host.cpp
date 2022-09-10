@@ -227,13 +227,12 @@ void x64Host::CompileIRQEntry() {
     auto pcReg32 = abi::kIntArgRegs[0].cvt32();
     auto cpsrReg32 = abi::kIntArgRegs[1].cvt32(); // Also used as 2nd argument to function call
     auto lrReg32 = abi::kIntArgRegs[2].cvt32();
-    auto lrOffsetReg32 = abi::kIntArgRegs[3].cvt32();
 
     // Get field offsets
     const auto cpsrOffset = m_stateOffsets.CPSROffset();
     const auto spsrOffset = m_stateOffsets.SPSROffset(arm::Mode::IRQ);
     const auto pcOffset = m_stateOffsets.GPROffset(arm::GPR::PC, arm::Mode::User);
-    const auto baseLROffset = m_stateOffsets.GPRTableOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
+    const auto lrOffset = m_stateOffsets.GPROffset(arm::GPR::LR, arm::Mode::IRQ);
     const auto execStateOffset = m_stateOffsets.ExecutionStateOffset();
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -246,20 +245,13 @@ void x64Host::CompileIRQEntry() {
     m_codegen.mov(cpsrReg32, pcReg32);
     m_codegen.mov(dword[abi::kARMStateReg + spsrOffset], cpsrReg32);
 
-    // Get LR offset based on current CPSR mode (using State::m_gprOffsets)
-    m_codegen.mov(lrOffsetReg32, cpsrReg32);
-    m_codegen.and_(lrOffsetReg32, 0x1F); // Extract CPSR mode bits
-    m_codegen.shl(lrOffsetReg32, 4);     // Multiply by 16
-    m_codegen.lea(lrOffsetReg32.cvt64(), qword[lrOffsetReg32 * sizeof(uintptr_t) + baseLROffset]);
-    m_codegen.mov(lrOffsetReg32.cvt64(), qword[abi::kARMStateReg + lrOffsetReg32.cvt64()]);
-
     // Set LR
-    m_codegen.mov(lrReg32, dword[abi::kARMStateReg + pcOffset]); // LR = PC
-    m_codegen.test(cpsrReg32, (1u << ARMflgTPos));               // Test against CPSR T bit
-    m_codegen.setne(cpsrReg32.cvt8());                           // cpsrReg32 will be 1 in Thumb mode
+    m_codegen.test(cpsrReg32, (1u << ARMflgTPos)); // Test against CPSR T bit
+    m_codegen.setne(cpsrReg32.cvt8());             // cpsrReg32 will be 1 in Thumb mode
     m_codegen.movzx(cpsrReg32, cpsrReg32.cvt8());
-    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]); // LR = PC + 0 (Thumb)
-    m_codegen.mov(dword[lrOffsetReg32.cvt64()], lrReg32);       // LR = PC - 4 (ARM)
+    m_codegen.mov(lrReg32, dword[abi::kARMStateReg + pcOffset]); // LR = PC
+    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]);  // LR = PC + 0 (Thumb)
+    m_codegen.mov(dword[abi::kARMStateReg + lrOffset], lrReg32); // LR = PC - 4 (ARM)
 
     // Modify CPSR T and mode bits
     constexpr uint32_t setBits = static_cast<uint32_t>(arm::Mode::IRQ) | (1u << ARMflgIPos);
