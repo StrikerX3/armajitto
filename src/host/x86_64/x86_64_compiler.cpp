@@ -2270,12 +2270,14 @@ void x64Host::Compiler::CompileOp(const ir::IRStoreFlagsOp *op) {
         } else {
             auto valReg32 = regAlloc.Get(op->values.var.var);
             auto maskReg32 = regAlloc.GetTemporary();
-            codegen.shr(valReg32, ARMflgNZCVShift);
-            codegen.imul(valReg32, valReg32, ARMTox64FlagsMult);
-            codegen.and_(valReg32, x64FlagsMask);
+            auto scratchReg32 = regAlloc.GetTemporary();
+            codegen.mov(scratchReg32, valReg32);
+            codegen.shr(scratchReg32, ARMflgNZCVShift);
+            codegen.imul(scratchReg32, scratchReg32, ARMTox64FlagsMult);
+            codegen.and_(scratchReg32, x64FlagsMask);
             codegen.mov(maskReg32, ~((mask * ARMTox64FlagsMult) & x64FlagsMask));
             codegen.and_(abi::kHostFlagsReg, maskReg32);
-            codegen.or_(abi::kHostFlagsReg, valReg32);
+            codegen.or_(abi::kHostFlagsReg, scratchReg32);
         }
     }
 }
