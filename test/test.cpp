@@ -10,6 +10,108 @@
 #include <memory>
 #include <thread>
 
+class MinimalGBASystem : public armajitto::ISystem {
+public:
+    MinimalGBASystem() {
+        bios.fill(0);
+        ewram.fill(0);
+        iwram.fill(0);
+        pram.fill(0);
+        vram.fill(0);
+        rom.fill(0xFF);
+
+        using MemArea = armajitto::MemoryMap::Areas;
+
+        m_memMap.Map(MemArea::AllRead, 0, 0x0000000, 0x4000, bios.data(), bios.size());
+        m_memMap.Map(MemArea::All, 0, 0x2000000, 0x40000, ewram.data(), ewram.size());
+        m_memMap.Map(MemArea::All, 0, 0x3000000, 0x8000, iwram.data(), iwram.size());
+        // m_memMap.Map(MemArea::All, 0, 0x5000000, 0x200, pram.data(), pram.size());
+        m_memMap.Map(MemArea::All, 0, 0x6000000, 0x18000, vram.data(), vram.size());
+        m_memMap.Map(MemArea::AllRead, 0, 0x8000000, 0x2000000, rom.data(), rom.size());
+    }
+
+    uint8_t MemReadByte(uint32_t address) final {
+        return Read<uint8_t>(address);
+    }
+    uint16_t MemReadHalf(uint32_t address) final {
+        return Read<uint16_t>(address);
+    }
+    uint32_t MemReadWord(uint32_t address) final {
+        return Read<uint32_t>(address);
+    }
+
+    void MemWriteByte(uint32_t address, uint8_t value) final {
+        Write(address, value);
+    }
+    void MemWriteHalf(uint32_t address, uint16_t value) final {
+        Write(address, value);
+    }
+    void MemWriteWord(uint32_t address, uint32_t value) final {
+        Write(address, value);
+    }
+
+    template <typename T>
+    T Read(uint32_t address) {
+        auto page = address >> 24;
+        switch (page) {
+        case 0x00: return *reinterpret_cast<T *>(&bios[address & 0x3FFF]);
+        case 0x02: return *reinterpret_cast<T *>(&ewram[address & 0x3FFFF]);
+        case 0x03: return *reinterpret_cast<T *>(&iwram[address & 0x7FFF]);
+        case 0x04: return MMIORead<T>(address);
+        case 0x05: return *reinterpret_cast<T *>(&pram[address & 0x1FF]);
+        case 0x06: return *reinterpret_cast<T *>(&vram[address % 0x18000]);
+        case 0x08: return *reinterpret_cast<T *>(&rom[address & 0x1FFFFFF]);
+        default: return 0;
+        }
+    }
+
+    template <typename T>
+    void Write(uint32_t address, T value) {
+        auto page = address >> 24;
+        switch (page) {
+        case 0x02: *reinterpret_cast<T *>(&ewram[address & 0x3FFFF]) = value; break;
+        case 0x03: *reinterpret_cast<T *>(&iwram[address & 0x7FFF]) = value; break;
+        case 0x04: MMIOWrite<T>(address, value); break;
+        case 0x05: *reinterpret_cast<T *>(&pram[address & 0x1FF]) = value; break;
+        case 0x06: *reinterpret_cast<T *>(&vram[address % 0x18000]) = value; break;
+        case 0x08: *reinterpret_cast<T *>(&rom[address & 0x1FFFFFF]) = value; break;
+        }
+    }
+
+    bool vblank = false;
+    int vblankCount = 0;
+    uint16_t buttons = 0x03FF;
+
+    template <typename T>
+    T MMIORead(uint32_t address) {
+        // Fake VBLANK counter
+        if (address == 0x4000004) {
+            ++vblankCount;
+            if (vblankCount == 280896) {
+                vblankCount = 0;
+                vblank ^= true;
+            }
+            return vblank;
+        }
+        if (address == 0x4000130) {
+            return buttons;
+        }
+        return 0;
+    }
+
+    template <typename T>
+    void MMIOWrite(uint32_t address, T value) {
+        // Not needed
+    }
+
+    std::array<uint8_t, 0x4000> bios;
+    std::array<uint8_t, 0x40000> ewram;
+    std::array<uint8_t, 0x8000> iwram;
+    std::array<uint8_t, 0x200> pram;
+    std::array<uint8_t, 0x18000> vram;
+    std::array<uint8_t, 0x2000000> rom;
+};
+
 class MinimalNDSSystem : public armajitto::ISystem {
 public:
     MinimalNDSSystem() {
@@ -51,10 +153,6 @@ public:
             std::copy_n(data, size, mainRAM.begin() + baseAddress);
         }
     }
-
-    std::array<uint8_t, 0x400000> mainRAM;
-    std::array<uint8_t, 0x8000> sharedWRAM;
-    std::array<uint8_t, 0xA4000> vram;
 
     template <typename T>
     T Read(uint32_t address) {
@@ -104,6 +202,10 @@ public:
     void MMIOWrite(uint32_t address, T value) {
         // Not needed
     }
+
+    std::array<uint8_t, 0x400000> mainRAM;
+    std::array<uint8_t, 0x8000> sharedWRAM;
+    std::array<uint8_t, 0xA4000> vram;
 };
 
 void printState(armajitto::arm::State &state) {
@@ -189,6 +291,149 @@ void printState(armajitto::arm::State &state) {
     default: printf("Unknown (0x%X)\n", static_cast<uint8_t>(state.ExecutionState())); break;
     }
 };
+
+void testGBA() {
+    auto sys = std::make_unique<MinimalGBASystem>();
+
+    {
+        std::ifstream ifsBIOS{"gba_bios.bin", std::ios::binary};
+        if (!ifsBIOS) {
+            printf("Could not open gba_bios.bin\n");
+            return;
+        }
+
+        ifsBIOS.seekg(0, std::ios::end);
+        auto size = ifsBIOS.tellg();
+        ifsBIOS.seekg(0, std::ios::beg);
+        ifsBIOS.read((char *)sys->bios.data(), size);
+    }
+    {
+        std::ifstream ifsROM{"c:/temp/jsmolka/arm.gba", std::ios::binary};
+        if (!ifsROM) {
+            printf("Could not open rom\n");
+            return;
+        }
+
+        ifsROM.seekg(0, std::ios::end);
+        auto size = ifsROM.tellg();
+        ifsROM.seekg(0, std::ios::beg);
+        ifsROM.read((char *)sys->rom.data(), size);
+    }
+
+    // Create recompiler for ARM7TDMI
+    armajitto::Recompiler jit{{
+        .system = *sys,
+        .model = armajitto::CPUModel::ARM7TDMI,
+    }};
+    auto &armState = jit.GetARMState();
+
+    // Start execution at the specified address and execution state
+    armState.SetMode(armajitto::arm::Mode::System);
+    armState.JumpTo(0x8000000, false);
+
+    // Setup direct boot
+    armState.GPR(armajitto::arm::GPR::SP) = 0x03007F00;
+    armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::IRQ) = 0x03007FA0;
+    armState.GPR(armajitto::arm::GPR::SP, armajitto::arm::Mode::Supervisor) = 0x03007FE0;
+
+    // auto &optParams = jit.GetOptimizationParameters();
+    // optParams.passes.constantPropagation = false;
+    // optParams.passes.deadRegisterStoreElimination = false;
+    // optParams.passes.deadGPRStoreElimination = false;
+    // optParams.passes.deadHostFlagStoreElimination = false;
+    // optParams.passes.deadFlagValueStoreElimination = false;
+    // optParams.passes.deadVariableStoreElimination = false;
+    // optParams.passes.bitwiseOpsCoalescence = false;
+    // optParams.passes.arithmeticOpsCoalescence = false;
+    // optParams.passes.hostFlagsOpsCoalescence = false;
+
+    using namespace std::chrono_literals;
+
+    bool running = true;
+    std::jthread emuThread{[&] {
+        using clk = std::chrono::steady_clock;
+
+        auto t = clk::now();
+        uint32_t frames = 0;
+        uint64_t cycles = 0;
+        uint64_t totalFrames = 0;
+        while (running) {
+            // Run for a full frame, assuming each instruction takes 3 cycles to complete
+            cycles += jit.Run(280896 / 3);
+            ++frames;
+            ++totalFrames;
+            /*if (totalFrames >= 15u && totalFrames < 30u) {
+                sys->buttons &= ~(1 << 6);
+            } else if (totalFrames >= 30u && totalFrames < 45u) {
+                sys->buttons |= (1 << 6);
+            } else if (totalFrames >= 45u && totalFrames < 60u) {
+                sys->buttons &= ~(1 << 7);
+            } else if (totalFrames >= 60u && totalFrames < 75u) {
+                sys->buttons |= (1 << 7);
+            }*/
+            auto t2 = clk::now();
+            if (t2 - t >= 1s) {
+                printf("%u fps, %llu cycles\n", frames, cycles);
+                frames = 0;
+                cycles = 0;
+                t = t2;
+            }
+        }
+    }};
+
+    SDL_Init(SDL_INIT_VIDEO);
+    auto window = SDL_CreateWindow("[REDACTED]", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 2, 160 * 2,
+                                   SDL_WINDOW_ALLOW_HIGHDPI);
+
+    auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, 240, 160);
+
+    while (running) {
+        SDL_UpdateTexture(texture, nullptr, sys->vram.data(), sizeof(uint16_t) * 240);
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        SDL_RenderPresent(renderer);
+
+        auto evt = SDL_Event{};
+        while (SDL_PollEvent(&evt)) {
+            if (evt.type == SDL_QUIT) {
+                running = false;
+                break;
+            }
+
+            if (evt.type == SDL_KEYUP || evt.type == SDL_KEYDOWN) {
+                auto bit = -1;
+                bool down = evt.type == SDL_KEYDOWN;
+
+                switch (reinterpret_cast<SDL_KeyboardEvent *>(&evt)->keysym.sym) {
+                case SDLK_c: bit = 0; break;
+                case SDLK_x: bit = 1; break;
+                case SDLK_RSHIFT: bit = 2; break;
+                case SDLK_RETURN: bit = 3; break;
+                case SDLK_RIGHT: bit = 4; break;
+                case SDLK_LEFT: bit = 5; break;
+                case SDLK_UP: bit = 6; break;
+                case SDLK_DOWN: bit = 7; break;
+                case SDLK_f: bit = 8; break;
+                case SDLK_a: bit = 9; break;
+                }
+
+                if (bit != -1) {
+                    if (down) {
+                        sys->buttons &= ~(1 << bit);
+                    } else {
+                        sys->buttons |= (1 << bit);
+                    }
+                }
+            }
+        }
+    }
+
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+}
 
 void testNDS() {
     auto sys = std::make_unique<MinimalNDSSystem>();
@@ -367,7 +612,8 @@ void testNDS() {
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    testNDS();
+    testGBA();
+    // testNDS();
 
     return EXIT_SUCCESS;
 }
