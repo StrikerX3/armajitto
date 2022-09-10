@@ -1,8 +1,10 @@
-#include "armajitto/core/allocator.hpp"
+#include "allocator.hpp"
 
 #include <cassert>
 
 namespace armajitto::memory {
+
+inline constexpr bool kSearchAllPagesOnAlloc = false;
 
 #ifdef _WIN32
 static inline void *AlignedAlloc(std::size_t size, std::size_t alignment) {
@@ -36,58 +38,55 @@ void *Allocator::AllocateRaw(std::size_t bytes, std::size_t alignment) {
     bytes = (bytes + alignMask) & ~alignMask;
 
     assert(m_head != nullptr);
-    /*if (m_head == nullptr) {
-        if (!AllocatePage(bytes)) {
-            return nullptr;
+
+    if constexpr (kSearchAllPagesOnAlloc) {
+        Page *page = m_head;
+        uint8_t *ptr = nullptr;
+        while (page != nullptr) {
+            auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
+            const auto freeSize = page->size - (page->nextAlloc - page->ptr);
+            if (bytes + alignOffset <= freeSize) {
+                ptr = page->nextAlloc;
+                break;
+            }
+            page = page->next;
         }
-    }*/
-
-    uint8_t *ptr = m_head->nextAlloc;
-    auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
-    const auto freeSize = m_head->size - (m_head->nextAlloc - m_head->ptr);
-    if (bytes + alignOffset > freeSize) {
-        if (!AllocatePage(bytes)) {
-            return nullptr;
+        if (page == nullptr || ptr == nullptr) {
+            if (!AllocatePage(bytes)) {
+                return nullptr;
+            }
+            page = m_head;
+            ptr = m_head->nextAlloc;
         }
-        ptr = m_head->nextAlloc;
-        alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
-    }
 
-    assert(ptr < m_head->ptr + m_head->size);
-    assert(ptr + alignOffset + bytes <= m_head->ptr + m_head->size);
-
-    *reinterpret_cast<Page **>(ptr) = m_head;
-    m_head->nextAlloc += bytes + alignOffset;
-    ++m_head->numAllocs;
-    return ptr + alignOffset;
-
-    /*Page *page = m_head;
-    uint8_t *ptr = nullptr;
-    while (page != nullptr) {
         auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
-        const auto freeSize = page->size - (page->nextAlloc - page->ptr);
-        if (bytes + alignOffset <= freeSize) {
-            ptr = page->nextAlloc;
-            break;
-        }
-        page = page->next;
-    }
-    if (page == nullptr || ptr == nullptr) {
-        if (!AllocatePage(bytes)) {
-            return nullptr;
-        }
-        page = m_head;
-        ptr = m_head->nextAlloc;
-    }
+        assert(ptr < page->ptr + page->size);
+        assert(ptr + alignOffset + bytes <= page->ptr + page->size);
 
-    auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
-    assert(ptr < page->ptr + page->size);
-    assert(ptr + alignOffset + bytes <= page->ptr + page->size);
+        *reinterpret_cast<Page **>(ptr) = page;
+        page->nextAlloc += bytes + alignOffset;
+        ++page->numAllocs;
+        return ptr + alignOffset;
+    } else {
+        uint8_t *ptr = m_head->nextAlloc;
+        auto alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
+        const auto freeSize = m_head->size - (m_head->nextAlloc - m_head->ptr);
+        if (bytes + alignOffset > freeSize) {
+            if (!AllocatePage(bytes)) {
+                return nullptr;
+            }
+            ptr = m_head->nextAlloc;
+            alignOffset = ((uintptr_t(ptr) + alignMask) & ~alignMask) - uintptr_t(ptr) + sizeof(Page *);
+        }
 
-    *reinterpret_cast<Page **>(ptr) = page;
-    page->nextAlloc += bytes + alignOffset;
-    ++page->numAllocs;
-    return ptr + alignOffset;*/
+        assert(ptr < m_head->ptr + m_head->size);
+        assert(ptr + alignOffset + bytes <= m_head->ptr + m_head->size);
+
+        *reinterpret_cast<Page **>(ptr) = m_head;
+        m_head->nextAlloc += bytes + alignOffset;
+        ++m_head->numAllocs;
+        return ptr + alignOffset;
+    }
 }
 
 void Allocator::Free(void *p) {
@@ -95,18 +94,11 @@ void Allocator::Free(void *p) {
     ++page->numFrees;
 
     if (page->numAllocs == page->numFrees && page != m_head) {
-        /*if (page->prev != nullptr) {
-            page->prev->next = page->next;
-        }*/
         page->prev->next = page->next;
 
         if (page->next != nullptr) {
             page->next->prev = page->prev;
         }
-
-        /*if (m_head == page) {
-            m_head = page->next;
-        }*/
 
         AlignedFree(page->ptr);
         delete page;

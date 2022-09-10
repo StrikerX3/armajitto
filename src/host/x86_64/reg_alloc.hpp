@@ -1,10 +1,12 @@
 #pragma once
 
 #include "abi.hpp"
-#include "armajitto/ir/basic_block.hpp"
-#include "armajitto/ir/ir_ops.hpp"
-#include "armajitto/ir/var_lifetime.hpp"
-#include "armajitto/util/unsafe_circular_buffer.hpp"
+
+#include "ir/basic_block.hpp"
+#include "ir/ir_ops.hpp"
+#include "ir/var_lifetime.hpp"
+
+#include "util/unsafe_circular_buffer.hpp"
 
 #include <xbyak/xbyak.h>
 

@@ -3,7 +3,6 @@
 #include "armajitto/guest/arm/coprocessors/cp15/cp15_defs.hpp"
 
 #include "armajitto/core/memory_map.hpp"
-#include "armajitto/util/bit_ops.hpp"
 
 #include <cstdint>
 #include <vector>

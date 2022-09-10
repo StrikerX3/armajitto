@@ -1,8 +1,9 @@
 #pragma once
 
-#include "armajitto/guest/arm/instructions.hpp"
-#include "armajitto/util/bit_ops.hpp"
-#include "armajitto/util/unreachable.hpp"
+#include "guest/arm/instructions.hpp"
+
+#include "util/bit_ops.hpp"
+#include "util/unreachable.hpp"
 
 namespace armajitto::arm::thumb_decoder {
 

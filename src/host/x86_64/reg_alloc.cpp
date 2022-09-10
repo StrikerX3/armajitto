@@ -1,6 +1,6 @@
 #include "reg_alloc.hpp"
 
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "ir/ops/ir_ops_visitor.hpp"
 
 namespace armajitto::x86_64 {
 

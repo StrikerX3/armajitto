@@ -1,10 +1,16 @@
-#include "armajitto/ir/translator.hpp"
+#include "ir/translator.hpp"
 
-#include "armajitto/guest/arm/instructions.hpp"
-#include "armajitto/util/unreachable.hpp"
+#include "defs/arguments.hpp"
+#include "ir/defs/memory_access.hpp"
+
+#include "guest/arm/flags.hpp"
+#include "guest/arm/instructions.hpp"
 
 #include "translator/decode_arm.hpp"
 #include "translator/decode_thumb.hpp"
+
+#include "util/bit_ops.hpp"
+#include "util/unreachable.hpp"
 
 #include <bit>
 
@@ -53,7 +59,7 @@ void Translator::Translate(BasicBlock &block) {
     uint32_t address = block.Location().PC() - opcodeSize * 2;
     for (uint32_t i = 0; i < m_params.maxBlockSize; i++) {
         if (thumb) {
-            const uint16_t opcode = m_context.CodeReadHalf(address);
+            const uint16_t opcode = CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);
             if (i == 0) {
                 emitter.SetCondition(cond);
@@ -62,7 +68,7 @@ void Translator::Translate(BasicBlock &block) {
             }
             TranslateThumb(opcode, emitter);
         } else {
-            const uint32_t opcode = m_context.CodeReadWord(address);
+            const uint32_t opcode = CodeReadWord(address);
             const Condition cond = parseARMCond(opcode, arch);
             if (i == 0) {
                 emitter.SetCondition(cond);
@@ -87,6 +93,42 @@ void Translator::Translate(BasicBlock &block) {
     if (!m_endBlock) {
         emitter.TerminateContinueExecution();
     }
+}
+
+uint16_t Translator::CodeReadHalf(uint32_t address) {
+    auto &cp15 = m_context.GetARMState().GetSystemControlCoprocessor();
+    if (cp15.IsPresent()) {
+        auto &tcm = cp15.GetTCM();
+        if (address < tcm.itcmReadSize) {
+            assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
+            const uint32_t addrMask = (tcm.itcmSize - 1) & ~1;
+            return *reinterpret_cast<uint16_t *>(&tcm.itcm[address & addrMask]);
+        }
+        if (address - tcm.dtcmBase < tcm.dtcmSize) {
+            assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
+            const uint32_t addrMask = (tcm.dtcmSize - 1) & ~1;
+            return *reinterpret_cast<uint16_t *>(&tcm.dtcm[address & addrMask]);
+        }
+    }
+    return m_context.GetSystem().MemReadHalf(address);
+}
+
+uint32_t Translator::CodeReadWord(uint32_t address) {
+    auto &cp15 = m_context.GetARMState().GetSystemControlCoprocessor();
+    if (cp15.IsPresent()) {
+        auto &tcm = cp15.GetTCM();
+        if (address < tcm.itcmReadSize) {
+            assert(std::popcount(tcm.itcmSize) == 1); // must be a power of two
+            const uint32_t addrMask = (tcm.itcmSize - 1) & ~3;
+            return *reinterpret_cast<uint32_t *>(&tcm.itcm[address & addrMask]);
+        }
+        if (address - tcm.dtcmBase < tcm.dtcmSize) {
+            assert(std::popcount(tcm.dtcmSize) == 1); // must be a power of two
+            const uint32_t addrMask = (tcm.dtcmSize - 1) & ~3;
+            return *reinterpret_cast<uint32_t *>(&tcm.dtcm[address & addrMask]);
+        }
+    }
+    return m_context.GetSystem().MemReadWord(address);
 }
 
 void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
@@ -1070,7 +1112,7 @@ void Translator::Translate(const CopDataTransfer &instr, Emitter &emitter) {
 }
 
 void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
-    auto &cop = m_context.GetCoprocessor(instr.cpnum);
+    auto &cop = m_context.GetARMState().GetCoprocessor(instr.cpnum);
     if (!cop.IsPresent()) {
         emitter.EnterException(arm::Exception::UndefinedInstruction);
         m_endBlock = true;

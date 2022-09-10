@@ -1,9 +1,11 @@
 #pragma once
 
-#include "armajitto/ir/var_lifetime.hpp"
+#include "optimizer_pass_base.hpp"
+
 #include "common/host_flags_tracking.hpp"
 #include "common/var_subst.hpp"
-#include "optimizer_pass_base.hpp"
+
+#include "ir/var_lifetime.hpp"
 
 #include <bit>
 #include <memory_resource>

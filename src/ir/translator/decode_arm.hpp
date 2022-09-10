@@ -1,7 +1,8 @@
 #pragma once
 
-#include "armajitto/guest/arm/instructions.hpp"
-#include "armajitto/util/bit_ops.hpp"
+#include "guest/arm/instructions.hpp"
+
+#include "util/bit_ops.hpp"
 
 namespace armajitto::arm::arm_decoder {
 

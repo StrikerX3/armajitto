@@ -1,6 +1,6 @@
 #include "armajitto/guest/arm/coprocessors/cp15/cp15_cache.hpp"
 
-#include "armajitto/util/bit_ops.hpp"
+#include "util/bit_ops.hpp"
 
 #include <algorithm>
 #include <bit>

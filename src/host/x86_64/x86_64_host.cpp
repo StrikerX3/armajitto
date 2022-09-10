@@ -1,11 +1,13 @@
-#include "armajitto/host/x86_64/x86_64_host.hpp"
+#include "x86_64_host.hpp"
 
 #include "armajitto/guest/arm/exceptions.hpp"
-#include "armajitto/host/x86_64/cpuid.hpp"
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
-#include "armajitto/util/pointer_cast.hpp"
+
+#include "ir/ops/ir_ops_visitor.hpp"
+
+#include "util/pointer_cast.hpp"
 
 #include "abi.hpp"
+#include "cpuid.hpp"
 #include "vtune.hpp"
 #include "x86_64_compiler.hpp"
 #include "x86_64_flags.hpp"
@@ -23,8 +25,12 @@ x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxC
     , m_codegen(maxCodeSize, m_codeBuffer.get())
     , m_alloc(alloc) {
 
-    context.GetARMState().GetSystemControlCoprocessor().SetInvalidateCodeCacheCallback(
-        util::MakeClassMemberCallback<&x64Host::InvalidateCodeCacheRange>(this));
+    SetInvalidateCodeCacheCallback(
+        [](uint32_t start, uint32_t end, void *ctx) {
+            auto &host = *reinterpret_cast<x64Host *>(ctx);
+            host.InvalidateCodeCacheRange(start, end);
+        },
+        this);
 
     m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
 
@@ -147,7 +153,7 @@ void x64Host::CompileProlog() {
         Xbyak::Label lblContinue{};
 
         // Check if the CPU is running
-        const auto execStateOfs = armState.ExecutionStateOffset();
+        const auto execStateOfs = m_stateOffsets.ExecutionStateOffset();
         m_codegen.cmp(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
         m_codegen.je(lblContinue);
 
@@ -161,7 +167,7 @@ void x64Host::CompileProlog() {
             m_codegen.sete(tmpReg8);
 
             // Compare against IRQ line
-            const auto irqLineOffset = armState.IRQLineOffset();
+            const auto irqLineOffset = m_stateOffsets.IRQLineOffset();
             m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
             m_codegen.jz(lblNoIRQ);
 
@@ -224,11 +230,11 @@ void x64Host::CompileIRQEntry() {
     auto lrOffsetReg32 = abi::kIntArgRegs[3].cvt32();
 
     // Get field offsets
-    const auto cpsrOffset = armState.CPSROffset();
-    const auto spsrOffset = armState.SPSROffset(arm::Mode::IRQ);
-    const auto pcOffset = armState.GPROffset(arm::GPR::PC, arm::Mode::User);
-    const auto baseLROffset = armState.GPROffsetsOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
-    const auto execStateOffset = armState.ExecutionStateOffset();
+    const auto cpsrOffset = m_stateOffsets.CPSROffset();
+    const auto spsrOffset = m_stateOffsets.SPSROffset(arm::Mode::IRQ);
+    const auto pcOffset = m_stateOffsets.GPROffset(arm::GPR::PC, arm::Mode::User);
+    const auto baseLROffset = m_stateOffsets.GPRTableOffset() + static_cast<size_t>(arm::GPR::LR) * sizeof(uintptr_t);
+    const auto execStateOffset = m_stateOffsets.ExecutionStateOffset();
 
     // -----------------------------------------------------------------------------------------------------------------
     // IRQ exception vector entry
@@ -244,16 +250,16 @@ void x64Host::CompileIRQEntry() {
     m_codegen.mov(lrOffsetReg32, cpsrReg32);
     m_codegen.and_(lrOffsetReg32, 0x1F); // Extract CPSR mode bits
     m_codegen.shl(lrOffsetReg32, 4);     // Multiply by 16
-    m_codegen.lea(lrOffsetReg32, dword[lrOffsetReg32 * sizeof(uintptr_t) + baseLROffset]);
-    m_codegen.mov(lrOffsetReg32, dword[abi::kARMStateReg + lrOffsetReg32.cvt64()]);
+    m_codegen.lea(lrOffsetReg32.cvt64(), qword[lrOffsetReg32 * sizeof(uintptr_t) + baseLROffset]);
+    m_codegen.mov(lrOffsetReg32.cvt64(), qword[abi::kARMStateReg + lrOffsetReg32.cvt64()]);
 
     // Set LR
     m_codegen.mov(lrReg32, dword[abi::kARMStateReg + pcOffset]); // LR = PC
     m_codegen.test(cpsrReg32, (1u << ARMflgTPos));               // Test against CPSR T bit
     m_codegen.setne(cpsrReg32.cvt8());                           // cpsrReg32 will be 1 in Thumb mode
     m_codegen.movzx(cpsrReg32, cpsrReg32.cvt8());
-    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]);               // LR = PC + 0 (Thumb)
-    m_codegen.mov(dword[abi::kARMStateReg + lrOffsetReg32.cvt64()], lrReg32); // LR = PC - 4 (ARM)
+    m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]); // LR = PC + 0 (Thumb)
+    m_codegen.mov(dword[lrOffsetReg32.cvt64()], lrReg32);       // LR = PC - 4 (ARM)
 
     // Modify CPSR T and mode bits
     constexpr uint32_t setBits = static_cast<uint32_t>(arm::Mode::IRQ) | (1u << ARMflgIPos);
@@ -359,7 +365,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
             m_codegen.L(lblCondFail);
 
             // Update PC if condition fails
-            const auto pcRegOffset = m_context.GetARMState().GPROffset(arm::GPR::PC, block.Location().Mode());
+            const auto pcRegOffset = m_stateOffsets.GPROffset(arm::GPR::PC, block.Location().Mode());
             const uint32_t instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
             m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
                           block.Location().PC() + block.InstructionCount() * instrSize);

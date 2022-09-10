@@ -1,10 +1,11 @@
 #include "x86_64_compiler.hpp"
 
-#include "armajitto/guest/arm/arithmetic.hpp"
-#include "armajitto/host/x86_64/cpuid.hpp"
-#include "armajitto/util/bit_ops.hpp"
-#include "armajitto/util/unreachable.hpp"
+#include "guest/arm/arithmetic.hpp"
 
+#include "util/bit_ops.hpp"
+#include "util/unreachable.hpp"
+
+#include "cpuid.hpp"
 #include "x86_64_flags.hpp"
 
 #include <bit>
@@ -113,6 +114,8 @@ x64Host::Compiler::Compiler(Context &context, CompiledCode &compiledCode, Xbyak:
     : context(context)
     , compiledCode(compiledCode)
     , armState(context.GetARMState())
+    , stateOffsets(armState)
+    , memMap(const_cast<MemoryMap &>(context.GetSystem().GetMemoryMap()))
     , codegen(codegen)
     , regAlloc(codegen, alloc) {
 
@@ -131,7 +134,7 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
 }
 
 void x64Host::Compiler::CompileIRQLineCheck() {
-    const auto irqLineOffset = armState.IRQLineOffset();
+    const auto irqLineOffset = stateOffsets.IRQLineOffset();
     auto tmpReg8 = regAlloc.GetTemporary().cvt8();
 
     // Get inverted CPSR I bit
@@ -229,11 +232,9 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         break;
     }
     case Terminal::IndirectLink: {
-        auto &armState = context.GetARMState();
-
         // Get current CPSR and PC
-        const auto cpsrOffset = armState.CPSROffset();
-        const auto pcRegOffset = armState.GPROffset(arm::GPR::PC, mode);
+        const auto cpsrOffset = stateOffsets.CPSROffset();
+        const auto pcRegOffset = stateOffsets.GPROffset(arm::GPR::PC, mode);
 
         // Build cache key
         auto cacheKeyReg64 = regAlloc.GetTemporary().cvt64();
@@ -293,12 +294,12 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
 
 void x64Host::Compiler::CompileOp(const ir::IRGetRegisterOp *op) {
     auto dstReg32 = regAlloc.Get(op->dst.var);
-    auto offset = armState.GPROffset(op->src.gpr, op->src.Mode());
+    auto offset = stateOffsets.GPROffset(op->src.gpr, op->src.Mode());
     codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRSetRegisterOp *op) {
-    auto offset = armState.GPROffset(op->dst.gpr, op->dst.Mode());
+    auto offset = stateOffsets.GPROffset(op->dst.gpr, op->dst.Mode());
     if (op->src.immediate) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
     } else {
@@ -309,12 +310,12 @@ void x64Host::Compiler::CompileOp(const ir::IRSetRegisterOp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRGetCPSROp *op) {
     auto dstReg32 = regAlloc.Get(op->dst.var);
-    auto offset = armState.CPSROffset();
+    auto offset = stateOffsets.CPSROffset();
     codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
-    auto offset = armState.CPSROffset();
+    auto offset = stateOffsets.CPSROffset();
     if (op->src.immediate) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
 
@@ -340,12 +341,12 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRGetSPSROp *op) {
     auto dstReg32 = regAlloc.Get(op->dst.var);
-    auto offset = armState.SPSROffset(op->mode);
+    auto offset = stateOffsets.SPSROffset(op->mode);
     codegen.mov(dstReg32, dword[abi::kARMStateReg + offset]);
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRSetSPSROp *op) {
-    auto offset = armState.SPSROffset(op->mode);
+    auto offset = stateOffsets.SPSROffset(op->mode);
     if (op->src.immediate) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
     } else {
@@ -448,7 +449,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                                                                       : ~0;
 
     // Get memory map for the corresponding bus
-    auto &memMap = context.GetSystem().GetMemoryMap();
     auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? memMap.codeRead : memMap.dataRead;
 
     // Get map pointer
@@ -575,7 +575,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
                               : (op->size == ir::MemAccessSize::Half) ? ~1
                                                                       : ~0;
     // Get memory map for the corresponding bus
-    auto &memMap = context.GetSystem().GetMemoryMap();
     auto &memMapRef = memMap.dataWrite;
 
     // Get map pointer
@@ -2330,7 +2329,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLoadStickyOverflowOp *op) {
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRBranchOp *op) {
-    const auto pcFieldOffset = armState.GPROffset(arm::GPR::PC, mode);
+    const auto pcFieldOffset = stateOffsets.GPROffset(arm::GPR::PC, mode);
     const uint32_t instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
     const uint32_t pcOffset = 2 * instrSize;
     const uint32_t addrMask = ~(instrSize - 1);
@@ -2351,8 +2350,8 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
     Xbyak::Label lblExchange;
 
     auto pcReg32 = regAlloc.GetTemporary();
-    const auto pcFieldOffset = armState.GPROffset(arm::GPR::PC, mode);
-    const auto cpsrFieldOffset = armState.CPSROffset();
+    const auto pcFieldOffset = stateOffsets.GPROffset(arm::GPR::PC, mode);
+    const auto cpsrFieldOffset = stateOffsets.CPSROffset();
 
     // Honor pre-ARMv5 branching feature if requested
     if (op->bx4) {

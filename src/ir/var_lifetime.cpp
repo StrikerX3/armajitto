@@ -1,6 +1,6 @@
-#include "armajitto/ir/var_lifetime.hpp"
+#include "var_lifetime.hpp"
 
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "ops/ir_ops_visitor.hpp"
 
 namespace armajitto::ir {
 

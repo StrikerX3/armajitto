@@ -1,7 +1,7 @@
 #pragma once
 
-#include "armajitto/ir/defs/arguments.hpp"
-#include "armajitto/ir/ir_ops.hpp"
+#include "ir/defs/arguments.hpp"
+#include "ir/ir_ops.hpp"
 
 #include <optional>
 

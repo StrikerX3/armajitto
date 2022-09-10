@@ -12,7 +12,7 @@ void SystemControlCoprocessor::Reset() {
 
 void SystemControlCoprocessor::Install(cp15::id::Implementor implementor, uint32_t variant,
                                        cp15::id::Architecture architecture, uint32_t primaryPartNumber,
-                                       uint32_t revision) {
+                                       uint32_t revision, MemoryMap &memMap) {
     m_installed = true;
     m_id = {
         .implementor = implementor,
@@ -21,6 +21,7 @@ void SystemControlCoprocessor::Install(cp15::id::Implementor implementor, uint32
         .primaryPartNumber = primaryPartNumber,
         .revision = revision,
     };
+    m_tcm.memMap = &memMap;
 }
 
 void SystemControlCoprocessor::Uninstall() {
@@ -36,8 +37,32 @@ void SystemControlCoprocessor::ConfigureCache(const cp15::Cache::Configuration &
     m_cache.Configure(config);
 }
 
+const cp15::Identification &SystemControlCoprocessor::GetIdentification() const {
+    return m_id;
+}
+
+const cp15::ControlRegister &SystemControlCoprocessor::GetControlRegister() const {
+    return m_ctl;
+}
+
+const cp15::ProtectionUnit &SystemControlCoprocessor::GetProtectionUnit() const {
+    return m_pu;
+}
+
+const cp15::TCM &SystemControlCoprocessor::GetTCM() const {
+    return m_tcm;
+}
+
+const cp15::Cache &SystemControlCoprocessor::GetCache() const {
+    return m_cache;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Coprocessor interface implementation
+
+bool SystemControlCoprocessor::IsPresent() {
+    return m_installed;
+}
 
 uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) {
     switch (reg.u16) {
@@ -191,14 +216,17 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
         break;
 
     case 0x0750: // 0,C7,C5,0 - Invalidate Entire Instruction Cache
-        m_invalidateCodeCacheCallback(0, 0xFFFFFFFF);
+        if (m_invalidateCodeCacheCallback != nullptr) {
+            m_invalidateCodeCacheCallback(0, 0xFFFFFFFF, m_invalidateCodeCacheCallbackCtx);
+        }
         break;
-    case 0x0751: { // 0,C7,C5,1 - Invalidate Instruction Cache Line
-        uint32_t start = (value & ~0x1F);
-        uint32_t end = start + 0x1F;
-        m_invalidateCodeCacheCallback(start, end);
+    case 0x0751: // 0,C7,C5,1 - Invalidate Instruction Cache Line
+        if (m_invalidateCodeCacheCallback != nullptr) {
+            uint32_t start = (value & ~0x1F);
+            uint32_t end = start + 0x1F;
+            m_invalidateCodeCacheCallback(start, end, m_invalidateCodeCacheCallbackCtx);
+        }
         break;
-    }
     case 0x0752: // 0,C7,C5,2 - Invalidate Instruction Cache Line
         // TODO: implement
         break;

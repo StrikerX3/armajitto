@@ -1,6 +1,6 @@
 #include "optimizer_pass_base.hpp"
 
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "ir/ops/ir_ops_visitor.hpp"
 
 #include <bit>
 #include <cassert>

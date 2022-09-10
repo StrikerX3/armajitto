@@ -23,10 +23,6 @@ public:
         return m_installed;
     }
 
-    bool SupportsExtendedRegTransfers() final {
-        return false;
-    }
-
     uint32_t LoadRegister(CopRegister reg) final {
         // TODO: return last fetched opcode
         return 0;

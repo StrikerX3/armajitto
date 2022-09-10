@@ -1,6 +1,6 @@
 #include "dead_var_store_elimination.hpp"
 
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "ir/ops/ir_ops_visitor.hpp"
 
 #include <cassert>
 

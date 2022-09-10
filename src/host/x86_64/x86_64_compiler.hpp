@@ -1,6 +1,8 @@
 #pragma once
 
-#include "armajitto/host/x86_64/x86_64_host.hpp"
+#include "x86_64_host.hpp"
+
+#include "core/memory_map_host_access.hpp"
 
 #include "reg_alloc.hpp"
 
@@ -131,6 +133,8 @@ private:
     Context &context;
     CompiledCode &compiledCode;
     arm::State &armState;
+    arm::StateOffsets stateOffsets;
+    MemoryMapHostAccess memMap;
     Xbyak::CodeGenerator &codegen;
     RegisterAllocator regAlloc;
     arm::Mode mode;

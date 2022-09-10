@@ -14,10 +14,6 @@ public:
         return false;
     }
 
-    bool SupportsExtendedRegTransfers() final {
-        return false;
-    }
-
     uint32_t LoadRegister(CopRegister reg) final {
         return 0;
     }

@@ -1,6 +1,5 @@
-#include "armajitto/ir/optimizer.hpp"
+#include "optimizer.hpp"
 
-#include "armajitto/core/pmr_allocator.hpp"
 #include "optimizer/arithmetic_ops_coalescence.hpp"
 #include "optimizer/bitwise_ops_coalescence.hpp"
 #include "optimizer/const_propagation.hpp"
@@ -10,6 +9,8 @@
 #include "optimizer/dead_reg_store_elimination.hpp"
 #include "optimizer/dead_var_store_elimination.hpp"
 #include "optimizer/host_flags_ops_coalescence.hpp"
+
+#include "emitter.hpp"
 
 #include <memory_resource>
 
@@ -59,7 +60,7 @@ bool Optimizer::Optimize(BasicBlock &block) {
             dirty |= hostFlagsCoalescencePass.Optimize();
         }
         optimized |= dirty;
-    } while (m_parameters.repeatWhileDirty && dirty);
+    } while (dirty);
     return optimized;
 }
 

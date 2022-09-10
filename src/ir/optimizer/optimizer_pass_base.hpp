@@ -1,7 +1,7 @@
 #pragma once
 
-#include "armajitto/ir/emitter.hpp"
-#include "armajitto/ir/ir_ops.hpp"
+#include "ir/emitter.hpp"
+#include "ir/ir_ops.hpp"
 
 namespace armajitto::ir {
 

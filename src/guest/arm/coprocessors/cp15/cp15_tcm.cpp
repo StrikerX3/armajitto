@@ -1,6 +1,6 @@
 #include "armajitto/guest/arm/coprocessors/cp15/cp15_tcm.hpp"
 
-#include "armajitto/util/bit_ops.hpp"
+#include "util/bit_ops.hpp"
 
 #include <algorithm>
 
@@ -88,20 +88,20 @@ void TCM::SetupITCM(bool enable, bool load) {
 
     // Apply changes to memory map
     if (memMap != nullptr) {
+        using MemArea = MemoryMap::Areas;
+
         if (itcmReadSize > prevReadSize) {
             // TODO: be more efficient and only map what's added, aligned to itcmSize
-            memMap->codeRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
-            memMap->dataRead.Map(kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
+            memMap->Map(MemArea::AllRead, kITCMLayer, 0, itcmReadSize, itcm, itcmSize);
         } else if (itcmReadSize < prevReadSize) {
-            memMap->codeRead.Unmap(kITCMLayer, itcmReadSize, prevReadSize - itcmReadSize);
-            memMap->dataRead.Unmap(kITCMLayer, itcmReadSize, prevReadSize - itcmReadSize);
+            memMap->Unmap(MemArea::AllRead, kITCMLayer, itcmReadSize, prevReadSize - itcmReadSize);
         }
 
         if (itcmWriteSize > prevWriteSize) {
             // TODO: be more efficient and only map what's added, aligned to itcmSize
-            memMap->dataWrite.Map(kITCMLayer, 0, itcmWriteSize, itcm, itcmSize);
+            memMap->Map(MemArea::DataWrite, kITCMLayer, 0, itcmWriteSize, itcm, itcmSize);
         } else if (itcmWriteSize < prevWriteSize) {
-            memMap->dataWrite.Unmap(kITCMLayer, itcmWriteSize, prevWriteSize - itcmWriteSize);
+            memMap->Unmap(MemArea::DataWrite, kITCMLayer, itcmWriteSize, prevWriteSize - itcmWriteSize);
         }
     }
 }
@@ -122,25 +122,27 @@ void TCM::SetupDTCM(bool enable, bool load) {
 
     // Apply changes to the memory map
     if (memMap != nullptr) {
-        if (prevBase != dtcmBase) {
-            memMap->dataRead.Unmap(kDTCMLayer, prevBase, prevReadSize);
-            memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+        using MemArea = MemoryMap::Areas;
 
-            memMap->dataWrite.Unmap(kDTCMLayer, prevBase, prevWriteSize);
-            memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
+        if (prevBase != dtcmBase) {
+            memMap->Unmap(MemArea::DataRead, kDTCMLayer, prevBase, prevReadSize);
+            memMap->Map(MemArea::DataRead, kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+
+            memMap->Unmap(MemArea::DataWrite, kDTCMLayer, prevBase, prevWriteSize);
+            memMap->Map(MemArea::DataWrite, kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
         } else {
             if (dtcmReadSize > prevReadSize) {
                 // TODO: be more efficient and only map what's added, aligned to dtcmSize
-                memMap->dataRead.Map(kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
+                memMap->Map(MemArea::DataRead, kDTCMLayer, dtcmBase, dtcmReadSize, dtcm, dtcmSize);
             } else if (dtcmReadSize < prevReadSize) {
-                memMap->dataRead.Unmap(kDTCMLayer, dtcmBase + dtcmReadSize, prevReadSize - dtcmReadSize);
+                memMap->Unmap(MemArea::DataRead, kDTCMLayer, dtcmBase + dtcmReadSize, prevReadSize - dtcmReadSize);
             }
 
             if (dtcmWriteSize > prevWriteSize) {
                 // TODO: be more efficient and only map what's added, aligned to dtcmSize
-                memMap->dataWrite.Map(kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
+                memMap->Map(MemArea::DataWrite, kDTCMLayer, dtcmBase, dtcmWriteSize, dtcm, dtcmSize);
             } else if (dtcmWriteSize < prevWriteSize) {
-                memMap->dataWrite.Unmap(kDTCMLayer, dtcmBase + dtcmWriteSize, prevWriteSize - dtcmWriteSize);
+                memMap->Unmap(MemArea::DataWrite, kDTCMLayer, dtcmBase + dtcmWriteSize, prevWriteSize - dtcmWriteSize);
             }
         }
     }

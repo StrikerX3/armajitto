@@ -1,5 +1,6 @@
 #include "bitwise_ops_coalescence.hpp"
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+
+#include "ir/ops/ir_ops_visitor.hpp"
 
 namespace armajitto::ir {
 

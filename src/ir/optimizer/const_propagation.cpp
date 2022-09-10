@@ -1,6 +1,8 @@
 #include "const_propagation.hpp"
 
-#include "armajitto/guest/arm/arithmetic.hpp"
+#include "guest/arm/arithmetic.hpp"
+
+#include "util/bit_ops.hpp"
 
 #include <bit>
 #include <cassert>

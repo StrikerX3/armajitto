@@ -1,6 +1,6 @@
 #include "var_subst.hpp"
 
-#include "armajitto/ir/ops/ir_ops_visitor.hpp"
+#include "ir/ops/ir_ops_visitor.hpp"
 
 namespace armajitto::ir {
 

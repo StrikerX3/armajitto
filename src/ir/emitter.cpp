@@ -1,5 +1,9 @@
-#include "armajitto/ir/emitter.hpp"
-#include "armajitto/ir/ir_ops.hpp"
+#include "emitter.hpp"
+#include "ir_ops.hpp"
+
+#include "guest/arm/exception_vectors.hpp"
+
+#include "util/bit_ops.hpp"
 
 namespace armajitto::ir {
 

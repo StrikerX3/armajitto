@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/core/location_ref.hpp"
+#include "core/location_ref.hpp"
 
 #if ARMAJITTO_USE_VTUNE
     #include <jitprofiling.h>

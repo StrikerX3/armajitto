@@ -5,6 +5,9 @@
 namespace armajitto::arm::cp15 {
 
 struct ControlRegister {
+    void Reset();
+    void Write(uint32_t value);
+
     union Value {
         uint32_t u32;
         struct {
@@ -42,12 +45,11 @@ struct ControlRegister {
                 : 1,             // 30 Reserved              (0)
                 : 1;             // 31 Reserved              (0)
         };
-    } value;
+    };
+    static_assert(sizeof(Value) == sizeof(uint32_t), "CP15 control register is must be a 32-bit integer");
 
+    Value value;
     uint32_t baseVectorAddress;
-
-    void Reset();
-    void Write(uint32_t value);
 };
 
 } // namespace armajitto::arm::cp15

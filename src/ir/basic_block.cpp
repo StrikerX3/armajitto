@@ -1,8 +1,8 @@
-#include "armajitto/ir/basic_block.hpp"
+#include "basic_block.hpp"
 
-#include "armajitto/core/pmr_allocator.hpp"
-#include "armajitto/ir/ir_ops.hpp"
-#include "armajitto/util/scope_guard.hpp"
+#include "ir_ops.hpp"
+
+#include "util/scope_guard.hpp"
 
 #include <type_traits>
 #include <vector>

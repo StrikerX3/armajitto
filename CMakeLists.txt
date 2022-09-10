@@ -26,26 +26,20 @@ endif ()
 add_library(armajitto
     include/armajitto/armajitto.hpp
     include/armajitto/version.hpp
-    include/armajitto/core/allocator.hpp
     include/armajitto/core/context.hpp
-    include/armajitto/core/layered_memory_map.hpp
-    include/armajitto/core/location_ref.hpp
     include/armajitto/core/memory_map.hpp
-    include/armajitto/core/pmr_allocator.hpp
+    include/armajitto/core/params.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
     include/armajitto/core/system_interface.hpp
     include/armajitto/defs/cpu_arch.hpp
     include/armajitto/defs/cpu_model.hpp
     include/armajitto/defs/memory_access.hpp
-    include/armajitto/guest/arm/arithmetic.hpp
     include/armajitto/guest/arm/cop_register.hpp
     include/armajitto/guest/arm/coprocessor.hpp
     include/armajitto/guest/arm/exceptions.hpp
     include/armajitto/guest/arm/exec_state.hpp
-    include/armajitto/guest/arm/flags.hpp
     include/armajitto/guest/arm/gpr.hpp
-    include/armajitto/guest/arm/instructions.hpp
     include/armajitto/guest/arm/mode.hpp
     include/armajitto/guest/arm/psr.hpp
     include/armajitto/guest/arm/state.hpp
@@ -58,63 +52,68 @@ add_library(armajitto
     include/armajitto/guest/arm/coprocessors/cp15/cp15_id.hpp
     include/armajitto/guest/arm/coprocessors/cp15/cp15_pu.hpp
     include/armajitto/guest/arm/coprocessors/cp15/cp15_tcm.hpp
-    include/armajitto/host/host.hpp
-    include/armajitto/host/host_code.hpp
-    include/armajitto/host/x86_64/cpuid.hpp
-    include/armajitto/host/x86_64/x86_64_compiled_code.hpp
-    include/armajitto/host/x86_64/x86_64_host.hpp
-    include/armajitto/host/x86_64/x86_64_type_traits.hpp
-    include/armajitto/ir/basic_block.hpp
-    include/armajitto/ir/emitter.hpp
-    include/armajitto/ir/ir_ops.hpp
-    include/armajitto/ir/optimizer.hpp
-    include/armajitto/ir/translator.hpp
-    include/armajitto/ir/var_lifetime.hpp
-    include/armajitto/ir/defs/arguments.hpp
-    include/armajitto/ir/defs/memory_access.hpp
-    include/armajitto/ir/defs/opcode_types.hpp
-    include/armajitto/ir/defs/variable.hpp
-    include/armajitto/ir/ops/ir_ops_base.hpp
-    include/armajitto/ir/ops/ir_ops_visitor.hpp
-    include/armajitto/ir/ops/impl/ir_alu_ops.hpp
-    include/armajitto/ir/ops/impl/ir_branch_ops.hpp
-    include/armajitto/ir/ops/impl/ir_cop_ops.hpp
-    include/armajitto/ir/ops/impl/ir_flag_ops.hpp
-    include/armajitto/ir/ops/impl/ir_mem_ops.hpp
-    include/armajitto/ir/ops/impl/ir_misc_ops.hpp
-    include/armajitto/ir/ops/impl/ir_reg_ops.hpp
-    include/armajitto/util/bitmask_enum.hpp
-    include/armajitto/util/bit_ops.hpp
-    include/armajitto/util/callback.hpp
-    include/armajitto/util/noitree.hpp
-    include/armajitto/util/pointer_cast.hpp
-    include/armajitto/util/scope_guard.hpp
-    include/armajitto/util/type_traits.hpp
-    include/armajitto/util/unreachable.hpp
-    include/armajitto/util/unsafe_circular_buffer.hpp
     src/core/allocator.cpp
+    src/core/allocator.hpp
     src/core/context.cpp
+    src/core/location_ref.hpp
+    src/core/memory_map.cpp
+    src/core/memory_map_host_access.hpp
+    src/core/memory_map_impl.hpp
     src/core/recompiler.cpp
+    src/guest/arm/arithmetic.hpp
+    src/guest/arm/exception_vectors.hpp
+    src/guest/arm/flags.hpp
+    src/guest/arm/gpr.cpp
+    src/guest/arm/instructions.hpp
+    src/guest/arm/mode.cpp
+    src/guest/arm/mode_utils.hpp
     src/guest/arm/state.cpp
+    src/guest/arm/state_offsets.hpp
     src/guest/arm/coprocessors/coproc_15_sys_control.cpp
+    src/guest/arm/coprocessors/cp15_host_access.hpp
     src/guest/arm/coprocessors/cp15/cp15_cache.cpp
     src/guest/arm/coprocessors/cp15/cp15_control.cpp
     src/guest/arm/coprocessors/cp15/cp15_pu.cpp
     src/guest/arm/coprocessors/cp15/cp15_tcm.cpp
+    src/host/host.hpp
+    src/host/host_code.hpp
     src/host/x86_64/abi.hpp
     src/host/x86_64/cpuid.cpp
+    src/host/x86_64/cpuid.hpp
     src/host/x86_64/reg_alloc.cpp
     src/host/x86_64/reg_alloc.hpp
     src/host/x86_64/vtune.hpp
+    src/host/x86_64/x86_64_compiled_code.hpp
     src/host/x86_64/x86_64_compiler.cpp
     src/host/x86_64/x86_64_compiler.hpp
     src/host/x86_64/x86_64_flags.hpp
     src/host/x86_64/x86_64_host.cpp
+    src/host/x86_64/x86_64_host.hpp
+    src/host/x86_64/x86_64_type_traits.hpp
     src/ir/basic_block.cpp
+    src/ir/basic_block.hpp
     src/ir/emitter.cpp
+    src/ir/emitter.hpp
+    src/ir/ir_ops.hpp
     src/ir/optimizer.cpp
+    src/ir/optimizer.hpp
     src/ir/translator.cpp
+    src/ir/translator.hpp
     src/ir/var_lifetime.cpp
+    src/ir/var_lifetime.hpp
+    src/ir/defs/arguments.hpp
+    src/ir/defs/memory_access.hpp
+    src/ir/defs/opcode_types.hpp
+    src/ir/defs/variable.hpp
+    src/ir/ops/ir_ops_base.hpp
+    src/ir/ops/ir_ops_visitor.hpp
+    src/ir/ops/impl/ir_alu_ops.hpp
+    src/ir/ops/impl/ir_branch_ops.hpp
+    src/ir/ops/impl/ir_cop_ops.hpp
+    src/ir/ops/impl/ir_flag_ops.hpp
+    src/ir/ops/impl/ir_mem_ops.hpp
+    src/ir/ops/impl/ir_misc_ops.hpp
+    src/ir/ops/impl/ir_reg_ops.hpp
     src/ir/optimizer/arithmetic_ops_coalescence.cpp
     src/ir/optimizer/arithmetic_ops_coalescence.hpp
     src/ir/optimizer/bitwise_ops_coalescence.cpp
@@ -143,6 +142,15 @@ add_library(armajitto
     src/ir/optimizer/common/var_subst.hpp
     src/ir/translator/decode_arm.hpp
     src/ir/translator/decode_thumb.hpp
+    src/util/bitmask_enum.hpp
+    src/util/bit_ops.hpp
+    src/util/layered_memory_map.hpp
+    src/util/noitree.hpp
+    src/util/pointer_cast.hpp
+    src/util/scope_guard.hpp
+    src/util/type_traits.hpp
+    src/util/unreachable.hpp
+    src/util/unsafe_circular_buffer.hpp
 )
 add_library(armajitto::armajitto ALIAS armajitto)
 set_target_properties(armajitto PROPERTIES
