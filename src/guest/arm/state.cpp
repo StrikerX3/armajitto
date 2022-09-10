@@ -58,6 +58,11 @@ void State::Reset() {
     m_regsUND.fill(0);
     m_regsFIQ.fill(0);
     m_psrs.fill({.u32 = 0});
+
+    m_cp15.Reset();
+
+    GPR(GPR::PC) = m_cp15.IsPresent() ? m_cp15.GetControlRegister().baseVectorAddress : 0;
+
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
     CPSR().i = 1;
@@ -66,8 +71,6 @@ void State::Reset() {
 
     m_irqLine = false;
     m_execState = ExecState::Running;
-
-    m_cp15.Reset();
 }
 
 void State::SetMode(Mode mode) {
