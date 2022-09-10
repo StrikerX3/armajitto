@@ -387,9 +387,15 @@ void testGBA() {
 
     auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, 240, 160);
+    uint16_t *texData = new uint16_t[240 * 160];
 
     while (running) {
-        SDL_UpdateTexture(texture, nullptr, sys->vram.data(), sizeof(uint16_t) * 240);
+        for (uint32_t i = 0; i < 240 * 160; i++) {
+            uint8_t clr = sys->vram[i];
+            uint16_t pal = *reinterpret_cast<uint16_t *>(&sys->pram[clr * 2]);
+            texData[i] = pal;
+        }
+        SDL_UpdateTexture(texture, nullptr, texData, sizeof(uint16_t) * 240);
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
@@ -433,6 +439,8 @@ void testGBA() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
+
+    delete[] texData;
 }
 
 void testNDS() {
