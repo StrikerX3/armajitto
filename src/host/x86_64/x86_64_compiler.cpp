@@ -239,6 +239,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         // Build cache key
         auto cacheKeyReg64 = regAlloc.GetTemporary().cvt64();
         codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+        codegen.and_(cacheKeyReg64, 0x3F); // We only need the mode and T bits
         codegen.shl(cacheKeyReg64.cvt64(), 32);
         codegen.or_(cacheKeyReg64, dword[abi::kARMStateReg + pcRegOffset]);
         regAlloc.ReleaseTemporaries(); // Temporary register not needed anymore
