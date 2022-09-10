@@ -42,6 +42,9 @@ public:
         if (size == 0) {
             return;
         }
+        if (mirrorSize == 0) {
+            mirrorSize = size;
+        }
         assert(layer < numLayers);               // layer index must be in-bounds
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
