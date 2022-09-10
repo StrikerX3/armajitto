@@ -57,11 +57,11 @@ public:
     // -------------------------------------------------------------------------
     // Coprocessor interface implementation
 
-    bool IsPresent() final;
+    bool IsPresent() const final;
 
     uint32_t LoadRegister(CopRegister reg) final;
     void StoreRegister(CopRegister reg, uint32_t value) final;
-    bool RegStoreHasSideEffects(CopRegister reg) final;
+    bool RegStoreHasSideEffects(CopRegister reg) const final;
 
 private:
     bool m_installed = false;

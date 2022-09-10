@@ -60,7 +60,7 @@ const cp15::Cache &SystemControlCoprocessor::GetCache() const {
 // ---------------------------------------------------------------------------------------------------------------------
 // Coprocessor interface implementation
 
-bool SystemControlCoprocessor::IsPresent() {
+bool SystemControlCoprocessor::IsPresent() const {
     return m_installed;
 }
 
@@ -261,7 +261,7 @@ void SystemControlCoprocessor::StoreRegister(CopRegister reg, uint32_t value) {
     }
 }
 
-bool SystemControlCoprocessor::RegStoreHasSideEffects(CopRegister reg) {
+bool SystemControlCoprocessor::RegStoreHasSideEffects(CopRegister reg) const {
     switch (reg.u16) {
     case 0x0704: // 0,C7,C0,4 - Wait For Interrupt (Halt)
     case 0x0782: // 0,C7,C8,2 - Wait For Interrupt (Halt), alternately to C7,C0,4

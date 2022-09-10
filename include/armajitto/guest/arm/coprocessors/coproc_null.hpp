@@ -10,7 +10,7 @@ public:
         return s_instance;
     }
 
-    bool IsPresent() final {
+    bool IsPresent() const final {
         return false;
     }
 
@@ -20,7 +20,7 @@ public:
 
     void StoreRegister(CopRegister reg, uint32_t value) final {}
 
-    bool RegStoreHasSideEffects(CopRegister reg) final {
+    bool RegStoreHasSideEffects(CopRegister reg) const final {
         return false;
     }
 

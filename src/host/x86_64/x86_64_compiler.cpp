@@ -115,7 +115,7 @@ x64Host::Compiler::Compiler(Context &context, CompiledCode &compiledCode, Xbyak:
     , compiledCode(compiledCode)
     , armState(context.GetARMState())
     , stateOffsets(armState)
-    , memMap(const_cast<MemoryMap &>(context.GetSystem().GetMemoryMap()))
+    , memMap(context.GetSystem().GetMemoryMap())
     , codegen(codegen)
     , regAlloc(codegen, alloc) {
 

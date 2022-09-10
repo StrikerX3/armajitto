@@ -18,7 +18,7 @@ public:
     virtual void MemWriteHalf(uint32_t address, uint16_t value) = 0;
     virtual void MemWriteWord(uint32_t address, uint32_t value) = 0;
 
-    const MemoryMap &GetMemoryMap() const {
+    MemoryMap &GetMemoryMap() {
         return m_memMap;
     }
 

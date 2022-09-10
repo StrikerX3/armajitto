@@ -17,8 +17,7 @@ Context::Context(CPUModel model, ISystem &system)
 
         m_arch = CPUArch::ARMv5TE;
         m_armState.GetSystemControlCoprocessor().Install(Implementor::ARM, 0, Architecture::v5TE,
-                                                         kPrimaryPartNumberARM946, 1,
-                                                         const_cast<MemoryMap &>(system.GetMemoryMap()));
+                                                         kPrimaryPartNumberARM946, 1, system.GetMemoryMap());
         break;
     }
 }
