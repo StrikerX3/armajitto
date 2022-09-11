@@ -154,7 +154,7 @@ inline auto HiRegOps(uint16_t opcode) {
     case 0b10: instr.opcode = arm::instrs::DataProcessing::Opcode::MOV; break;
     }
     instr.immediate = false;
-    instr.setFlags = false;
+    instr.setFlags = (instr.opcode == arm::instrs::DataProcessing::Opcode::CMP);
     instr.dstReg = static_cast<GPR>(bit::extract<0, 3>(opcode) + h1 * 8);
     instr.lhsReg = instr.dstReg;
     instr.rhs.shift = detail::SimpleRegShift(static_cast<GPR>(bit::extract<3, 3>(opcode) + h2 * 8));
