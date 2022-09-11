@@ -51,7 +51,12 @@ struct Recompiler::Impl {
             }
 
             // Invoke code
-            cyclesRemaining = host.Call(code, cyclesRemaining);
+            uint32_t nextCyclesRemaining = host.Call(code, cyclesRemaining);
+            if (nextCyclesRemaining == cyclesRemaining) {
+                // CPU is halted and no IRQs were raised
+                break;
+            }
+            cyclesRemaining = nextCyclesRemaining;
         }
         return minCycles - cyclesRemaining;
     }
