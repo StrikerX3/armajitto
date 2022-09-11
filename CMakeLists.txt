@@ -52,6 +52,7 @@ add_library(armajitto
     include/armajitto/guest/arm/coprocessors/cp15/cp15_id.hpp
     include/armajitto/guest/arm/coprocessors/cp15/cp15_pu.hpp
     include/armajitto/guest/arm/coprocessors/cp15/cp15_tcm.hpp
+
     src/core/allocator.cpp
     src/core/allocator.hpp
     src/core/context.cpp
@@ -223,6 +224,27 @@ if(is_top_level)
     target_link_libraries(armajitto-test PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
     target_link_libraries(armajitto-test PRIVATE armajitto)
     target_compile_features(armajitto-test PUBLIC cxx_std_20)
+
+    ## Add the fuzzer project
+    add_executable(armajitto-fuzzer
+        fuzzer/main.cpp
+        fuzzer/interp.cpp
+        fuzzer/interp.hpp
+        fuzzer/system.hpp
+        
+        fuzzer/interp/arm7tdmi.hpp
+        fuzzer/interp/arm946es.hpp
+        fuzzer/interp/arm/arithmetic.hpp
+        fuzzer/interp/arm/conditions.hpp
+        fuzzer/interp/arm/exceptions.hpp
+        fuzzer/interp/arm/registers.hpp
+    )
+    add_executable(armajitto::armajitto-fuzzer ALIAS armajitto-fuzzer)
+    target_link_libraries(armajitto-fuzzer PRIVATE armajitto)
+    set_target_properties(armajitto-fuzzer PROPERTIES
+                          VERSION ${armajitto_VERSION}
+                          SOVERSION ${armajitto_VERSION_MAJOR})
+    target_compile_features(armajitto-fuzzer PUBLIC cxx_std_20)
 endif()
 ######### TEMPORARY #########
 
@@ -245,6 +267,9 @@ if (MSVC)
     if(is_top_level)
         vs_set_filters(TARGET armajitto-test)
         set_target_properties(armajitto-test PROPERTIES FOLDER "armajitto")
+
+        vs_set_filters(TARGET armajitto-fuzzer)
+        set_target_properties(armajitto-fuzzer PROPERTIES FOLDER "armajitto")
     endif()
 endif ()
 
