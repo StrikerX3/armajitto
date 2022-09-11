@@ -52,8 +52,8 @@ Variable Emitter::GetCPSR() {
     return dst;
 }
 
-void Emitter::SetCPSR(VarOrImmArg src) {
-    Write<IRSetCPSROp>(src);
+void Emitter::SetCPSR(VarOrImmArg src, bool updateIFlag) {
+    Write<IRSetCPSROp>(src, updateIFlag);
 }
 
 Variable Emitter::GetSPSR() {
@@ -240,14 +240,14 @@ void Emitter::LoadFlags(arm::Flags flags) {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
     Write<IRLoadFlagsOp>(flags, dstCPSR, srcCPSR);
-    SetCPSR(dstCPSR);
+    SetCPSR(dstCPSR, false);
 }
 
 void Emitter::LoadStickyOverflow() {
     auto srcCPSR = GetCPSR();
     auto dstCPSR = Var();
     Write<IRLoadStickyOverflowOp>(dstCPSR, srcCPSR);
-    SetCPSR(dstCPSR);
+    SetCPSR(dstCPSR, false);
 }
 
 void Emitter::SetC(bool value) {
@@ -492,7 +492,7 @@ Variable Emitter::GetOffsetFromCurrentInstructionAddress(int32_t offset) {
 
 void Emitter::CopySPSRToCPSR() {
     auto spsr = GetSPSR();
-    SetCPSR(spsr);
+    SetCPSR(spsr, true);
     TerminateReturn();
 }
 
@@ -581,7 +581,7 @@ void Emitter::EnterException(arm::Exception vector) {
     SetSPSR(cpsr, vectorInfo.mode);
     cpsr = BitClear(cpsr, 0b11'1111, false); // Clear T and mode bits
     cpsr = BitwiseOr(cpsr, setBits, false);  // Set I, F and mode bits
-    SetCPSR(cpsr);
+    SetCPSR(cpsr, true);
 
     auto lr = GetOffsetFromCurrentInstructionAddress(nn);
     auto pc = Add(GetBaseVectorAddress(), static_cast<uint32_t>(vector) * 4 + sizeof(uint32_t) * 2, false);

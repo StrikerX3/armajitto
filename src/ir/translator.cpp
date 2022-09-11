@@ -747,7 +747,7 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
     if (instr.spsr) {
         emitter.SetSPSR(psr);
     } else {
-        emitter.SetCPSR(psr);
+        emitter.SetCPSR(psr, instr.c);
         if (instr.f) {
             emitter.StoreFlags(arm::Flags::NZCV, psr);
         }
@@ -1143,7 +1143,7 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
             cpsr = emitter.BitClear(cpsr, 0xF0000000, false);
             value = emitter.BitwiseAnd(value, 0xF0000000, false);
             value = emitter.BitwiseOr(value, cpsr, false);
-            emitter.SetCPSR(value);
+            emitter.SetCPSR(value, false);
             m_flagsUpdated = true;
         } else {
             emitter.SetRegister(instr.rd, value);

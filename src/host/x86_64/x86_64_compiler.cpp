@@ -323,22 +323,26 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
         codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
 
         // Update I in EAX
-        if (bit::test<ARMflgIPos>(op->src.imm.value)) {
-            codegen.or_(abi::kHostFlagsReg, x64flgI);
-        } else {
-            codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+        if (op->updateIFlag) {
+            if (bit::test<ARMflgIPos>(op->src.imm.value)) {
+                codegen.or_(abi::kHostFlagsReg, x64flgI);
+            } else {
+                codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+            }
         }
     } else {
         auto srcReg32 = regAlloc.Get(op->src.var.var);
         codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
 
         // Update I in EAX
-        auto tmpReg32 = regAlloc.GetTemporary();
-        codegen.mov(tmpReg32, srcReg32);
-        codegen.and_(tmpReg32, (1 << ARMflgIPos));
-        codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-        codegen.shl(tmpReg32, x64flgIPos - ARMflgIPos);
-        codegen.or_(abi::kHostFlagsReg, tmpReg32);
+        if (op->updateIFlag) {
+            auto tmpReg32 = regAlloc.GetTemporary();
+            codegen.mov(tmpReg32, srcReg32);
+            codegen.and_(tmpReg32, (1 << ARMflgIPos));
+            codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+            codegen.shl(tmpReg32, x64flgIPos - ARMflgIPos);
+            codegen.or_(abi::kHostFlagsReg, tmpReg32);
+        }
     }
 }
 
