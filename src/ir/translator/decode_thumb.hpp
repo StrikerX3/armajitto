@@ -292,7 +292,7 @@ inline auto AddToSPOrPC(uint16_t opcode) {
     instr.lhsReg = bit::test<11>(opcode) ? GPR::SP : GPR::PC;
     instr.rhs.imm.value = bit::extract<0, 8>(opcode) * 4;
     instr.rhs.imm.carry = CarryResult::NoChange;
-    instr.thumbPCAdjust = true;
+    instr.thumbPCAdjust = (instr.lhsReg == GPR::PC);
 
     return instr;
 }
