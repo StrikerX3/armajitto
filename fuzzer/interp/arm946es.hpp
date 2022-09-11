@@ -823,7 +823,7 @@ private:
         }
 
         if constexpr (s) {
-            if (rd == 15) {
+            if (rd == 15 && (opcode & 0b1100) != 0b1000) {
                 auto spsr = m_spsr;
                 SetMode(spsr->mode);
                 m_regs.cpsr.u32 = spsr->u32;
@@ -886,7 +886,7 @@ private:
         }
 
         if constexpr (s) {
-            if (rd != 15) {
+            if (rd != 15 || (opcode & 0b1100) == 0b1000) {
                 m_regs.cpsr.z = (result == 0);
                 m_regs.cpsr.n = (result >> 31);
                 m_regs.cpsr.c = carry;
@@ -1836,12 +1836,13 @@ private:
         auto &src = m_regs.regs[rshs];
         auto &dst = m_regs.regs[rdhd];
         if constexpr (op == 0b11) {
+            uint32_t addr = src;
             if constexpr (h1) {
                 // BLX
                 m_regs.r14 = (m_regs.r15 - 2) | 1;
             }
             // else: BX
-            return BranchAndExchange(src);
+            return BranchAndExchange(addr);
         } else {
             if constexpr (op == 0b00) {
                 // ADD
@@ -2174,34 +2175,11 @@ private:
         auto address = m_regs.regs[rb];
         uint8_t regList = (instr & 0xFF);
 
-        // Empty lists result in only PC being written but incrementing the address as if all registers were transferred
+        // An empty list results in transferring nothing but incrementing the address as if we had a full list
         if (regList == 0) {
-            core::cycles_t cycles = 0;
-            if constexpr (l) {
-                bool dataAccessOK = DataReadWord(address, m_regs.r15);
-                if (dataAccessOK) {
-                    m_regs.cpsr.t = (m_regs.r15 & 1); // Switch to ARM mode if bit 0 is clear (ARMv5 feature)
-                    m_regs.r15 &= ~1;
-                    cycles += 1;
-                    cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
-                } else {
-                    // TODO: check timing
-                    return EnterException(arm::Excpt_DataAbort);
-                }
-            } else {
-                bool dataAccessOK = DataWriteWord(address, m_regs.r15);
-                if (dataAccessOK) {
-                    m_regs.r15 += 2;
-                    cycles += 1;
-                    cycles += 1;
-                } else {
-                    // TODO: check timing
-                    return EnterException(arm::Excpt_DataAbort);
-                }
-            }
-            address += 0x40;
-            m_regs.regs[rb] = address;
-            return cycles;
+            m_regs.regs[rb] = address + 0x40;
+            m_regs.r15 += 2;
+            return 1;
         }
 
         uint8_t firstReg = std::countr_zero(regList);
