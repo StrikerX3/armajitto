@@ -2829,7 +2829,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         if (argIndex < abi::kIntArgRegs.size()) {
             auto argReg64 = abi::kIntArgRegs[argIndex];
             if constexpr (is_raw_base_of_v<Xbyak::Operand, TArg>) {
-                if (!handledArgs.test(argReg64.getIdx())) {
+                if (!handledArgs.test(argReg64.getIdx()) && argReg64 != arg.cvt64()) {
                     codegen.mov(argReg64, arg.cvt64());
                 }
             } else if constexpr (is_raw_integral_v<TArg>) {
