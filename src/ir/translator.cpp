@@ -441,13 +441,14 @@ void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter
 
 void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter) {
     auto lr = emitter.GetRegister(GPR::LR);
-    auto targetAddrBase = emitter.Add(lr, instr.offset + 1, false);
+    auto targetAddrBase = emitter.Add(lr, instr.offset, false);
 
     emitter.LinkBeforeBranch();
     if (instr.blx) {
         targetAddrBase = emitter.BitClear(targetAddrBase, 3, false);
         emitter.BranchExchange(targetAddrBase);
     } else {
+        targetAddrBase = emitter.BitwiseOr(targetAddrBase, 1, false);
         emitter.Branch(targetAddrBase);
     }
 
@@ -458,6 +459,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     using Opcode = DataProcessing::Opcode;
 
     const bool dstPC = instr.dstReg == GPR::PC;
+    const bool isComparison = bit::extract<2, 2>(static_cast<uint32_t>(instr.opcode)) == 0b10;
+    const bool copySPSRtoCPSR = dstPC && !isComparison;
 
     // PC is incremented before if using a register-specified shift
     if (!instr.immediate && !instr.rhs.shift.immediate) {
@@ -491,8 +494,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && !dstPC);
     }
 
-    // When the S flag is set with Rd = 15, copy SPSR to CPSR
-    if (instr.setFlags && dstPC) {
+    // Copy SPSR to CPSR when the S flag is set with Rd = 15 and the operation is not a comparsion
+    if (instr.setFlags && copySPSRtoCPSR) {
         emitter.CopySPSRToCPSR();
         m_endBlock = true; // may have changed mode
     }
@@ -523,8 +526,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         emitter.SetRegister(instr.dstReg, result);
     }
 
-    // Update flags if requested (unless Rd = 15)
-    if (instr.setFlags && !dstPC) {
+    // Update flags if requested (unless Rd = 15, except for comparisons)
+    if (instr.setFlags && !copySPSRtoCPSR) {
         static constexpr Flags flagsByOpcode[] = {
             /*AND*/ Flags::NZ,   /*EOR*/ Flags::NZ,   /*SUB*/ Flags::NZCV, /*RSB*/ Flags::NZCV,
             /*ADD*/ Flags::NZCV, /*ADC*/ Flags::NZCV, /*SBC*/ Flags::NZCV, /*RSC*/ Flags::NZCV,
@@ -965,8 +968,8 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
             break;
         case CPUArch::ARMv5TE:
             // An empty list results in transferring nothing but incrementing the address as if we had a full list
-            firstReg = 15;
-            lastReg = 0;
+            firstReg = 17;
+            lastReg = 16;
             size = 16 * 4;
             break;
         }
@@ -1043,7 +1046,7 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
         // STMs always writeback
         // LDMs writeback depend on the CPU architecture:
         // - ARMv4T: Rn is not in the list
-        // - ARMv5TE: Rn is not the last in the list, or if it's the only register in the list
+        // - ARMv5TE: Rn is not the last in the list, or is the only register in the list
         bool writeback = !instr.load;
         if (!writeback) {
             auto rn = static_cast<uint32_t>(instr.baseReg);
