@@ -2367,7 +2367,6 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
 
     if (bxt) {
         // Determine if this is a Thumb or ARM branch based on the current CPSR T bit
-        auto addrReg32 = regAlloc.Get(op->address.var.var);
         auto maskReg32 = regAlloc.GetTemporary();
 
         // Get inverted T bit for adjustments
@@ -2378,10 +2377,21 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
         codegen.mov(maskReg32, ~1); // Start with ~1
         codegen.shl(maskReg32, cl); // Shift left by the magic bit in CL; makes this ~3 if ARM
 
-        // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
-        codegen.movzx(pcReg32, cl);
-        codegen.lea(pcReg32, dword[addrReg32 + pcReg32 * 4 + 4]); // ARM:   PC + 1*4 + 4 = PC + 8
-        codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+        if (op->address.immediate) {
+            auto address = op->address.imm.value;
+
+            // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+            codegen.movzx(pcReg32, cl);
+            codegen.lea(pcReg32, dword[pcReg32 * 4 + (4 + address)]); // ARM:   PC + 1*4 + 4 = PC + 8
+            codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+        } else {
+            auto addrReg32 = regAlloc.Get(op->address.var.var);
+
+            // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+            codegen.movzx(pcReg32, cl);
+            codegen.lea(pcReg32, dword[addrReg32 + pcReg32 * 4 + 4]); // ARM:   PC + 1*4 + 4 = PC + 8
+            codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+        }
     } else {
         // Honor pre-ARMv5 branching feature if requested
         if (bx4) {
