@@ -13,12 +13,14 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &
 
     const uint32_t varCount = emitter.VariableCount();
     m_values.resize(varCount);
+    m_varLifetimes.Analyze(m_emitter.GetBlock());
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::Reset() {
     std::fill(m_values.begin(), m_values.end(), Value{});
     m_varSubst.Reset();
     m_hostFlagsStateTracker.Reset();
+    m_varLifetimes.Analyze(m_emitter.GetBlock());
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
@@ -319,6 +321,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
 
             // BIC clears all one bits
             value->Clear(imm);
+
             return true;
         }
 
