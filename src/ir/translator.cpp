@@ -538,7 +538,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     if (dstPC && result.IsPresent()) {
         if (instr.setFlags) {
             // May also switch to thumb depending on CPSR.T
-            emitter.BranchExchange(result);
+            emitter.BranchExchangeCPSRThumbFlag(result);
         } else {
             // Branch without switching modes; CPSR was not changed
             emitter.Branch(result);

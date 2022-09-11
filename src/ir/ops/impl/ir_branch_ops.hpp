@@ -26,27 +26,37 @@ struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
 };
 
 // Branch and exchange
-//   bx[4] <var/imm:address>
+//   bx[4/t] <var/imm:address>
 //
-// Performs a branch to <address>, switching ARM/Thumb state based on bit 0 of the address.
+// Performs a branch to <address>, switching ARM/Thumb state based on the specified mode.
 // The address is aligned to a word or halfword boundary, depending on the specified ARM/Thumb state.
 // This instruction reads CPSR and modifies PC and CPSR and should be the last instruction in a block.
 // If [4] is specified, the exchange will only happen if the CP15 L4 bit (ARMv5 branch and exchange backwards
 // compatibility) is clear.
+// If [t] is specified, the exchange happens based on the current CPSR T bit.
+// If neither [4] nor [t] is specified, the mode is set based on bit 0 of the address.
 struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
+    enum class ExchangeMode { AddrBit0, L4, CPSRThumbFlag };
+    ExchangeMode bxMode;
     VarOrImmArg address;
-    bool bx4;
 
     IRBranchExchangeOp(VarOrImmArg address)
-        : address(address)
-        , bx4(false) {}
+        : bxMode(ExchangeMode::AddrBit0)
+        , address(address) {}
 
-    IRBranchExchangeOp(VarOrImmArg address, bool bx4)
-        : address(address)
-        , bx4(bx4) {}
+    IRBranchExchangeOp(VarOrImmArg address, ExchangeMode bxMode)
+        : bxMode(bxMode)
+        , address(address) {}
 
     std::string ToString() const final {
-        return std::format("bx{} {}", (bx4 ? "4" : ""), address.ToString());
+        std::string modeStr;
+        switch (bxMode) {
+        case ExchangeMode::AddrBit0: modeStr = ""; break;
+        case ExchangeMode::L4: modeStr = "4"; break;
+        case ExchangeMode::CPSRThumbFlag: modeStr = "t"; break;
+        default: modeStr = "?"; break;
+        }
+        return std::format("bx{} {}", modeStr, address.ToString());
     }
 };
 

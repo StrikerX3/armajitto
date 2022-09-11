@@ -2362,73 +2362,96 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
     const auto pcFieldOffset = stateOffsets.GPROffset(arm::GPR::PC, mode);
     const auto cpsrFieldOffset = stateOffsets.CPSROffset();
 
-    // Honor pre-ARMv5 branching feature if requested
-    if (op->bx4) {
-        auto &cp15 = context.GetARMState().GetSystemControlCoprocessor();
-        if (cp15.IsPresent()) {
-            auto &cp15ctl = cp15.GetControlRegister();
-            const auto ctlValueOfs = offsetof(arm::cp15::ControlRegister, value);
+    const bool bxt = op->bxMode == ir::IRBranchExchangeOp::ExchangeMode::CPSRThumbFlag;
+    const bool bx4 = op->bxMode == ir::IRBranchExchangeOp::ExchangeMode::L4;
 
-            // Use pcReg32 as scratch register for this test
-            codegen.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
-            codegen.test(dword[pcReg32.cvt64() + ctlValueOfs], (1 << 15)); // L4 bit
-            codegen.je(lblExchange);
-
-            // Perform branch without exchange
-            const uint32_t pcOffset = 2 * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-            const uint32_t addrMask = (thumb ? ~1 : ~3);
-            if (op->address.immediate) {
-                codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], (op->address.imm.value & addrMask) + pcOffset);
-            } else {
-                auto addrReg32 = regAlloc.Get(op->address.var.var);
-                codegen.lea(pcReg32, dword[addrReg32 + pcOffset]);
-                codegen.and_(pcReg32, addrMask);
-                codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
-            }
-            codegen.jmp(lblEnd);
-        }
-        // If CP15 is absent, assume bit L4 is clear (the default value) -- branch and exchange
-    }
-
-    // Perform exchange
-    codegen.L(lblExchange);
-    if (op->address.immediate) {
-        // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
-        if (op->address.imm.value & 1) {
-            // Thumb branch
-            codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5)); // T bit
-            codegen.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
-        } else {
-            // ARM branch
-            codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5)); // T bit
-            codegen.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
-        }
-    } else {
-        Xbyak::Label lblBranchARM;
-        Xbyak::Label lblSetPC;
-
+    if (bxt) {
+        // Determine if this is a Thumb or ARM branch based on the current CPSR T bit
         auto addrReg32 = regAlloc.Get(op->address.var.var);
+        auto maskReg32 = regAlloc.GetTemporary();
 
-        // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
-        codegen.test(addrReg32, 1);
-        codegen.je(lblBranchARM);
+        // Get inverted T bit for adjustments
+        codegen.test(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT);
+        codegen.sete(cl); // CL is 1 when ARM, 0 when Thumb
 
-        // Thumb branch
-        codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], (1 << 5));
-        codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t) - 1]);
-        // The address always has bit 0 set, so (addr & ~1) == (addr - 1)
-        // Therefore, (addr & ~1) + 4 == (addr - 1) + 4 == (addr + 3)
-        // codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t)]);
-        // codegen.and_(pcReg32, ~1);
-        codegen.jmp(lblSetPC);
+        // Align PC with mask: ~1 for Thumb or ~3 for ARM
+        codegen.mov(maskReg32, ~1); // Start with ~1
+        codegen.shl(maskReg32, cl); // Shift left by the magic bit in CL; makes this ~3 if ARM
 
-        // ARM branch
-        codegen.L(lblBranchARM);
-        codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~(1 << 5));
-        codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint32_t)]);
-        codegen.and_(pcReg32, ~3);
+        // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+        codegen.movzx(pcReg32, cl);
+        codegen.lea(pcReg32, dword[addrReg32 + pcReg32 * 4 + 4]); // ARM:   PC + 1*4 + 4 = PC + 8
+        codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+    } else {
+        // Honor pre-ARMv5 branching feature if requested
+        if (bx4) {
+            auto &cp15 = context.GetARMState().GetSystemControlCoprocessor();
+            if (cp15.IsPresent()) {
+                auto &cp15ctl = cp15.GetControlRegister();
+                const auto ctlValueOfs = offsetof(arm::cp15::ControlRegister, value);
 
-        codegen.L(lblSetPC);
+                // Use pcReg32 as scratch register for this test
+                codegen.mov(pcReg32.cvt64(), CastUintPtr(&cp15ctl));
+                codegen.test(dword[pcReg32.cvt64() + ctlValueOfs], (1 << 15)); // L4 bit
+                codegen.je(lblExchange);
+
+                // Perform branch without exchange
+                const uint32_t pcOffset = 2 * (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
+                const uint32_t addrMask = (thumb ? ~1 : ~3);
+                if (op->address.immediate) {
+                    codegen.mov(dword[abi::kARMStateReg + pcFieldOffset],
+                                (op->address.imm.value & addrMask) + pcOffset);
+                } else {
+                    auto addrReg32 = regAlloc.Get(op->address.var.var);
+                    codegen.lea(pcReg32, dword[addrReg32 + pcOffset]);
+                    codegen.and_(pcReg32, addrMask);
+                    codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
+                }
+                codegen.jmp(lblEnd);
+            }
+            // If CP15 is absent, assume bit L4 is clear (the default value) -- branch and exchange
+        }
+
+        // Perform exchange
+        codegen.L(lblExchange);
+        if (op->address.immediate) {
+            // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
+            if (op->address.imm.value & 1) {
+                // Thumb branch
+                codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT); // T bit
+                codegen.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
+            } else {
+                // ARM branch
+                codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~ARMflgT); // T bit
+                codegen.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
+            }
+        } else {
+            Xbyak::Label lblBranchARM;
+            Xbyak::Label lblSetPC;
+
+            auto addrReg32 = regAlloc.Get(op->address.var.var);
+
+            // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
+            codegen.test(addrReg32, 1);
+            codegen.je(lblBranchARM);
+
+            // Thumb branch
+            codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT);
+            codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t) - 1]);
+            // The address always has bit 0 set, so (addr & ~1) == (addr - 1)
+            // Therefore, (addr & ~1) + 4 == (addr - 1) + 4 == (addr + 3)
+            // codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint16_t)]);
+            // codegen.and_(pcReg32, ~1);
+            codegen.jmp(lblSetPC);
+
+            // ARM branch
+            codegen.L(lblBranchARM);
+            codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~ARMflgT);
+            codegen.lea(pcReg32, dword[addrReg32 + 2 * sizeof(uint32_t)]);
+            codegen.and_(pcReg32, ~3);
+
+            codegen.L(lblSetPC);
+        }
     }
 
     // Set PC to branch target

@@ -621,8 +621,8 @@ void testNDS() {
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    testGBA();
-    // testNDS();
+    // testGBA();
+    testNDS();
 
     return EXIT_SUCCESS;
 }

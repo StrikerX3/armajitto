@@ -320,7 +320,13 @@ void Emitter::BranchExchange(VarOrImmArg address) {
 }
 
 void Emitter::BranchExchangeL4(VarOrImmArg address) {
-    Write<IRBranchExchangeOp>(address, true);
+    Write<IRBranchExchangeOp>(address, IRBranchExchangeOp::ExchangeMode::L4);
+    TerminateIndirectLink();
+}
+
+void Emitter::BranchExchangeCPSRThumbFlag(VarOrImmArg address) {
+    Write<IRBranchExchangeOp>(address, IRBranchExchangeOp::ExchangeMode::CPSRThumbFlag);
+    TerminateIndirectLink();
 }
 
 Variable Emitter::LoadCopRegister(uint8_t cpnum, arm::CopRegister reg, bool ext) {

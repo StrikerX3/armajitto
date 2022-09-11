@@ -865,7 +865,8 @@ void ConstPropagationOptimizerPass::Process(IRBranchExchangeOp *op) {
     Forget(arm::GPR::PC);
 
     // If a variable branch became an immediate branch, replace the terminal with a direct link
-    if (op->address.immediate && !op->bx4 && m_emitter.GetBlock().GetTerminal() != BasicBlock::Terminal::DirectLink) {
+    if (op->address.immediate && op->bxMode == IRBranchExchangeOp::ExchangeMode::AddrBit0 &&
+        m_emitter.GetBlock().GetTerminal() != BasicBlock::Terminal::DirectLink) {
         m_emitter.TerminateDirectLink(op->address.imm.value, m_emitter.Mode(), bit::test<0>(op->address.imm.value));
         MarkDirty();
     }

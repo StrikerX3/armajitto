@@ -19,6 +19,8 @@ constexpr uint32_t ARMflgTPos = 5u;
 constexpr uint32_t ARMflgQPos = 27u;
 constexpr uint32_t ARMflgNZCVShift = 28u;
 
+constexpr uint32_t ARMflgT = (1u << ARMflgTPos);
+
 constexpr uint32_t x64flgIPos = 16u;
 constexpr uint32_t x64flgNPos = 15u;
 constexpr uint32_t x64flgZPos = 14u;
