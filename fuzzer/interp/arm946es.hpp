@@ -191,14 +191,14 @@ public:
     }
 
     void FillPipeline() {
-        m_regs.r15 += (m_regs.cpsr.t ? 4 : 8);
-        if (m_arm.m_regs.cpsr.t) {
-            m_pipeline[0] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 0);
-            m_pipeline[1] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 2);
+        if (m_regs.cpsr.t) {
+            m_pipeline[0] = CodeReadHalf(m_regs.r15 + 0);
+            m_pipeline[1] = CodeReadHalf(m_regs.r15 + 2);
         } else {
-            m_pipeline[0] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 0);
-            m_pipeline[1] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 4);
+            m_pipeline[0] = CodeReadWord(m_regs.r15 + 0);
+            m_pipeline[1] = CodeReadWord(m_regs.r15 + 4);
         }
+        m_regs.r15 += (m_regs.cpsr.t ? 4 : 8);
     }
 
     // Executes one instruction or block
@@ -2431,12 +2431,12 @@ private:
     }();
 
     template <auto MemberFunc>
-    [[gnu::flatten]] static core::cycles_t ARMInstrHandlerWrapper(ARM946ES &instance, uint32_t instr) {
+    static core::cycles_t ARMInstrHandlerWrapper(ARM946ES &instance, uint32_t instr) {
         return (instance.*MemberFunc)(instr);
     }
 
     template <auto MemberFunc>
-    [[gnu::flatten]] static core::cycles_t THUMBInstrHandlerWrapper(ARM946ES &instance, uint16_t instr) {
+    static core::cycles_t THUMBInstrHandlerWrapper(ARM946ES &instance, uint16_t instr) {
         return (instance.*MemberFunc)(instr);
     }
 

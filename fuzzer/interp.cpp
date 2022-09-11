@@ -14,9 +14,9 @@ public:
     }
 
     void JumpTo(uint32_t address, bool thumb) {
-        const auto instrSize = (thumb ? sizeof(uint16_t) : sizeof(uint32_t));
-        GPR(arm::GPR::PC) = address + instrSize * 2;
+        GPR(arm::GPR::PC) = address;
         m_interp.GetRegisters().cpsr.t = thumb;
+        m_interp.FillPipeline();
     }
 
     void Run(uint64_t numCycles) final {

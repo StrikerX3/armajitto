@@ -106,14 +106,22 @@ int main() {
         }
     };
 
-    auto compareStates = [&] {
+    auto compareStates = [&](auto errorAction) {
         bool anyMismatch = false;
+
+        auto setMismatch = [&] {
+            if (!anyMismatch) {
+                errorAction();
+                anyMismatch = true;
+            }
+        };
+
         for (int i = 0; i < 16; i++) {
             auto interpReg = interp->GPR(static_cast<arm::GPR>(i));
             auto jitReg = jitState.GPR(static_cast<arm::GPR>(i));
             if (interpReg != jitReg) {
-                printf("[!] Register mismatch: R%d = %08X  !=  %08X\n", i, interpReg, jitReg);
-                anyMismatch = true;
+                setMismatch();
+                printf("    Register mismatch: R%d = %08X  !=  %08X\n", i, interpReg, jitReg);
             }
         }
 
@@ -121,8 +129,8 @@ int main() {
             auto interpCPSR = interp->GetCPSR();
             auto jitCPSR = jitState.CPSR().u32;
             if (interpCPSR != jitCPSR) {
-                printf("[!] CPSR mismatch: %08X  !=  %08X\n", interpCPSR, jitCPSR);
-                anyMismatch = true;
+                setMismatch();
+                printf("    CPSR mismatch: %08X  !=  %08X\n", interpCPSR, jitCPSR);
             }
         }
 
@@ -130,8 +138,8 @@ int main() {
             auto interpMem = interpSys.mem[i];
             auto jitMem = jitSys.mem[i];
             if (interpMem != jitMem) {
-                printf("[!] Memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
-                anyMismatch = true;
+                setMismatch();
+                printf("    Memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
             }
         }
 
@@ -139,17 +147,17 @@ int main() {
             auto interpMem = interpSys.codemem[i];
             auto jitMem = jitSys.codemem[i];
             if (interpMem != jitMem) {
-                printf("[!] Code memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
-                anyMismatch = true;
+                setMismatch();
+                printf("    Code memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
             }
         }
 
-        if (anyMismatch) {
+        /*if (anyMismatch) {
             printf("\n");
             printf("========================================================\n");
             printStates();
             printf("========================================================\n");
-        }
+        }*/
     };
 
     // Test *all* Thumb instructions in selected modes.
@@ -166,6 +174,10 @@ int main() {
             // Reset system memory
             interpSys.Reset();
             jitSys.Reset();
+
+            // Write Thumb instruction to code memory
+            *reinterpret_cast<uint16_t *>(&interpSys.codemem[0]) = instr;
+            *reinterpret_cast<uint16_t *>(&jitSys.codemem[0]) = instr;
 
             // Set CPSR to the specified mode with I and F set, Thumb mode and all flags cleared
             const uint32_t cpsr = 0x000000E0 | static_cast<uint32_t>(mode);
@@ -199,19 +211,17 @@ int main() {
                     jitState.GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
                 }
             }
-            interp->JumpTo(0x10000, false);
-            jitState.JumpTo(0x10000, false);
 
-            // Write Thumb instruction to code memory
-            *reinterpret_cast<uint16_t *>(&interpSys.codemem[0]) = instr;
-            *reinterpret_cast<uint16_t *>(&jitSys.codemem[0]) = instr;
+            // Jump to the instruction
+            interp->JumpTo(0x10000, true);
+            jitState.JumpTo(0x10000, true);
 
             // Run both the interpreter and the JIT for one instruction
             interp->Run(1);
             jit.Run(1);
 
             // Compare states and print any discrepancies
-            compareStates();
+            compareStates([&] { printf("[!] Discrepancies found on mode %d, instruction %04X\n", mode, instr); });
         }
     }
 
