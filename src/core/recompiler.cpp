@@ -51,7 +51,7 @@ struct Recompiler::Impl {
             }
 
             // Invoke code
-            uint32_t nextCyclesRemaining = host.Call(code, cyclesRemaining);
+            auto nextCyclesRemaining = host.Call(code, cyclesRemaining);
             if (nextCyclesRemaining == cyclesRemaining) {
                 // CPU is halted and no IRQs were raised
                 break;
