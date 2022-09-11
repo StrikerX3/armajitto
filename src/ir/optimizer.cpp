@@ -29,9 +29,9 @@ bool Optimizer::Optimize(BasicBlock &block) {
     HostFlagsOpsCoalescenceOptimizerPass hostFlagsCoalescencePass{emitter};
 
     bool optimized = false;
-    bool dirty;
-    do {
-        dirty = false;
+    int maxIters = m_parameters.maxIterations;
+    for (int i = 0; i < maxIters; i++) {
+        bool dirty = false;
         if (m_parameters.passes.constantPropagation) {
             dirty |= constPropPass.Optimize();
         }
@@ -60,7 +60,10 @@ bool Optimizer::Optimize(BasicBlock &block) {
             dirty |= hostFlagsCoalescencePass.Optimize();
         }
         optimized |= dirty;
-    } while (dirty);
+        if (!dirty) {
+            break;
+        }
+    };
     return optimized;
 }
 

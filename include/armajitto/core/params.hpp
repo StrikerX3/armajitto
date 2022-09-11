@@ -26,6 +26,9 @@ struct OptimizerParameters {
         bool arithmeticOpsCoalescence = true;
         bool hostFlagsOpsCoalescence = true;
     } passes;
+
+    // Maximum number of optimization iterations to perform
+    uint8_t maxIterations = 20;
 };
 
 } // namespace armajitto
