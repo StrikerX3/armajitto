@@ -100,6 +100,7 @@ private:
         Variable prev;            // previous variable from which this was derived
 
         bool derived = false; // Marks this value as derived, to track forks
+        bool used = false;    // Marks this value as used, to avoid removing necessary ops
 
         void Add(uint32_t amount) {
             if (amount != 0) {
@@ -140,6 +141,9 @@ private:
 
     void ConsumeValue(VariableArg &var, IROp *op);
     void ConsumeValue(VarOrImmArg &var, IROp *op);
+
+    void Coalesce(Value &value, Variable dst, Variable src, IROp *op);
+    void OverwriteCoalescedOp(Variable var, Value &value);
 
     // -------------------------------------------------------------------------
     // Helpers
