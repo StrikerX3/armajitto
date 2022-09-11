@@ -1566,13 +1566,14 @@ void x64Host::Compiler::CompileOp(const ir::IRSubtractOp *op) {
             auto lhsReg32 = regAlloc.Get(op->lhs.var.var);
 
             if (op->dst.var.IsPresent()) {
-                auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
-                CopyIfDifferent(dstReg32, lhsReg32);
-
                 if (rhsImm) {
+                    auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                    CopyIfDifferent(dstReg32, lhsReg32);
                     codegen.sub(dstReg32, op->rhs.imm.value);
                 } else {
                     auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
+                    auto dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                    CopyIfDifferent(dstReg32, lhsReg32);
                     codegen.sub(dstReg32, rhsReg32);
                 }
             } else if (setFlags) {
@@ -1631,20 +1632,26 @@ void x64Host::Compiler::CompileOp(const ir::IRSubtractCarryOp *op) {
             // lhs is variable, rhs is var or imm
             auto lhsReg32 = regAlloc.Get(op->lhs.var.var);
 
-            Xbyak::Reg32 dstReg32{};
-            if (op->dst.var.IsPresent()) {
-                dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
-                CopyIfDifferent(dstReg32, lhsReg32);
-            } else {
-                dstReg32 = regAlloc.GetTemporary();
-            }
-
             codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             codegen.cmc();                              // Complement it
             if (rhsImm) {
+                Xbyak::Reg32 dstReg32{};
+                if (op->dst.var.IsPresent()) {
+                    dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                    CopyIfDifferent(dstReg32, lhsReg32);
+                } else {
+                    dstReg32 = regAlloc.GetTemporary();
+                }
                 codegen.sbb(dstReg32, op->rhs.imm.value);
             } else {
                 auto rhsReg32 = regAlloc.Get(op->rhs.var.var);
+                Xbyak::Reg32 dstReg32{};
+                if (op->dst.var.IsPresent()) {
+                    dstReg32 = regAlloc.ReuseAndGet(op->dst.var, op->lhs.var.var);
+                    CopyIfDifferent(dstReg32, lhsReg32);
+                } else {
+                    dstReg32 = regAlloc.GetTemporary();
+                }
                 codegen.sbb(dstReg32, rhsReg32);
             }
         } else {
