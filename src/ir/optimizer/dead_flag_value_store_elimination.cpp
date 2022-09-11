@@ -268,7 +268,7 @@ void DeadFlagValueStoreEliminationOptimizerPass::ConsumeFlags(VarOrImmArg &arg) 
 void DeadFlagValueStoreEliminationOptimizerPass::EraseFlagWrite(arm::Flags flag, IRBitwiseAndOp *op) {
     if (auto split = SplitImmVarArgPair(op->lhs, op->rhs)) {
         auto &[imm, _] = *split;
-        MarkDirty(imm.value & ~static_cast<uint32_t>(flag));
+        MarkDirty((imm.value & static_cast<uint32_t>(flag)) == 0);
         imm.value |= static_cast<uint32_t>(flag);
     }
 }
