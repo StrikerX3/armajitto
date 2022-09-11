@@ -121,7 +121,7 @@ int main() {
             auto jitReg = jitState.GPR(static_cast<arm::GPR>(i));
             if (interpReg != jitReg) {
                 setMismatch();
-                printf("    Register mismatch: R%d = %08X  !=  %08X\n", i, interpReg, jitReg);
+                printf("    R%d: expected %08X  !=  actual %08X\n", i, interpReg, jitReg);
             }
         }
 
@@ -130,7 +130,7 @@ int main() {
             auto jitCPSR = jitState.CPSR().u32;
             if (interpCPSR != jitCPSR) {
                 setMismatch();
-                printf("    CPSR mismatch: %08X  !=  %08X\n", interpCPSR, jitCPSR);
+                printf("    CPSR: expected %08X  !=  actual %08X\n", interpCPSR, jitCPSR);
             }
         }
 
@@ -139,7 +139,7 @@ int main() {
             auto jitMem = jitSys.mem[i];
             if (interpMem != jitMem) {
                 setMismatch();
-                printf("    Memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
+                printf("    Memory [%02X]: expected %02X  !=  actual %02X\n", i, interpMem, jitMem);
             }
         }
 
@@ -148,7 +148,7 @@ int main() {
             auto jitMem = jitSys.codemem[i];
             if (interpMem != jitMem) {
                 setMismatch();
-                printf("    Code memory mismatch: [%02X] %08X  !=  %08X\n", i, interpMem, jitMem);
+                printf("    Code memory [%02X]: expected %02X  !=  actual %02X\n", i, interpMem, jitMem);
             }
         }
 
@@ -160,12 +160,58 @@ int main() {
         }*/
     };
 
+    auto init = [&](arm::Mode mode, uint32_t address, bool thumb) {
+        // Set CPSR to the specified mode with I and F set, Thumb mode and all flags cleared
+        const uint32_t cpsr = 0x000000C0 | static_cast<uint32_t>(mode) | (thumb << 5);
+        interp->SetCPSR(cpsr);
+        jitState.CPSR().u32 = cpsr;
+
+        // Setup GPRs to a recognizable pattern
+        for (uint32_t reg = 0; reg < 15; reg++) {
+            auto gpr = static_cast<arm::GPR>(reg);
+            const uint32_t regVal = (0xFF - reg) | (reg << 8);
+            interp->GPR(gpr, arm::Mode::System) = regVal;
+            jitState.GPR(gpr, arm::Mode::System) = regVal;
+            if (reg >= 8 && reg <= 12) {
+                interp->GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+                jitState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+            }
+            if (reg >= 13 && reg <= 14) {
+                interp->GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+                jitState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+
+                interp->GPR(gpr, arm::Mode::Supervisor) = regVal | 0x20000;
+                jitState.GPR(gpr, arm::Mode::Supervisor) = regVal | 0x20000;
+
+                interp->GPR(gpr, arm::Mode::Abort) = regVal | 0x30000;
+                jitState.GPR(gpr, arm::Mode::Abort) = regVal | 0x30000;
+
+                interp->GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
+                jitState.GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
+
+                interp->GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
+                jitState.GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
+            }
+        }
+
+        // Jump to the specified address
+        interp->JumpTo(address, true);
+        jitState.JumpTo(address, true);
+    };
+
     // Test *all* Thumb instructions in selected modes.
     // These modes differ in the banked registers used:
     // - System uses all base registers
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
     for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
+        printf("===============================\n");
+        printf("Testing mode %d\n\n", mode);
+        init(mode, 0x10000, true);
+        printStates();
+        printf("\n");
+
+        // uint32_t instr = 0x4587;
         for (uint32_t instr = 0; instr <= 0xFFFF; instr++) {
             // Reset interpreter and JIT
             interp->Reset();
@@ -179,42 +225,7 @@ int main() {
             *reinterpret_cast<uint16_t *>(&interpSys.codemem[0]) = instr;
             *reinterpret_cast<uint16_t *>(&jitSys.codemem[0]) = instr;
 
-            // Set CPSR to the specified mode with I and F set, Thumb mode and all flags cleared
-            const uint32_t cpsr = 0x000000E0 | static_cast<uint32_t>(mode);
-            interp->SetCPSR(cpsr);
-            jitState.CPSR().u32 = cpsr;
-
-            // Setup GPRs to a recognizable pattern
-            for (uint32_t reg = 0; reg < 15; reg++) {
-                auto gpr = static_cast<arm::GPR>(reg);
-                const uint32_t regVal = (0xFF - reg) | (reg << 8);
-                interp->GPR(gpr, arm::Mode::System) = regVal;
-                jitState.GPR(gpr, arm::Mode::System) = regVal;
-                if (reg >= 8 && reg <= 12) {
-                    interp->GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
-                    jitState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
-                }
-                if (reg >= 13 && reg <= 14) {
-                    interp->GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
-                    jitState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
-
-                    interp->GPR(gpr, arm::Mode::Supervisor) = regVal | 0x20000;
-                    jitState.GPR(gpr, arm::Mode::Supervisor) = regVal | 0x20000;
-
-                    interp->GPR(gpr, arm::Mode::Abort) = regVal | 0x30000;
-                    jitState.GPR(gpr, arm::Mode::Abort) = regVal | 0x30000;
-
-                    interp->GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
-                    jitState.GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
-
-                    interp->GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
-                    jitState.GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
-                }
-            }
-
-            // Jump to the instruction
-            interp->JumpTo(0x10000, true);
-            jitState.JumpTo(0x10000, true);
+            init(mode, 0x10000, true);
 
             // Run both the interpreter and the JIT for one instruction
             interp->Run(1);

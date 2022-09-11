@@ -623,11 +623,20 @@ void testCompiler() {
 
     const uint32_t baseAddress = 0x2000000;
 
+    bool thumb = false;
     uint64_t numInstrs = 0;
     auto writeARM = [&, address = baseAddress](uint32_t instr) mutable {
         *reinterpret_cast<uint32_t *>(&sys->mainRAM[address & 0x3FFFFF]) = instr;
         address += sizeof(instr);
         numInstrs++;
+        thumb = false;
+    };
+
+    auto writeThumb = [&, address = baseAddress](uint16_t instr) mutable {
+        *reinterpret_cast<uint16_t *>(&sys->mainRAM[address & 0x3FFFFF]) = instr;
+        address += sizeof(instr);
+        numInstrs++;
+        thumb = true;
     };
 
     // Infinite optimizer loop
@@ -642,27 +651,51 @@ void testCompiler() {
     writeARM(0xE12FFF1E); // bx lr*/
 
     // Unoptimized code (arithmetic ops coalescence)
-    //writeARM(0xE59F00F4); // ldr r0, [pc, #0xF4]
-    writeARM(0xE2800DFF); // add r0, r0, #0x3FC0
-    writeARM(0xE2400040); // sub r0, r0, #0x40
-    writeARM(0xE240D004); // sub sp, r0, #0x4
+    // writeARM(0xE59F00F4); // ldr r0, [pc, #0xF4]
+    // writeARM(0xE2800DFF); // add r0, r0, #0x3FC0
+    // writeARM(0xE2400040); // sub r0, r0, #0x40
+    // writeARM(0xE240D004); // sub sp, r0, #0x4
+
+    // -------------------------------------------------------------------------
+    // Fuzzer detections
+
+    // Thumb SUB with lhs=rhs
+    // writeThumb(0x1A00); // subs r0, r0, r0
+    // writeThumb(0x1A4A); // subs r2, r1, r1
+    // writeThumb(0x1A91); // subs r1, r2, r2
+
+    // Thumb CMP pc, <reg>
+    // writeThumb(0x4587); // cmp pc, r0
+
+    // Thumb add offset to SP
+    // writeThumb(0xA800); // add r0, sp, #0
+
+    // Thumb multiple load store
+    // writeThumb(0xC000); // stm r0!, {}
+
+    // Thumb long branch suffix
+    // writeThumb(0xF800);
+
+    // Thumb BLX (ARMv5)
+    writeThumb(0x47F0);
 
     armajitto::Recompiler jit{{
         .system = *sys,
         .model = armajitto::CPUModel::ARM946ES,
     }};
     auto &armState = jit.GetARMState();
-    armState.JumpTo(baseAddress, false);
+    armState.JumpTo(baseAddress, thumb);
 
+    jit.GetTranslatorParameters().maxBlockSize = numInstrs;
     jit.Run(numInstrs);
 }
 
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    testGBA();
+    // testGBA();
     // testNDS();
-    // testCompiler();
+    testCompiler();
 
     return EXIT_SUCCESS;
 }
