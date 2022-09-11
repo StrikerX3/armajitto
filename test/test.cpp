@@ -618,11 +618,42 @@ void testNDS() {
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
+void testCompiler() {
+    auto sys = std::make_unique<MinimalNDSSystem>();
+
+    const uint32_t baseAddress = 0x2000000;
+
+    auto writeARM = [&, address = baseAddress](uint32_t instr) mutable {
+        *reinterpret_cast<uint32_t *>(&sys->mainRAM[address & 0x3FFFFF]) = instr;
+        address += sizeof(instr);
+    };
+
+    writeARM(0xE590100C); // ldr r1, [r0, #0xC]
+    writeARM(0xE3A02000); // mov r2, #0x0
+    writeARM(0xE20114FF); // and r1, r1, #0xFF000000
+    writeARM(0xE3C114FF); // bic r1, r1, #0xFF000000
+    writeARM(0xE5802004); // str r2, [r0, #0x4]
+    writeARM(0xE5802000); // str r2, [r0]
+    writeARM(0xE5802008); // str r2, [r0, #0x8]
+    writeARM(0xE580100C); // str r1, [r0, #0xC]
+    writeARM(0xE12FFF1E); // bx lr
+
+    armajitto::Recompiler jit{{
+        .system = *sys,
+        .model = armajitto::CPUModel::ARM946ES,
+    }};
+    auto &armState = jit.GetARMState();
+    armState.JumpTo(baseAddress, false);
+
+    jit.Run(9);
+}
+
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testGBA();
-    testNDS();
+    // testNDS();
+    testCompiler();
 
     return EXIT_SUCCESS;
 }
