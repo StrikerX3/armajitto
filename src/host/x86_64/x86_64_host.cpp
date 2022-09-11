@@ -290,7 +290,9 @@ void x64Host::CompileIRQEntry() {
     // IRQ handler block linking
 
     // Build cache key
-    auto cacheKeyReg64 = cpsrReg32.cvt64(); // 2nd argument to function call, which already contains CPSR
+    auto cacheKeyReg64 = cpsrReg32.cvt64();
+    m_codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
+    m_codegen.and_(cacheKeyReg64, 0x3F); // We only need the mode and T bits
     m_codegen.shl(cacheKeyReg64, 32);
     m_codegen.or_(cacheKeyReg64, pcReg32.cvt64());
 
