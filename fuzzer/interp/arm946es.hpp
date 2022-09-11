@@ -134,177 +134,19 @@ struct CP15 {
     uint32_t itcmParams;
 };
 
-// --- Forward declarations ------------------------------------------------------------------------
-
-template <typename Sys, typename Exec>
-class ARM946ES;
-
-template <typename Sys, typename Exec>
-using ARMInstructionHandler = core::cycles_t (*)(ARM946ES<Sys, Exec> &, uint32_t);
-
-template <typename Sys, typename Exec>
-using THUMBInstructionHandler = core::cycles_t (*)(ARM946ES<Sys, Exec> &, uint16_t);
-
-// --- Executor declarations -----------------------------------------------------------------------
-
-// Executor interface
-class Executor {
-public:
-    virtual void Reset() = 0;
-
-    virtual core::cycles_t Run() = 0;
-
-    virtual void FillPipeline() = 0;
-    virtual void ReloadPipelineARM() = 0;
-    virtual void ReloadPipelineTHUMB() = 0;
-
-    virtual void RaiseException() = 0;
-
-    virtual void ChangeExecState(arm::ExecState execState) = 0;
-
-    virtual void ClearCache() = 0;
-    virtual void InvalidateCache() = 0;
-    virtual void InvalidateCacheAddress(uint32_t address) = 0;
-    virtual void InvalidateCacheRange(uint32_t start, uint32_t end) = 0;
-};
-
-// Interprets every instruction individually for maximum accuracy at the cost of performance.
-template <typename Sys>
-class UncachedExecutor final : public Executor {
-public:
-    UncachedExecutor(ARM946ES<Sys, UncachedExecutor<Sys>> &arm)
-        : m_arm(arm) {}
-
-    void Reset() final;
-
-    core::cycles_t Run() final;
-
-    void FillPipeline() final;
-    void ReloadPipelineARM() final;
-    void ReloadPipelineTHUMB() final;
-
-    void RaiseException() final;
-
-    void ChangeExecState(arm::ExecState execState) final;
-
-    void ClearCache() final;
-    void InvalidateCache() final;
-    void InvalidateCacheAddress(uint32_t address) final;
-    void InvalidateCacheRange(uint32_t start, uint32_t end) final;
-
-private:
-    ARM946ES<Sys, UncachedExecutor<Sys>> &m_arm;
-
-    uint32_t m_pipeline[2];
-};
-
-// Caches decoded instruction blocks for improved performance at the cost of some accuracy.
-template <typename Sys>
-class CachedExecutor final : public Executor {
-public:
-    CachedExecutor(ARM946ES<Sys, CachedExecutor<Sys>> &arm)
-        : m_arm(arm) {}
-
-    void Reset() final;
-
-    core::cycles_t Run() final;
-
-    void FillPipeline() final;
-    void ReloadPipelineARM() final;
-    void ReloadPipelineTHUMB() final;
-
-    void RaiseException() final;
-
-    void ChangeExecState(arm::ExecState execState) final;
-
-    void ClearCache() final;
-    void InvalidateCache() final;
-    void InvalidateCacheAddress(uint32_t address) final;
-    void InvalidateCacheRange(uint32_t start, uint32_t end) final;
-
-private:
-    ARM946ES<Sys, CachedExecutor<Sys>> &m_arm;
-
-    // Block cache
-    // - 2 caches (ARM, Thumb)
-    //   - top level is always allocated as std::array
-    //   - page level is allocated dynamically and contains a fixed number of blocks
-    //   - blocks contain a fixed number of instructions
-    // - nullptr page means "not cached"
-    // - entire block is decoded at once
-    // - executing is as easy as going through the list of instructions starting at an offset and running them until an
-    //   exit condition
-    // - exit conditions are:
-    //   - branching
-    //   - end of block
-    //   - block invalidation (self-modifying code)
-
-    static constexpr size_t kPageBits = 12;
-    static constexpr size_t kBlockBits = 8;
-    static constexpr size_t kPageEntryBits = 32 - kPageBits - kBlockBits;
-
-    static constexpr size_t kNumPages = 1 << kPageBits;
-    static constexpr size_t kNumBlocks = 1 << kPageEntryBits;
-    static constexpr size_t kBlockSize = 1 << kBlockBits;
-    static constexpr size_t kARMEntries = kBlockSize / sizeof(uint32_t);
-    static constexpr size_t kTHUMBEntries = kBlockSize / sizeof(uint16_t);
-
-    static constexpr uint32_t kPageShift = 32 - kPageBits;
-    static constexpr uint32_t kEntryMask = ~0u >> (32 - kPageEntryBits);
-    static constexpr uint32_t kAddressMask = ~0u >> (32 - kBlockBits);
-    static constexpr uint32_t kARMAddressMask = kAddressMask >> 2;
-    static constexpr uint32_t kTHUMBAddressMask = kAddressMask >> 1;
-
-    struct ARMBlock {
-        struct Instruction {
-            ARMInstructionHandler<Sys, CachedExecutor<Sys>> handler;
-            uint32_t instr;
-        };
-        std::array<Instruction, kARMEntries> instrs;
-    };
-
-    struct ThumbBlock {
-        struct Instruction {
-            THUMBInstructionHandler<Sys, CachedExecutor<Sys>> handler;
-            uint16_t instr;
-        };
-        std::array<Instruction, kTHUMBEntries> instrs;
-    };
-
-    template <typename T>
-    struct CachePage {
-        std::array<T, kNumBlocks> blocks;
-        std::bitset<kNumBlocks> valid;
-        bool pageValid = true;
-
-        T &operator[](size_t index) {
-            return blocks[index];
-        }
-    };
-
-    std::array<std::unique_ptr<CachePage<ARMBlock>>, kNumPages> m_armCache;
-    std::array<std::unique_ptr<CachePage<ThumbBlock>>, kNumPages> m_thumbCache;
-
-    // Set to true when starting execution, false when the block must exit
-    bool m_cacheValid;
-
-    uint32_t TranslateAddress(uint32_t address);
-    ARMBlock &GetCachedARMCode(uint32_t address);
-    ThumbBlock &GetCachedThumbCode(uint32_t address);
-};
-
 // --- ARM core ------------------------------------------------------------------------------------
 
 // ARM946E-S CPU emulator
-template <typename Sys, typename Exec>
+template <typename Sys>
 class ARM946ES final {
-    static_assert(std::is_base_of_v<armajitto::ISystem, Sys>, "Exec must implement Executor");
-    static_assert(std::is_base_of_v<Executor, Exec>, "Exec must implement Executor");
+    using ARMInstructionHandler = core::cycles_t (*)(ARM946ES &, uint32_t);
+    using THUMBInstructionHandler = core::cycles_t (*)(ARM946ES &, uint16_t);
+
+    static_assert(std::is_base_of_v<armajitto::ISystem, Sys>, "System must implement armajitto::ISystem");
 
 public:
     ARM946ES(Sys &sys)
-        : m_sys(sys)
-        , m_exec(*this) {
+        : m_sys(sys) {
 
         Reset();
     }
@@ -345,17 +187,44 @@ public:
         m_regs.r15 = m_baseVectorAddress;
         m_execState = arm::ExecState::Run;
 
-        m_exec.Reset();
+        m_pipeline[0] = m_pipeline[1] = 0xE1A00000; // MOV r0, r0  (aka NOP)
     }
 
     void FillPipeline() {
         m_regs.r15 += (m_regs.cpsr.t ? 4 : 8);
-        m_exec.FillPipeline();
+        if (m_arm.m_regs.cpsr.t) {
+            m_pipeline[0] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 0);
+            m_pipeline[1] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 2);
+        } else {
+            m_pipeline[0] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 0);
+            m_pipeline[1] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 4);
+        }
     }
 
     // Executes one instruction or block
     core::cycles_t Run() {
-        return m_exec.Run();
+        auto instr = m_pipeline[0];
+        if (m_regs.cpsr.t) {
+            assert((m_regs.r15 & 1) == 0);
+            assert((instr & 0xFFFF0000) == 0);
+            m_pipeline[0] = m_pipeline[1];
+            m_pipeline[1] = CodeReadHalf(m_regs.r15);
+            const auto &table = s_thumbTable;
+            return table[instr >> 6](*this, instr);
+        } else {
+            assert((m_regs.r15 & 3) == 0);
+            m_pipeline[0] = m_pipeline[1];
+            m_pipeline[1] = CodeReadWord(m_regs.r15);
+            if (EvalCondition(static_cast<arm::ConditionFlags>(instr >> 28))) {
+                const size_t index = ((instr >> 16) & 0b1111'1111'0000) | ((instr >> 4) & 0b1111);
+                const size_t condIndex = ((instr >> 28) + 1) >> 4;
+                const auto &table = s_armTable;
+                return table[condIndex][index](*this, instr);
+            } else {
+                m_regs.r15 += 4;
+                return 1;
+            }
+        }
     }
 
     // Enters the IRQ exception vector
@@ -364,22 +233,6 @@ public:
             return 0;
         }
         return EnterException(arm::Excpt_NormalInterrupt);
-    }
-
-    void ClearCache() {
-        m_exec.ClearCache();
-    }
-
-    void InvalidateCache() {
-        m_exec.InvalidateCache();
-    }
-
-    void InvalidateCacheAddress(uint32_t address) {
-        m_exec.InvalidateCacheAddress(address);
-    }
-
-    void InvalidateCacheRange(uint32_t start, uint32_t end) {
-        m_exec.InvalidateCacheRange(start, end);
     }
 
     const arm::Registers &GetRegisters() const {
@@ -417,7 +270,6 @@ public:
 
     void SetExecState(arm::ExecState execState) {
         m_execState = execState;
-        m_exec.ChangeExecState(execState);
     }
 
     bool HasCoprocessor(uint8_t cop) const {
@@ -586,16 +438,11 @@ public:
         case 0x704: // C7,C0,4 - Wait For Interrupt (Halt)
         case 0x782: // C7,C8,2 - Wait For Interrupt (Halt), alternately to C7,C0,4
             m_execState = arm::ExecState::Halt;
-            m_exec.ChangeExecState(arm::ExecState::Halt);
             break;
 
         case 0x750: // C7,C5,0 - Invalidate Entire Instruction Cache
-            m_exec.InvalidateCache();
             break;
         case 0x751: { // C7,C5,1 - Invalidate Instruction Cache Line
-            uint32_t start = (value & ~0x1F);
-            uint32_t end = start + 0x1F;
-            m_exec.InvalidateCacheRange(start, end);
             break;
         }
         case 0x752: // C7,C5,2 - Invalidate Instruction Cache Line
@@ -668,10 +515,10 @@ public:
 private:
     arm::Registers m_regs;
     Sys &m_sys;
-    Exec m_exec;
     arm::PSR *m_spsr;
     arm::ExecState m_execState;
     uint32_t m_baseVectorAddress = 0xFFFF0000;
+    uint32_t m_pipeline[2];
 
     // --- CP15 ---------------------------------------------------------------
 
@@ -718,7 +565,8 @@ private:
 
     core::cycles_t ReloadPipelineARM() {
         assert(m_regs.cpsr.t == 0);
-        m_exec.ReloadPipelineARM();
+        m_pipeline[0] = CodeReadWord(m_regs.r15 + 0);
+        m_pipeline[1] = CodeReadWord(m_regs.r15 + 4);
         core::cycles_t cycles = 3;
         m_regs.r15 += 8;
         return cycles;
@@ -726,7 +574,8 @@ private:
 
     core::cycles_t ReloadPipelineTHUMB() {
         assert(m_regs.cpsr.t == 1);
-        m_exec.ReloadPipelineTHUMB();
+        m_pipeline[0] = CodeReadHalf(m_regs.r15 + 0);
+        m_pipeline[1] = CodeReadHalf(m_regs.r15 + 2);
         core::cycles_t cycles = 3;
         m_regs.r15 += 4;
         return cycles;
@@ -839,7 +688,6 @@ private:
                       "DataWriteImpl requires uint8_t, uint16_t or uint32_t");
         address &= ~(static_cast<uint32_t>(sizeof(T)) - 1);
         if (address < m_itcmWriteSize) {
-            m_exec.InvalidateCacheAddress(address);
             util::MemWrite(m_itcm, address & 0x7FFF, value);
         } else if (address - m_dtcmBase < m_dtcmWriteSize) {
             util::MemWrite(m_dtcm, (address - m_dtcmBase) & 0x3FFF, value);
@@ -2829,7 +2677,7 @@ private:
     }
 
     static constexpr auto MakeARMTable() {
-        std::array<std::array<ARMInstructionHandler<Sys, Exec>, 4096>, 2> table{};
+        std::array<std::array<ARMInstructionHandler, 4096>, 2> table{};
         util::constexpr_for<256>([&](auto i) {
             table[0][i * 16 + 0] = MakeARMInstruction<i * 16 + 0, false>();
             table[1][i * 16 + 0] = MakeARMInstruction<i * 16 + 0, true>();
@@ -2868,7 +2716,7 @@ private:
     }
 
     static constexpr auto MakeTHUMBTable() {
-        std::array<THUMBInstructionHandler<Sys, Exec>, 1024> table{};
+        std::array<THUMBInstructionHandler, 1024> table{};
         util::constexpr_for<256>([&](auto i) {
             table[i * 4 + 0] = MakeTHUMBInstruction<i * 4 + 0>();
             table[i * 4 + 1] = MakeTHUMBInstruction<i * 4 + 1>();
@@ -2880,310 +2728,6 @@ private:
 
     static constexpr auto s_armTable = MakeARMTable();
     static constexpr auto s_thumbTable = MakeTHUMBTable();
-
-    friend class UncachedExecutor<Sys>;
-    friend class CachedExecutor<Sys>;
 };
-
-// --- UncachedExecutor implementation -------------------------------------------------------------
-
-template <typename Sys>
-void UncachedExecutor<Sys>::Reset() {
-    m_pipeline[0] = m_pipeline[1] = 0xE1A00000; // MOV r0, r0  (aka NOP)
-}
-
-template <typename Sys>
-core::cycles_t UncachedExecutor<Sys>::Run() {
-    auto &regs = m_arm.m_regs;
-    auto instr = m_pipeline[0];
-    if (regs.cpsr.t) {
-        assert((regs.r15 & 1) == 0);
-        assert((instr & 0xFFFF0000) == 0);
-        m_pipeline[0] = m_pipeline[1];
-        m_pipeline[1] = m_arm.CodeReadHalf(regs.r15);
-        const auto &table = m_arm.s_thumbTable;
-        return table[instr >> 6](m_arm, instr);
-    } else {
-        assert((regs.r15 & 3) == 0);
-        m_pipeline[0] = m_pipeline[1];
-        m_pipeline[1] = m_arm.CodeReadWord(regs.r15);
-        if (m_arm.EvalCondition(static_cast<arm::ConditionFlags>(instr >> 28))) {
-            const size_t index = ((instr >> 16) & 0b1111'1111'0000) | ((instr >> 4) & 0b1111);
-            const size_t condIndex = ((instr >> 28) + 1) >> 4;
-            const auto &table = m_arm.s_armTable;
-            return table[condIndex][index](m_arm, instr);
-        } else {
-            regs.r15 += 4;
-            return 1;
-        }
-    }
-}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::FillPipeline() {
-    if (m_arm.m_regs.cpsr.t) {
-        ReloadPipelineTHUMB();
-    } else {
-        ReloadPipelineARM();
-    }
-}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::ReloadPipelineARM() {
-    m_pipeline[0] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 0);
-    m_pipeline[1] = m_arm.CodeReadWord(m_arm.m_regs.r15 + 4);
-}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::ReloadPipelineTHUMB() {
-    m_pipeline[0] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 0);
-    m_pipeline[1] = m_arm.CodeReadHalf(m_arm.m_regs.r15 + 2);
-}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::RaiseException() {}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::ChangeExecState(arm::ExecState execState) {}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::ClearCache() {}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::InvalidateCache() {}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::InvalidateCacheAddress(uint32_t address) {}
-
-template <typename Sys>
-void UncachedExecutor<Sys>::InvalidateCacheRange(uint32_t start, uint32_t end) {}
-
-// --- CachedExecutor implementation ---------------------------------------------------------------
-
-template <typename Sys>
-void CachedExecutor<Sys>::Reset() {
-    for (size_t i = 0; i < kNumPages; i++) {
-        if (m_armCache[i]) {
-            m_armCache[i].reset();
-        }
-        if (m_thumbCache[i]) {
-            m_thumbCache[i].reset();
-        }
-    }
-}
-
-template <typename Sys>
-core::cycles_t CachedExecutor<Sys>::Run() {
-    auto &arm = m_arm;
-    auto &regs = arm.m_regs;
-    core::cycles_t cycles = 0;
-    if (regs.cpsr.t) {
-        const uint32_t pc = regs.r15 - 4;
-        uint32_t index = (pc >> 1) & kTHUMBAddressMask;
-        ThumbBlock &block = GetCachedThumbCode(pc);
-        m_cacheValid = true;
-        do {
-            auto &instr = block.instrs[index];
-            cycles += instr.handler(arm, instr.instr);
-            if (++index == kTHUMBEntries) {
-                break;
-            }
-            if (!m_cacheValid) {
-                break;
-            }
-        } while (true);
-    } else {
-        const uint32_t pc = regs.r15 - 8;
-        uint32_t index = (pc >> 2) & kARMAddressMask;
-        ARMBlock &block = GetCachedARMCode(pc);
-        m_cacheValid = true;
-        do {
-            auto &instr = block.instrs[index];
-            if (arm.EvalCondition(static_cast<arm::ConditionFlags>(instr.instr >> 28))) {
-                cycles += instr.handler(arm, instr.instr);
-            } else {
-                // TODO: consider precomputing R15?
-                regs.r15 += 4;
-                cycles += 1;
-            }
-            if (++index == kARMEntries) {
-                break;
-            }
-            if (!m_cacheValid) {
-                break;
-            }
-        } while (true);
-    }
-    return cycles;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::FillPipeline() {}
-
-template <typename Sys>
-void CachedExecutor<Sys>::ReloadPipelineARM() {
-    m_cacheValid = false;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::ReloadPipelineTHUMB() {
-    m_cacheValid = false;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::RaiseException() {
-    m_cacheValid = false;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::ChangeExecState(arm::ExecState execState) {
-    if (execState != arm::ExecState::Run) {
-        m_cacheValid = false;
-    }
-}
-
-template <typename Sys>
-uint32_t CachedExecutor<Sys>::TranslateAddress(uint32_t address) {
-    return address;
-}
-
-template <typename Sys>
-typename CachedExecutor<Sys>::ARMBlock &CachedExecutor<Sys>::GetCachedARMCode(uint32_t address) {
-    const uint32_t translatedAddress = TranslateAddress(address);
-    const uint32_t page = (translatedAddress >> kPageShift);
-    const uint32_t entry = (translatedAddress >> kBlockBits) & kEntryMask;
-    const uint32_t baseAddress = (translatedAddress & ~kAddressMask);
-
-    // Allocate page if needed
-    if (!m_armCache[page]) [[unlikely]] {
-        m_armCache[page] = std::make_unique<CachePage<ARMBlock>>();
-    }
-    auto &cachePage = *m_armCache[page];
-
-    // Reset page if invalid
-    if (!cachePage.pageValid) [[unlikely]] {
-        cachePage.valid.reset();
-        cachePage.pageValid = true;
-    }
-
-    // Fetch and decode instructions if the entry is invalid
-    auto &block = cachePage[entry];
-    if (!cachePage.valid.test(entry)) [[unlikely]] {
-        for (size_t i = 0; i < kARMEntries; i++) {
-            const uint32_t instr = m_arm.CodeReadWord(baseAddress + i * 4);
-            const size_t index = ((instr >> 16) & 0b1111'1111'0000) | ((instr >> 4) & 0b1111);
-            const size_t condIndex = ((instr >> 28) + 1) >> 4;
-
-            block.instrs[i].instr = instr;
-            block.instrs[i].handler = m_arm.s_armTable[condIndex][index];
-        }
-        cachePage.valid.set(entry);
-    }
-    return block;
-}
-
-template <typename Sys>
-typename CachedExecutor<Sys>::ThumbBlock &CachedExecutor<Sys>::GetCachedThumbCode(uint32_t address) {
-    const uint32_t translatedAddress = TranslateAddress(address);
-    const uint32_t page = (translatedAddress >> kPageShift);
-    const uint32_t entry = (translatedAddress >> kBlockBits) & kEntryMask;
-    const uint32_t baseAddress = (translatedAddress & ~kAddressMask);
-
-    // Allocate page if needed
-    if (!m_thumbCache[page]) [[unlikely]] {
-        m_thumbCache[page] = std::make_unique<CachePage<ThumbBlock>>();
-    }
-    auto &cachePage = *m_thumbCache[page];
-
-    // Reset page if invalid
-    if (!cachePage.pageValid) [[unlikely]] {
-        cachePage.valid.reset();
-        cachePage.pageValid = true;
-    }
-
-    // Fetch and decode instructions if the entry is invalid
-    auto &block = cachePage[entry];
-    if (!cachePage.valid.test(entry)) [[unlikely]] {
-        for (size_t i = 0; i < kTHUMBEntries; i++) {
-            const uint16_t instr = m_arm.CodeReadHalf(baseAddress + i * 2);
-
-            block.instrs[i].instr = instr;
-            block.instrs[i].handler = m_arm.s_thumbTable[instr >> 6];
-        }
-        cachePage.valid.set(entry);
-    }
-    return block;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::ClearCache() {
-    for (size_t i = 0; i < kNumPages; i++) {
-        if (m_armCache[i]) {
-            m_armCache[i].reset();
-        }
-        if (m_thumbCache[i]) {
-            m_thumbCache[i].reset();
-        }
-    }
-    m_cacheValid = false;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::InvalidateCache() {
-    for (size_t i = 0; i < kNumPages; i++) {
-        if (m_armCache[i]) {
-            m_armCache[i]->pageValid = false;
-        }
-        if (m_thumbCache[i]) {
-            m_thumbCache[i]->pageValid = false;
-        }
-    }
-    m_cacheValid = false;
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::InvalidateCacheAddress(uint32_t address) {
-    const uint32_t translatedAddress = TranslateAddress(address);
-    const uint32_t page = (translatedAddress >> kPageShift);
-    const uint32_t entry = (translatedAddress >> kBlockBits) & kEntryMask;
-    if (m_armCache[page]) {
-        m_armCache[page]->valid.set(entry, false);
-    }
-    if (m_thumbCache[page]) {
-        m_thumbCache[page]->valid.set(entry, false);
-    }
-
-    uint32_t pc = m_arm.m_regs.r15;
-    pc -= (m_arm.m_regs.cpsr.t ? 4 : 8);
-    pc &= ~kAddressMask;
-    if (pc == (address & ~kAddressMask)) {
-        m_cacheValid = false;
-    }
-}
-
-template <typename Sys>
-void CachedExecutor<Sys>::InvalidateCacheRange(uint32_t start, uint32_t end) {
-    if (start > end) {
-        std::swap(start, end);
-    }
-    for (uint32_t address = start; address < end; address += kBlockSize) {
-        const uint32_t translatedAddress = TranslateAddress(address);
-        const uint32_t page = (translatedAddress >> kPageShift);
-        const uint32_t entry = (translatedAddress >> kBlockBits) & kEntryMask;
-        if (m_armCache[page]) {
-            m_armCache[page]->valid.set(entry, false);
-        }
-        if (m_thumbCache[page]) {
-            m_thumbCache[page]->valid.set(entry, false);
-        }
-    }
-
-    uint32_t pc = m_arm.m_regs.r15;
-    pc -= (m_arm.m_regs.cpsr.t ? 4 : 8);
-    pc &= ~kAddressMask;
-    if (pc >= (start & ~kAddressMask) && pc <= ((end + kAddressMask - 1) & ~kAddressMask)) {
-        m_cacheValid = false;
-    }
-}
 
 } // namespace interp::arm946es
