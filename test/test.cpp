@@ -249,7 +249,7 @@ void printState(armajitto::arm::State &state) {
     printPSR(state.CPSR(), "CPSR");
     for (auto mode : {armajitto::arm::Mode::FIQ, armajitto::arm::Mode::IRQ, armajitto::arm::Mode::Supervisor,
                       armajitto::arm::Mode::Abort, armajitto::arm::Mode::Undefined}) {
-        auto spsrName = std::format("SPSR_{}", armajitto::arm::ToString(mode));
+        auto spsrName = std::string("SPSR_") + armajitto::arm::ToString(mode);
         printPSR(state.SPSR(mode), spsrName.c_str());
     }
     printf("\nBanked registers:\n");
@@ -677,13 +677,24 @@ void testCompiler() {
     // writeThumb(0xF800);
 
     // Thumb BLX (ARMv5)
-    writeThumb(0x47F0);
+    // writeThumb(0x47F0);
+
+    // ARM LDM from user mode
+    // writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
+
+    // ARM LDR/STR with PC writeback
+    // writeARM(0xE60F0001); // str r0, [pc], -r1
+
+    // ARM LDRD with writeback to Rd
+    writeARM(0xE00000D0); // ldrd r0, r1, [r0], -r0
+    writeARM(0xE00000D1); // ldrd r0, r1, [r0], -r1
 
     armajitto::Recompiler jit{{
         .system = *sys,
         .model = armajitto::CPUModel::ARM946ES,
     }};
     auto &armState = jit.GetARMState();
+    armState.CPSR().mode = armajitto::arm::Mode::FIQ;
     armState.JumpTo(baseAddress, thumb);
 
     jit.GetTranslatorParameters().maxBlockSize = numInstrs;

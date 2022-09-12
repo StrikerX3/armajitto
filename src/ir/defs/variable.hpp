@@ -1,6 +1,5 @@
 #pragma once
 
-#include <format>
 #include <string>
 
 namespace armajitto::ir {
@@ -24,7 +23,7 @@ struct Variable {
 
     std::string ToString() const {
         if (IsPresent()) {
-            return std::format("$v{}", index);
+            return std::string("$v") + std::to_string(index);
         } else {
             return std::string("(null)");
         }

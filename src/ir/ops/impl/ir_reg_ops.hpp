@@ -4,7 +4,7 @@
 
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -21,7 +21,7 @@ struct IRGetRegisterOp : public IROpBase<IROpcodeType::GetRegister> {
         , src(src) {}
 
     std::string ToString() const final {
-        return std::format("ld {}, {}", dst.ToString(), src.ToString());
+        return std::string("ld ") + dst.ToString() + ", " + src.ToString();
     }
 };
 
@@ -38,7 +38,7 @@ struct IRSetRegisterOp : public IROpBase<IROpcodeType::SetRegister> {
         , src(src) {}
 
     std::string ToString() const final {
-        return std::format("st {}, {}", dst.ToString(), src.ToString());
+        return std::string("st ") + dst.ToString() + ", " + src.ToString();
     }
 };
 
@@ -53,7 +53,7 @@ struct IRGetCPSROp : public IROpBase<IROpcodeType::GetCPSR> {
         : dst(dst) {}
 
     std::string ToString() const final {
-        return std::format("ld {}, cpsr", dst.ToString());
+        return std::string("ld ") + dst.ToString() + ", cpsr";
     }
 };
 
@@ -71,7 +71,7 @@ struct IRSetCPSROp : public IROpBase<IROpcodeType::SetCPSR> {
         , updateIFlag(updateIFlag) {}
 
     std::string ToString() const final {
-        return std::format("st cpsr{}, {}", (updateIFlag ? ".i" : ""), src.ToString());
+        return std::string(updateIFlag ? "st cpsr.i" : "st cpsr") + ", " + src.ToString();
     }
 };
 
@@ -88,7 +88,7 @@ struct IRGetSPSROp : public IROpBase<IROpcodeType::GetSPSR> {
         , mode(mode) {}
 
     std::string ToString() const final {
-        return std::format("ld {}, spsr_{}", dst.ToString(), ::armajitto::arm::ToString(mode));
+        return std::string("ld ") + dst.ToString() + ", spsr_" + ::armajitto::arm::ToString(mode);
     }
 };
 
@@ -105,7 +105,7 @@ struct IRSetSPSROp : public IROpBase<IROpcodeType::SetSPSR> {
         , src(src) {}
 
     std::string ToString() const final {
-        return std::format("st spsr_{}, {}", ::armajitto::arm::ToString(mode), src.ToString());
+        return std::string("st spsr_") + ::armajitto::arm::ToString(mode) + ", " + src.ToString();
     }
 };
 

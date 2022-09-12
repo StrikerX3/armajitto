@@ -5,7 +5,7 @@
 #include "ir/defs/arguments.hpp"
 #include "ir/defs/memory_access.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -62,7 +62,8 @@ struct IRMemReadOp : public IROpBase<IROpcodeType::MemRead> {
         default: sizeStr = '?'; break;
         }
 
-        return std::format("ld.{}{}{}, {}, [{}]", busStr, modeStr, sizeStr, dst.ToString(), address.ToString());
+        return std::string("ld.") + busStr + modeStr + sizeStr + " " + dst.ToString() + ", [" + address.ToString() +
+               "]";
     }
 };
 
@@ -91,7 +92,7 @@ struct IRMemWriteOp : public IROpBase<IROpcodeType::MemWrite> {
         default: sizeStr = '?'; break;
         }
 
-        return std::format("st.{}, {}, [{}]", sizeStr, src.ToString(), address.ToString());
+        return std::string("st.") + sizeStr + " " + src.ToString() + ", [" + address.ToString() + "]";
     }
 };
 
@@ -106,7 +107,7 @@ struct IRPreloadOp : public IROpBase<IROpcodeType::Preload> {
         : address(address) {}
 
     std::string ToString() const final {
-        return std::format("pld [{}]", address.ToString());
+        return std::string("pld [") + address.ToString() + "]";
     }
 };
 

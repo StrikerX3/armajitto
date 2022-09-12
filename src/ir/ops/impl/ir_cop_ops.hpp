@@ -6,7 +6,7 @@
 
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -20,6 +20,7 @@ struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
     uint8_t cpnum;
     arm::CopRegister reg;
     bool ext;
+
     IRLoadCopRegisterOp(VariableArg dstValue, uint8_t cpnum, arm::CopRegister reg, bool ext)
         : dstValue(dstValue)
         , cpnum(cpnum)
@@ -27,8 +28,12 @@ struct IRLoadCopRegisterOp : public IROpBase<IROpcodeType::LoadCopRegister> {
         , ext(ext) {}
 
     std::string ToString() const final {
-        return std::format("mrc{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), dstValue.ToString(), cpnum, reg.opcode1,
-                           reg.crn, reg.crm, reg.opcode2);
+        return std::string(ext ? "mrc2" : "mrc") + " " + dstValue.ToString() //
+               + ", " + std::to_string(cpnum)                                //
+               + ", " + std::to_string(reg.opcode1)                          //
+               + ", " + std::to_string(reg.crn)                              //
+               + ", " + std::to_string(reg.crm)                              //
+               + ", " + std::to_string(reg.opcode2);
     }
 };
 
@@ -49,8 +54,12 @@ struct IRStoreCopRegisterOp : public IROpBase<IROpcodeType::StoreCopRegister> {
         , ext(ext) {}
 
     std::string ToString() const final {
-        return std::format("mcr{} {}, {}, {}, {}, {}, {}", (ext ? "2" : ""), srcValue.ToString(), cpnum, reg.opcode1,
-                           reg.crn, reg.crm, reg.opcode2);
+        return std::string(ext ? "mcr2" : "mcr") + " " + srcValue.ToString() //
+               + ", " + std::to_string(cpnum)                                //
+               + ", " + std::to_string(reg.opcode1)                          //
+               + ", " + std::to_string(reg.crn)                              //
+               + ", " + std::to_string(reg.crm)                              //
+               + ", " + std::to_string(reg.opcode2);
     }
 };
 

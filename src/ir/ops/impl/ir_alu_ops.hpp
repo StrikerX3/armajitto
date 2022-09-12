@@ -6,7 +6,7 @@
 
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -28,8 +28,8 @@ namespace detail {
             , mnemonic(mnemonic) {}
 
         std::string ToString() const final {
-            return std::format("{}{} {}, {}, {}", mnemonic, (setCarry ? ".c" : ""), dst.ToString(), value.ToString(),
-                               amount.ToString());
+            return std::string(mnemonic) + (setCarry ? ".c" : "") + " " + dst.ToString() + ", " + value.ToString() +
+                   ", " + amount.ToString();
         }
 
     private:
@@ -64,10 +64,10 @@ namespace detail {
         std::string ToString() const final {
             auto flagsSuffix = arm::FlagsSuffixStr(flags, affectedFlags);
             if (dst.var.IsPresent()) {
-                return std::format("{}{} {}, {}, {}", mnemonic, flagsSuffix, dst.ToString(), lhs.ToString(),
-                                   rhs.ToString());
+                return std::string(mnemonic) + flagsSuffix + " " + dst.ToString() + ", " + lhs.ToString() + ", " +
+                       rhs.ToString();
             } else {
-                return std::format("{}{} {}, {}", mnemonic, flagsSuffix, lhs.ToString(), rhs.ToString());
+                return std::string(mnemonic) + flagsSuffix + " " + lhs.ToString() + ", " + rhs.ToString();
             }
         }
 
@@ -93,7 +93,7 @@ namespace detail {
 
         std::string ToString() const final {
             auto flagsSuffix = arm::FlagsSuffixStr(flags, kAffectedFlags);
-            return std::format("{}{} {}, {}", mnemonic, flagsSuffix, dst.ToString(), value.ToString());
+            return std::string(mnemonic) + flagsSuffix + " " + dst.ToString() + ", " + value.ToString();
         }
 
     private:
@@ -159,7 +159,7 @@ struct IRRotateRightExtendedOp : public IROpBase<IROpcodeType::RotateRightExtend
         , setCarry(setCarry) {}
 
     std::string ToString() const final {
-        return std::format("rrx{} {}, {}", (setCarry ? ".c" : ""), dst.ToString(), value.ToString());
+        return std::string("rrx") + (setCarry ? ".c" : "") + " " + dst.ToString() + ", " + value.ToString();
     }
 };
 
@@ -231,7 +231,7 @@ struct IRCountLeadingZerosOp : public IROpBase<IROpcodeType::CountLeadingZeros> 
         , value(value) {}
 
     std::string ToString() const final {
-        return std::format("clz {}, {}", dst.ToString(), value.ToString());
+        return std::string("clz ") + dst.ToString() + ", " + value.ToString();
     }
 };
 
@@ -357,13 +357,13 @@ struct IRMultiplyOp : public IROpBase<IROpcodeType::Multiply> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags, kAffectedFlags);
-        return std::format("{}mul{} {}, {}, {}", (signedMul ? "s" : "u"), flagsSuffix, dst.ToString(), lhs.ToString(),
-                           rhs.ToString());
+        return std::string(signedMul ? "s" : "u") + "mul" + flagsSuffix + " " + dst.ToString() + ", " + lhs.ToString() +
+               ", " + rhs.ToString();
     }
 };
 
 // Multiply long
-//   [u/s]mull[h].[n][z] <var:dstHi>:<var:dstLo>, <var/imm:lhs>:<var/imm:rhs>
+//   [u/s]mull[h].[n][z] <var:dstHi>:<var:dstLo>, <var/imm:lhs>, <var/imm:rhs>
 //
 // Computes <lhs> * <rhs> and stores the least significant word of the result in <dstLo> and the most significant word
 // in <dstHi>.
@@ -393,8 +393,8 @@ struct IRMultiplyLongOp : public IROpBase<IROpcodeType::MultiplyLong> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags, kAffectedFlags);
-        return std::format("{}mull{}{} {}:{}, {}, {}", (signedMul ? "s" : "u"), (shiftDownHalf ? "h" : ""), flagsSuffix,
-                           dstHi.ToString(), dstLo.ToString(), lhs.ToString(), rhs.ToString());
+        return std::string(signedMul ? "s" : "u") + "mull" + (shiftDownHalf ? "h" : "") + flagsSuffix + " " +
+               dstHi.ToString() + ":" + dstLo.ToString() + ", " + lhs.ToString() + ", " + rhs.ToString();
     }
 };
 
@@ -426,8 +426,8 @@ struct IRAddLongOp : public IROpBase<IROpcodeType::AddLong> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags, kAffectedFlags);
-        return std::format("addl{} {}:{}, {}:{}, {}:{}", flagsSuffix, dstHi.ToString(), dstLo.ToString(),
-                           lhsHi.ToString(), lhsLo.ToString(), rhsHi.ToString(), rhsLo.ToString());
+        return std::string("addl") + flagsSuffix + " " + dstHi.ToString() + ":" + dstLo.ToString() + ", " +
+               lhsHi.ToString() + ":" + lhsLo.ToString() + ", " + rhsHi.ToString() + ":" + rhsLo.ToString();
     }
 };
 

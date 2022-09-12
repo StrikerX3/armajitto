@@ -7,8 +7,9 @@
 
 #include <array>
 #include <cstdint>
-#include <format>
+#include <iomanip>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -122,7 +123,9 @@ struct ImmediateArg {
     }
 
     std::string ToString() const {
-        return std::format("#0x{:x}", value);
+        std::ostringstream oss;
+        oss << "#0x" << std::hex << std::uppercase << value;
+        return oss.str();
     }
 };
 

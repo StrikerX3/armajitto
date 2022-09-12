@@ -3,6 +3,8 @@
 #include "armajitto/guest/arm/mode.hpp"
 
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 
 namespace armajitto {
 
@@ -39,7 +41,10 @@ struct LocationRef {
     }
 
     std::string ToString() const {
-        return std::format("{:08X}_{}_{}", m_pc, arm::ToString(Mode()), (IsThumbMode() ? "Thumb" : "ARM"));
+        std::ostringstream oss;
+        oss << std::setfill('0') << std::setw(8) << std::right << std::hex << std::uppercase << m_pc;
+        oss << '_' << arm::ToString(Mode()) << '_' << (IsThumbMode() ? "Thumb" : "ARM");
+        return oss.str();
     }
 
 private:

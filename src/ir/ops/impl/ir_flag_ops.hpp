@@ -5,7 +5,7 @@
 #include "guest/arm/flags.hpp"
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -27,9 +27,9 @@ struct IRStoreFlagsOp : public IROpBase<IROpcodeType::StoreFlags> {
         if (values.immediate) {
             auto flagsVal = static_cast<arm::Flags>(values.imm.value);
             auto flagsStr = arm::FlagsStr(flagsVal, flagsVal);
-            return std::format("stflg{} {{{}}}", flagsSuffix, flagsStr);
+            return std::string("stflg") + flagsSuffix + " " + "{" + flagsStr + "}";
         } else {
-            return std::format("stflg{} {}", flagsSuffix, values.var.ToString());
+            return std::string("stflg") + flagsSuffix + " " + values.var.ToString();
         }
     }
 };
@@ -50,7 +50,7 @@ struct IRLoadFlagsOp : public IROpBase<IROpcodeType::LoadFlags> {
 
     std::string ToString() const final {
         auto flagsSuffix = arm::FlagsSuffixStr(flags, flags);
-        return std::format("ldflg{} {}, {}", flagsSuffix, dstCPSR.ToString(), srcCPSR.ToString());
+        return std::string("ldflg") + flagsSuffix + " " + dstCPSR.ToString() + ", " + srcCPSR.ToString();
     }
 };
 
@@ -69,7 +69,7 @@ struct IRLoadStickyOverflowOp : public IROpBase<IROpcodeType::LoadStickyOverflow
         , srcCPSR(srcCPSR) {}
 
     std::string ToString() const final {
-        return std::format("ldflg{} {}, {}", (setQ ? ".q" : ""), dstCPSR.ToString(), srcCPSR.ToString());
+        return std::string(setQ ? "ldflg.q" : "ldflg") + " " + dstCPSR.ToString() + ", " + srcCPSR.ToString();
     }
 };
 

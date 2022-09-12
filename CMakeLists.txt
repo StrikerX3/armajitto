@@ -190,12 +190,13 @@ target_precompile_headers(armajitto
         <cstdint>
         <cstdlib>
         <deque>
-        <format>
+        <iomanip>
         <limits>
         <memory>
         <memory_resource>
         <optional>
         <ranges>
+        <sstream>
         <string>
         <tuple>
         <type_traits>

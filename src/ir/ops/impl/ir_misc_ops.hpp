@@ -4,7 +4,9 @@
 
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -21,7 +23,9 @@ struct IRConstantOp : public IROpBase<IROpcodeType::Constant> {
         , value(value) {}
 
     std::string ToString() const final {
-        return std::format("const {}, #0x{:x}", dst.ToString(), value);
+        std::ostringstream oss;
+        oss << "const " << dst.ToString() << ", #0x" << std::hex << std::uppercase << value;
+        return oss.str();
     }
 };
 
@@ -38,7 +42,7 @@ struct IRCopyVarOp : public IROpBase<IROpcodeType::CopyVar> {
         , var(var) {}
 
     std::string ToString() const final {
-        return std::format("copy {}, {}", dst.ToString(), var.ToString());
+        return std::string("copy ") + dst.ToString() + ", " + var.ToString();
     }
 };
 
@@ -53,7 +57,7 @@ struct IRGetBaseVectorAddressOp : public IROpBase<IROpcodeType::GetBaseVectorAdd
         : dst(dst) {}
 
     std::string ToString() const final {
-        return std::format("ld.xvb {}", dst.ToString());
+        return std::string("ld.xvb ") + dst.ToString();
     }
 };
 

@@ -4,7 +4,7 @@
 
 #include "ir/defs/arguments.hpp"
 
-#include <format>
+#include <string>
 
 namespace armajitto::ir {
 
@@ -21,7 +21,7 @@ struct IRBranchOp : public IROpBase<IROpcodeType::Branch> {
         : address(address) {}
 
     std::string ToString() const final {
-        return std::format("b {}", address.ToString());
+        return std::string("b ") + address.ToString();
     }
 };
 
@@ -49,14 +49,14 @@ struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
         , address(address) {}
 
     std::string ToString() const final {
-        std::string modeStr;
+        std::string mnemonic;
         switch (bxMode) {
-        case ExchangeMode::AddrBit0: modeStr = ""; break;
-        case ExchangeMode::L4: modeStr = "4"; break;
-        case ExchangeMode::CPSRThumbFlag: modeStr = "t"; break;
-        default: modeStr = "?"; break;
+        case ExchangeMode::AddrBit0: mnemonic = "bx"; break;
+        case ExchangeMode::L4: mnemonic = "bx4"; break;
+        case ExchangeMode::CPSRThumbFlag: mnemonic = "bxt"; break;
+        default: mnemonic = "bx?"; break;
         }
-        return std::format("bx{} {}", modeStr, address.ToString());
+        return mnemonic + address.ToString();
     }
 };
 
