@@ -56,7 +56,7 @@ struct IRBranchExchangeOp : public IROpBase<IROpcodeType::BranchExchange> {
         case ExchangeMode::CPSRThumbFlag: mnemonic = "bxt"; break;
         default: mnemonic = "bx?"; break;
         }
-        return mnemonic + address.ToString();
+        return mnemonic + " " + address.ToString();
     }
 };
 
