@@ -195,8 +195,8 @@ int main() {
         }
 
         // Jump to the specified address
-        interp->JumpTo(address, true);
-        jitState.JumpTo(address, true);
+        interp->JumpTo(address, thumb);
+        jitState.JumpTo(address, thumb);
     };
 
     // Test *all* Thumb instructions in selected modes.
@@ -204,14 +204,13 @@ int main() {
     // - System uses all base registers
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
-    for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
+    /*for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
         printf("===============================\n");
         printf("Testing mode %d\n\n", mode);
         init(mode, 0x10000, true);
         printStates();
         printf("\n");
 
-        // uint32_t instr = 0x4587;
         for (uint32_t instr = 0; instr <= 0xFFFF; instr++) {
             // Reset interpreter and JIT
             interp->Reset();
@@ -233,6 +232,48 @@ int main() {
 
             // Compare states and print any discrepancies
             compareStates([&] { printf("[!] Discrepancies found on mode %d, instruction %04X\n", mode, instr); });
+        }
+    }*/
+
+    // Test *all* ARM instructions with AL and NV conditions in selected modes.
+    // These modes differ in the banked registers used:
+    // - System uses all base registers
+    // - IRQ has its own R13 and R14
+    // - FIQ has its own R8 through R14
+    for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
+        printf("===============================\n");
+        printf("Testing mode %d\n\n", mode);
+        init(mode, 0x10000, false);
+        printStates();
+        printf("\n");
+        fprintf(stderr, "Testing mode %d\n", mode);
+
+        for (uint32_t i = 0x00000000; i <= 0x1FFFFFFF; i++) {
+            const uint32_t instr = i + 0xE0000000;
+            if ((instr & 0xFFFFF) == 0) {
+                fprintf(stderr, "  Instructions %08X to %08X\n", instr, instr + 0xFFFFF);
+            }
+
+            // Reset interpreter and JIT
+            interp->Reset();
+            jit.Reset();
+
+            // Reset system memory
+            interpSys.Reset();
+            jitSys.Reset();
+
+            // Write ARM instruction to code memory
+            *reinterpret_cast<uint32_t *>(&interpSys.codemem[0]) = instr;
+            *reinterpret_cast<uint32_t *>(&jitSys.codemem[0]) = instr;
+
+            init(mode, 0x10000, false);
+
+            // Run both the interpreter and the JIT for one instruction
+            interp->Run(1);
+            jit.Run(1);
+
+            // Compare states and print any discrepancies
+            compareStates([&] { printf("[!] Discrepancies found on mode %d, instruction %08X\n", mode, instr); });
         }
     }
 
