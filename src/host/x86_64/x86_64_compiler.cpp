@@ -985,6 +985,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+            CopyIfDifferent(dstReg64.cvt32(), valueReg32);
             codegen.movsxd(dstReg64, dstReg64.cvt32());
             codegen.sar(dstReg64, shiftReg32.cvt8());
             if (op->setCarry) {
@@ -2386,11 +2387,20 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
 
         if (op->address.immediate) {
             auto address = op->address.imm.value;
+            auto offset = address + 4;
 
             // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+            // ARM:   PC + 1*4 + 4 = PC + 8
+            // Thumb: PC + 0*4 + 4 = PC + 4
             codegen.movzx(pcReg32, cl);
-            codegen.lea(pcReg32, dword[pcReg32 * 4 + (4 + address)]); // ARM:   PC + 1*4 + 4 = PC + 8
-            codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+            if (offset & 0x80000000) {
+                // Handle large offsets manually
+                codegen.lea(pcReg32, dword[pcReg32 * 4]);
+                codegen.add(pcReg32, offset);
+            } else {
+                codegen.lea(pcReg32, dword[pcReg32 * 4 + offset]);
+            }
+            codegen.and_(pcReg32, maskReg32);
         } else {
             auto addrReg32 = regAlloc.Get(op->address.var.var);
 
