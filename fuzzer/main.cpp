@@ -1,10 +1,19 @@
 #include <armajitto/armajitto.hpp>
 
+#include <algorithm>
+
 #include "interp.hpp"
 #include "system.hpp"
 
-int main() {
+int main(int argc, char *argv[]) {
     using namespace armajitto;
+
+    int offset = 0;
+    uint32_t limit = 0x20;
+    if (argc >= 2) {
+        offset = std::clamp(atoi(argv[1]), 0, 0x20);
+        limit = 1;
+    }
 
     FuzzerSystem interpSys;
     FuzzerSystem jitSys;
@@ -248,7 +257,9 @@ int main() {
         printf("\n");
         fprintf(stderr, "Testing mode %d\n", mode);
 
-        for (uint32_t i = 0x00000000; i <= 0x1FFFFFFF; i++) {
+        const uint32_t start = offset * 0x1000000;
+        const uint32_t end = start + limit * 0x1000000;
+        for (uint32_t i = start; i < end; i++) {
             const uint32_t instr = i + 0xE0000000;
             if ((instr & 0xFFFFF) == 0) {
                 fprintf(stderr, "  Instructions %08X to %08X\n", instr, instr + 0xFFFFF);
