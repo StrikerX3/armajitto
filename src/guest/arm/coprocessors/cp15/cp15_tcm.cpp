@@ -48,9 +48,11 @@ void TCM::Configure(const Configuration &config) {
             }
             tcm = new uint8_t[roundedSize];
             tcmSize = roundedSize;
-            return {false, static_cast<tcm::Size>(roundedSize)};
+            return {false, static_cast<tcm::Size>(std::countr_zero(roundedSize) - 9)};
         }
     };
+
+    params.u32 = 0;
 
     auto [itcmAbsent, itcmSizeParam] = calcSize(config.itcmSize, itcm, itcmSize);
     params.itcmAbsent = itcmAbsent;
