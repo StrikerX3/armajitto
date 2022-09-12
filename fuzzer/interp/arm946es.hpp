@@ -1352,7 +1352,7 @@ private:
                 (!l && h)                          // STRD, STRH
             ) {
                 if constexpr (!p) {
-                    m_regs.regs[rn] += (u ? offsetValue : -offsetValue);
+                    m_regs.regs[rn] = address + (u ? offsetValue : -offsetValue);
                 } else if constexpr (w) {
                     m_regs.regs[rn] = address;
                 }
