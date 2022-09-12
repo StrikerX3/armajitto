@@ -1260,7 +1260,7 @@ private:
                     // Switch to THUMB mode if bit 0 is set (ARMv5 feature)
                     m_regs.cpsr.t = (m_regs.r15 & 1);
                 }
-                m_regs.r15 &= ~1;
+                m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
                 cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
             } else {
                 // TODO: check timing
@@ -1371,7 +1371,7 @@ private:
                         m_regs.cpsr.t = (m_regs.r15 & 1);
                     }
                 }
-                m_regs.r15 &= ~1;
+                m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
                 cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
             } else {
                 // TODO: check timing
@@ -1513,7 +1513,7 @@ private:
                     // Switch to THUMB mode if bit 0 is set (ARMv5 feature)
                     m_regs.cpsr.t = (m_regs.r15 & 1);
                 }
-                m_regs.r15 &= ~1;
+                m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
                 cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
             } else {
                 cycles += EnterException(arm::Excpt_DataAbort);
@@ -2104,7 +2104,7 @@ private:
                         // Switch to ARM mode if bit 0 is clear (ARMv5 feature)
                         m_regs.cpsr.t = (m_regs.r15 & 1);
                     }
-                    m_regs.r15 &= ~1;
+                    m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
                     cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
                 }
                 cycles++; // 1I for popping PC
