@@ -194,6 +194,14 @@ int main(int argc, char *argv[]) {
         interp->SetCPSR(cpsr);
         jitState.CPSR().u32 = cpsr;
 
+        // Set all SPSRs to point back to System mode
+        const uint32_t sysCPSR = 0x000000C0 | static_cast<uint32_t>(arm::Mode::System) | (thumb << 5);
+        jitState.SPSR(arm::Mode::FIQ).u32 = sysCPSR;
+        jitState.SPSR(arm::Mode::IRQ).u32 = sysCPSR;
+        jitState.SPSR(arm::Mode::Supervisor).u32 = sysCPSR;
+        jitState.SPSR(arm::Mode::Abort).u32 = sysCPSR;
+        jitState.SPSR(arm::Mode::Undefined).u32 = sysCPSR;
+
         // Setup GPRs to a recognizable pattern
         for (uint32_t reg = 0; reg < 15; reg++) {
             auto gpr = static_cast<arm::GPR>(reg);

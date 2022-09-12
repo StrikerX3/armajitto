@@ -680,7 +680,7 @@ void testCompiler() {
     // writeThumb(0x47F0);
 
     // ARM LDM from user mode
-    // writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
+    writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
 
     // ARM LDR/STR with PC writeback
     // writeARM(0xE60F0001); // str r0, [pc], -r1
@@ -690,15 +690,40 @@ void testCompiler() {
     // writeARM(0xE00000D1); // ldrd r0, r1, [r0], -r1
 
     // ARM TST with hidden PC argument
-    writeARM(0xE310F1AA); // tst r0, #0x8000002a
+    // writeARM(0xE310F1AA); // tst r0, #0x8000002a
 
-    armajitto::Recompiler jit{{
+    using namespace armajitto;
+
+    Recompiler jit{{
         .system = *sys,
-        .model = armajitto::CPUModel::ARM946ES,
+        .model = CPUModel::ARM946ES,
     }};
+
+    const uint32_t sysCPSR = 0x000000C0 | static_cast<uint32_t>(arm::Mode::System) | (thumb << 5);
     auto &armState = jit.GetARMState();
-    armState.CPSR().mode = armajitto::arm::Mode::FIQ;
+    armState.CPSR().mode = arm::Mode::IRQ;
+    armState.SPSR(arm::Mode::FIQ).u32 = sysCPSR;
+    armState.SPSR(arm::Mode::IRQ).u32 = sysCPSR;
+    armState.SPSR(arm::Mode::Supervisor).u32 = sysCPSR;
+    armState.SPSR(arm::Mode::Abort).u32 = sysCPSR;
+    armState.SPSR(arm::Mode::Undefined).u32 = sysCPSR;
     armState.JumpTo(baseAddress, thumb);
+
+    for (uint32_t reg = 0; reg < 15; reg++) {
+        auto gpr = static_cast<arm::GPR>(reg);
+        const uint32_t regVal = (0xFF - reg) | (reg << 8);
+        armState.GPR(gpr, arm::Mode::System) = regVal;
+        if (reg >= 8 && reg <= 12) {
+            armState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+        }
+        if (reg >= 13 && reg <= 14) {
+            armState.GPR(gpr, arm::Mode::FIQ) = regVal | 0x10000;
+            armState.GPR(gpr, arm::Mode::Supervisor) = regVal | 0x20000;
+            armState.GPR(gpr, arm::Mode::Abort) = regVal | 0x30000;
+            armState.GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
+            armState.GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
+        }
+    }
 
     jit.GetTranslatorParameters().maxBlockSize = numInstrs;
     jit.Run(numInstrs);
