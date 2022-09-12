@@ -5,7 +5,8 @@
 #if ARMAJITTO_USE_VTUNE
     #include <jitprofiling.h>
 
-    #include <format>
+    #include <iomanip>
+    #include <sstream>
     #include <string>
 #endif
 
@@ -21,7 +22,7 @@ inline void ReportCode(uintptr_t codeStart, uintptr_t codeEnd, const char *fnNam
         return;
     }
 
-    std::string methodName = std::format("armajitto::jit::{}", fnName);
+    auto methodName = std::string("armajitto::jit::") + fnName;
 
     iJIT_Method_Load_V2 method = {0};
     method.method_id = iJIT_GetNewMethodID();
@@ -39,23 +40,31 @@ inline void ReportBasicBlock(uintptr_t codeStart, uintptr_t codeEnd, armajitto::
         return;
     }
 
-    auto modeStr = [&]() -> std::string {
-        using armajitto::arm::Mode;
-        switch (loc.Mode()) {
-        case Mode::User: return "USR";
-        case Mode::FIQ: return "FIQ";
-        case Mode::IRQ: return "IRQ";
-        case Mode::Supervisor: return "SVC";
-        case Mode::Abort: return "ABT";
-        case Mode::Undefined: return "UND";
-        case Mode::System: return "SYS";
-        default: return std::format("{:02X}", static_cast<uint32_t>(loc.Mode()));
-        }
-    }();
+    std::ostringstream osFnName{};
+    osFnName << "block_" << std::setfill('0') << std::setw(8) << std::right << std::hex << std::uppercase << loc.PC();
 
-    auto thumbStr = loc.IsThumbMode() ? "Thumb" : "ARM";
-    std::string fnName = std::format("block_{:08X}_{}_{}", loc.PC(), modeStr, thumbStr);
+    using armajitto::arm::Mode;
+    switch (loc.Mode()) {
+    case Mode::User: osFnName << "_USR_"; break;
+    case Mode::FIQ: osFnName << "_FIQ_"; break;
+    case Mode::IRQ: osFnName << "_IRQ_"; break;
+    case Mode::Supervisor: osFnName << "_SVC_"; break;
+    case Mode::Abort: osFnName << "_ABT_"; break;
+    case Mode::Undefined: osFnName << "_UND_"; break;
+    case Mode::System: osFnName << "_SYS_"; break;
+    default:
+        osFnName << '_' << std::setfill('0') << std::setw(2) << std::right << std::hex << std::uppercase
+                 << static_cast<uint32_t>(loc.Mode()) << '_';
+        break;
+    }
 
+    if (loc.IsThumbMode()) {
+        osFnName << "Thumb";
+    } else {
+        osFnName << "ARM";
+    }
+
+    std::string fnName = osFnName.str();
     ReportCode(codeStart, codeEnd, fnName.c_str());
 #endif
 }
