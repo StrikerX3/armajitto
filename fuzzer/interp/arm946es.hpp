@@ -1426,8 +1426,8 @@ private:
         uint32_t size;
         if (regList == 0) {
             // An empty list results in transferring nothing but incrementing the address as if we had a full list
-            firstReg = 15;
-            lastReg = 0;
+            firstReg = 17;
+            lastReg = 16;
             size = 16 * 4;
         } else {
             firstReg = std::countr_zero(regList);
