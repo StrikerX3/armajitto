@@ -796,7 +796,7 @@ private:
     core::cycles_t _ARM_DataProcessing(uint32_t instr) {
         constexpr bool isComparison = (opcode & 0b1100) != 0b1000;
         uint8_t rn = (instr >> 16) & 0xF;
-        uint8_t rd = isComparison ? 0 : ((instr >> 12) & 0xF);
+        uint8_t rd = (instr >> 12) & 0xF;
 
         core::cycles_t cycles = 0;
 
@@ -887,7 +887,7 @@ private:
         }
 
         if constexpr (s) {
-            if (rd != 15) {
+            if (rd != 15 || isComparison) {
                 m_regs.cpsr.z = (result == 0);
                 m_regs.cpsr.n = (result >> 31);
                 m_regs.cpsr.c = carry;
@@ -895,7 +895,7 @@ private:
             }
         }
 
-        if (rd == 15) {
+        if (rd == 15 && !isComparison) {
             if constexpr (s) {
                 m_regs.r15 &= (m_regs.cpsr.t ? ~1 : ~3);
                 cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
