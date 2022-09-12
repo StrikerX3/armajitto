@@ -794,8 +794,9 @@ private:
 
     template <bool i, uint8_t opcode, bool s>
     core::cycles_t _ARM_DataProcessing(uint32_t instr) {
+        constexpr bool isComparison = (opcode & 0b1100) != 0b1000;
         uint8_t rn = (instr >> 16) & 0xF;
-        uint8_t rd = (instr >> 12) & 0xF;
+        uint8_t rd = isComparison ? 0 : ((instr >> 12) & 0xF);
 
         core::cycles_t cycles = 0;
 
@@ -823,7 +824,7 @@ private:
         }
 
         if constexpr (s) {
-            if (rd == 15 && (opcode & 0b1100) != 0b1000) {
+            if (rd == 15) {
                 auto spsr = m_spsr;
                 SetMode(spsr->mode);
                 m_regs.cpsr.u32 = spsr->u32;
@@ -886,7 +887,7 @@ private:
         }
 
         if constexpr (s) {
-            if (rd != 15 || (opcode & 0b1100) == 0b1000) {
+            if (rd != 15) {
                 m_regs.cpsr.z = (result == 0);
                 m_regs.cpsr.n = (result >> 31);
                 m_regs.cpsr.c = carry;
@@ -896,8 +897,10 @@ private:
 
         if (rd == 15) {
             if constexpr (s) {
+                m_regs.r15 &= (m_regs.cpsr.t ? ~1 : ~3);
                 cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
             } else {
+                m_regs.r15 &= ~3;
                 cycles += ReloadPipelineARM();
             }
         } else {
@@ -1313,6 +1316,8 @@ private:
             } else if constexpr (h) {
                 // LDRH
                 dataAccessOK = DataReadUnalignedHalf(address, dst);
+            } else {
+                return EnterException(arm::Excpt_UndefinedInstruction);
             }
         } else {
             if constexpr (s && h) {

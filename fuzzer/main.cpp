@@ -276,12 +276,13 @@ int main(int argc, char *argv[]) {
         printf("\n");
         fprintf(stderr, "Testing mode %d\n", mode);
 
+#ifdef _DEBUG
+        const uint32_t start = 0xE310F1AA - 0xE0000000;
+        const uint32_t end = 0xE310F1AA - 0xE0000000 + 1;
+#else
         const uint32_t start = offset * 0x1000000;
         const uint32_t end = start + limit * 0x1000000;
-        /*const uint32_t start = 0xE100F30;
-        const uint32_t end = 0xE10FF30;*/
-        /*const uint32_t start = 0xE60F0001 - 0xE0000000;
-        const uint32_t end = 0xE60F5125 - 0xE0000000 + 1;*/
+#endif
         for (uint32_t i = start; i < end; i++) {
             const uint32_t instr = i + 0xE0000000;
             if ((instr & 0xFFFFF) == 0) {

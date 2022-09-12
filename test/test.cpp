@@ -686,8 +686,11 @@ void testCompiler() {
     // writeARM(0xE60F0001); // str r0, [pc], -r1
 
     // ARM LDRD with writeback to Rd
-    writeARM(0xE00000D0); // ldrd r0, r1, [r0], -r0
-    writeARM(0xE00000D1); // ldrd r0, r1, [r0], -r1
+    // writeARM(0xE00000D0); // ldrd r0, r1, [r0], -r0
+    // writeARM(0xE00000D1); // ldrd r0, r1, [r0], -r1
+
+    // ARM TST with hidden PC argument
+    writeARM(0xE310F1AA); // tst r0, #0x8000002a
 
     armajitto::Recompiler jit{{
         .system = *sys,
