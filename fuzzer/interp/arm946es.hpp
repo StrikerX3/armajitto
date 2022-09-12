@@ -794,7 +794,7 @@ private:
 
     template <bool i, uint8_t opcode, bool s>
     core::cycles_t _ARM_DataProcessing(uint32_t instr) {
-        constexpr bool isComparison = (opcode & 0b1100) != 0b1000;
+        constexpr bool isComparison = (opcode & 0b1100) == 0b1000;
         uint8_t rn = (instr >> 16) & 0xF;
         uint8_t rd = (instr >> 12) & 0xF;
 
