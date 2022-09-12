@@ -6,8 +6,8 @@
 #include <cstdint>
 
 struct FuzzerSystem : public armajitto::ISystem {
-    std::array<uint8_t, 256> mem;
-    std::array<uint8_t, 256> codemem; // mapped to 0x10000..0x100FF
+    alignas(16) std::array<uint8_t, 256> mem;
+    alignas(16) std::array<uint8_t, 256> codemem; // mapped to 0x10000..0x100FF
 
     static constexpr auto kFuzzMem = [] {
         std::array<uint8_t, 256> mem{};
@@ -44,9 +44,9 @@ struct FuzzerSystem : public armajitto::ISystem {
 
     uint32_t MemReadWord(uint32_t address) final {
         if (address >= 0x10000 && address <= 0x100FF) {
-            return *reinterpret_cast<uint16_t *>(&codemem[address & 0xFC]);
+            return *reinterpret_cast<uint32_t *>(&codemem[address & 0xFC]);
         } else {
-            return *reinterpret_cast<uint16_t *>(&mem[address & 0xFC]);
+            return *reinterpret_cast<uint32_t *>(&mem[address & 0xFC]);
         }
     }
 
