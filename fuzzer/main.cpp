@@ -26,6 +26,25 @@ int main(int argc, char *argv[]) {
 
     auto &jitState = jit.GetARMState();
 
+    auto &cp15 = jitState.GetSystemControlCoprocessor();
+    cp15.ConfigureTCM({.itcmSize = 0x8000, .dtcmSize = 0x4000});
+    cp15.ConfigureCache({
+        .type = armajitto::arm::cp15::cache::Type::WriteBackReg7CleanLockdownB,
+        .separateCodeDataCaches = true,
+        .code =
+            {
+                .size = 0x2000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+        .data =
+            {
+                .size = 0x1000,
+                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+            },
+    });
+
     auto printPSR = [](arm::PSR psr, const char *name) {
         auto flag = [](bool set, char c) { return (set ? c : '.'); };
 
@@ -259,6 +278,8 @@ int main(int argc, char *argv[]) {
 
         const uint32_t start = offset * 0x1000000;
         const uint32_t end = start + limit * 0x1000000;
+        /*const uint32_t start = 0xE100F30;
+        const uint32_t end = 0xE10FF30;*/
         for (uint32_t i = start; i < end; i++) {
             const uint32_t instr = i + 0xE0000000;
             if ((instr & 0xFFFFF) == 0) {
