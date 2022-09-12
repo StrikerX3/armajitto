@@ -278,14 +278,14 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
         }
         break;
     case 0b111: {
-        if (extendedARMv5TEInstr && !bit::test<24>(opcode)) {
-            if (bit::test<4>(opcode)) {
+        if (extendedARMv5TEInstr) {
+            if (bit::test<24>(opcode)) {
+                Translate(arm_decoder::Undefined(), emitter);
+            } else if (bit::test<4>(opcode)) {
                 Translate(arm_decoder::CopRegTransfer(opcode, true), emitter);
             } else {
                 Translate(arm_decoder::CopDataOperations(opcode, true), emitter);
             }
-        } else if (extendedARMv5TEInstr && bit::test<8>(opcode)) {
-            Translate(arm_decoder::Undefined(), emitter);
         } else if (bit::test<24>(opcode)) {
             Translate(arm_decoder::SoftwareInterrupt(opcode), emitter);
         } else if (bit::test<4>(opcode)) {

@@ -1644,6 +1644,11 @@ private:
             return EnterException(arm::Excpt_UndefinedInstruction);
         }
 
+        // CP15 doesn't support MCR2/MRC2
+        if ((instr >> 28) == 0xF) {
+            return EnterException(arm::Excpt_UndefinedInstruction);
+        }
+
         // PC is incremented before it is transferred to the coprocessor
         m_regs.r15 += 4;
 

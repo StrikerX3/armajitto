@@ -680,7 +680,7 @@ void testCompiler() {
     // writeThumb(0x47F0);
 
     // ARM LDM from user mode
-    writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
+    // writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
 
     // ARM LDR/STR with PC writeback
     // writeARM(0xE60F0001); // str r0, [pc], -r1
@@ -691,6 +691,9 @@ void testCompiler() {
 
     // ARM TST with hidden PC argument
     // writeARM(0xE310F1AA); // tst r0, #0x8000002a
+
+    // ARM MCR2
+    writeARM(0xFE000F10); // mcr2 p15, #0, r0, c0, c0, #0
 
     using namespace armajitto;
 
