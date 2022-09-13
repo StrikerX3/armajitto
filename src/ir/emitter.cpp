@@ -67,7 +67,10 @@ void Emitter::SetSPSR(VarOrImmArg src) {
 }
 
 void Emitter::SetSPSR(VarOrImmArg src, arm::Mode mode) {
-    Write<IRSetSPSROp>(mode, src);
+    // Emit only if the target mode has an SPSR register
+    if (arm::NormalizedIndex(mode) != 0) {
+        Write<IRSetSPSROp>(mode, src);
+    }
 }
 
 Variable Emitter::MemRead(MemAccessBus bus, MemAccessMode mode, MemAccessSize size, VarOrImmArg address) {
