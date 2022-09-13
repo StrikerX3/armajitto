@@ -2460,31 +2460,7 @@ private:
             }
         }
         if constexpr (op == 0b000) {
-            if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0001) {
-                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_BranchAndExchange>;
-            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0011) {
-                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_BranchAndLinkExchange>;
-            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0110'0001) {
-                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_CountLeadingZeros>;
-            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0111) {
-                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SoftwareBreakpoint>;
-            } else if constexpr ((instr & 0b1'1001'1111) == 0b1'0000'0101) {
-                const bool dbl = (instr >> 6) & 1;
-                const bool sub = (instr >> 5) & 1;
-                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_EnhancedDSPAddSub<dbl, sub>>;
-            } else if constexpr ((instr & 0b1'1001'1001) == 0b1'0000'1000) {
-                const uint8_t op = (instr >> 5) & 0b11;
-                const bool y = (instr >> 2) & 1;
-                const bool x = (instr >> 1) & 1;
-                switch (op) {
-                case 0b00: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulate<y, x>>;
-                case 0b01:
-                    return x ? &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyWord<y>>
-                             : &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulateWord<y>>;
-                case 0b10: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulateLong<y, x>>;
-                case 0b11: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiply<y, x>>;
-                }
-            } else if constexpr ((instr & 0b1'1100'1111) == 0b0'0000'1001) {
+            if constexpr ((instr & 0b1'1100'1111) == 0b0'0000'1001) {
                 const bool a = (instr >> 5) & 1;
                 const bool s = (instr >> 4) & 1;
                 return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_MultiplyAccumulate<a, s>>;
@@ -2512,6 +2488,34 @@ private:
             } else if constexpr ((instr & 0b1'1011'1111) == 0b1'0010'0000) {
                 const bool pd = (instr >> 6) & 1;
                 return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_MSR<false, pd>>;
+            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0001) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_BranchAndExchange>;
+            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0110'0001) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_CountLeadingZeros>;
+            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0011) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_BranchAndLinkExchange>;
+            } else if constexpr ((instr & 0b1'1001'1111) == 0b1'0000'0101) {
+                const bool dbl = (instr >> 6) & 1;
+                const bool sub = (instr >> 5) & 1;
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_EnhancedDSPAddSub<dbl, sub>>;
+            } else if constexpr ((instr & 0b1'1111'1111) == 0b1'0010'0111) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SoftwareBreakpoint>;
+            } else if constexpr ((instr & 0b1'1001'1001) == 0b1'0000'1000) {
+                const uint8_t op = (instr >> 5) & 0b11;
+                const bool y = (instr >> 2) & 1;
+                const bool x = (instr >> 1) & 1;
+                switch (op) {
+                case 0b00: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulate<y, x>>;
+                case 0b01:
+                    return x ? &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyWord<y>>
+                             : &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulateWord<y>>;
+                case 0b10: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiplyAccumulateLong<y, x>>;
+                case 0b11: return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_SignedMultiply<y, x>>;
+                }
+            } else if constexpr ((instr & 0b1'1001'1001) == 0b1'0000'0001) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_UndefinedInstruction>;
+            } else if constexpr ((instr & 0b1001) == 0b1001) {
+                return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_UndefinedInstruction>;
             } else {
                 const uint8_t opcode = (instr >> 5) & 0xF;
                 const bool s = (instr >> 4) & 1;

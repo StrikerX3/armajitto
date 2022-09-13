@@ -145,44 +145,6 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
     case 0b000:
         if (extendedARMv5TEInstr) {
             Translate(arm_decoder::Undefined(), emitter);
-        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
-            Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
-        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
-            if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-        } else if ((bits24to20 & 0b1'1111) == 0b1'0110 && (bits7to4 & 0b1111) == 0b0001) {
-            if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::CountLeadingZeros(opcode), emitter);
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0111) {
-            if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::SoftwareBreakpoint(opcode), emitter);
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-        } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0101) {
-            if (arch == CPUArch::ARMv5TE) {
-                Translate(arm_decoder::SaturatingAddSub(opcode), emitter);
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
-        } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1001) == 0b1000) {
-            if (arch == CPUArch::ARMv5TE) {
-                const uint8_t op = bit::extract<21, 2>(opcode);
-                switch (op) {
-                case 0b00: [[fallthrough]];
-                case 0b11: Translate(arm_decoder::SignedMultiplyAccumulate(opcode), emitter); break;
-                case 0b01: Translate(arm_decoder::SignedMultiplyAccumulateWord(opcode), emitter); break;
-                case 0b10: Translate(arm_decoder::SignedMultiplyAccumulateLong(opcode), emitter); break;
-                }
-            } else {
-                Translate(arm_decoder::Undefined(), emitter);
-            }
         } else if ((bits24to20 & 0b1'1100) == 0b0'0000 && (bits7to4 & 0b1111) == 0b1001) {
             Translate(arm_decoder::MultiplyAccumulate(opcode), emitter);
         } else if ((bits24to20 & 0b1'1000) == 0b0'1000 && (bits7to4 & 0b1111) == 0b1001) {
@@ -227,6 +189,48 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
             Translate(arm_decoder::PSRRead(opcode), emitter);
         } else if ((bits24to20 & 0b1'1011) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0000) {
             Translate(arm_decoder::PSRWrite(opcode), emitter);
+        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0001) {
+            Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
+        } else if ((bits24to20 & 0b1'1111) == 0b1'0110 && (bits7to4 & 0b1111) == 0b0001) {
+            if (arch == CPUArch::ARMv5TE) {
+                Translate(arm_decoder::CountLeadingZeros(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0011) {
+            if (arch == CPUArch::ARMv5TE) {
+                Translate(arm_decoder::BranchExchangeRegister(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0101) {
+            if (arch == CPUArch::ARMv5TE) {
+                Translate(arm_decoder::SaturatingAddSub(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if ((bits24to20 & 0b1'1111) == 0b1'0010 && (bits7to4 & 0b1111) == 0b0111) {
+            if (arch == CPUArch::ARMv5TE) {
+                Translate(arm_decoder::SoftwareBreakpoint(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1001) == 0b1000) {
+            if (arch == CPUArch::ARMv5TE) {
+                const uint8_t op = bit::extract<21, 2>(opcode);
+                switch (op) {
+                case 0b00: [[fallthrough]];
+                case 0b11: Translate(arm_decoder::SignedMultiplyAccumulate(opcode), emitter); break;
+                case 0b01: Translate(arm_decoder::SignedMultiplyAccumulateWord(opcode), emitter); break;
+                case 0b10: Translate(arm_decoder::SignedMultiplyAccumulateLong(opcode), emitter); break;
+                }
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
+            }
+        } else if ((bits24to20 & 0b1'1001) == 0b1'0000 && (bits7to4 & 0b1001) == 0b0001) {
+            Translate(arm_decoder::Undefined(), emitter);
+        } else if ((bits7to4 & 0b1001) == 0b1001) {
+            Translate(arm_decoder::Undefined(), emitter);
         } else {
             Translate(arm_decoder::DataProcessing(opcode), emitter);
         }
