@@ -536,7 +536,10 @@ Variable Emitter::BarrelShifter(const arm::RegisterSpecifiedShift &shift, bool s
         amount = shift.amount.imm;
     } else {
         amount = GetRegister({shift.amount.reg, m_mode});
-        // TODO: add one I cycle
+        if (shift.amount.reg == arm::GPR::PC) {
+            // Compensate for pipeline effects
+            amount = Subtract(amount, m_instrSize, false);
+        }
     }
 
     Variable result{};

@@ -204,7 +204,7 @@ private:
             flippedBits ^= bits & ~knownBitsMask;
         }
 
-        void LogicalShiftLeft(uint32_t amount) {
+        void LogicalShiftLeft(uint8_t amount) {
             if (amount != 0) {
                 valid = true;
             }
@@ -222,7 +222,7 @@ private:
             }
         }
 
-        void LogicalShiftRight(uint32_t amount) {
+        void LogicalShiftRight(uint8_t amount) {
             if (amount != 0) {
                 valid = true;
             }
@@ -241,7 +241,7 @@ private:
         }
 
         // Returns true if the sign bit is known and the shift was applied
-        bool ArithmeticShiftRight(uint32_t amount) {
+        bool ArithmeticShiftRight(uint8_t amount) {
             // Most significant bit must be known
             if ((knownBitsMask & (1u << 31u)) == 0) {
                 return false;
@@ -265,7 +265,7 @@ private:
             return true;
         }
 
-        void RotateRight(uint32_t amount) {
+        void RotateRight(uint8_t amount) {
             amount &= 31u;
             if (amount != 0 && knownBitsMask != 0) {
                 valid = true;

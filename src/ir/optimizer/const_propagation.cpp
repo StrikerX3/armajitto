@@ -72,6 +72,11 @@ void ConstPropagationOptimizerPass::Process(IRPreloadOp *op) {
 void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
+
+    if (op->amount.immediate) {
+        op->amount.imm.value &= 0xFF;
+    }
+
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::LSL(op->value.imm.value, op->amount.imm.value);
         Assign(op->dst, result);
@@ -105,6 +110,11 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
 void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
+
+    if (op->amount.immediate) {
+        op->amount.imm.value &= 0xFF;
+    }
+
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
         const bool setCarry = op->setCarry;
@@ -138,6 +148,11 @@ void ConstPropagationOptimizerPass::Process(IRLogicalShiftRightOp *op) {
 void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
+
+    if (op->amount.immediate) {
+        op->amount.imm.value &= 0xFF;
+    }
+
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::ASR(op->value.imm.value, op->amount.imm.value);
         const bool setCarry = op->setCarry;
@@ -171,6 +186,11 @@ void ConstPropagationOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
 void ConstPropagationOptimizerPass::Process(IRRotateRightOp *op) {
     Substitute(op->value);
     Substitute(op->amount);
+
+    if (op->amount.immediate) {
+        op->amount.imm.value &= 0xFF;
+    }
+
     if (op->value.immediate && op->amount.immediate) {
         auto [result, carry] = arm::ROR(op->value.imm.value, op->amount.imm.value);
         const bool setCarry = op->setCarry;
