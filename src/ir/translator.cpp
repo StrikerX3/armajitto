@@ -184,6 +184,8 @@ void Translator::TranslateARM(uint32_t opcode, Emitter &emitter) {
                 }
             } else if (h) {
                 Translate(arm_decoder::HalfwordAndSignedTransfer(opcode), emitter);
+            } else {
+                Translate(arm_decoder::Undefined(), emitter);
             }
         } else if ((bits24to20 & 0b1'1011) == 0b1'0000 && (bits7to4 & 0b1111) == 0b0000) {
             Translate(arm_decoder::PSRRead(opcode), emitter);
@@ -954,8 +956,13 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
     }
 
     if (pcValue.IsPresent()) {
-        emitter.Branch(pcValue);
-
+        const bool isLDRD = (!instr.load && instr.sign && !instr.half);
+        if (m_context.GetCPUArch() == CPUArch::ARMv5TE && !isLDRD) {
+            // Honor CP15 pre-ARMv5 branching feature
+            emitter.BranchExchangeL4(pcValue);
+        } else {
+            emitter.Branch(pcValue);
+        }
         m_endBlock = true;
     }
 }

@@ -1347,6 +1347,8 @@ private:
                 // STRH
                 uint32_t value = m_regs.regs[rd] + (rd == 15 ? 4 : 0);
                 dataAccessOK = DataWriteHalf(address, value);
+            } else {
+                return EnterException(arm::Excpt_UndefinedInstruction);
             }
         }
 
