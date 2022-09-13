@@ -25,6 +25,7 @@ void BitwiseOpsCoalescenceOptimizerPass::Reset() {
 
 void BitwiseOpsCoalescenceOptimizerPass::PreProcess(IROp *op) {
     MarkDirty(m_varSubst.Substitute(op));
+    m_varLifetimes.Update(op);
 }
 
 void BitwiseOpsCoalescenceOptimizerPass::PostProcess(IROp *op) {
@@ -579,11 +580,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
         return;
     }
 
-    // Don't optimize now if the variable is not expired at this point
-    if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
-        value->consumed = true;
-        return;
-    }
+    // Mark this value as consumed
+    value->consumed = true;
 
     bool match = false;
     if (value->knownBitsMask == ~0) {
@@ -689,14 +687,13 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
 
     // Erase previous instructions if changed
     if (!match) {
+        auto var = value->prev;
         value = GetValue(value->prev);
-        while (value != nullptr && value->valid && !value->consumed) {
+        while (value != nullptr && value->valid && !value->consumed && m_varLifetimes.IsExpired(var)) {
             m_emitter.Erase(value->writerOp);
+            var = value->prev;
             value = GetValue(value->prev);
         }
-    } else {
-        // Mark this value as consumed
-        value->consumed = true;
     }
 }
 
