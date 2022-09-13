@@ -464,13 +464,25 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 
     const bool dstPC = instr.dstReg == GPR::PC;
     const bool isComparison = bit::extract<2, 2>(static_cast<uint32_t>(instr.opcode)) == 0b10;
-    const bool copySPSRtoCPSR = dstPC && !isComparison;
+    const bool copySPSRtoCPSR = dstPC;
+    const bool updateFlags = instr.setFlags && (!dstPC || isComparison);
+    const bool carryInOpcode =
+        instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
 
     // PC is incremented before if using a register-specified shift
     if (!instr.immediate && !instr.rhs.shift.immediate) {
         emitter.FetchInstruction();
     }
 
+    // Copy SPSR to CPSR when the S flag is set with Rd = 15 and the operation is not a comparison.
+    // This is done now in order to update CPSR before updating flags.
+    // The registers below are still retrieved from the previous CPSR mode.
+    if (instr.setFlags && copySPSRtoCPSR) {
+        emitter.CopySPSRToCPSR();
+        m_endBlock = true; // may have changed mode
+    }
+
+    // Get first operand
     Variable lhs;
     if (instr.opcode != Opcode::MOV && instr.opcode != Opcode::MVN) {
         lhs = emitter.GetRegister(instr.lhsReg);
@@ -479,12 +491,11 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         }
     }
 
+    // Compute second operand
     VarOrImmArg rhs;
-    const bool carryInOpcode =
-        instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
     if (instr.immediate) {
         rhs = instr.rhs.imm.value;
-        if (instr.setFlags && !carryInOpcode && !dstPC) {
+        if (updateFlags && !carryInOpcode) {
             if (instr.rhs.imm.carry != CarryResult::NoChange) {
                 if (instr.rhs.imm.carry == CarryResult::Clear) {
                     emitter.SetC(false);
@@ -495,13 +506,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
             }
         }
     } else {
-        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && (!dstPC || isComparison));
-    }
-
-    // Copy SPSR to CPSR when the S flag is set with Rd = 15 and the operation is not a comparsion
-    if (instr.setFlags && copySPSRtoCPSR) {
-        emitter.CopySPSRToCPSR();
-        m_endBlock = true; // may have changed mode
+        rhs = emitter.BarrelShifter(instr.rhs.shift, updateFlags && !carryInOpcode);
     }
 
     // Perform the selected ALU operation
@@ -530,8 +535,8 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         emitter.SetRegister(instr.dstReg, result);
     }
 
-    // Update flags if requested (unless Rd = 15, except for comparisons)
-    if (instr.setFlags && !copySPSRtoCPSR) {
+    // Update flags if requested
+    if (updateFlags) {
         static constexpr Flags flagsByOpcode[] = {
             /*AND*/ Flags::NZ,   /*EOR*/ Flags::NZ,   /*SUB*/ Flags::NZCV, /*RSB*/ Flags::NZCV,
             /*ADD*/ Flags::NZCV, /*ADC*/ Flags::NZCV, /*SBC*/ Flags::NZCV, /*RSC*/ Flags::NZCV,
