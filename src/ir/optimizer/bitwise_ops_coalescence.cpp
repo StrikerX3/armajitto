@@ -535,7 +535,6 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
         dstValue.knownBitsValue = srcValue.knownBitsValue;
         dstValue.flippedBits = srcValue.flippedBits;
         dstValue.rotateOffset = srcValue.rotateOffset;
-        srcValue.derived = true;
     } else {
         dstValue.source = src.var;
     }
@@ -558,6 +557,14 @@ auto BitwiseOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value * {
     }
     return nullptr;
 }
+
+static std::pair<bool, bool> ShiftMatch(uint32_t knownBitsMask, uint32_t knownBitsValue, uint32_t rotate,
+                                        uint32_t shiftMask) {
+    const bool basicMatch = (rotate != 0) && (knownBitsValue & shiftMask) == 0;
+    const bool bitMatch = basicMatch && (knownBitsMask & shiftMask) == shiftMask;
+    const bool exactMatch = basicMatch && (knownBitsMask == shiftMask);
+    return {bitMatch, exactMatch};
+};
 
 void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op) {
     if (!var.var.IsPresent()) {
@@ -626,16 +633,15 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
                 // Emit a ROR, LSR or LSL for rotation
                 const uint32_t rightShiftMask = ~(~0u >> rotate);
                 const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
-                const bool rightShiftMatch = (rotate != 0) &&
-                                             (value->knownBitsMask & rightShiftMask) == rightShiftMask &&
-                                             (value->knownBitsValue & rightShiftMask) == 0;
-                const bool leftShiftMatch = (rotate != 0) && (value->knownBitsMask & leftShiftMask) == leftShiftMask &&
-                                            (value->knownBitsValue & leftShiftMask) == 0;
+                const auto [rightShiftBitMatch, rightShiftExactMatch] =
+                    ShiftMatch(value->knownBitsMask, value->knownBitsValue, rotate, rightShiftMask);
+                const auto [leftShiftBitMatch, leftShiftExactMatch] =
+                    ShiftMatch(value->knownBitsMask, value->knownBitsValue, rotate, leftShiftMask);
                 if (rotate != 0) {
-                    if (rightShiftMatch) {
+                    if (rightShiftBitMatch) {
                         // Emit LSR when all <rotate> most significant bits are known to be zero
                         result = m_emitter.LogicalShiftRight(result, rotate, false);
-                    } else if (leftShiftMatch) {
+                    } else if (leftShiftBitMatch) {
                         // Emit LSL when all <32 - rotate> least significant bits are known to be zero
                         result = m_emitter.LogicalShiftLeft(result, 32 - rotate, false);
                     } else {
@@ -657,7 +663,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
                     }
 
                     // Emit BIC for all known zero bits, unless all of those zero bits are covered by LSR or LSL
-                    if (zeros != 0 && !rightShiftMatch && !leftShiftMatch) {
+                    if (zeros != 0 && !rightShiftExactMatch && !leftShiftExactMatch) {
                         result = m_emitter.BitClear(result, zeros, false);
                     }
 
@@ -684,7 +690,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
     // Erase previous instructions if changed
     if (!match) {
         value = GetValue(value->prev);
-        while (value != nullptr && !value->derived) {
+        while (value != nullptr && value->valid) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
@@ -719,12 +725,12 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
     // This happens when all zeros are covered by the rotation mask and no other zeros exist.
     const uint32_t rightShiftMask = ~(~0u >> rotate);
     const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
-    const bool rightShiftMatch = (rotate != 0) && (value.knownBitsMask & rightShiftMask) == rightShiftMask &&
-                                 (value.knownBitsValue & rightShiftMask) == 0;
-    const bool leftShiftMatch = (rotate != 0) && (value.knownBitsMask & leftShiftMask) == leftShiftMask &&
-                                (value.knownBitsValue & leftShiftMask) == 0;
+    const auto [rightShiftBitMatch, rightShiftExactMatch] =
+        ShiftMatch(value.knownBitsMask, value.knownBitsValue, rotate, rightShiftMask);
+    const auto [leftShiftBitMatch, leftShiftExactMatch] =
+        ShiftMatch(value.knownBitsMask, value.knownBitsValue, rotate, leftShiftMask);
     hasOnes = (ones == 0);
-    hasZeros = (zeros == 0) || leftShiftMatch || rightShiftMatch;
+    hasZeros = (zeros == 0) || leftShiftExactMatch || rightShiftExactMatch;
     hasFlips = (flips == 0);
     hasRotate = (rotate == 0);
 }

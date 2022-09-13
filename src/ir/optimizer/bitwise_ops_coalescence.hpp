@@ -160,8 +160,6 @@ private:
         Variable source;          // Original source of the value for this variable
         Variable prev;            // Previous variable from which this was derived
 
-        bool derived = false; // Marks this value as derived, to track forks
-
         uint32_t Ones() const {
             return knownBitsValue & knownBitsMask;
         }
