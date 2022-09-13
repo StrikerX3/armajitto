@@ -1160,8 +1160,12 @@ private:
         int64_t accumulate = dstLo | ((uint64_t)dstHi << 32ull);
 
         int64_t result = (int64_t)multiplicand * multiplier + accumulate;
-        dstLo = (result >> 0ull);
-        dstHi = (result >> 32ull);
+        if (rdLo != 15) {
+            dstLo = (result >> 0ull);
+        }
+        if (rdHi != 15) {
+            dstHi = (result >> 32ull);
+        }
 
         m_regs.r15 += 4;
         return 2; // 1I for extra calculations + 1S to fetch next instruction
