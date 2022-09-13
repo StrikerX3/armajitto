@@ -160,6 +160,8 @@ private:
         Variable source;          // Original source of the value for this variable
         Variable prev;            // Previous variable from which this was derived
 
+        bool consumed = false; // Indicates if this value was consumed, to prevent overoptimization
+
         uint32_t Ones() const {
             return knownBitsValue & knownBitsMask;
         }

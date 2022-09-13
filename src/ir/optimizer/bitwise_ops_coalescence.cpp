@@ -581,7 +581,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
 
     // Don't optimize now if the variable is not expired at this point
     if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
-        value->valid = false;
+        value->consumed = true;
         return;
     }
 
@@ -690,13 +690,13 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
     // Erase previous instructions if changed
     if (!match) {
         value = GetValue(value->prev);
-        while (value != nullptr && value->valid) {
+        while (value != nullptr && value->valid && !value->consumed) {
             m_emitter.Erase(value->writerOp);
             value = GetValue(value->prev);
         }
     } else {
-        // Isolate this instruction sequence as the value was consumed
-        value->valid = false;
+        // Mark this value as consumed
+        value->consumed = true;
     }
 }
 
