@@ -738,7 +738,7 @@ void testCompiler() {
         }
     }
 
-    jit.GetTranslatorParameters().maxBlockSize = numInstrs;
+    jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.Run(numInstrs);
 }
 

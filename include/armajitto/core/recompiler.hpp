@@ -2,7 +2,7 @@
 
 #include "armajitto/guest/arm/state.hpp"
 #include "context.hpp"
-#include "params.hpp"
+#include "options.hpp"
 #include "specification.hpp"
 
 #include <memory>
@@ -16,8 +16,9 @@ public:
 
     void Reset();
 
-    TranslatorParameters &GetTranslatorParameters();
-    OptimizerParameters &GetOptimizerParameters();
+    Options &GetOptions() {
+        return m_options;
+    }
 
     CPUModel GetCPUModel() const {
         return m_spec.model;
@@ -52,6 +53,7 @@ public:
 private:
     Specification m_spec;
     Context m_context;
+    Options m_options;
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

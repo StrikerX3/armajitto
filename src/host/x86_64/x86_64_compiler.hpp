@@ -15,7 +15,8 @@
 
 namespace armajitto::x86_64 {
 
-struct x64Host::Compiler {
+class x64Host::Compiler {
+public:
     Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block,
              std::pmr::memory_resource &alloc);
 
@@ -130,15 +131,15 @@ public:
     void CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args);
 
 private:
-    Context &context;
-    CompiledCode &compiledCode;
-    arm::State &armState;
-    arm::StateOffsets stateOffsets;
-    MemoryMapHostAccess memMap;
-    Xbyak::CodeGenerator &codegen;
-    RegisterAllocator regAlloc;
-    arm::Mode mode;
-    bool thumb;
+    Context &m_context;
+    CompiledCode &m_compiledCode;
+    arm::State &m_armState;
+    arm::StateOffsets m_stateOffsets;
+    MemoryMapHostAccess m_memMap;
+    Xbyak::CodeGenerator &m_codegen;
+    RegisterAllocator m_regAlloc;
+    arm::Mode m_mode;
+    bool m_thumb;
 };
 
 } // namespace armajitto::x86_64

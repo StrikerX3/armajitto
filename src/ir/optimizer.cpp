@@ -29,34 +29,34 @@ bool Optimizer::Optimize(BasicBlock &block) {
     HostFlagsOpsCoalescenceOptimizerPass hostFlagsCoalescencePass{emitter};
 
     bool optimized = false;
-    int maxIters = m_parameters.maxIterations;
+    int maxIters = m_options.maxIterations;
     for (int i = 0; i < maxIters; i++) {
         bool dirty = false;
-        if (m_parameters.passes.constantPropagation) {
+        if (m_options.passes.constantPropagation) {
             dirty |= constPropPass.Optimize();
         }
-        if (m_parameters.passes.deadRegisterStoreElimination) {
+        if (m_options.passes.deadRegisterStoreElimination) {
             dirty |= deadRegStoreElimPass.Optimize();
         }
-        if (m_parameters.passes.deadGPRStoreElimination) {
+        if (m_options.passes.deadGPRStoreElimination) {
             dirty |= deadGPRStoreElimPass.Optimize();
         }
-        if (m_parameters.passes.deadHostFlagStoreElimination) {
+        if (m_options.passes.deadHostFlagStoreElimination) {
             dirty |= deadHostFlagStoreElimPass.Optimize();
         }
-        if (m_parameters.passes.deadFlagValueStoreElimination) {
+        if (m_options.passes.deadFlagValueStoreElimination) {
             dirty |= deadFlagValueStoreElimPass.Optimize();
         }
-        if (m_parameters.passes.deadVariableStoreElimination) {
+        if (m_options.passes.deadVariableStoreElimination) {
             dirty |= deadVarStoreElimPass.Optimize();
         }
-        if (m_parameters.passes.bitwiseOpsCoalescence) {
+        if (m_options.passes.bitwiseOpsCoalescence) {
             dirty |= bitwiseCoalescencePass.Optimize();
         }
-        if (m_parameters.passes.arithmeticOpsCoalescence) {
+        if (m_options.passes.arithmeticOpsCoalescence) {
             dirty |= arithmeticCoalescencePass.Optimize();
         }
-        if (m_parameters.passes.hostFlagsOpsCoalescence) {
+        if (m_options.passes.hostFlagsOpsCoalescence) {
             dirty |= hostFlagsCoalescencePass.Optimize();
         }
         optimized |= dirty;

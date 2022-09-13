@@ -12,11 +12,11 @@
 namespace armajitto {
 
 struct Recompiler::Impl {
-    Impl(Context &context, const Specification &spec)
+    Impl(Context &context, const Specification &spec, Options &params)
         : context(context)
-        , translator(context)
-        , optimizer(pmrBuffer)
-        , host(context, pmrBuffer, spec.maxHostCodeSize) {}
+        , translator(context, params.translator)
+        , optimizer(params.optimizer, pmrBuffer)
+        , host(context, params.compiler, pmrBuffer) {}
 
     void Reset() {
         FlushCachedBlocks();
@@ -94,20 +94,12 @@ struct Recompiler::Impl {
 Recompiler::Recompiler(const Specification &spec)
     : m_spec(spec)
     , m_context(spec.model, spec.system)
-    , m_impl(std::make_unique<Impl>(m_context, spec)) {}
+    , m_impl(std::make_unique<Impl>(m_context, spec, m_options)) {}
 
 Recompiler::~Recompiler() = default;
 
 void Recompiler::Reset() {
     m_impl->Reset();
-}
-
-TranslatorParameters &Recompiler::GetTranslatorParameters() {
-    return m_impl->translator.GetParameters();
-}
-
-OptimizerParameters &Recompiler::GetOptimizerParameters() {
-    return m_impl->optimizer.GetParameters();
 }
 
 uint64_t Recompiler::Run(uint64_t minCycles) {

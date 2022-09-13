@@ -57,7 +57,7 @@ void Translator::Translate(BasicBlock &block) {
     };
 
     uint32_t address = block.Location().PC() - opcodeSize * 2;
-    for (uint32_t i = 0; i < m_params.maxBlockSize; i++) {
+    for (uint32_t i = 0; i < m_options.maxBlockSize; i++) {
         if (thumb) {
             const uint16_t opcode = CodeReadHalf(address);
             const Condition cond = parseThumbCond(opcode);

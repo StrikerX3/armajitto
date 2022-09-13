@@ -22,9 +22,7 @@ namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
 public:
-    static constexpr size_t kDefaultMaxCodeSize = static_cast<size_t>(1) * 1024 * 1024;
-
-    x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize = kDefaultMaxCodeSize);
+    x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc);
     ~x64Host();
 
     HostCode Compile(ir::BasicBlock &block) final;
@@ -69,7 +67,7 @@ private:
     CompiledCode m_compiledCode;
     std::pmr::memory_resource &m_alloc;
 
-    struct Compiler;
+    class Compiler;
 
     void CompileCommon();
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armajitto/core/params.hpp"
+#include "armajitto/core/options.hpp"
 
 #include "basic_block.hpp"
 
@@ -10,17 +10,14 @@ namespace armajitto::ir {
 
 class Optimizer {
 public:
-    Optimizer(std::pmr::memory_resource &pmrBuffer)
-        : m_pmrBuffer(pmrBuffer) {}
-
-    OptimizerParameters &GetParameters() {
-        return m_parameters;
-    }
+    Optimizer(Options::Optimizer &options, std::pmr::memory_resource &pmrBuffer)
+        : m_options(options)
+        , m_pmrBuffer(pmrBuffer) {}
 
     bool Optimize(BasicBlock &block);
 
 private:
-    OptimizerParameters m_parameters;
+    Options::Optimizer &m_options;
 
     std::pmr::memory_resource &m_pmrBuffer;
 };

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "armajitto/core/context.hpp"
-#include "armajitto/core/params.hpp"
+#include "armajitto/core/options.hpp"
 
 #include "guest/arm/instructions.hpp"
 
@@ -14,18 +14,15 @@ namespace armajitto::ir {
 // A Translator instance is not safe for concurrent accesses. Use one instance per thread instead.
 class Translator {
 public:
-    Translator(Context &context)
-        : m_context(context) {}
-
-    TranslatorParameters &GetParameters() {
-        return m_params;
-    }
+    Translator(Context &context, Options::Translator &options)
+        : m_context(context)
+        , m_options(options) {}
 
     void Translate(BasicBlock &block);
 
 private:
     Context &m_context;
-    TranslatorParameters m_params;
+    Options::Translator &m_options;
 
     // Indicates if the flags have been potentially changed, which might change the result of the current block's
     // condition check.

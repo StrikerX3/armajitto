@@ -1,6 +1,7 @@
 #pragma once
 
 #include "armajitto/core/context.hpp"
+#include "armajitto/core/options.hpp"
 
 #include "ir/basic_block.hpp"
 
@@ -14,8 +15,9 @@ namespace armajitto {
 // Base class for host compilers and invokers.
 class Host {
 public:
-    Host(Context &context)
+    Host(Context &context, Options::Compiler &options)
         : m_context(context)
+        , m_options(options)
         , m_stateOffsets(context.GetARMState()) {}
 
     virtual ~Host() = default;
@@ -55,6 +57,7 @@ public:
 
 protected:
     Context &m_context;
+    Options::Compiler &m_options;
 
     arm::StateOffsets m_stateOffsets;
 

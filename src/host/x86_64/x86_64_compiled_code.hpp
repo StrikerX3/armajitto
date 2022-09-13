@@ -27,6 +27,8 @@ struct CompiledCode {
     HostCode epilog;
     HostCode irqEntry;
 
+    bool enableBlockLinking;
+
     // Cached blocks by LocationRef::ToUint64()
     std::map<uint64_t, CachedBlock> blockCache;
 

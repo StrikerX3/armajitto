@@ -18,11 +18,11 @@ namespace armajitto::x86_64 {
 
 inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycleCountOffset];
 
-x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxCodeSize)
-    : Host(context)
-    , m_codeBuffer(new uint8_t[maxCodeSize])
-    , m_codeBufferSize(maxCodeSize)
-    , m_codegen(maxCodeSize, m_codeBuffer.get())
+x64Host::x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc)
+    : Host(context, options)
+    , m_codeBuffer(new uint8_t[options.initialCodeBufferSize])
+    , m_codeBufferSize(options.initialCodeBufferSize)
+    , m_codegen(options.initialCodeBufferSize, m_codeBuffer.get())
     , m_alloc(alloc) {
 
     SetInvalidateCodeCacheCallback(
@@ -34,6 +34,7 @@ x64Host::x64Host(Context &context, std::pmr::memory_resource &alloc, size_t maxC
 
     m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
 
+    m_compiledCode.enableBlockLinking = options.enableBlockLinking;
     CompileCommon();
 }
 
@@ -69,6 +70,7 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
 void x64Host::Clear() {
     m_compiledCode.Clear();
     m_codegen.reset();
+    m_compiledCode.enableBlockLinking = m_options.enableBlockLinking;
 
     CompileCommon();
 }
@@ -86,11 +88,13 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
     }
     auto it = m_compiledCode.blockCache.lower_bound(start);
     while (it != m_compiledCode.blockCache.end() && it->first >= start && it->first <= end) {
-        // Undo patches
-        RevertDirectLinkPatches(it->first);
+        if (m_compiledCode.enableBlockLinking) {
+            // Undo patches
+            RevertDirectLinkPatches(it->first);
 
-        // Remove any pending patches for this block
-        m_compiledCode.pendingPatches.erase(it->first);
+            // Remove any pending patches for this block
+            m_compiledCode.pendingPatches.erase(it->first);
+        }
 
         // Remove the block from the cache
         it = m_compiledCode.blockCache.erase(it);
@@ -373,11 +377,16 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
             // TODO: properly decrement cycles for failing the check
             m_codegen.sub(kCycleCountOperand, block.InstructionCount());
 
-            // Bail out if we ran out of cycles
-            m_codegen.jle(m_compiledCode.epilog);
+            if (m_compiledCode.enableBlockLinking) {
+                // Bail out if we ran out of cycles
+                m_codegen.jle(m_compiledCode.epilog);
 
-            // Link to next instruction
-            compiler.CompileDirectLinkToSuccessor(block);
+                // Link to next instruction
+                compiler.CompileDirectLinkToSuccessor(block);
+            } else {
+                // Bail out immediately if block linking is disabled
+                m_codegen.jmp(m_compiledCode.epilog);
+            }
         }
     }
 
@@ -386,8 +395,10 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    // Patch references to this block
-    ApplyDirectLinkPatches(block.Location(), fnPtr);
+    if (m_compiledCode.enableBlockLinking) {
+        // Patch references to this block
+        ApplyDirectLinkPatches(block.Location(), fnPtr);
+    }
 
     // Cleanup, cache block and return pointer to code
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());

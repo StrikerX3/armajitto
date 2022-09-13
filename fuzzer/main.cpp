@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 
     Specification spec{jitSys, CPUModel::ARM946ES};
     Recompiler jit{spec};
-    jit.GetTranslatorParameters().maxBlockSize = 1;
+    jit.GetOptions().translator.maxBlockSize = 1;
 
     auto &jitState = jit.GetARMState();
 
