@@ -310,24 +310,21 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
             return false;
         }
 
-        // Requires a variable/immediate pair in lhs and rhs
-        if (auto pair = SplitImmVarPair(op->lhs, op->rhs)) {
-            auto [imm, var] = *pair;
-
-            // Must derive from existing value
-            auto *value = DeriveValue(op->dst, var, op);
-            if (value == nullptr) {
-                return false;
-            }
-
-            // BIC clears all one bits
-            value->Clear(imm);
-
-            return true;
+        // Requires lhs to be a variable and rhs to be an immediate
+        if (op->lhs.immediate || !op->rhs.immediate) {
+            return false;
         }
 
-        // Not a variable/immediate pair
-        return false;
+        // Must derive from existing value
+        auto *value = DeriveValue(op->dst, op->lhs.var.var, op);
+        if (value == nullptr) {
+            return false;
+        }
+
+        // BIC clears all one bits
+        value->Clear(op->rhs.imm.value);
+
+        return true;
     }();
 
     if (!optimized) {
