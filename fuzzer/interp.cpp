@@ -88,6 +88,22 @@ public:
         m_interp.SetMode(m_interp.GetRegisters().cpsr.mode);
     }
 
+    void SetSPSR(arm::Mode mode, uint32_t value) final {
+        static constexpr auto indices = [] {
+            std::array<size_t, 32> indices{};
+            indices.fill(0);
+            indices[static_cast<size_t>(arm::Mode::User)] = 0;
+            indices[static_cast<size_t>(arm::Mode::FIQ)] = 1;
+            indices[static_cast<size_t>(arm::Mode::IRQ)] = 2;
+            indices[static_cast<size_t>(arm::Mode::Supervisor)] = 3;
+            indices[static_cast<size_t>(arm::Mode::Abort)] = 4;
+            indices[static_cast<size_t>(arm::Mode::Undefined)] = 5;
+            indices[static_cast<size_t>(arm::Mode::System)] = 0;
+            return indices;
+        }();
+        m_interp.GetRegisters().spsr[indices[static_cast<size_t>(mode)]].u32 = value;
+    }
+
 private:
     interp::arm946es::ARM946ES<FuzzerSystem> m_interp;
 };

@@ -18,6 +18,7 @@ public:
 
     virtual uint32_t GetCPSR() = 0;
     virtual void SetCPSR(uint32_t value) = 0;
+    virtual void SetSPSR(armajitto::arm::Mode mode, uint32_t value) = 0;
 };
 
 std::unique_ptr<Interpreter> MakeARM946ESInterpreter(FuzzerSystem &sys);

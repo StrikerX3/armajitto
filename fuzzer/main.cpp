@@ -196,6 +196,11 @@ int main(int argc, char *argv[]) {
 
         // Set all SPSRs to point back to System mode
         const uint32_t sysCPSR = 0x000000C0 | static_cast<uint32_t>(arm::Mode::System) | (thumb << 5);
+        interp->SetSPSR(arm::Mode::FIQ, sysCPSR);
+        interp->SetSPSR(arm::Mode::IRQ, sysCPSR);
+        interp->SetSPSR(arm::Mode::Supervisor, sysCPSR);
+        interp->SetSPSR(arm::Mode::Abort, sysCPSR);
+        interp->SetSPSR(arm::Mode::Undefined, sysCPSR);
         jitState.SPSR(arm::Mode::FIQ).u32 = sysCPSR;
         jitState.SPSR(arm::Mode::IRQ).u32 = sysCPSR;
         jitState.SPSR(arm::Mode::Supervisor).u32 = sysCPSR;
@@ -285,7 +290,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Testing mode %d\n", mode);
 
 #ifdef _DEBUG
-        const uint32_t testInstr = 0xFE000F10;
+        const uint32_t testInstr = 0xE36100B1;
         const uint32_t start = testInstr - 0xE0000000;
         const uint32_t end = start + 1;
 #else
