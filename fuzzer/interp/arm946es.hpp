@@ -1604,6 +1604,16 @@ private:
         return EnterException(arm::Excpt_PrefetchAbort);
     }
 
+    // template <bool i, bool u>
+    core::cycles_t _ARM_Preload(uint32_t instr) {
+        // p is always true
+        // w is always false
+        // uint16_t rn = (instr >> 16) & 0xF;
+        // uint16_t addrMode = instr & 0xFFF;
+        m_regs.r15 += 4;
+        return 2;
+    }
+
     // CDP  when cond != 0b1111
     // CDP2 when cond == 0b1111
     // template <uint8_t opcode1, uint8_t opcode2>
@@ -2432,8 +2442,17 @@ private:
     static constexpr auto MakeARMInstruction() {
         const auto op = (instr >> 9);
         if constexpr (specialCond) {
-            if constexpr (op == 0b000 || op == 0b001 || op == 0b010 || op == 0b011 || op == 0b100) {
+            if constexpr (op == 0b000 || op == 0b001 || op == 0b100) {
                 return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_UndefinedInstruction>;
+            } else if constexpr (op == 0b010 || op == 0b011) {
+                if constexpr ((instr & 0b1'0111'0000) == 0b1'0101'0000) {
+                    // const bool i = (instr >> 9) & 1;
+                    // const bool u = (instr >> 7) & 1;
+                    // return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_Preload<i, u>>;
+                    return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_Preload>;
+                } else {
+                    return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_UndefinedInstruction>;
+                }
             } else if constexpr (op == 0b111) {
                 if ((instr >> 8) & 1) {
                     return &ARM946ES::ARMInstrHandlerWrapper<&ARM946ES::_ARM_UndefinedInstruction>;

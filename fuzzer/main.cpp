@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Testing mode %d\n", mode);
 
 #ifdef _DEBUG
-        const uint32_t testInstr = 0xE36100B1;
+        const uint32_t testInstr = 0xF5500000;
         const uint32_t start = testInstr - 0xE0000000;
         const uint32_t end = start + 1;
 #else

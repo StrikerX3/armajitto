@@ -691,9 +691,13 @@ void testCompiler() {
 
     // ARM TST with hidden PC argument
     // writeARM(0xE310F1AA); // tst r0, #0x8000002a
+    writeARM(0xE314F1F8); // tst r4, #248, #2
 
     // ARM MCR2
-    writeARM(0xFE000F10); // mcr2 p15, #0, r0, c0, c0, #0
+    // writeARM(0xFE000F10); // mcr2 p15, #0, r0, c0, c0, #0
+
+    // ARM ALU ops with shift by PC
+    // writeARM(0xE0000F31); // and r0, r0, r1, lsr pc
 
     using namespace armajitto;
 
