@@ -73,13 +73,13 @@ static uint32_t SystemMemReadUnalignedWord(ISystem &system, uint32_t address) {
 }
 
 // ARMv4T and ARMv5TE STRB
-static void SystemMemWriteByte(ISystem &system, uint32_t address, uint8_t value) {
-    system.MemWriteByte(address, value);
+static void SystemMemWriteByte(ISystem &system, uint32_t address, uint32_t value) {
+    system.MemWriteByte(address, value & 0xFF);
 }
 
 // ARMv4T and ARMv5TE STRH
-static void SystemMemWriteHalf(ISystem &system, uint32_t address, uint16_t value) {
-    system.MemWriteHalf(address & ~1, value);
+static void SystemMemWriteHalf(ISystem &system, uint32_t address, uint32_t value) {
+    system.MemWriteHalf(address & ~1, value & 0xFFFF);
 }
 
 // ARMv4T and ARMv5TE STR
@@ -88,23 +88,23 @@ static void SystemMemWriteWord(ISystem &system, uint32_t address, uint32_t value
 }
 
 // MRC
-static uint32_t SystemLoadCopRegister(arm::State &state, uint8_t cpnum, uint16_t reg) {
-    return state.GetCoprocessor(cpnum).LoadRegister(reg);
+static uint32_t SystemLoadCopRegister(arm::State &state, uint32_t cpnum, uint32_t reg) {
+    return state.GetCoprocessor(cpnum & 0xF).LoadRegister(reg & 0xFFFF);
 }
 
 // MCR
-static void SystemStoreCopRegister(arm::State &state, uint8_t cpnum, uint16_t reg, uint32_t value) {
-    return state.GetCoprocessor(cpnum).StoreRegister(reg, value);
+static void SystemStoreCopRegister(arm::State &state, uint32_t cpnum, uint32_t reg, uint32_t value) {
+    return state.GetCoprocessor(cpnum & 0xF).StoreRegister(reg & 0xFFFF, value);
 }
 
 // MRC2
-static uint32_t SystemLoadCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t reg) {
-    return state.GetCoprocessor(cpnum).LoadExtRegister(reg);
+static uint32_t SystemLoadCopExtRegister(arm::State &state, uint32_t cpnum, uint32_t reg) {
+    return state.GetCoprocessor(cpnum & 0xF).LoadExtRegister(reg & 0xFFFF);
 }
 
 // MCR2
-static void SystemStoreCopExtRegister(arm::State &state, uint8_t cpnum, uint16_t reg, uint32_t value) {
-    return state.GetCoprocessor(cpnum).StoreExtRegister(reg, value);
+static void SystemStoreCopExtRegister(arm::State &state, uint32_t cpnum, uint32_t reg, uint32_t value) {
+    return state.GetCoprocessor(cpnum & 0xF).StoreExtRegister(reg & 0xFFFF, value);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -689,19 +689,19 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
     auto invokeFnImm8 = [&](auto fn, const ir::VarOrImmArg &address, uint8_t src) {
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, system, address.imm.value, src);
+            CompileInvokeHostFunction(fn, system, address.imm.value, (uint32_t)src);
         } else {
             auto addrReg32 = m_regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, system, addrReg32, src);
+            CompileInvokeHostFunction(fn, system, addrReg32, (uint32_t)src);
         }
     };
 
     auto invokeFnImm16 = [&](auto fn, const ir::VarOrImmArg &address, uint16_t src) {
         if (address.immediate) {
-            CompileInvokeHostFunction(fn, system, address.imm.value, src);
+            CompileInvokeHostFunction(fn, system, address.imm.value, (uint32_t)src);
         } else {
             auto addrReg32 = m_regAlloc.Get(address.var.var);
-            CompileInvokeHostFunction(fn, system, addrReg32, src);
+            CompileInvokeHostFunction(fn, system, addrReg32, (uint32_t)src);
         }
     };
 
@@ -2510,16 +2510,16 @@ void x64Host::Compiler::CompileOp(const ir::IRLoadCopRegisterOp *op) {
 
     auto func = (op->ext) ? SystemLoadCopExtRegister : SystemLoadCopRegister;
     auto dstReg32 = m_regAlloc.Get(op->dstValue.var);
-    CompileInvokeHostFunction(dstReg32, func, m_armState, op->cpnum, op->reg.u16);
+    CompileInvokeHostFunction(dstReg32, func, m_armState, (uint32_t)op->cpnum, (uint32_t)op->reg.u16);
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRStoreCopRegisterOp *op) {
     auto func = (op->ext) ? SystemStoreCopExtRegister : SystemStoreCopRegister;
     if (op->srcValue.immediate) {
-        CompileInvokeHostFunction(func, m_armState, op->cpnum, op->reg.u16, op->srcValue.imm.value);
+        CompileInvokeHostFunction(func, m_armState, (uint32_t)op->cpnum, (uint32_t)op->reg.u16, op->srcValue.imm.value);
     } else {
         auto srcReg32 = m_regAlloc.Get(op->srcValue.var.var);
-        CompileInvokeHostFunction(func, m_armState, op->cpnum, op->reg.u16, srcReg32);
+        CompileInvokeHostFunction(func, m_armState, (uint32_t)op->cpnum, (uint32_t)op->reg.u16, srcReg32);
     }
 }
 
