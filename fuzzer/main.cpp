@@ -290,9 +290,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Testing mode %d\n", mode);
 
 #ifdef _DEBUG
-        const uint32_t testInstr = 0xF5500000;
+        const uint32_t testInstr = 0xE00F0080;
         const uint32_t start = testInstr - 0xE0000000;
-        const uint32_t end = start + 1;
+        const uint32_t end = start /*+ 0x1000000*/ + 1;
 #else
         const uint32_t start = offset * 0x1000000;
         const uint32_t end = start + limit * 0x1000000;
