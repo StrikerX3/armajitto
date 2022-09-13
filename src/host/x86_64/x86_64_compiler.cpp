@@ -784,7 +784,8 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             }
 
             // Compute the shift
-            m_codegen.shl(dstReg, 32); // Shift value to the top half of the 64-bit register
+            m_codegen.shl(dstReg, 32);                    // Shift value to the top half of the 64-bit register
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shl(dstReg, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags();
@@ -812,6 +813,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
 
         // Compute the shift
         m_codegen.mov(dstReg64, static_cast<uint64_t>(value) << 32ull);
+        m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
         m_codegen.shl(dstReg64, shiftReg64.cvt8());
         if (op->setCarry) {
             SetCFromFlags();
@@ -834,33 +836,31 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
 
             // Compute shift and update flags
             m_codegen.shl(dstReg32, amount);
-            if (op->setCarry) {
+            if (amount > 0 && op->setCarry) {
                 SetCFromFlags();
             }
-        } else {
-            if (amount == 32) {
-                if (op->dst.var.IsPresent()) {
-                    // Update carry flag before zeroing out the register
-                    if (op->setCarry) {
-                        m_codegen.bt(valueReg32, 0);
-                        SetCFromFlags();
-                    }
-
-                    auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    m_codegen.xor_(dstReg32, dstReg32);
-                } else if (op->setCarry) {
+        } else if (amount == 32) {
+            if (op->dst.var.IsPresent()) {
+                // Update carry flag before zeroing out the register
+                if (op->setCarry) {
                     m_codegen.bt(valueReg32, 0);
                     SetCFromFlags();
                 }
-            } else {
-                // Zero out destination
-                if (op->dst.var.IsPresent()) {
-                    auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
-                    m_codegen.xor_(dstReg32, dstReg32);
-                }
-                if (op->setCarry) {
-                    SetCFromValue(false);
-                }
+
+                auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                m_codegen.xor_(dstReg32, dstReg32);
+            } else if (op->setCarry) {
+                m_codegen.bt(valueReg32, 0);
+                SetCFromFlags();
+            }
+        } else {
+            // Zero out destination
+            if (op->dst.var.IsPresent()) {
+                auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+                m_codegen.xor_(dstReg32, dstReg32);
+            }
+            if (op->setCarry) {
+                SetCFromValue(false);
             }
         }
     }
@@ -896,6 +896,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         } else if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             CopyIfDifferent(dstReg64, valueReg64);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags();
@@ -920,6 +921,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.Get(op->dst.var).cvt64();
             m_codegen.mov(dstReg64, value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shr(dstReg64, shiftReg64.cvt8());
             if (op->setCarry) {
                 SetCFromFlags();
@@ -941,10 +943,10 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
                 auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 CopyIfDifferent(dstReg32, valueReg32);
                 m_codegen.shr(dstReg32, amount);
-                if (op->setCarry) {
+                if (amount > 0 && op->setCarry) {
                     SetCFromFlags();
                 }
-            } else if (op->setCarry) {
+            } else if (amount > 0 && op->setCarry) {
                 m_codegen.bt(valueReg32.cvt64(), amount - 1);
                 SetCFromFlags();
             }
@@ -985,7 +987,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
 
     if (valueImm && amountImm) {
         // Both are immediates
-        auto [result, carry] = arm::LSR(op->value.imm.value, op->amount.imm.value);
+        auto [result, carry] = arm::ASR(op->value.imm.value, op->amount.imm.value);
         AssignImmResultWithCarry(op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
@@ -1003,6 +1005,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             CopyIfDifferent(dstReg64.cvt32(), valueReg32);
             m_codegen.movsxd(dstReg64, dstReg64.cvt32());
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.sar(dstReg64, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags();
@@ -1027,6 +1030,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.Get(op->dst.var).cvt64();
             m_codegen.mov(dstReg64, value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.sar(dstReg64, shiftReg32.cvt8());
             if (op->setCarry) {
                 SetCFromFlags();
@@ -1047,7 +1051,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             m_codegen.movsxd(dstReg64, valueReg32);
             m_codegen.sar(dstReg64, amount);
-            if (op->setCarry) {
+            if (amount > 0 && op->setCarry) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
@@ -1095,6 +1099,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             }
 
             // Compute the shift
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.ror(dstReg32, shiftReg8);
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
@@ -1128,6 +1133,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 
             // Compute the shift
             m_codegen.mov(dstReg32, value);
+            m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.ror(dstReg32, shiftReg8);
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
@@ -1158,7 +1164,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 
             // Compute the shift
             m_codegen.ror(dstReg32, amount);
-            if (op->setCarry) {
+            if (amount > 0 && op->setCarry) {
                 // If rotating by a positive multiple of 32, set the carry to the MSB
                 if (amount == 0 && op->amount.imm.value != 0) {
                     m_codegen.bt(dstReg32, 31);

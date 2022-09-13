@@ -694,7 +694,7 @@ void testCompiler() {
     // writeARM(0xE310F1AA); // tst r0, #0x8000002a
     // writeARM(0xE314F1F8); // tst r4, #248, #2
     // writeARM(0xE110F060); // tst r0, r0, rrx
-    writeARM(0xE310F102); // tst r0, #0x80000000
+    // writeARM(0xE310F102); // tst r0, #0x80000000
 
     // ARM MCR2
     // writeARM(0xFE000F10); // mcr2 p15, #0, r0, c0, c0, #0
@@ -704,6 +704,8 @@ void testCompiler() {
 
     // ARM ALU ops with PC as operand
     // writeARM(0xE00F0080); // and r0, pc, r0, lsl #1
+
+    writeThumb(0x40D4); // lsrs r4, r2
 
     using namespace armajitto;
 
@@ -722,7 +724,7 @@ void testCompiler() {
     armState.SPSR(arm::Mode::Undefined).u32 = sysCPSR;
     armState.JumpTo(baseAddress, thumb);
 
-    for (uint32_t reg = 0; reg < 15; reg++) {
+    /*for (uint32_t reg = 0; reg < 15; reg++) {
         auto gpr = static_cast<arm::GPR>(reg);
         const uint32_t regVal = (0xFF - reg) | (reg << 8);
         armState.GPR(gpr, arm::Mode::System) = regVal;
@@ -736,8 +738,10 @@ void testCompiler() {
             armState.GPR(gpr, arm::Mode::IRQ) = regVal | 0x40000;
             armState.GPR(gpr, arm::Mode::Undefined) = regVal | 0x50000;
         }
-    }
-
+    }*/
+    armState.GPR(arm::GPR::R2) = 0;
+    armState.GPR(arm::GPR::R4) = 6;
+    
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.Run(numInstrs);
 }
