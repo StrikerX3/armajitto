@@ -1328,7 +1328,7 @@ private:
                 } else {
                     // 1S is handled below
                     dataAccessOK = DataWriteWord(address + 0, m_regs.regs[rd + 0]) &&
-                                   DataWriteWord(address + 4, m_regs.regs[rd + 1]);
+                                   DataWriteWord(address + 4, m_regs.regs[rd + 1] + (rd == 14 ? 4 : 0));
                 }
             } else if constexpr (s) {
                 // LDRD
