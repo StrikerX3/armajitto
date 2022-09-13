@@ -101,6 +101,21 @@ struct Registers {
         cpsr.mode = Mode::Supervisor;
     }
 
+    uint32_t &GPR(size_t index, Mode mode) {
+        auto currBank = GetBankFromMode(cpsr.mode);
+        auto modeBank = GetBankFromMode(mode);
+        if (currBank == modeBank) {
+            return regs[index];
+        }
+        if (modeBank == Bank_FIQ && index >= 8 && index <= 12) {
+            return bankregs[Bank_FIQ][index - 8];
+        }
+        if (modeBank != Bank_User && index >= 13 && index <= 14) {
+            return bankregs[modeBank][index - 8];
+        }
+        return regs[index];
+    }
+
     uint32_t &UserModeGPR(size_t index) {
         auto currBank = GetBankFromMode(cpsr.mode);
         if (currBank == Bank_FIQ && index >= 8 && index <= 12) {

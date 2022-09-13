@@ -1419,6 +1419,7 @@ private:
         uint32_t address = m_regs.regs[rn];
         bool pcIncluded = regList & (1 << 15);
         bool userModeTransfer = s && (!l || !pcIncluded);
+        [[maybe_unused]] arm::Mode currMode = m_regs.cpsr.mode;
 
         // Get first register and compute total transfer size
         uint32_t firstReg;
@@ -1504,7 +1505,11 @@ private:
                 // LDMs writeback only if Rn is not the last in the register list, or if it's the only register in the
                 // list
                 if (!l || lastReg != rn || regList == (1 << rn)) {
-                    m_regs.regs[rn] = finalAddress;
+                    if (l && s && pcIncluded) {
+                        m_regs.GPR(rn, currMode) = finalAddress;
+                    } else {
+                        m_regs.regs[rn] = finalAddress;
+                    }
                 }
             }
         }

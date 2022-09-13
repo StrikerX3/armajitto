@@ -679,7 +679,8 @@ void testCompiler() {
     // Thumb BLX (ARMv5)
     // writeThumb(0x47F0);
 
-    // ARM LDM from user mode
+    // ARM LDM with user mode registers and SPSR->CPSR
+    writeARM(0xE87D8000); // ldmda sp!, {pc} ^
     // writeARM(0xE87D8001); // ldmda sp!, {r0, pc} ^
 
     // ARM LDR/STR with PC writeback
@@ -692,6 +693,7 @@ void testCompiler() {
     // ARM TST with hidden PC argument
     // writeARM(0xE310F1AA); // tst r0, #0x8000002a
     // writeARM(0xE314F1F8); // tst r4, #248, #2
+    // writeARM(0xE110F060); // tst r0, r0, rrx
 
     // ARM MCR2
     // writeARM(0xFE000F10); // mcr2 p15, #0, r0, c0, c0, #0
@@ -700,7 +702,7 @@ void testCompiler() {
     // writeARM(0xE0000F31); // and r0, r0, r1, lsr pc
 
     // ARM ALU ops with PC as operand
-    writeARM(0xE00F0080); // and r0, pc, r0, lsl #1
+    // writeARM(0xE00F0080); // and r0, pc, r0, lsl #1
 
     using namespace armajitto;
 
