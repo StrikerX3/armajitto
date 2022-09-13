@@ -495,7 +495,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
             }
         }
     } else {
-        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && !dstPC);
+        rhs = emitter.BarrelShifter(instr.rhs.shift, instr.setFlags && !carryInOpcode && (!dstPC || isComparison));
     }
 
     // Copy SPSR to CPSR when the S flag is set with Rd = 15 and the operation is not a comparsion
