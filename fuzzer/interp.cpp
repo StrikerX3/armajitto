@@ -20,9 +20,8 @@ public:
     }
 
     void Run(uint64_t numCycles) final {
-        uint64_t cyclesRemaining = numCycles - 1;
-        while (cyclesRemaining <= numCycles) {
-            cyclesRemaining -= m_interp.Run();
+        for (uint64_t cycles = 0; cycles < numCycles; cycles++) {
+            m_interp.Run();
         }
     }
 

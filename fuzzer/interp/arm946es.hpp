@@ -60,12 +60,6 @@ inline void MemWrite(uint8_t *mem, uint32_t address, T value) {
 
 } // namespace util
 
-namespace core {
-
-using cycles_t = uint64_t;
-
-} // namespace core
-
 namespace interp::arm946es {
 
 struct CP15 {
@@ -139,8 +133,8 @@ struct CP15 {
 // ARM946E-S CPU emulator
 template <typename Sys>
 class ARM946ES final {
-    using ARMInstructionHandler = core::cycles_t (*)(ARM946ES &, uint32_t);
-    using THUMBInstructionHandler = core::cycles_t (*)(ARM946ES &, uint16_t);
+    using ARMInstructionHandler = void (*)(ARM946ES &, uint32_t);
+    using THUMBInstructionHandler = void (*)(ARM946ES &, uint16_t);
 
     static_assert(std::is_base_of_v<armajitto::ISystem, Sys>, "System must implement armajitto::ISystem");
 
@@ -202,15 +196,14 @@ public:
     }
 
     // Executes one instruction or block
-    core::cycles_t Run() {
+    void Run() {
         auto instr = m_pipeline[0];
         if (m_regs.cpsr.t) {
             assert((m_regs.r15 & 1) == 0);
             assert((instr & 0xFFFF0000) == 0);
             m_pipeline[0] = m_pipeline[1];
             m_pipeline[1] = CodeReadHalf(m_regs.r15);
-            const auto &table = s_thumbTable;
-            return table[instr >> 6](*this, instr);
+            s_thumbTable[instr >> 6](*this, instr);
         } else {
             assert((m_regs.r15 & 3) == 0);
             m_pipeline[0] = m_pipeline[1];
@@ -218,21 +211,18 @@ public:
             if (EvalCondition(static_cast<arm::ConditionFlags>(instr >> 28))) {
                 const size_t index = ((instr >> 16) & 0b1111'1111'0000) | ((instr >> 4) & 0b1111);
                 const size_t condIndex = ((instr >> 28) + 1) >> 4;
-                const auto &table = s_armTable;
-                return table[condIndex][index](*this, instr);
+                s_armTable[condIndex][index](*this, instr);
             } else {
                 m_regs.r15 += 4;
-                return 1;
             }
         }
     }
 
     // Enters the IRQ exception vector
-    core::cycles_t HandleIRQ() {
-        if (m_regs.cpsr.i) {
-            return 0;
+    void HandleIRQ() {
+        if (!m_regs.cpsr.i) {
+            EnterException(arm::Excpt_NormalInterrupt);
         }
-        return EnterException(arm::Excpt_NormalInterrupt);
     }
 
     const arm::Registers &GetRegisters() const {
@@ -536,7 +526,7 @@ private:
 
     // --- Helpers ------------------------------------------------------------
 
-    core::cycles_t EnterException(arm::ExceptionVector vector) {
+    void EnterException(arm::ExceptionVector vector) {
         const auto &vectorInfo = arm::kExceptionVectorInfos[vector];
         const auto modeBank = GetBankFromMode(vectorInfo.mode);
 
@@ -553,32 +543,32 @@ private:
 
         m_regs.r14 = pc + nn;
         m_regs.r15 = m_baseVectorAddress + vector * 4;
-        return ReloadPipelineARM();
+        ReloadPipelineARM();
     }
 
-    core::cycles_t BranchAndExchange(uint32_t address) {
+    void BranchAndExchange(uint32_t address) {
         bool thumb = address & 1;
         m_regs.cpsr.t = thumb;
         m_regs.r15 = address & (thumb ? ~1 : ~3);
-        return thumb ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+        if (thumb) {
+            ReloadPipelineTHUMB();
+        } else {
+            ReloadPipelineARM();
+        }
     }
 
-    core::cycles_t ReloadPipelineARM() {
+    void ReloadPipelineARM() {
         assert(m_regs.cpsr.t == 0);
         m_pipeline[0] = CodeReadWord(m_regs.r15 + 0);
         m_pipeline[1] = CodeReadWord(m_regs.r15 + 4);
-        core::cycles_t cycles = 3;
         m_regs.r15 += 8;
-        return cycles;
     }
 
-    core::cycles_t ReloadPipelineTHUMB() {
+    void ReloadPipelineTHUMB() {
         assert(m_regs.cpsr.t == 1);
         m_pipeline[0] = CodeReadHalf(m_regs.r15 + 0);
         m_pipeline[1] = CodeReadHalf(m_regs.r15 + 2);
-        core::cycles_t cycles = 3;
         m_regs.r15 += 4;
-        return cycles;
     }
 
     bool EvalCondition(const arm::ConditionFlags cond) const {
@@ -588,7 +578,7 @@ private:
         return s_conditionsTable[(m_regs.cpsr.u32 >> 28) | (cond << 4)];
     }
 
-    uint32_t Shift(uint32_t value, uint8_t shiftOp, bool &carry, core::cycles_t &cycles) {
+    uint32_t Shift(uint32_t value, uint8_t shiftOp, bool &carry) {
         uint8_t type = (shiftOp >> 1) & 0b11;
         uint8_t amount;
         bool imm = (shiftOp & 1) == 0;
@@ -599,7 +589,6 @@ private:
             // Register shift
             uint8_t reg = (shiftOp >> 4) & 0b1111;
             amount = m_regs.regs[reg];
-            cycles++; // 1I if using register specified shift
         }
         switch (type) {
         case 0b00: return arm::LSL(value, amount, carry);
@@ -610,9 +599,9 @@ private:
         return value;
     }
 
-    uint32_t Shift(uint32_t value, uint8_t shiftOp, core::cycles_t &cycles) {
+    uint32_t Shift(uint32_t value, uint8_t shiftOp) {
         bool carry = m_regs.cpsr.c;
-        return Shift(value, shiftOp, carry, cycles);
+        return Shift(value, shiftOp, carry);
     }
 
     // --- Memory accessors ---------------------------------------------------
@@ -749,23 +738,23 @@ private:
 
     // --- ARM instruction handlers -------------------------------------------
 
-    core::cycles_t _ARM_BranchAndExchange(uint32_t instr) {
+    void _ARM_BranchAndExchange(uint32_t instr) {
         // BX
         uint8_t rn = instr & 0xF;
         uint32_t value = m_regs.regs[rn];
-        return BranchAndExchange(value);
+        BranchAndExchange(value);
     }
 
-    core::cycles_t _ARM_BranchAndLinkExchange(uint32_t instr) {
+    void _ARM_BranchAndLinkExchange(uint32_t instr) {
         // BLX
         uint8_t rn = instr & 0xF;
         uint32_t value = m_regs.regs[rn];
         m_regs.r14 = m_regs.r15 - 4;
-        return BranchAndExchange(value);
+        BranchAndExchange(value);
     }
 
     template <bool l, bool switchToThumb>
-    core::cycles_t _ARM_BranchAndBranchWithLink(uint32_t instr) {
+    void _ARM_BranchAndBranchWithLink(uint32_t instr) {
         // B, BL, BLX
         uint32_t value = bit::sign_extend<24>(instr & 0xFFFFFF) << 2;
         if constexpr (l || switchToThumb) {
@@ -778,10 +767,14 @@ private:
             m_regs.cpsr.t = 1;
         }
         m_regs.r15 += value;
-        return switchToThumb ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+        if constexpr (switchToThumb) {
+            ReloadPipelineTHUMB();
+        } else {
+            ReloadPipelineARM();
+        }
     }
 
-    core::cycles_t _ARM_CountLeadingZeros(uint32_t instr) {
+    void _ARM_CountLeadingZeros(uint32_t instr) {
         // CLZ
         uint8_t rd = (instr >> 12) & 0xF;
         uint8_t rm = instr & 0xF;
@@ -789,16 +782,13 @@ private:
             m_regs.regs[rd] = std::countl_zero(m_regs.regs[rm]);
         }
         m_regs.r15 += 4;
-        return 1; // 1S
     }
 
     template <bool i, uint8_t opcode, bool s>
-    core::cycles_t _ARM_DataProcessing(uint32_t instr) {
+    void _ARM_DataProcessing(uint32_t instr) {
         constexpr bool isComparison = (opcode & 0b1100) == 0b1000;
         uint8_t rn = (instr >> 16) & 0xF;
         uint8_t rd = (instr >> 12) & 0xF;
-
-        core::cycles_t cycles = 0;
 
         auto op1 = m_regs.regs[rn];
         auto &dst = m_regs.regs[rd];
@@ -820,7 +810,7 @@ private:
                     op1 += 4;
                 }
             }
-            op2 = Shift(value, shift, carry, cycles);
+            op2 = Shift(value, shift, carry);
         }
 
         if constexpr (s) {
@@ -898,21 +888,23 @@ private:
         if (rd == 15 && !isComparison) {
             if constexpr (s) {
                 m_regs.r15 &= (m_regs.cpsr.t ? ~1 : ~3);
-                cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+                if (m_regs.cpsr.t) {
+                    ReloadPipelineTHUMB();
+                } else {
+                    ReloadPipelineARM();
+                }
             } else {
                 m_regs.r15 &= ~3;
-                cycles += ReloadPipelineARM();
+                ReloadPipelineARM();
             }
         } else {
             m_regs.r15 += 4;
-            cycles += 1; // 1S to fetch next instruction
         }
-        return cycles;
     }
 
     // PSR Transfer to register
     template <bool ps>
-    core::cycles_t _ARM_MRS(uint32_t instr) {
+    void _ARM_MRS(uint32_t instr) {
         uint8_t rd = (instr >> 12) & 0b1111;
 
         if (rd != 15) {
@@ -924,12 +916,11 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 2; // 1I to update PSR + 1S to fetch next instruction
     }
 
     // PSR Transfer register or immediate value to PSR
     template <bool i, bool pd>
-    core::cycles_t _ARM_MSR(uint32_t instr) {
+    void _ARM_MSR(uint32_t instr) {
         uint32_t value;
         if constexpr (i) {
             uint8_t imm = (instr & 0xFF);
@@ -969,13 +960,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        core::cycles_t cycles = ((instr >> 16) & 0b111) ? 2 : 0; // 2I to load anything but flags
-        cycles += 1;                                             // 1S to fetch next instruction
-        return cycles;
     }
 
     template <bool a, bool s>
-    core::cycles_t _ARM_MultiplyAccumulate(uint32_t instr) {
+    void _ARM_MultiplyAccumulate(uint32_t instr) {
         // MUL, MLA, MULS, MLAS
         uint8_t rd = (instr >> 16) & 0b1111;
         uint8_t rn = (instr >> 12) & 0b1111;
@@ -1000,14 +988,10 @@ private:
         }
 
         m_regs.r15 += 4;
-
-        core::cycles_t cycles = s ? 3 : 1; // 1I base, additional 2I to store flags
-        cycles += 1;                       // 1S to fetch next instruction
-        return cycles;
     }
 
     template <bool u, bool a, bool s>
-    core::cycles_t _ARM_MultiplyAccumulateLong(uint32_t instr) {
+    void _ARM_MultiplyAccumulateLong(uint32_t instr) {
         // SMULL, UMULL, SMLAL, UMLAL
         // SMULLS, UMULLS, SMLALS, UMLALS
         uint8_t rdHi = (instr >> 16) & 0b1111;
@@ -1053,13 +1037,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        core::cycles_t cycles = s ? 4 : 2; // 2I base, additional 2I to store flags
-        cycles += 1;                       // 1S to fetch next instruction
-        return cycles;
     }
 
     template <bool y, bool x>
-    core::cycles_t _ARM_SignedMultiply(uint32_t instr) {
+    void _ARM_SignedMultiply(uint32_t instr) {
         // SMULxy (SMULBB, SMULBT, SMULTB, SMULTT)
         uint8_t rd = (instr >> 16) & 0b1111;
         uint8_t rs = (instr >> 8) & 0b1111;
@@ -1074,11 +1055,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool y, bool x>
-    core::cycles_t _ARM_SignedMultiplyAccumulate(uint32_t instr) {
+    void _ARM_SignedMultiplyAccumulate(uint32_t instr) {
         // SMLAxy (SMLABB, SMLABT, SMLATB, SMLATT)
         uint8_t rd = (instr >> 16) & 0b1111;
         uint8_t rn = (instr >> 12) & 0b1111;
@@ -1098,11 +1078,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool y>
-    core::cycles_t _ARM_SignedMultiplyWord(uint32_t instr) {
+    void _ARM_SignedMultiplyWord(uint32_t instr) {
         // SMULWy (SMULWB, SMULWT)
         uint8_t rd = (instr >> 16) & 0b1111;
         if (rd != 15) {
@@ -1118,11 +1097,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool y>
-    core::cycles_t _ARM_SignedMultiplyAccumulateWord(uint32_t instr) {
+    void _ARM_SignedMultiplyAccumulateWord(uint32_t instr) {
         // SMLAWx (SMLAWB, SMLAWT)
         uint8_t rd = (instr >> 16) & 0b1111;
         uint8_t rn = (instr >> 12) & 0b1111;
@@ -1142,11 +1120,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool y, bool x>
-    core::cycles_t _ARM_SignedMultiplyAccumulateLong(uint32_t instr) {
+    void _ARM_SignedMultiplyAccumulateLong(uint32_t instr) {
         // SMLALxy (SMLALBB, SMLALBT, SMLALTB, SMLALTT)
         uint8_t rdHi = (instr >> 16) & 0b1111;
         uint8_t rdLo = (instr >> 12) & 0b1111;
@@ -1168,11 +1145,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 2; // 1I for extra calculations + 1S to fetch next instruction
     }
 
     template <bool dbl, bool sub>
-    core::cycles_t _ARM_EnhancedDSPAddSub(uint32_t instr) {
+    void _ARM_EnhancedDSPAddSub(uint32_t instr) {
         uint8_t rn = (instr >> 16) & 0b1111;
         uint8_t rd = (instr >> 12) & 0b1111;
         uint8_t rm = (instr >> 0) & 0b1111;
@@ -1201,11 +1177,10 @@ private:
         }
 
         m_regs.r15 += 4;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool i, bool p, bool u, bool b, bool w, bool l>
-    core::cycles_t _ARM_SingleDataTransfer(uint32_t instr) {
+    void _ARM_SingleDataTransfer(uint32_t instr) {
         uint8_t rn = (instr >> 16) & 0b1111;
         uint8_t rd = (instr >> 12) & 0b1111;
         uint16_t offset = (instr & 0xFFF);
@@ -1213,15 +1188,13 @@ private:
         // When the W bit is set in a post-indexed operation, the transfer affects user mode registers
         constexpr bool userModeTransfer = (w && !p);
 
-        core::cycles_t cycles = 0;
-
         // Compute address
         uint32_t offsetValue;
         if constexpr (i) {
             uint8_t rm = (offset & 0b1111);
             uint8_t shift = (offset >> 4);
             bool carry = m_regs.cpsr.c;
-            offsetValue = Shift(m_regs.regs[rm], shift, carry, cycles);
+            offsetValue = Shift(m_regs.regs[rm], shift, carry);
         } else {
             offsetValue = offset;
         }
@@ -1260,34 +1233,27 @@ private:
 
         // Update PC
         if ((l && rd == 15) || ((!l || rn != rd) && (!p || w) && (rn == 15))) {
-            cycles++;    // 1I
-            cycles += 1; // 1N data cycle happens during an 1I code cycle
             if (dataAccessOK) {
                 if (!m_cp15.ctl.preARMv5) {
                     // Switch to THUMB mode if bit 0 is set (ARMv5 feature)
                     m_regs.cpsr.t = (m_regs.r15 & 1);
                 }
                 m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
-                cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
             } else {
-                // TODO: check timing
-                cycles += EnterException(arm::Excpt_DataAbort);
+                EnterException(arm::Excpt_DataAbort);
             }
         } else {
             if (dataAccessOK) {
                 m_regs.r15 += 4;
-                // N data cycle happens in parallel with the S code cycle to fetch next instruction
-                cycles += 1;
             } else {
                 // TODO: check timing
-                cycles += EnterException(arm::Excpt_DataAbort);
+                EnterException(arm::Excpt_DataAbort);
             }
         }
-        return cycles;
     }
 
     template <bool p, bool u, bool i, bool w, bool l, bool s, bool h>
-    core::cycles_t _ARM_HalfwordAndSignedDataTransfer(uint32_t instr) {
+    void _ARM_HalfwordAndSignedDataTransfer(uint32_t instr) {
         uint8_t rn = (instr >> 16) & 0b1111;
         uint8_t rd = (instr >> 12) & 0b1111;
         uint8_t offsetHi = (instr >> 8) & 0b1111;
@@ -1305,8 +1271,6 @@ private:
             address += (u ? offsetValue : -offsetValue);
         }
 
-        core::cycles_t cycles = 0;
-
         // Perform the transfer
         auto &dst = m_regs.regs[rd];
         bool dataAccessOK = true;
@@ -1321,14 +1285,16 @@ private:
                 // LDRH
                 dataAccessOK = DataReadUnalignedHalf(address, dst);
             } else {
-                return EnterException(arm::Excpt_UndefinedInstruction);
+                EnterException(arm::Excpt_UndefinedInstruction);
+                return;
             }
         } else {
             if constexpr (s && h) {
                 // STRD
                 if (rd & 1) {
                     // Undefined instruction
-                    return EnterException(arm::Excpt_UndefinedInstruction);
+                    EnterException(arm::Excpt_UndefinedInstruction);
+                    return;
                 } else {
                     // 1S is handled below
                     dataAccessOK = DataWriteWord(address + 0, m_regs.regs[rd + 0]) &&
@@ -1338,7 +1304,8 @@ private:
                 // LDRD
                 if (rd & 1) {
                     // Undefined instruction
-                    return EnterException(arm::Excpt_UndefinedInstruction);
+                    EnterException(arm::Excpt_UndefinedInstruction);
+                    return;
                 } else {
                     // 1S is handled below
                     dataAccessOK = DataReadUnalignedWord(address + 0, dst) &&
@@ -1352,7 +1319,8 @@ private:
                 uint32_t value = m_regs.regs[rd] + (rd == 15 ? 4 : 0);
                 dataAccessOK = DataWriteHalf(address, value);
             } else {
-                return EnterException(arm::Excpt_UndefinedInstruction);
+                EnterException(arm::Excpt_UndefinedInstruction);
+                return;
             }
         }
 
@@ -1372,8 +1340,6 @@ private:
 
         // Update PC
         if ((l && rd == 15) || ((!l || rn != rd) && (!p || w) && rn == 15) || (!l && s && !h && rd == 14)) {
-            cycles++;    // 1I
-            cycles += 1; // N data cycle happens during an I code cycle
             if (dataAccessOK) {
                 if constexpr (l || !s || h) {
                     // For non-LDRD instructions, honor CP15 bit L4
@@ -1383,41 +1349,26 @@ private:
                     }
                 }
                 m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
-                cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+                if (m_regs.cpsr.t) {
+                    ReloadPipelineTHUMB();
+                } else {
+                    ReloadPipelineARM();
+                }
             } else {
                 // TODO: check timing
-                cycles += EnterException(arm::Excpt_DataAbort);
+                EnterException(arm::Excpt_DataAbort);
             }
         } else {
             if (dataAccessOK) {
                 m_regs.r15 += 4;
-            }
-            if constexpr (!l && s) {
-                // Handle LDRD and STRD
-                // N data cycle happens during an I code cycle
-                cycles += 1;
-                if (dataAccessOK) {
-                    // S data cycle happens in parallel with the S code cycle to fetch next instruction
-                    cycles += 1;
-                } else {
-                    // TODO: check timing
-                    cycles += EnterException(arm::Excpt_DataAbort);
-                }
             } else {
-                if (dataAccessOK) {
-                    // N data cycle happens in parallel with the S code cycle to fetch next instruction
-                    cycles += 1;
-                } else {
-                    // TODO: check timing
-                    cycles += EnterException(arm::Excpt_DataAbort);
-                }
+                EnterException(arm::Excpt_DataAbort);
             }
         }
-        return cycles;
     }
 
     template <bool p, bool u, bool s, bool w, bool l>
-    core::cycles_t _ARM_BlockDataTransfer(uint32_t instr) {
+    void _ARM_BlockDataTransfer(uint32_t instr) {
         // LDM, STM
         uint8_t rn = (instr >> 16) & 0b1111;
         uint16_t regList = (instr & 0xFFFF);
@@ -1454,9 +1405,6 @@ private:
         // when the direction flag is down (U=0), which can be achieved by comparing both for equality.
         constexpr bool preInc = (p == u);
 
-        core::cycles_t cycles = 0;
-        core::cycles_t dataCycles = 0;
-        core::cycles_t lastDataCycles = 0;
         bool dataAccessOK = true;
 
         // Execute transfer
@@ -1491,14 +1439,6 @@ private:
                     dataAccessOK = DataWriteWord(address, value);
                 }
             }
-            if (i == firstReg) {
-                // 1N for the first access
-                dataCycles += 1;
-            } else {
-                // 1S for each subsequent access
-                lastDataCycles = 1;
-                dataCycles += lastDataCycles;
-            }
 
             if constexpr (!preInc) {
                 address += 4;
@@ -1522,51 +1462,31 @@ private:
 
         // Update PC
         if ((l && pcIncluded) || ((w && (!l || lastReg != rn || regList == (1 << rn))) && rn == 15)) {
-            cycles++;             // 1I
-            cycles += dataCycles; // Data cycles happen during I code cycles
             if (dataAccessOK) {
                 if (!m_cp15.ctl.preARMv5) {
                     // Switch to THUMB mode if bit 0 is set (ARMv5 feature)
                     m_regs.cpsr.t = (m_regs.r15 & 1);
                 }
                 m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
-                cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+                if (m_regs.cpsr.t) {
+                    ReloadPipelineTHUMB();
+                } else {
+                    ReloadPipelineARM();
+                }
             } else {
-                cycles += EnterException(arm::Excpt_DataAbort);
+                EnterException(arm::Excpt_DataAbort);
             }
         } else {
             if (dataAccessOK) {
                 m_regs.r15 += 4;
-            }
-            if (firstReg == lastReg) {
-                // Only one register was transferred
-                // N data cycle happens during an I code cycle
-                cycles += dataCycles;
-                if (dataAccessOK) {
-                    // S code cycle to fetch next instruction happens during an I data cycle
-                    cycles += 1;
-                } else {
-                    // TODO: check timing
-                    cycles += EnterException(arm::Excpt_DataAbort);
-                }
             } else {
-                // More than one register was transferred
-                // All but the last data cycle happen during I code cycles
-                cycles += dataCycles - lastDataCycles;
-                if (dataAccessOK) {
-                    // The last S data cycle happens during the S code cycle to fetch next instruction
-                    cycles += std::max<core::cycles_t>(lastDataCycles, 1);
-                } else {
-                    // TODO: check timing
-                    cycles += EnterException(arm::Excpt_DataAbort);
-                }
+                EnterException(arm::Excpt_DataAbort);
             }
         }
-        return cycles;
     }
 
     template <bool b>
-    core::cycles_t _ARM_SingleDataSwap(uint32_t instr) {
+    void _ARM_SingleDataSwap(uint32_t instr) {
         uint8_t rn = (instr >> 16) & 0b1111;
         uint8_t rd = (instr >> 12) & 0b1111;
         uint8_t rm = (instr >> 0) & 0b1111;
@@ -1595,45 +1515,43 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 4;
-            return 2;
         } else {
             // TODO: check timing
-            return 2 + EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     // Software Interrupt
-    core::cycles_t _ARM_SoftwareInterrupt(uint32_t instr) {
+    void _ARM_SoftwareInterrupt(uint32_t instr) {
         // uint32_t comment = (instr & 0xFFFFFF);
-        return EnterException(arm::Excpt_SoftwareInterrupt);
+        EnterException(arm::Excpt_SoftwareInterrupt);
     }
 
-    core::cycles_t _ARM_SoftwareBreakpoint(uint32_t instr) {
+    void _ARM_SoftwareBreakpoint(uint32_t instr) {
         // uint16_t immedHi = (instr >> 8) & 0xFFF;
         // uint16_t immedLo = (instr & 0xF);
         // uint16_t immed = (immedLo) | (immedHi << 4);
-        return EnterException(arm::Excpt_PrefetchAbort);
+        EnterException(arm::Excpt_PrefetchAbort);
     }
 
     // template <bool i, bool u>
-    core::cycles_t _ARM_Preload(uint32_t instr) {
+    void _ARM_Preload(uint32_t instr) {
         // p is always true
         // w is always false
         // uint16_t rn = (instr >> 16) & 0xF;
         // uint16_t addrMode = instr & 0xFFF;
         m_regs.r15 += 4;
-        return 2;
     }
 
     // CDP  when cond != 0b1111
     // CDP2 when cond == 0b1111
     // template <uint8_t opcode1, uint8_t opcode2>
-    core::cycles_t _ARM_CopDataOperations(uint32_t instr) {
+    void _ARM_CopDataOperations(uint32_t instr) {
         // uint8_t crn = (instr >> 16) & 0b1111;
         // uint8_t crd = (instr >> 12) & 0b1111;
         // uint8_t cpnum = (instr >> 8) & 0b1111;
         // uint8_t crm = (instr >> 0) & 0b1111;
-        return EnterException(arm::Excpt_UndefinedInstruction);
+        EnterException(arm::Excpt_UndefinedInstruction);
     }
 
     // STC  when !l and cond != 0b1111
@@ -1641,12 +1559,12 @@ private:
     // LDC  when  l and cond != 0b1111
     // LDC2 when  l and cond == 0b1111
     // template <bool p, bool u, bool n, bool w, bool l>
-    core::cycles_t _ARM_CopDataTransfer(uint32_t instr) {
+    void _ARM_CopDataTransfer(uint32_t instr) {
         // uint8_t rn = (instr >> 16) & 0b1111;
         // uint8_t crd = (instr >> 12) & 0b1111;
         // uint8_t cpnum = (instr >> 8) & 0b1111;
         // uint8_t offset = (instr >> 0) & 0b1111'1111;
-        return EnterException(arm::Excpt_UndefinedInstruction);
+        EnterException(arm::Excpt_UndefinedInstruction);
     }
 
     // MCR  when !s and cond != 0b1111
@@ -1654,7 +1572,7 @@ private:
     // MRC  when  s and cond != 0b1111
     // MRC2 when  s and cond == 0b1111
     template <uint8_t opcode1, bool s, uint16_t opcode2>
-    core::cycles_t _ARM_CopRegTransfer(uint32_t instr) {
+    void _ARM_CopRegTransfer(uint32_t instr) {
         uint16_t crn = (instr >> 16) & 0b1111;
         uint8_t rd = (instr >> 12) & 0b1111;
         uint8_t cpnum = (instr >> 8) & 0b1111;
@@ -1662,12 +1580,14 @@ private:
 
         // Non-existent coprocessor results in undefined instruction exception
         if (cpnum != 15) {
-            return EnterException(arm::Excpt_UndefinedInstruction);
+            EnterException(arm::Excpt_UndefinedInstruction);
+            return;
         }
 
         // CP15 doesn't support MCR2/MRC2
         if ((instr >> 28) == 0xF) {
-            return EnterException(arm::Excpt_UndefinedInstruction);
+            EnterException(arm::Excpt_UndefinedInstruction);
+            return;
         }
 
         // PC is incremented before it is transferred to the coprocessor
@@ -1692,22 +1612,20 @@ private:
                 CP15Write((crn << 8) | (crm << 4) | opcode2, data);
             }
         }
-
-        return 1; // 1S to fetch next instruction
     }
 
-    core::cycles_t _ARM_UndefinedInstruction(uint32_t instr) {
-        return 1 + EnterException(arm::Excpt_UndefinedInstruction); // 1I + 1S to fetch next instruction
+    void _ARM_UndefinedInstruction(uint32_t instr) {
+        EnterException(arm::Excpt_UndefinedInstruction);
     }
 
-    core::cycles_t _ARM_Unmapped(uint32_t instr) {
+    void _ARM_Unmapped(uint32_t instr) {
         throw std::runtime_error("Unmapped ARM instruction");
     }
 
     // --- THUMB instruction handlers -----------------------------------------
 
     template <uint8_t op, uint8_t offset>
-    core::cycles_t _THUMB_MoveShiftedRegister(uint16_t instr) {
+    void _THUMB_MoveShiftedRegister(uint16_t instr) {
         // LSL, LSR, ASR
         uint8_t rs = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
@@ -1720,12 +1638,10 @@ private:
         m_regs.cpsr.c = carry;
 
         m_regs.r15 += 2;
-        return 2; // 1I due to use of register specified shift
-                  // 1S to fetch next instruction
     }
 
     template <bool i, bool op, uint8_t rnOrOffset>
-    core::cycles_t _THUMB_AddSub(uint16_t instr) {
+    void _THUMB_AddSub(uint16_t instr) {
         // ADD, SUB
         uint8_t rs = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
@@ -1747,11 +1663,10 @@ private:
         m_regs.cpsr.v = overflow;
 
         m_regs.r15 += 2;
-        return 1; // 1S to fetch next instruction
     }
 
     template <uint8_t op, uint8_t rd>
-    core::cycles_t _THUMB_MovCmpAddSubImmediate(uint16_t instr) {
+    void _THUMB_MovCmpAddSubImmediate(uint16_t instr) {
         // MOV, CMP, ADD, SUB
         uint8_t offset = (instr & 0xFF);
 
@@ -1779,15 +1694,12 @@ private:
         m_regs.cpsr.v = overflow;
 
         m_regs.r15 += 2;
-        return 1; // 1S to fetch next instruction
     }
 
     template <uint8_t op>
-    core::cycles_t _THUMB_ALUOperations(uint16_t instr) {
+    void _THUMB_ALUOperations(uint16_t instr) {
         uint8_t rs = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
-
-        core::cycles_t cycles = 0;
 
         auto &src = m_regs.regs[rs];
         auto &dst = m_regs.regs[rd];
@@ -1803,15 +1715,12 @@ private:
         } else if constexpr (op == 0b0010) {
             // LSL
             result = dst = arm::LSL(dst, src, carry);
-            cycles++; // 1I due to use of register specified shift
         } else if constexpr (op == 0b0011) {
             // LSR
             result = dst = arm::LSR(dst, src, carry, false);
-            cycles++; // 1I due to use of register specified shift
         } else if constexpr (op == 0b0100) {
             // ASR
             result = dst = arm::ASR(dst, src, carry, false);
-            cycles++; // 1I due to use of register specified shift
         } else if constexpr (op == 0b0101) {
             // ADC
             result = dst = arm::ADC(dst, src, carry, overflow);
@@ -1821,7 +1730,6 @@ private:
         } else if constexpr (op == 0b0111) {
             // ROR
             result = dst = arm::ROR(dst, src, carry, false);
-            cycles++; // 1I due to use of register specified shift
         } else if constexpr (op == 0b1000) {
             // TST
             result = dst & src;
@@ -1840,7 +1748,6 @@ private:
         } else if constexpr (op == 0b1101) {
             // MUL
             result = dst *= src;
-            cycles += 3; // 3I for multiplication with flag store
         } else if constexpr (op == 0b1110) {
             // BIC
             result = dst &= ~src;
@@ -1855,11 +1762,10 @@ private:
         m_regs.cpsr.v = overflow;
 
         m_regs.r15 += 2;
-        return cycles + 1; // 1S to fetch next instruction
     }
 
     template <uint8_t op, bool h1, bool h2>
-    core::cycles_t _THUMB_HiRegOperations(uint16_t instr) {
+    void _THUMB_HiRegOperations(uint16_t instr) {
         // ADD, CMP, MOV, BX, BLX
         uint8_t rshs = ((instr >> 3) & 0b111) + (h2 ? 8 : 0);
         uint8_t rdhd = ((instr >> 0) & 0b111) + (h1 ? 8 : 0);
@@ -1894,32 +1800,28 @@ private:
 
             if (rdhd == 15 && op != 0b01) {
                 m_regs.r15 &= ~1;
-                return ReloadPipelineTHUMB();
+                ReloadPipelineTHUMB();
             } else {
                 m_regs.r15 += 2;
-                return 1; // 1S to fetch next instruction
             }
         }
     }
 
     template <uint8_t rd>
-    core::cycles_t _THUMB_PCRelativeLoad(uint16_t instr) {
+    void _THUMB_PCRelativeLoad(uint16_t instr) {
         uint16_t offset = (instr & 0xFF) << 2;
         uint32_t address = (m_regs.r15 & ~3) + offset;
         bool dataAccessOK = DataReadWord(address, m_regs.regs[rd]);
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool l, bool b, uint8_t ro>
-    core::cycles_t _THUMB_LoadStoreRegOffset(uint16_t instr) {
+    void _THUMB_LoadStoreRegOffset(uint16_t instr) {
         uint8_t rb = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
 
@@ -1943,16 +1845,13 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool h, bool s, uint8_t ro>
-    core::cycles_t _THUMB_LoadStoreSignExtended(uint16_t instr) {
+    void _THUMB_LoadStoreSignExtended(uint16_t instr) {
         uint8_t rb = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
 
@@ -1976,16 +1875,13 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool b, bool l, uint16_t offset>
-    core::cycles_t _THUMB_LoadStoreImmOffset(uint16_t instr) {
+    void _THUMB_LoadStoreImmOffset(uint16_t instr) {
         uint8_t rb = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
 
@@ -2009,16 +1905,13 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool l, uint16_t offset>
-    core::cycles_t _THUMB_LoadStoreHalfWord(uint16_t instr) {
+    void _THUMB_LoadStoreHalfWord(uint16_t instr) {
         uint8_t rb = (instr >> 3) & 0b111;
         uint8_t rd = (instr >> 0) & 0b111;
 
@@ -2036,16 +1929,13 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool l, uint8_t rd>
-    core::cycles_t _THUMB_SPRelativeLoadStore(uint16_t instr) {
+    void _THUMB_SPRelativeLoadStore(uint16_t instr) {
         uint16_t offset = (instr & 0xFF) << 2;
 
         // Perform the transfer
@@ -2060,25 +1950,21 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-            // 1N data cycle happens in parallel with the 1S code cycle to fetch next instruction
-            return 1;
         } else {
-            // TODO: check timing
-            return EnterException(arm::Excpt_DataAbort);
+            EnterException(arm::Excpt_DataAbort);
         }
     }
 
     template <bool sp, uint8_t rd>
-    core::cycles_t _THUMB_LoadAddress(uint16_t instr) {
+    void _THUMB_LoadAddress(uint16_t instr) {
         uint16_t offset = (instr & 0xFF) << 2;
         m_regs.regs[rd] = (sp ? m_regs.r13 : (m_regs.r15 & ~3)) + offset;
 
         m_regs.r15 += 2;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool s>
-    core::cycles_t _THUMB_AddOffsetToSP(uint16_t instr) {
+    void _THUMB_AddOffsetToSP(uint16_t instr) {
         uint32_t offset = (instr & 0x7F) << 2;
         if constexpr (s) {
             m_regs.r13 -= offset;
@@ -2087,35 +1973,25 @@ private:
         }
 
         m_regs.r15 += 2;
-        return 1; // 1S to fetch next instruction
     }
 
     template <bool l, bool r>
-    core::cycles_t _THUMB_PushPopRegs(uint16_t instr) {
+    void _THUMB_PushPopRegs(uint16_t instr) {
         uint8_t regList = (instr & 0xFF);
         uint32_t address = m_regs.r13;
 
-        core::cycles_t cycles = 0;
-        core::cycles_t dataCycles = 0;
-        core::cycles_t lastDataCycles = 0;
         bool dataAccessOK = true;
 
-        auto tickAccess = [&](bool write) {
-            lastDataCycles = 1;
-            dataCycles += lastDataCycles;
-        };
         auto push = [&](uint32_t value) {
             if (dataAccessOK) {
                 dataAccessOK = DataWriteWord(address, value);
             }
-            tickAccess(true);
             address += 4;
         };
         auto pop = [&](uint32_t &value) {
             if (dataAccessOK) {
                 dataAccessOK = DataReadWord(address, value);
             }
-            tickAccess(false);
             address += 4;
         };
 
@@ -2136,9 +2012,12 @@ private:
                         m_regs.cpsr.t = (m_regs.r15 & 1);
                     }
                     m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
-                    cycles += m_regs.cpsr.t ? ReloadPipelineTHUMB() : ReloadPipelineARM();
+                    if (m_regs.cpsr.t) {
+                        ReloadPipelineTHUMB();
+                    } else {
+                        ReloadPipelineARM();
+                    }
                 }
-                cycles++; // 1I for popping PC
             }
 
             // Update SP
@@ -2173,36 +2052,14 @@ private:
         if constexpr (!l || !r) {
             if (dataAccessOK) {
                 m_regs.r15 += 2;
-            }
-            if (std::popcount(regList) == 1) {
-                // Only one register was transferred
-                // N data cycle happens during an I code cycle
-                cycles += dataCycles;
-                if (dataAccessOK) {
-                    // S code cycle to fetch next instruction happens during an I data cycle
-                    cycles += 1;
-                } else {
-                    // TODO: check timing
-                    return EnterException(arm::Excpt_DataAbort);
-                }
             } else {
-                // More than one register was transferred
-                // All but the last data cycle happen during I code cycles
-                cycles += dataCycles - lastDataCycles;
-                if (dataAccessOK) {
-                    // The last S data cycle happens during the S code cycle to fetch next instruction
-                    cycles += std::max<core::cycles_t>(lastDataCycles, 1);
-                } else {
-                    // TODO: check timing
-                    return EnterException(arm::Excpt_DataAbort);
-                }
+                EnterException(arm::Excpt_DataAbort);
             }
         }
-        return cycles;
     }
 
     template <bool l, uint8_t rb>
-    core::cycles_t _THUMB_MultipleLoadStore(uint16_t instr) {
+    void _THUMB_MultipleLoadStore(uint16_t instr) {
         auto address = m_regs.regs[rb];
         uint8_t regList = (instr & 0xFF);
 
@@ -2210,27 +2067,19 @@ private:
         if (regList == 0) {
             m_regs.regs[rb] = address + 0x40;
             m_regs.r15 += 2;
-            return 1;
+            return;
         }
 
         uint8_t firstReg = std::countr_zero(regList);
         uint8_t lastReg = 7 - std::countl_zero(regList);
 
-        core::cycles_t dataCycles = 0;
-        core::cycles_t lastDataCycles = 0;
         bool dataAccessOK = true;
-
-        auto tickAccess = [&](uint32_t addr, bool write) {
-            lastDataCycles = 1;
-            dataCycles += lastDataCycles;
-        };
 
         if constexpr (l) {
             auto load = [&](uint32_t &value) {
                 if (dataAccessOK) {
                     dataAccessOK = DataReadWord(address, value);
                 }
-                tickAccess(address, false);
                 address += 4;
             };
 
@@ -2251,7 +2100,6 @@ private:
                 if (dataAccessOK) {
                     dataAccessOK = DataWriteWord(address, value);
                 }
-                tickAccess(address, true);
                 address += 4;
             };
 
@@ -2277,76 +2125,53 @@ private:
 
         if (dataAccessOK) {
             m_regs.r15 += 2;
-        }
-        core::cycles_t cycles = 0;
-        if (firstReg == lastReg) {
-            // Only one register was transferred
-            // N data cycle happens during an I code cycle
-            cycles += dataCycles;
-            if (dataAccessOK) {
-                // S code cycle to fetch next instruction happens during an I data cycle
-                cycles += 1;
-            } else {
-                // TODO: check timing
-                return EnterException(arm::Excpt_DataAbort);
-            }
         } else {
-            // More than one register was transferred
-            // All but the last data cycle happen during I code cycles
-            cycles += dataCycles - lastDataCycles;
-            if (dataAccessOK) {
-                // The last S data cycle happens during the S code cycle to fetch next instruction
-                cycles += std::max<core::cycles_t>(lastDataCycles, 1);
-            } else {
-                // TODO: check timing
-                return EnterException(arm::Excpt_DataAbort);
-            }
+            EnterException(arm::Excpt_DataAbort);
         }
-        return cycles;
     }
 
     template <arm::ConditionFlags cond>
-    core::cycles_t _THUMB_ConditionalBranch(uint16_t instr) {
+    void _THUMB_ConditionalBranch(uint16_t instr) {
         // B<cond>
         if (EvalCondition(cond)) {
             int32_t offset = bit::sign_extend<8, int32_t>(instr & 0xFF) << 1;
             m_regs.r15 += offset;
-            return ReloadPipelineTHUMB();
+            ReloadPipelineTHUMB();
         } else {
             m_regs.r15 += 2;
-            return 1; // 1S to fetch next instruction
         }
     }
 
-    core::cycles_t _THUMB_SoftwareInterrupt(uint16_t instr) {
+    void _THUMB_SoftwareInterrupt(uint16_t instr) {
         // SWI
         // uint8_t comment = (instr & 0xFF);
-        return EnterException(arm::Excpt_SoftwareInterrupt);
+        EnterException(arm::Excpt_SoftwareInterrupt);
     }
 
-    core::cycles_t _THUMB_SoftwareBreakpoint(uint16_t instr) {
+    void _THUMB_SoftwareBreakpoint(uint16_t instr) {
         // BKPT
         // uint8_t immed = (instr & 0xFF);
-        return EnterException(arm::Excpt_PrefetchAbort);
+        EnterException(arm::Excpt_PrefetchAbort);
     }
 
-    core::cycles_t _THUMB_UndefinedInstruction(uint16_t instr) {
-        return 1 + EnterException(arm::Excpt_UndefinedInstruction); // 1I + instruction fetch
+    void _THUMB_UndefinedInstruction(uint16_t instr) {
+        EnterException(arm::Excpt_UndefinedInstruction);
     }
 
-    core::cycles_t _THUMB_UnconditionalBranch(uint16_t instr) {
+    void _THUMB_UnconditionalBranch(uint16_t instr) {
         // B
         int32_t offset = bit::sign_extend<11, int32_t>(instr & 0x7FF) << 1;
         m_regs.r15 += offset;
-        return ReloadPipelineTHUMB();
+        ReloadPipelineTHUMB();
     }
 
     template <uint8_t h>
-    core::cycles_t _THUMB_LongBranchWithLink(uint16_t instr) {
+    void _THUMB_LongBranchWithLink(uint16_t instr) {
         // BL, BLX
         if constexpr (h == 0b01) {
             if (instr & 1) {
-                return 1 + EnterException(arm::Excpt_UndefinedInstruction); // 1I + instruction fetch
+                EnterException(arm::Excpt_UndefinedInstruction);
+                return;
             }
         }
 
@@ -2358,23 +2183,22 @@ private:
             uint32_t nextAddr = pc - 2;
             pc = (lr + (offset << 1)) & ~1;
             lr = nextAddr | 1;
-            return ReloadPipelineTHUMB();
+            ReloadPipelineTHUMB();
         } else if constexpr (h == 0b10) {
             // BL/BLX prefix
             lr = pc + bit::sign_extend<23>(offset << 12);
             pc += 2;
-            return 1; // 1S to fetch next instruction
         } else if constexpr (h == 0b01) {
             // BLX suffix
             uint32_t nextAddr = pc - 2;
             pc = (lr + (offset << 1)) & ~3;
             lr = nextAddr | 1;
             m_regs.cpsr.t = 0;
-            return ReloadPipelineARM();
+            ReloadPipelineARM();
         }
     }
 
-    core::cycles_t _THUMB_Unmapped(uint16_t instr) {
+    void _THUMB_Unmapped(uint16_t instr) {
         throw std::runtime_error("Unmapped THUMB instruction");
     }
 
@@ -2440,13 +2264,13 @@ private:
     }();
 
     template <auto MemberFunc>
-    static core::cycles_t ARMInstrHandlerWrapper(ARM946ES &instance, uint32_t instr) {
-        return (instance.*MemberFunc)(instr);
+    static void ARMInstrHandlerWrapper(ARM946ES &instance, uint32_t instr) {
+        (instance.*MemberFunc)(instr);
     }
 
     template <auto MemberFunc>
-    static core::cycles_t THUMBInstrHandlerWrapper(ARM946ES &instance, uint16_t instr) {
-        return (instance.*MemberFunc)(instr);
+    static void THUMBInstrHandlerWrapper(ARM946ES &instance, uint16_t instr) {
+        (instance.*MemberFunc)(instr);
     }
 
     template <uint32_t instr, bool specialCond>
