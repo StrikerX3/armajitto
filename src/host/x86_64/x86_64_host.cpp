@@ -163,12 +163,12 @@ void x64Host::CompileProlog() {
 
         // At this point, the CPU is halted
         {
-            Xbyak::Label lblNoIRQ{};
-
             // Check if IRQ line is asserted
             const auto irqLineOffset = m_stateOffsets.IRQLineOffset();
             m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], 1);
-            m_codegen.jz(lblNoIRQ);
+
+            // Exit if not asserted
+            m_codegen.jz(m_compiledCode.epilog);
 
             // IRQ line is asserted
             {
@@ -179,26 +179,19 @@ void x64Host::CompileProlog() {
                 m_codegen.test(abi::kHostFlagsReg, x64flgI);
                 m_codegen.jz(m_compiledCode.irqEntry);
 
-                // Jump to block otherwise
-                m_codegen.jmp(abi::kIntArgRegs[0]);
+                // Otherwise, fallthrough and jump to block
             }
-
-            // IRQ line is not asserted
-            m_codegen.L(lblNoIRQ);
-
-            // Go to epilog
-            m_codegen.jmp(m_compiledCode.epilog);
         }
 
-        // Continuation from the halt check -- CPU is running
+        // CPU is running
         m_codegen.L(lblContinue);
     }
 
     // -----------------------------------------------------------------------------------------------------------------
     // Block execution
 
-    // Call block function
-    m_codegen.jmp(abi::kIntArgRegs[0]); // Jump to block code (1st argument passed to prolog function)
+    // Jump to block code
+    m_codegen.jmp(abi::kIntArgRegs[0]);
 
     vtune::ReportCode(CastUintPtr(m_compiledCode.prolog), m_codegen.getCurr<uintptr_t>(), "__prolog");
 }
