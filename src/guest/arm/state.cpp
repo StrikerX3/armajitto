@@ -61,7 +61,7 @@ void State::Reset() {
 
     m_cp15.Reset();
 
-    GPR(GPR::PC) = m_cp15.IsPresent() ? m_cp15.GetControlRegister().baseVectorAddress : 0;
+    GPR(GPR::PC) = m_cp15.IsPresent() ? m_cp15.GetControlRegister().baseVectorAddress + 8 : 8;
 
     CPSR().u32 = 0;
     CPSR().mode = Mode::Supervisor;
