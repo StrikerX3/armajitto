@@ -165,22 +165,23 @@ void x64Host::CompileProlog() {
         {
             Xbyak::Label lblNoIRQ{};
 
-            // Get inverted CPSR I bit
-            auto tmpReg8 = r15b;
-            m_codegen.test(abi::kHostFlagsReg, x64flgI);
-            m_codegen.sete(tmpReg8);
-
-            // Compare against IRQ line
+            // Check if IRQ line is asserted
             const auto irqLineOffset = m_stateOffsets.IRQLineOffset();
-            m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], tmpReg8);
+            m_codegen.test(byte[abi::kARMStateReg + irqLineOffset], 1);
             m_codegen.jz(lblNoIRQ);
 
             // IRQ line is asserted
-            // Change execution state to Running and jump to IRQ vector
-            m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
-            m_codegen.jmp(m_compiledCode.irqEntry);
+            {
+                // Change execution state to Running
+                m_codegen.mov(byte[abi::kARMStateReg + execStateOfs], static_cast<uint8_t>(arm::ExecState::Running));
 
-            // --
+                // Jump to IRQ vector if not suppressed by CPSR I bit
+                m_codegen.test(abi::kHostFlagsReg, x64flgI);
+                m_codegen.jz(m_compiledCode.irqEntry);
+
+                // Jump to block otherwise
+                m_codegen.jmp(abi::kIntArgRegs[0]);
+            }
 
             // IRQ line is not asserted
             m_codegen.L(lblNoIRQ);
