@@ -1239,6 +1239,11 @@ private:
                     m_regs.cpsr.t = (m_regs.r15 & 1);
                 }
                 m_regs.r15 &= m_regs.cpsr.t ? ~1 : ~3;
+                if (m_regs.cpsr.t) {
+                    ReloadPipelineTHUMB();
+                } else {
+                    ReloadPipelineARM();
+                }
             } else {
                 EnterException(arm::Excpt_DataAbort);
             }
