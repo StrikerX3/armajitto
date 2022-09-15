@@ -11,6 +11,7 @@ public:
 
     void Reset() {
         m_interp.Reset();
+        m_irqLine = false;
     }
 
     void JumpTo(uint32_t address, bool thumb) {
@@ -21,8 +22,18 @@ public:
 
     void Run(uint64_t numCycles) final {
         for (uint64_t cycles = 0; cycles < numCycles; cycles++) {
+            if (m_irqLine) {
+                if (!m_interp.GetRegisters().cpsr.i) {
+                    m_interp.HandleIRQ();
+                    return;
+                }
+            }
             m_interp.Run();
         }
+    }
+
+    bool &IRQLine() final {
+        return m_irqLine;
     }
 
     uint32_t &GPR(arm::GPR gpr) final {
@@ -78,7 +89,7 @@ public:
         return m_interp.GetRegisters().bankregs[bank][static_cast<size_t>(gpr) - 8];
     }
 
-    uint32_t GetCPSR() final {
+    uint32_t GetCPSR() const final {
         return m_interp.GetRegisters().cpsr.u32;
     }
 
@@ -87,24 +98,19 @@ public:
         m_interp.SetMode(m_interp.GetRegisters().cpsr.mode);
     }
 
+    uint32_t GetSPSR() const final {
+        auto bank = GetBankFromMode(m_interp.GetRegisters().cpsr.mode);
+        return m_interp.GetRegisters().spsr[bank].u32;
+    }
+
     void SetSPSR(arm::Mode mode, uint32_t value) final {
-        static constexpr auto indices = [] {
-            std::array<size_t, 32> indices{};
-            indices.fill(0);
-            indices[static_cast<size_t>(arm::Mode::User)] = 0;
-            indices[static_cast<size_t>(arm::Mode::FIQ)] = 1;
-            indices[static_cast<size_t>(arm::Mode::IRQ)] = 2;
-            indices[static_cast<size_t>(arm::Mode::Supervisor)] = 3;
-            indices[static_cast<size_t>(arm::Mode::Abort)] = 4;
-            indices[static_cast<size_t>(arm::Mode::Undefined)] = 5;
-            indices[static_cast<size_t>(arm::Mode::System)] = 0;
-            return indices;
-        }();
-        m_interp.GetRegisters().spsr[indices[static_cast<size_t>(mode)]].u32 = value;
+        auto bank = GetBankFromMode(static_cast<interp::arm::Mode>(mode));
+        m_interp.GetRegisters().spsr[bank].u32 = value;
     }
 
 private:
     interp::arm946es::ARM946ES<FuzzerSystem> m_interp;
+    bool m_irqLine = false;
 };
 
 std::unique_ptr<Interpreter> MakeARM946ESInterpreter(FuzzerSystem &sys) {

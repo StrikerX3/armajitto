@@ -309,7 +309,18 @@ void testGBA() {
     }
     {
         // std::ifstream ifsROM{"c:/temp/jsmolka/arm.gba", std::ios::binary};
-        std::ifstream ifsROM{"c:/temp/jsmolka/thumb.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/jsmolka/thumb.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/ARM_DataProcessing.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/ARM_Any.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/THUMB_DataProcessing.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/THUMB_Any.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/FuzzARM.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/100k-T1.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/100k-T2.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/100k-A1.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/100k-A2.gba", std::ios::binary};
+        // std::ifstream ifsROM{"c:/temp/FuzzARM/250k-1.gba", std::ios::binary};
+        std::ifstream ifsROM{"c:/temp/FuzzARM/250k-2.gba", std::ios::binary};
         if (!ifsROM) {
             printf("Could not open rom\n");
             return;
@@ -326,6 +337,10 @@ void testGBA() {
         .system = *sys,
         .model = armajitto::CPUModel::ARM7TDMI,
     }};
+    // jit.GetOptions().translator.maxBlockSize = 1;
+    // jit.GetOptions().optimizer.passes.SetAll(false);
+    // jit.GetOptions().compiler.enableBlockLinking = true;
+
     auto &armState = jit.GetARMState();
 
     // Start execution at the specified address and execution state
@@ -741,7 +756,7 @@ void testCompiler() {
     }*/
     armState.GPR(arm::GPR::R2) = 0;
     armState.GPR(arm::GPR::R4) = 6;
-    
+
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.Run(numInstrs);
 }
@@ -749,9 +764,9 @@ void testCompiler() {
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    // testGBA();
+    testGBA();
     // testNDS();
-    testCompiler();
+    // testCompiler();
 
     return EXIT_SUCCESS;
 }

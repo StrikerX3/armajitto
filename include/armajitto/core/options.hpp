@@ -27,6 +27,20 @@ struct Options {
             bool bitwiseOpsCoalescence = true;
             bool arithmeticOpsCoalescence = true;
             bool hostFlagsOpsCoalescence = true;
+
+            void SetAll(bool enabled) {
+                constantPropagation = enabled;
+
+                deadRegisterStoreElimination = enabled;
+                deadGPRStoreElimination = enabled;
+                deadHostFlagStoreElimination = enabled;
+                deadFlagValueStoreElimination = enabled;
+                deadVariableStoreElimination = enabled;
+
+                bitwiseOpsCoalescence = enabled;
+                arithmeticOpsCoalescence = enabled;
+                hostFlagsOpsCoalescence = enabled;
+            }
         } passes;
 
         // Maximum number of optimization iterations to perform
@@ -36,7 +50,7 @@ struct Options {
     // Options for the host compiler stage
     struct Compiler {
         static constexpr size_t kDefaultBufferCodeSize = static_cast<size_t>(1) * 1024 * 1024;
-        
+
         // Initial size of the code buffer
         size_t initialCodeBufferSize = kDefaultBufferCodeSize;
 

@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
             printf("\n");
         }
         printPSR({.u32 = interp->GetCPSR()}, "CPSR");
+        printPSR({.u32 = interp->GetSPSR()}, "SPSR");
         if (printMemory) {
             printf("Memory:\n");
             for (int i = 0; i < 16; i++) {
@@ -119,6 +120,7 @@ int main(int argc, char *argv[]) {
             printf("\n");
         }
         printPSR(jitState.CPSR(), "CPSR");
+        printPSR(jitState.SPSR(), "SPSR");
         if (printMemory) {
             printf("Memory:\n");
             for (int i = 0; i < 16; i++) {
@@ -165,6 +167,15 @@ int main(int argc, char *argv[]) {
             if (interpCPSR != jitCPSR) {
                 setMismatch();
                 printf("    CPSR: expected %08X  !=  actual %08X\n", interpCPSR, jitCPSR);
+            }
+        }
+
+        {
+            auto interpSPSR = interp->GetSPSR();
+            auto jitSPSR = jitState.SPSR().u32;
+            if (interpSPSR != jitSPSR) {
+                setMismatch();
+                printf("    SPSR: expected %08X  !=  actual %08X\n", interpSPSR, jitSPSR);
             }
         }
 
@@ -427,13 +438,13 @@ int main(int argc, char *argv[]) {
     // writeInstr(0xE28FE000); // add lr, pc, #0x0
     // writeInstr(0xE510F004); // ldr pc, [r0, #-0x4]
 
-    writeInstr(0xE8BD4004); // ldmia sp!, {r2, lr}
-    writeInstr(0xE3A0C0D3); // mov r12, #0xD3
-    writeInstr(0xE12FF00C); // msr cpsr_fsxc, r12
-    writeInstr(0xE8BD0800); // ldmia sp!, {r11}
-    writeInstr(0xE16FF00B); // msr spsr_fsxc, r11
-    writeInstr(0xE8BD5800); // ldmia sp!, {r11, r12, lr}
-    writeInstr(0xE1B0F00E); // movs pc, lr
+    // writeInstr(0xE8BD4004); // ldmia sp!, {r2, lr}
+    // writeInstr(0xE3A0C0D3); // mov r12, #0xD3
+    // writeInstr(0xE12FF00C); // msr cpsr_fsxc, r12
+    // writeInstr(0xE8BD0800); // ldmia sp!, {r11}
+    // writeInstr(0xE16FF00B); // msr spsr_fsxc, r11
+    // writeInstr(0xE8BD5800); // ldmia sp!, {r11, r12, lr}
+    // writeInstr(0xE1B0F00E); // movs pc, lr
 
     /*numInstrs = 64;
     code.insert(code.end(),
@@ -456,6 +467,11 @@ int main(int argc, char *argv[]) {
                     0x3F, 0x5F, 0xE6, 0xB7, 0x98, 0xFC, 0xDD, 0x3E, 0x15, 0x67, 0xF9, 0xF7, 0x20, 0x2D, 0x14, 0x55,
                 });*/
 
+    writeInstr(0xE3A01001); // mov r1, #1
+    writeInstr(0x13A02002); // movne r2, #2
+    writeInstr(0xE3A03003); // mov r3, #3
+    writeInstr(0xE3A04004); // mov r4, #4
+
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.GetOptions().compiler.enableBlockLinking = true;
@@ -473,21 +489,38 @@ int main(int argc, char *argv[]) {
         interpSys.Reset();
         jitSys.Reset();
 
-        // Fill code memory with random data
+        // Fill code memory
         std::copy(code.begin(), code.end(), jitSys.codemem.begin());
         interpSys.codemem = jitSys.codemem;
 
         init(mode, 0x10000, false);
 
-        // Run both the interpreter and the JIT
-        auto cyclesExecuted = jit.Run(numInstrs);
-        interp->Run(cyclesExecuted);
+        // Enable IRQs
+        jitState.CPSR().i = 0;
+        interp->SetCPSR(interp->GetCPSR() & ~(1 << 7));
 
-        printStates(true);
-        printf("%llu cycles executed\n\n", cyclesExecuted);
+        // Expected outcomes of each iteration:
+        // 0 = run mov r1, #1
+        // 1 = enter IRQ
+        // 2 = exit IRQ
+        // 3 = run movne r2, #3  (condition passes)
+        // 4 = run mov r3, #3 and mov r4, #4
+        for (int iter = 0; iter < 5; iter++) {
+            // Assert IRQ lines on an specific iteration
+            bool assertIRQ = (iter == 1);
+            jitState.IRQLine() = assertIRQ;
+            interp->IRQLine() = assertIRQ;
 
-        // Compare states and print any discrepancies
-        compareStates(false, [&] { printf("[!] Discrepancies found on mode %d\n", mode); });
+            // Run both the interpreter and the JIT
+            auto cyclesExecuted = jit.Run(1);
+            interp->Run(cyclesExecuted);
+
+            printStates(true);
+            printf("%llu cycles executed\n\n", cyclesExecuted);
+
+            // Compare states and print any discrepancies
+            compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter); });
+        }
     }
 
     return 0;

@@ -239,7 +239,7 @@ void x64Host::CompileIRQEntry() {
     // Use PC register as temporary storage for CPSR to avoid two memory reads
     m_codegen.mov(pcReg32, dword[abi::kARMStateReg + cpsrOffset]);
 
-    // Copy CPSR to SPSR of the IRQ's mode
+    // Copy CPSR to SPSR_irq
     m_codegen.mov(cpsrReg32, pcReg32);
     m_codegen.mov(dword[abi::kARMStateReg + spsrOffset], cpsrReg32);
 
@@ -283,6 +283,9 @@ void x64Host::CompileIRQEntry() {
 
     // Clear halt state
     m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
+
+    // Count cycles
+    m_codegen.sub(kCycleCountOperand, 1);
 
     // -----------------------------------------------------------------------------------------------------------------
     // IRQ handler block linking
