@@ -560,7 +560,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
 
         m_endBlock = true;
     } else {
-        m_flagsUpdated = instr.setFlags;
+        m_flagsUpdated = updateFlags;
 
         // PC is incremented before if using an immediate or shift by immediate
         if (instr.immediate || instr.rhs.shift.immediate) {
