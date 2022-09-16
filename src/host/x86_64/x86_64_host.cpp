@@ -86,20 +86,27 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
         InvalidateCodeCache();
         return;
     }
-    auto it = m_compiledCode.blockCache.lower_bound(start);
-    while (it != m_compiledCode.blockCache.end() && it->first >= start && it->first <= end) {
-        if (m_compiledCode.enableBlockLinking) {
-            // Undo patches
-            RevertDirectLinkPatches(it->first);
+    
+    // TODO: make this more efficient
+    // - consider redesigning the cache -> CPSR in the lower bits
+    for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
+        const uint64_t upper = cpsr << 32ull;
+        auto it = m_compiledCode.blockCache.lower_bound(start | upper);
+        while (it != m_compiledCode.blockCache.end() && it->first >= (start | upper) && it->first <= (end | upper)) {
+            if (m_compiledCode.enableBlockLinking) {
+                // Undo patches
+                RevertDirectLinkPatches(it->first);
 
-            // Remove any pending patches for this block
-            m_compiledCode.pendingPatches.erase(it->first);
+                // Remove any pending patches for this block
+                m_compiledCode.pendingPatches.erase(it->first);
+            }
+
+            // Remove the block from the cache
+            it = m_compiledCode.blockCache.erase(it);
         }
-
-        // Remove the block from the cache
-        it = m_compiledCode.blockCache.erase(it);
     }
 }
+
 
 void x64Host::CompileCommon() {
     CompileEpilog();
