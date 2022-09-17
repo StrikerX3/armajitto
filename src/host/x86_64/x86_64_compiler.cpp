@@ -332,12 +332,25 @@ void x64Host::Compiler::CompileOp(const ir::IRGetCPSROp *op) {
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
-    auto offset = m_stateOffsets.CPSROffset();
+    auto cpsrOffset = m_stateOffsets.CPSROffset();
     if (op->src.immediate) {
-        m_codegen.mov(dword[abi::kARMStateReg + offset], op->src.imm.value);
+        // Copy CPSR to SPSR if the mode changed
+        if (op->updateSPSRAndIFlag) {
+            auto newMode = static_cast<arm::Mode>(op->src.imm.value & 0x1F);
+            if (newMode != m_mode) {
+                auto psrIndex = arm::NormalizedIndex(newMode);
+                if (psrIndex != 0) {
+                    auto spsrOffset = m_stateOffsets.SPSROffset(newMode);
+                    auto tmpReg32 = m_regAlloc.GetTemporary();
+                    m_codegen.mov(tmpReg32, dword[abi::kARMStateReg + cpsrOffset]);
+                    m_codegen.mov(dword[abi::kARMStateReg + spsrOffset], tmpReg32);
+                }
+            }
+        }
+        m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], op->src.imm.value);
 
         // Update I in EAX
-        if (op->updateIFlag) {
+        if (op->updateSPSRAndIFlag) {
             if (bit::test<ARMflgIPos>(op->src.imm.value)) {
                 m_codegen.or_(abi::kHostFlagsReg, x64flgI);
             } else {
@@ -346,10 +359,38 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
         }
     } else {
         auto srcReg32 = m_regAlloc.Get(op->src.var.var);
-        m_codegen.mov(dword[abi::kARMStateReg + offset], srcReg32);
+        if (op->updateSPSRAndIFlag) {
+            Xbyak::Label lblSkipSPSRUpdate{};
+
+            // Check if the mode changed
+            auto tmpReg32 = m_regAlloc.GetTemporary();
+            m_codegen.mov(tmpReg32, dword[abi::kARMStateReg + cpsrOffset]);
+            m_codegen.and_(tmpReg32, 0x1F);
+            m_codegen.test(tmpReg32, srcReg32);
+            m_codegen.je(lblSkipSPSRUpdate);
+
+            // Mode has changed
+            {
+                // Get normalized mode index for the new mode
+                auto indexReg64 = m_regAlloc.GetTemporary().cvt64();
+                m_codegen.mov(indexReg64, CastUintPtr(arm::kNormalizedModeIndices.data()));
+                m_codegen.mov(tmpReg32, dword[indexReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
+
+                // Copy CPSR to SPSR if the mode has an SPSR register
+                m_codegen.test(tmpReg32, tmpReg32);
+                m_codegen.je(lblSkipSPSRUpdate);
+                m_codegen.mov(indexReg64.cvt32(), dword[abi::kARMStateReg + cpsrOffset]);
+                m_codegen.mov(dword[abi::kARMStateReg + tmpReg32.cvt64() * 4], indexReg64.cvt32());
+            }
+
+            // Mode has not changed
+            m_codegen.L(lblSkipSPSRUpdate);
+        }
+
+        m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], srcReg32);
 
         // Update I in EAX
-        if (op->updateIFlag) {
+        if (op->updateSPSRAndIFlag) {
             auto tmpReg32 = m_regAlloc.GetTemporary();
             m_codegen.mov(tmpReg32, srcReg32);
             m_codegen.and_(tmpReg32, ARMflgI);

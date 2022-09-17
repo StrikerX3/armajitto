@@ -58,20 +58,21 @@ struct IRGetCPSROp : public IROpBase<IROpcodeType::GetCPSR> {
 };
 
 // Set CPSR value
-//   st cpsr[.i], <var/imm:src>
+//   st cpsr[.c], <var/imm:src>
 //
 // Copies the value of <src> into CPSR.
-// Also updates the host I flag if [i] is specified.
+// Also updates the host I flag and copies CPSR to SPSR if [c] is specified.
+// The SPSR copy only happens if the target mode has a banked SPSR.
 struct IRSetCPSROp : public IROpBase<IROpcodeType::SetCPSR> {
     VarOrImmArg src;
-    bool updateIFlag;
+    bool updateSPSRAndIFlag;
 
-    IRSetCPSROp(VarOrImmArg src, bool updateIFlag)
+    IRSetCPSROp(VarOrImmArg src, bool updateSPSRAndIFlag)
         : src(src)
-        , updateIFlag(updateIFlag) {}
+        , updateSPSRAndIFlag(updateSPSRAndIFlag) {}
 
     std::string ToString() const final {
-        return std::string(updateIFlag ? "st cpsr.i" : "st cpsr") + ", " + src.ToString();
+        return std::string(updateSPSRAndIFlag ? "st cpsr.c" : "st cpsr") + ", " + src.ToString();
     }
 };
 

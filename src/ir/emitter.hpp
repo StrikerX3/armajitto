@@ -179,7 +179,7 @@ public:
     void SetRegisterExceptPC(GPRArg dst, VarOrImmArg src);
     void SetRegisterExceptPC(arm::GPR dst, VarOrImmArg src); // using current mode
     Variable GetCPSR();
-    void SetCPSR(VarOrImmArg src, bool updateIFlag);
+    void SetCPSR(VarOrImmArg src, bool updateSPSRAndIFlag);
     Variable GetSPSR();
     void SetSPSR(VarOrImmArg src);
     void SetSPSR(VarOrImmArg src, arm::Mode mode);

@@ -52,8 +52,8 @@ Variable Emitter::GetCPSR() {
     return dst;
 }
 
-void Emitter::SetCPSR(VarOrImmArg src, bool updateIFlag) {
-    Write<IRSetCPSROp>(src, updateIFlag);
+void Emitter::SetCPSR(VarOrImmArg src, bool updateSPSRAndIFlag) {
+    Write<IRSetCPSROp>(src, updateSPSRAndIFlag);
 }
 
 Variable Emitter::GetSPSR() {
@@ -601,7 +601,7 @@ void Emitter::EnterException(arm::Exception vector) {
     SetRegister({arm::GPR::LR, vectorInfo.mode}, lr);
     SetRegister({arm::GPR::PC, vectorInfo.mode}, pc);
 
-    TerminateReturn();
+    TerminateIndirectLink();
 }
 
 void Emitter::FetchInstruction() {
