@@ -1164,6 +1164,7 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
             value = emitter.BitwiseAnd(value, 0xF0000000, false);
             value = emitter.BitwiseOr(value, cpsr, false);
             emitter.SetCPSR(value, false);
+            emitter.StoreFlags(arm::Flags::NZCV, value);
             m_flagsUpdated = true;
         } else {
             emitter.SetRegister(instr.rd, value);

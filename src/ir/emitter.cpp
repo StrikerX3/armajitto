@@ -501,8 +501,8 @@ Variable Emitter::GetOffsetFromCurrentInstructionAddress(int32_t offset) {
 
 void Emitter::CopySPSRToCPSR() {
     auto spsr = GetSPSR();
-    StoreFlags(arm::Flags::NZCV, spsr);
     SetCPSR(spsr, true);
+    StoreFlags(arm::Flags::NZCV, spsr);
     TerminateReturn();
 }
 
