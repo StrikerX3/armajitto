@@ -5,10 +5,12 @@
 namespace armajitto::x86_64 {
 
 // TODO: include ECX
-inline constexpr auto kAvailableRegs = {/*ecx,*/ edx, esi, edi, r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d};
+// NOTE: R10 is used for the cycle counter
+inline constexpr auto kAvailableRegs = {/*ecx,*/ edx,   esi,  edi,  r8d,  r9d,
+                                        /*r10d,*/ r11d, r12d, r13d, r14d, r15d};
 
 inline uint32_t SpillSlotOffset(size_t spillSlot) {
-    return abi::kVarSpillBaseOffset + spillSlot * sizeof(uint32_t);
+    return spillSlot * sizeof(uint32_t);
 }
 
 RegisterAllocator::RegisterAllocator(Xbyak::CodeGenerator &code, std::pmr::memory_resource &alloc)

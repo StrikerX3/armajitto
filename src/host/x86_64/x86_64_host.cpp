@@ -16,8 +16,6 @@
 
 namespace armajitto::x86_64 {
 
-inline const auto kCycleCountOperand = qword[abi::kVarSpillBaseReg + abi::kCycleCountOffset];
-
 x64Host::x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc)
     : Host(context, options)
     , m_codeBuffer(new uint8_t[options.initialCodeBufferSize])
@@ -131,9 +129,7 @@ void x64Host::CompileProlog() {
     m_codegen.sub(rsp, abi::kStackReserveSize);
     m_codegen.mov(abi::kVarSpillBaseReg, rsp);                // rbp = Variable spill and cycle counter base register
     m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // rbx = ARM state pointer
-
-    // Copy cycle count to its slot in the stack (2nd argument passed to prolog function)
-    m_codegen.mov(kCycleCountOperand, abi::kIntArgRegs[1]);
+    m_codegen.mov(abi::kCycleCountReg, abi::kIntArgRegs[1]);  // r10 = remaining cycle count
 
     // Copy CPSR NZCV and I flags to EAX
     auto flagsReg32 = abi::kHostFlagsReg;
@@ -206,7 +202,7 @@ void x64Host::CompileEpilog() {
     m_compiledCode.epilog = m_codegen.getCurr<HostCode>();
 
     // Copy remaining cycles to return value
-    m_codegen.mov(abi::kIntReturnValueReg, kCycleCountOperand);
+    m_codegen.mov(abi::kIntReturnValueReg, abi::kCycleCountReg);
 
     // Cleanup stack
     m_codegen.add(rsp, abi::kStackReserveSize);
@@ -291,7 +287,7 @@ void x64Host::CompileIRQEntry() {
     m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
     // Count cycles
-    m_codegen.sub(kCycleCountOperand, 1);
+    m_codegen.dec(abi::kCycleCountReg);
 
     // -----------------------------------------------------------------------------------------------------------------
     // IRQ handler block linking
@@ -362,7 +358,11 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
 
         // Decrement cycles for this block
         // TODO: proper cycle counting
-        m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+        if (block.InstructionCount() == 1) {
+            m_codegen.dec(abi::kCycleCountReg);
+        } else {
+            m_codegen.sub(abi::kCycleCountReg, block.InstructionCount());
+        }
 
         // Bail out if we ran out of cycles
         m_codegen.jle(m_compiledCode.epilog);
@@ -384,7 +384,11 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
 
             // Decrement cycles for this block's condition fail branch
             // TODO: properly decrement cycles for failing the check
-            m_codegen.sub(kCycleCountOperand, block.InstructionCount());
+            if (block.InstructionCount() == 1) {
+                m_codegen.dec(abi::kCycleCountReg);
+            } else {
+                m_codegen.sub(abi::kCycleCountReg, block.InstructionCount());
+            }
 
             if (m_compiledCode.enableBlockLinking) {
                 // Bail out if we ran out of cycles
