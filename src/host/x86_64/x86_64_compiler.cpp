@@ -334,36 +334,42 @@ void x64Host::Compiler::CompileOp(const ir::IRGetCPSROp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
     auto cpsrOffset = m_stateOffsets.CPSROffset();
     if (op->src.immediate) {
-        // Copy CPSR to SPSR if the mode changed
         if (op->updateSPSRAndIFlag) {
+            // Update I in EAX
+            if (bit::test<ARMflgIPos>(op->src.imm.value)) {
+                m_codegen.or_(abi::kHostFlagsReg, x64flgI);
+            } else {
+                m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+            }
+
+            // Copy CPSR to SPSR if the mode changed
             auto newMode = static_cast<arm::Mode>(op->src.imm.value & 0x1F);
             if (newMode != m_mode) {
-                auto psrIndex = arm::NormalizedIndex(newMode);
-                if (psrIndex != 0) {
-                    auto spsrOffset = m_stateOffsets.SPSROffset(newMode);
+                const auto spsrOffset = m_stateOffsets.SPSROffset(newMode);
+                if (spsrOffset != cpsrOffset) {
                     auto tmpReg32 = m_regAlloc.GetTemporary();
                     m_codegen.mov(tmpReg32, dword[abi::kARMStateReg + cpsrOffset]);
                     m_codegen.mov(dword[abi::kARMStateReg + spsrOffset], tmpReg32);
                 }
             }
         }
-        m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], op->src.imm.value);
 
-        // Update I in EAX
-        if (op->updateSPSRAndIFlag) {
-            if (bit::test<ARMflgIPos>(op->src.imm.value)) {
-                m_codegen.or_(abi::kHostFlagsReg, x64flgI);
-            } else {
-                m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-            }
-        }
+        // Update CPSR to new value
+        m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], op->src.imm.value);
     } else {
         auto srcReg32 = m_regAlloc.Get(op->src.var.var);
         if (op->updateSPSRAndIFlag) {
             Xbyak::Label lblSkipSPSRUpdate{};
 
-            // Check if the mode changed
+            // Update I in EAX
             auto tmpReg32 = m_regAlloc.GetTemporary();
+            m_codegen.mov(tmpReg32, srcReg32);
+            m_codegen.and_(tmpReg32, ARMflgI);
+            m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
+            m_codegen.shl(tmpReg32, x64flgIPos - ARMflgIPos);
+            m_codegen.or_(abi::kHostFlagsReg, tmpReg32);
+
+            // Check if the mode changed
             m_codegen.mov(tmpReg32, srcReg32);
             m_codegen.and_(tmpReg32, 0x1F);
             m_codegen.cmp(tmpReg32, static_cast<uint32_t>(m_mode));
@@ -372,29 +378,23 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
             // Mode has changed
             {
                 // Copy CPSR to SPSR if the mode has an SPSR register
+                auto cpsrReg32 = m_regAlloc.GetTemporary();
+
                 const auto psrTableOffset = m_stateOffsets.PSRTableOffset();
                 m_codegen.mov(tmpReg32.cvt64(),
                               qword[abi::kARMStateReg + (psrTableOffset + tmpReg32.cvt64() * sizeof(uintptr_t))]);
-                m_codegen.cmp(tmpReg32.cvt64(), m_stateOffsets.CPSROffset());
+                m_codegen.cmp(tmpReg32.cvt64(), cpsrOffset);
                 m_codegen.je(lblSkipSPSRUpdate);
-                m_codegen.mov(dword[tmpReg32.cvt64()], srcReg32);
+                m_codegen.mov(cpsrReg32, dword[abi::kARMStateReg + cpsrOffset]);
+                m_codegen.mov(dword[tmpReg32.cvt64()], cpsrReg32);
             }
 
             // Mode has not changed
             m_codegen.L(lblSkipSPSRUpdate);
         }
 
+        // Update CPSR to new value
         m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], srcReg32);
-
-        // Update I in EAX
-        if (op->updateSPSRAndIFlag) {
-            auto tmpReg32 = m_regAlloc.GetTemporary();
-            m_codegen.mov(tmpReg32, srcReg32);
-            m_codegen.and_(tmpReg32, ARMflgI);
-            m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-            m_codegen.shl(tmpReg32, x64flgIPos - ARMflgIPos);
-            m_codegen.or_(abi::kHostFlagsReg, tmpReg32);
-        }
     }
 }
 
