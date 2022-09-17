@@ -467,6 +467,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     const bool dstPC = instr.dstReg == GPR::PC;
     const bool isComparison = bit::extract<2, 2>(static_cast<uint32_t>(instr.opcode)) == 0b10;
     const bool copySPSRtoCPSR = dstPC;
+    const bool setFlags = instr.setFlags && !copySPSRtoCPSR;
     const bool updateFlags = instr.setFlags && (!dstPC || isComparison);
     const bool carryInOpcode =
         instr.opcode == Opcode::ADC || instr.opcode == Opcode::SBC || instr.opcode == Opcode::RSC;
@@ -481,7 +482,7 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // The registers below are still retrieved from the previous CPSR mode.
     if (instr.setFlags && copySPSRtoCPSR) {
         emitter.CopySPSRToCPSR();
-        m_endBlock = true; // may have changed mode
+        m_flagsUpdated = true;
     }
 
     // Get first operand
@@ -514,22 +515,22 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // Perform the selected ALU operation
     Variable result;
     switch (instr.opcode) {
-    case Opcode::AND: result = emitter.BitwiseAnd(lhs, rhs, instr.setFlags); break;
-    case Opcode::EOR: result = emitter.BitwiseXor(lhs, rhs, instr.setFlags); break;
-    case Opcode::SUB: result = emitter.Subtract(lhs, rhs, instr.setFlags); break;
-    case Opcode::RSB: result = emitter.Subtract(rhs, lhs, instr.setFlags); break; // note: swapped rhs/lhs
-    case Opcode::ADD: result = emitter.Add(lhs, rhs, instr.setFlags); break;
-    case Opcode::ADC: result = emitter.AddCarry(lhs, rhs, instr.setFlags); break;
-    case Opcode::SBC: result = emitter.SubtractCarry(lhs, rhs, instr.setFlags); break;
-    case Opcode::RSC: result = emitter.SubtractCarry(rhs, lhs, instr.setFlags); break; // note: swapped rhs/lhs
+    case Opcode::AND: result = emitter.BitwiseAnd(lhs, rhs, setFlags); break;
+    case Opcode::EOR: result = emitter.BitwiseXor(lhs, rhs, setFlags); break;
+    case Opcode::SUB: result = emitter.Subtract(lhs, rhs, setFlags); break;
+    case Opcode::RSB: result = emitter.Subtract(rhs, lhs, setFlags); break; // note: swapped rhs/lhs
+    case Opcode::ADD: result = emitter.Add(lhs, rhs, setFlags); break;
+    case Opcode::ADC: result = emitter.AddCarry(lhs, rhs, setFlags); break;
+    case Opcode::SBC: result = emitter.SubtractCarry(lhs, rhs, setFlags); break;
+    case Opcode::RSC: result = emitter.SubtractCarry(rhs, lhs, setFlags); break; // note: swapped rhs/lhs
     case Opcode::TST: emitter.Test(lhs, rhs); break;
     case Opcode::TEQ: emitter.TestEquivalence(lhs, rhs); break;
     case Opcode::CMP: emitter.Compare(lhs, rhs); break;
     case Opcode::CMN: emitter.CompareNegated(lhs, rhs); break;
-    case Opcode::ORR: result = emitter.BitwiseOr(lhs, rhs, instr.setFlags); break;
-    case Opcode::MOV: result = emitter.Move(rhs, instr.setFlags); break;
-    case Opcode::BIC: result = emitter.BitClear(lhs, rhs, instr.setFlags); break;
-    case Opcode::MVN: result = emitter.MoveNegated(rhs, instr.setFlags); break;
+    case Opcode::ORR: result = emitter.BitwiseOr(lhs, rhs, setFlags); break;
+    case Opcode::MOV: result = emitter.Move(rhs, setFlags); break;
+    case Opcode::BIC: result = emitter.BitClear(lhs, rhs, setFlags); break;
+    case Opcode::MVN: result = emitter.MoveNegated(rhs, setFlags); break;
     }
 
     // Store result (except for comparison operators)
