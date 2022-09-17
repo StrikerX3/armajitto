@@ -44,7 +44,7 @@ static uint32_t SystemMemReadSignedHalf(ISystem &system, uint32_t address) {
 
 // ARMv4T LDRH
 static uint32_t SystemMemReadUnalignedRotatedHalf(ISystem &system, uint32_t address) {
-    uint32_t value = system.MemReadHalf(address & ~1);
+    uint16_t value = system.MemReadHalf(address & ~1);
     if (address & 1) {
         value = std::rotr(value, 8);
     }
@@ -427,7 +427,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                     if (op->address.immediate) {
                         const uint32_t shiftOffset = (op->address.imm.value & 1) * 8;
                         if (shiftOffset != 0) {
-                            m_codegen.ror(dstReg32, shiftOffset);
+                            m_codegen.ror(dstReg32.cvt16(), shiftOffset);
                         }
                     } else {
                         auto baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
@@ -435,7 +435,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                         m_codegen.mov(shiftReg32, baseAddrReg32);
                         m_codegen.and_(shiftReg32, 1);
                         m_codegen.shl(shiftReg32, 3);
-                        m_codegen.ror(dstReg32, shiftReg32.cvt8());
+                        m_codegen.ror(dstReg32.cvt16(), shiftReg32.cvt8());
                     }
                 }
             } else { // aligned
