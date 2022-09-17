@@ -2761,15 +2761,16 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
                     std::is_pointer_v<FnArgs> || std::is_reference_v<FnArgs>)&&...),
                   "All FnArgs must be integral types, Xbyak operands, pointers or references");
 
-    // Save the return value register
+    // Save the return value and cycle count registers
     m_codegen.push(abi::kIntReturnValueReg);
+    m_codegen.push(abi::kCycleCountReg);
 
     // Save all used volatile registers
     std::array<Xbyak::Reg64, abi::kVolatileRegs.size()> savedRegs;
     size_t savedRegsCount = 0;
     for (auto reg : abi::kVolatileRegs) {
-        // The return register is handled on its own
-        if (reg == abi::kIntReturnValueReg) {
+        // The return value and cycle count registers are handled separately
+        if (reg == abi::kIntReturnValueReg || reg == abi::kCycleCountReg) {
             continue;
         }
 
@@ -2780,7 +2781,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         }
     }
 
-    const uint64_t volatileRegsSize = (savedRegsCount + 1) * sizeof(uint64_t);
+    const uint64_t volatileRegsSize = (savedRegsCount + 2) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -2949,7 +2950,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
         }
     }
 
-    // Pop the return value register
+    // Pop the cycle count and return value registers
+    m_codegen.pop(abi::kCycleCountReg);
     m_codegen.pop(abi::kIntReturnValueReg);
 }
 
