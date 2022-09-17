@@ -2339,14 +2339,12 @@ void x64Host::Compiler::CompileOp(const ir::IRStoreFlagsOp *op) {
             }
         } else {
             auto valReg32 = m_regAlloc.Get(op->values.var.var);
-            auto maskReg32 = m_regAlloc.GetTemporary();
             auto scratchReg32 = m_regAlloc.GetTemporary();
             m_codegen.mov(scratchReg32, valReg32);
             m_codegen.shr(scratchReg32, ARMflgNZCVShift);
             m_codegen.imul(scratchReg32, scratchReg32, ARMTox64FlagsMult);
             m_codegen.and_(scratchReg32, x64FlagsMask);
-            m_codegen.mov(maskReg32, ~((mask * ARMTox64FlagsMult) & x64FlagsMask));
-            m_codegen.and_(abi::kHostFlagsReg, maskReg32);
+            m_codegen.and_(abi::kHostFlagsReg, ~((mask * ARMTox64FlagsMult) & x64FlagsMask));
             m_codegen.or_(abi::kHostFlagsReg, scratchReg32);
         }
     }
@@ -2439,7 +2437,7 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
         m_codegen.test(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT);
         m_codegen.sete(cl); // CL is 1 when ARM, 0 when Thumb
 
-        // Align PC with mask: ~1 for Thumb or ~3 for ARM
+        // Mask for PC alignment: ~1 for Thumb or ~3 for ARM
         m_codegen.mov(maskReg32, ~1); // Start with ~1
         m_codegen.shl(maskReg32, cl); // Shift left by the magic bit in CL; makes this ~3 if ARM
 
@@ -2447,26 +2445,29 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
             auto address = op->address.imm.value;
             auto offset = address + 4;
 
-            // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+            // Adjust PC by +8 if ARM or +4 if Thumb
             // ARM:   PC + 1*4 + 4 = PC + 8
             // Thumb: PC + 0*4 + 4 = PC + 4
             m_codegen.movzx(pcReg32, cl);
             if (offset & 0x80000000) {
                 // Handle large offsets manually
-                m_codegen.lea(pcReg32, dword[pcReg32 * 4]);
+                m_codegen.shl(pcReg32, 2);
                 m_codegen.add(pcReg32, offset);
             } else {
                 m_codegen.lea(pcReg32, dword[pcReg32 * 4 + offset]);
             }
-            m_codegen.and_(pcReg32, maskReg32);
         } else {
             auto addrReg32 = m_regAlloc.Get(op->address.var.var);
 
-            // Adjust PC by +8 if ARM or +4 if Thumb and align the resulting address
+            // Adjust PC by +8 if ARM or +4 if Thumb
+            // ARM:   PC + 1*4 + 4 = PC + 8
+            // Thumb: PC + 0*4 + 4 = PC + 4
             m_codegen.movzx(pcReg32, cl);
-            m_codegen.lea(pcReg32, dword[addrReg32 + pcReg32 * 4 + 4]); // ARM:   PC + 1*4 + 4 = PC + 8
-            m_codegen.and_(pcReg32, maskReg32);                         // Thumb: PC + 0*4 + 4 = PC + 4
+            m_codegen.lea(pcReg32, dword[addrReg32 + pcReg32 * 4 + 4]);
         }
+
+        // Align the resulting address
+        m_codegen.and_(pcReg32, maskReg32);
     } else {
         // Honor pre-ARMv5 branching feature if requested
         if (bx4) {
@@ -2503,11 +2504,11 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
             // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
             if (op->address.imm.value & 1) {
                 // Thumb branch
-                m_codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT); // T bit
+                m_codegen.or_(dword[abi::kARMStateReg + cpsrFieldOffset], ARMflgT);
                 m_codegen.mov(pcReg32, (op->address.imm.value & ~1) + 2 * sizeof(uint16_t));
             } else {
                 // ARM branch
-                m_codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~ARMflgT); // T bit
+                m_codegen.and_(dword[abi::kARMStateReg + cpsrFieldOffset], ~ARMflgT);
                 m_codegen.mov(pcReg32, (op->address.imm.value & ~3) + 2 * sizeof(uint32_t));
             }
         } else {
