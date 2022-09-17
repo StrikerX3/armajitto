@@ -19,6 +19,7 @@ public:
         }
 
         m_gprTableOffset = CastUintPtr(state.m_gprPtrs.data()) - statePtr;
+        m_psrTableOffset = CastUintPtr(state.m_psrPtrs.data()) - statePtr;
 
         m_irqLineOffset = CastUintPtr(&state.m_irqLine) - statePtr;
         m_execStateOffset = CastUintPtr(&state.m_execState) - statePtr;
@@ -44,6 +45,10 @@ public:
         return m_psrOffsets[index];
     }
 
+    uintptr_t PSRTableOffset() const {
+        return m_psrTableOffset;
+    }
+
     uintptr_t IRQLineOffset() const {
         return m_irqLineOffset;
     }
@@ -57,6 +62,7 @@ private:
     std::array<uintptr_t, State::kNumGPREntries> m_gprOffsets;
     std::array<uintptr_t, State::kNumPSREntries> m_psrOffsets;
     uintptr_t m_gprTableOffset;
+    uintptr_t m_psrTableOffset;
 
     uintptr_t m_irqLineOffset;
     uintptr_t m_execStateOffset;

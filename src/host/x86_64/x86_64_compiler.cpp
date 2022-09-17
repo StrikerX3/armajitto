@@ -364,23 +364,20 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
 
             // Check if the mode changed
             auto tmpReg32 = m_regAlloc.GetTemporary();
-            m_codegen.mov(tmpReg32, dword[abi::kARMStateReg + cpsrOffset]);
+            m_codegen.mov(tmpReg32, srcReg32);
             m_codegen.and_(tmpReg32, 0x1F);
-            m_codegen.test(tmpReg32, srcReg32);
+            m_codegen.cmp(tmpReg32, static_cast<uint32_t>(m_mode));
             m_codegen.je(lblSkipSPSRUpdate);
 
             // Mode has changed
             {
-                // Get normalized mode index for the new mode
-                auto indexReg64 = m_regAlloc.GetTemporary().cvt64();
-                m_codegen.mov(indexReg64, CastUintPtr(arm::kNormalizedModeIndices.data()));
-                m_codegen.mov(tmpReg32, dword[indexReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
-
                 // Copy CPSR to SPSR if the mode has an SPSR register
-                m_codegen.test(tmpReg32, tmpReg32);
+                const auto psrTableOffset = m_stateOffsets.PSRTableOffset();
+                m_codegen.mov(tmpReg32.cvt64(),
+                              qword[abi::kARMStateReg + (psrTableOffset + tmpReg32.cvt64() * sizeof(uintptr_t))]);
+                m_codegen.cmp(tmpReg32.cvt64(), m_stateOffsets.CPSROffset());
                 m_codegen.je(lblSkipSPSRUpdate);
-                m_codegen.mov(indexReg64.cvt32(), dword[abi::kARMStateReg + cpsrOffset]);
-                m_codegen.mov(dword[abi::kARMStateReg + tmpReg32.cvt64() * 4], indexReg64.cvt32());
+                m_codegen.mov(dword[tmpReg32.cvt64()], srcReg32);
             }
 
             // Mode has not changed
