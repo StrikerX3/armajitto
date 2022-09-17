@@ -766,9 +766,10 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg32, 63);
-        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.cmovbe(shiftReg64.cvt8(), amountReg32);
 
         // Get destination register
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
@@ -781,6 +782,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
                 CopyIfDifferent(dstReg, valueReg64);
             } else {
                 dstReg = m_regAlloc.GetTemporary().cvt64();
+                m_codegen.mov(dstReg, valueReg64);
             }
 
             // Compute the shift
@@ -790,7 +792,9 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             if (op->setCarry) {
                 SetCFromFlags();
             }
-            m_codegen.shr(dstReg, 32); // Shift value back down to the bottom half
+            if (op->dst.var.IsPresent()) {
+                m_codegen.shr(dstReg, 32); // Shift value back down to the bottom half
+            }
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
@@ -799,6 +803,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg32, 63);
         m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
@@ -818,11 +823,13 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         if (op->setCarry) {
             SetCFromFlags();
         }
-        m_codegen.shr(dstReg64, 32); // Shift value back down to the bottom half
+        if (op->dst.var.IsPresent()) {
+            m_codegen.shr(dstReg64, 32); // Shift value back down to the bottom half
+        }
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
-        auto amount = op->amount.imm.value;
+        auto amount = op->amount.imm.value & 0xFF;
 
         if (amount < 32) {
             // Get destination register
@@ -832,6 +839,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
                 CopyIfDifferent(dstReg32, valueReg32);
             } else {
                 dstReg32 = m_regAlloc.GetTemporary();
+                m_codegen.mov(dstReg32, valueReg32);
             }
 
             // Compute shift and update flags
@@ -885,6 +893,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg32, 63);
         m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
@@ -902,9 +911,15 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            Xbyak::Label lblNoEffect{};
+            m_codegen.cmp(shiftReg64, shiftReg64);
+            m_codegen.jz(lblNoEffect);
+
             m_codegen.dec(shiftReg64);
             m_codegen.bt(valueReg64, shiftReg64);
             SetCFromFlags();
+
+            m_codegen.L(lblNoEffect);
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
@@ -913,6 +928,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..63
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg32, 63);
         m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
@@ -927,15 +943,21 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            Xbyak::Label lblNoEffect{};
+            m_codegen.cmp(shiftReg64, shiftReg64);
+            m_codegen.jz(lblNoEffect);
+
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg64);
             SetCFromFlags();
+
+            m_codegen.L(lblNoEffect);
         }
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
-        auto amount = op->amount.imm.value;
+        auto amount = op->amount.imm.value & 0xFF;
 
         if (amount < 32) {
             // Compute the shift
@@ -996,6 +1018,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..32
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg32, 32);
         m_codegen.cmp(amountReg32, 32);
         m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
@@ -1011,9 +1034,15 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            Xbyak::Label lblNoEffect{};
+            m_codegen.cmp(shiftReg32, shiftReg32);
+            m_codegen.jz(lblNoEffect);
+
             m_codegen.dec(shiftReg32);
             m_codegen.bt(valueReg32, shiftReg32);
             SetCFromFlags();
+
+            m_codegen.L(lblNoEffect);
         }
     } else if (valueImm) {
         // value is immediate, amount is variable
@@ -1022,6 +1051,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
         // Get shift amount, clamped to 0..32
+        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg32, 32);
         m_codegen.cmp(amountReg32, 32);
         m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
@@ -1036,15 +1066,21 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            Xbyak::Label lblNoEffect{};
+            m_codegen.cmp(shiftReg32, shiftReg32);
+            m_codegen.jz(lblNoEffect);
+
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg32.cvt64());
             SetCFromFlags();
+
+            m_codegen.L(lblNoEffect);
         }
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
-        auto amount = std::min(op->amount.imm.value, 32u);
+        auto amount = std::min(op->amount.imm.value & 0xFF, 32u);
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
@@ -1075,7 +1111,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         AssignImmResultWithCarry(op->dst, result, carry, op->setCarry);
     } else if (!valueImm && !amountImm) {
         // Both are variables
-        auto shiftReg8 = m_regAlloc.GetRCX().cvt8();
+        auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
@@ -1085,8 +1121,8 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         m_codegen.jz(lblNoRotation);
 
         {
-            // Put shift amount into CL
-            m_codegen.mov(shiftReg8, amountReg32.cvt8());
+            // Put shift amount into ECX
+            m_codegen.mov(shiftReg32, amountReg32);
 
             // Put value to shift into the result register
             Xbyak::Reg32 dstReg32{};
@@ -1100,7 +1136,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 
             // Compute the shift
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.ror(dstReg32, shiftReg8);
+            m_codegen.ror(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
                 SetCFromFlags();
@@ -1110,7 +1146,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         m_codegen.L(lblNoRotation);
     } else if (valueImm) {
         // value is immediate, amount is variable
-        auto shiftReg8 = m_regAlloc.GetRCX().cvt8();
+        auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
         auto value = op->value.imm.value;
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
@@ -1120,8 +1156,8 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         m_codegen.jz(lblNoRotation);
 
         {
-            // Put shift amount into CL
-            m_codegen.mov(shiftReg8, amountReg32.cvt8());
+            // Put shift amount into ECX
+            m_codegen.mov(shiftReg32, amountReg32);
 
             // Put value to shift into the result register
             Xbyak::Reg32 dstReg32{};
@@ -1134,7 +1170,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             // Compute the shift
             m_codegen.mov(dstReg32, value);
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.ror(dstReg32, shiftReg8);
+            m_codegen.ror(dstReg32, shiftReg32.cvt8());
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
                 SetCFromFlags();
@@ -1145,7 +1181,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
     } else {
         // value is variable, amount is immediate
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
-        auto amount = op->amount.imm.value & 31;
+        auto amount = op->amount.imm.value & 0xFF;
 
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
             // Compute the shift directly into the result register
@@ -1166,7 +1202,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             m_codegen.ror(dstReg32, amount);
             if (amount > 0 && op->setCarry) {
                 // If rotating by a positive multiple of 32, set the carry to the MSB
-                if (amount == 0 && op->amount.imm.value != 0) {
+                if ((amount & 31) == 0) {
                     m_codegen.bt(dstReg32, 31);
                 }
                 SetCFromFlags();
@@ -1176,7 +1212,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRRotateRightExtendedOp *op) {
-    // ARM RRX works exactly the same as x86 RRX, including carry flag behavior.
+    // ARM RRX works exactly the same as x86 RCR by 1, including carry flag behavior.
 
     if (op->dst.var.IsPresent()) {
         Xbyak::Reg32 dstReg32{};
