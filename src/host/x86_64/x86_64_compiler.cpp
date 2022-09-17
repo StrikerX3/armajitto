@@ -382,7 +382,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
     Xbyak::Label lblEnd{};
 
-    auto compileRead = [this, op](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
+    auto compileRead = [this, op, &lblEnd](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
         switch (op->size) {
         case ir::MemAccessSize::Byte:
             if (op->mode == ir::MemAccessMode::Signed) {
@@ -402,7 +402,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                         }
                     } else {
                         Xbyak::Label lblByteRead{};
-                        Xbyak::Label lblDone{};
 
                         auto baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
                         m_codegen.test(baseAddrReg32, 1);
@@ -410,13 +409,11 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
                         // Word read
                         m_codegen.movsx(dstReg32, word[addrReg64 + offset]);
-                        m_codegen.jmp(lblDone);
+                        m_codegen.jmp(lblEnd);
 
                         // Byte read
                         m_codegen.L(lblByteRead);
                         m_codegen.movsx(dstReg32, byte[addrReg64 + offset + 1]);
-
-                        m_codegen.L(lblDone);
                     }
                 } else {
                     m_codegen.movsx(dstReg32, word[addrReg64 + offset]);
