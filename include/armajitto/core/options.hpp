@@ -55,6 +55,7 @@ struct Options {
         size_t initialCodeBufferSize = kDefaultBufferCodeSize;
 
         // Enables block linking, which can significantly speed up execution
+        // This option only takes effect on construction or after invoking Host::Clear()
         bool enableBlockLinking = true;
     } compiler;
 };

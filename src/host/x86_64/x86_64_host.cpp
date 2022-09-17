@@ -86,7 +86,7 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
         InvalidateCodeCache();
         return;
     }
-    
+
     // TODO: make this more efficient
     // - consider redesigning the cache -> CPSR in the lower bits
     for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
@@ -107,11 +107,10 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
     }
 }
 
-
 void x64Host::CompileCommon() {
     CompileEpilog();
     CompileIRQEntry();
-    CompileProlog(); // Depends on Epilog and ExitIRQ being compiled
+    CompileProlog(); // Depends on Epilog and IRQEntry being compiled
 }
 
 void x64Host::CompileProlog() {
