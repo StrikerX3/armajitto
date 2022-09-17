@@ -469,8 +469,8 @@ int main(int argc, char *argv[]) {
 
     writeInstr(0xE3A01001); // mov r1, #1
     writeInstr(0x13A02002); // movne r2, #2
-    writeInstr(0xE3A03003); // mov r3, #3
-    writeInstr(0xE3A04004); // mov r4, #4
+    writeInstr(0x43A03003); // movmi r3, #3    -- should pass
+    writeInstr(0x03A04004); // moveq r4, #4    -- should fail
 
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
@@ -499,13 +499,24 @@ int main(int argc, char *argv[]) {
         jitState.CPSR().i = 0;
         interp->SetCPSR(interp->GetCPSR() & ~(1 << 7));
 
+        // Setup flags
+        jitState.CPSR().n = 1;
+        jitState.CPSR().z = 0;
+        jitState.CPSR().c = 0;
+        jitState.CPSR().v = 0;
+
+        interp->SetCPSR((interp->GetCPSR() | 0x80000000) & ~0x70000000);
+        interp->SetSPSR(armajitto::arm::Mode::IRQ,
+                        (interp->GetSPSR(armajitto::arm::Mode::IRQ) | 0x40000000) & ~0xC0000000);
+
         // Expected outcomes of each iteration:
         // 0 = run mov r1, #1
         // 1 = enter IRQ
         // 2 = exit IRQ
-        // 3 = run movne r2, #3  (condition passes)
-        // 4 = run mov r3, #3 and mov r4, #4
-        for (int iter = 0; iter < 5; iter++) {
+        // 3 = run movne r2, #3   (condition passes)
+        // 4 = run movmi r3, #3   (condition passes)
+        // 5 = skip moveq r4, #4  (condition fails)
+        /*for (int iter = 0; iter < 6; iter++) {
             // Assert IRQ lines on an specific iteration
             bool assertIRQ = (iter == 1);
             jitState.IRQLine() = assertIRQ;
@@ -520,7 +531,74 @@ int main(int argc, char *argv[]) {
 
             // Compare states and print any discrepancies
             compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter); });
+        }*/
+
+        // Deassert IRQ lines
+        jitState.IRQLine() = false;
+        interp->IRQLine() = false;
+
+        // Run both the interpreter and the JIT for one cycle
+        // Should execute mov r1, #1
+        {
+            auto cyclesExecuted = jit.Run(1);
+            interp->Run(cyclesExecuted);
         }
+        printf("\n========================================================\n");
+
+        // Assert IRQ lines
+        jitState.IRQLine() = true;
+        interp->IRQLine() = true;
+
+        // Run both the interpreter and the JIT for one cycle
+        // Should enter IRQ handler
+        {
+            auto cyclesExecuted = jit.Run(1);
+            interp->Run(cyclesExecuted);
+        }
+        printf("\n========================================================\n");
+
+        // Deassert IRQ lines
+        jitState.IRQLine() = false;
+        interp->IRQLine() = false;
+
+        // Run both the interpreter and the JIT for one cycle
+        // Should exit IRQ handler
+        {
+            auto cyclesExecuted = jit.Run(1);
+            interp->Run(cyclesExecuted);
+        }
+        printf("\n========================================================\n");
+
+        // Assert IRQ lines
+        jitState.IRQLine() = true;
+        interp->IRQLine() = true;
+
+        // Run both the interpreter and the JIT for one cycle
+        // Should enter IRQ handler again
+        {
+            auto cyclesExecuted = jit.Run(1);
+            interp->Run(cyclesExecuted);
+        }
+        printf("\n========================================================\n");
+
+        // Deassert IRQ lines
+        jitState.IRQLine() = false;
+        interp->IRQLine() = false;
+
+        // Run both the interpreter and the JIT for four cycles
+        // Should exit IRQ handler, then execute the three next instructions:
+        //   movne r2, #3   (condition passes)
+        //   movmi r3, #3   (condition passes)
+        //   moveq r4, #4   (condition fails)
+        {
+            auto cyclesExecuted = jit.Run(5);
+            interp->Run(cyclesExecuted);
+        }
+
+        printStates(true);
+
+        // Compare states and print any discrepancies
+        compareStates(false, [&] { printf("[!] Discrepancies found on mode %d\n", mode); });
     }
 
     return 0;

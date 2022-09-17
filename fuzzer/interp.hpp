@@ -20,6 +20,7 @@ public:
 
     virtual uint32_t GetCPSR() const = 0;
     virtual uint32_t GetSPSR() const = 0;
+    virtual uint32_t GetSPSR(armajitto::arm::Mode mode) const = 0;
     virtual void SetCPSR(uint32_t value) = 0;
     virtual void SetSPSR(armajitto::arm::Mode mode, uint32_t value) = 0;
 };

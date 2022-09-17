@@ -103,6 +103,11 @@ public:
         return m_interp.GetRegisters().spsr[bank].u32;
     }
 
+    uint32_t GetSPSR(armajitto::arm::Mode mode) const final {
+        auto bank = GetBankFromMode(static_cast<interp::arm::Mode>(mode));
+        return m_interp.GetRegisters().spsr[bank].u32;
+    }
+
     void SetSPSR(arm::Mode mode, uint32_t value) final {
         auto bank = GetBankFromMode(static_cast<interp::arm::Mode>(mode));
         m_interp.GetRegisters().spsr[bank].u32 = value;
