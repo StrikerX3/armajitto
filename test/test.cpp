@@ -764,8 +764,8 @@ void testCompiler() {
 int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
-    testGBA();
-    // testNDS();
+    // testGBA();
+    testNDS();
     // testCompiler();
 
     return EXIT_SUCCESS;

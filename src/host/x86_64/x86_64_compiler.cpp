@@ -352,7 +352,7 @@ void x64Host::Compiler::CompileOp(const ir::IRSetCPSROp *op) {
         if (op->updateIFlag) {
             auto tmpReg32 = m_regAlloc.GetTemporary();
             m_codegen.mov(tmpReg32, srcReg32);
-            m_codegen.and_(tmpReg32, (1 << ARMflgIPos));
+            m_codegen.and_(tmpReg32, ARMflgI);
             m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
             m_codegen.shl(tmpReg32, x64flgIPos - ARMflgIPos);
             m_codegen.or_(abi::kHostFlagsReg, tmpReg32);
