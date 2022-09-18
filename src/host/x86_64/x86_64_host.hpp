@@ -61,13 +61,15 @@ private:
         }
     };
 
+    class Compiler;
+    struct CommonData;
+
+    std::unique_ptr<CommonData> m_commonData;
     std::unique_ptr<uint8_t[]> m_codeBuffer;
     size_t m_codeBufferSize;
     CustomCodeGenerator m_codegen;
     CompiledCode m_compiledCode;
     std::pmr::memory_resource &m_alloc;
-
-    class Compiler;
 
     void CompileCommon();
 

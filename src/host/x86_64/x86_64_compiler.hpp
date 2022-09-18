@@ -17,8 +17,8 @@ namespace armajitto::x86_64 {
 
 class x64Host::Compiler {
 public:
-    Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block,
-             std::pmr::memory_resource &alloc);
+    Compiler(Context &context, arm::StateOffsets &stateOffsets, CompiledCode &compiledCode,
+             Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block, std::pmr::memory_resource &alloc);
 
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
@@ -134,7 +134,7 @@ private:
     Context &m_context;
     CompiledCode &m_compiledCode;
     arm::State &m_armState;
-    arm::StateOffsets m_stateOffsets;
+    arm::StateOffsets &m_stateOffsets;
     MemoryMapHostAccess m_memMap;
     Xbyak::CodeGenerator &m_codegen;
     RegisterAllocator m_regAlloc;

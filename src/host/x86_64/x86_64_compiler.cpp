@@ -109,12 +109,13 @@ static void SystemStoreCopExtRegister(arm::State &state, uint32_t cpnum, uint32_
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-x64Host::Compiler::Compiler(Context &context, CompiledCode &compiledCode, Xbyak::CodeGenerator &codegen,
-                            const ir::BasicBlock &block, std::pmr::memory_resource &alloc)
+x64Host::Compiler::Compiler(Context &context, arm::StateOffsets &stateOffsets, CompiledCode &compiledCode,
+                            Xbyak::CodeGenerator &codegen, const ir::BasicBlock &block,
+                            std::pmr::memory_resource &alloc)
     : m_context(context)
     , m_compiledCode(compiledCode)
     , m_armState(context.GetARMState())
-    , m_stateOffsets(m_armState)
+    , m_stateOffsets(stateOffsets)
     , m_memMap(context.GetSystem().GetMemoryMap())
     , m_codegen(codegen)
     , m_regAlloc(codegen, alloc) {

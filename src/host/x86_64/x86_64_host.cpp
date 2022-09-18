@@ -16,8 +16,16 @@
 
 namespace armajitto::x86_64 {
 
+struct x64Host::CommonData {
+    arm::StateOffsets stateOffsets;
+
+    CommonData(arm::State &state)
+        : stateOffsets(state) {}
+};
+
 x64Host::x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc)
     : Host(context, options)
+    , m_commonData(std::make_unique<CommonData>(context.GetARMState()))
     , m_codeBuffer(new uint8_t[options.initialCodeBufferSize])
     , m_codeBufferSize(options.initialCodeBufferSize)
     , m_codegen(options.initialCodeBufferSize, m_codeBuffer.get())
@@ -335,7 +343,7 @@ void x64Host::CompileIRQEntry() {
 
 HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
     auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
-    Compiler compiler{m_context, m_compiledCode, m_codegen, block, m_alloc};
+    Compiler compiler{m_context, m_commonData->stateOffsets, m_compiledCode, m_codegen, block, m_alloc};
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
     cachedBlock.code = fnPtr;
