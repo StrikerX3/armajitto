@@ -88,6 +88,9 @@ public:
             }
             m_map[i] = nullptr;
         }
+        for (auto &layer : m_layers) {
+            layer.Clear();
+        }
     }
 
     void FreeEmptyPages() {
