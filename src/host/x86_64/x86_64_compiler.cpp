@@ -2883,6 +2883,11 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
             continue;
         }
 
+        // No need to push the destination register as it will be overwritten after the call
+        if (!dstReg.isNone() && reg.getIdx() == dstReg.getIdx()) {
+            continue;
+        }
+
         // Only push allocated registers
         if (m_regAlloc.IsRegisterAllocated(reg)) {
             m_codegen.push(reg);
