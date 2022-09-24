@@ -82,7 +82,7 @@ void x64Host::Clear() {
 }
 
 void x64Host::InvalidateCodeCache() {
-    m_compiledCode.blockCache.clear();
+    m_compiledCode.blockCache.Clear();
     m_compiledCode.pendingPatches.clear();
     m_compiledCode.appliedPatches.clear();
 }
@@ -94,21 +94,26 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
     }
 
     // TODO: make this more efficient
-    // - consider redesigning the cache -> CPSR in the lower bits
+    // - consider moving CPSR to the lower bits of the key
     for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
         const uint64_t upper = cpsr << 32ull;
-        auto it = m_compiledCode.blockCache.lower_bound(start | upper);
-        while (it != m_compiledCode.blockCache.end() && it->first >= (start | upper) && it->first <= (end | upper)) {
+        for (uint64_t addr = start; addr <= end; addr += 2) {
+            const uint64_t key = addr | upper;
+            auto *block = m_compiledCode.blockCache.Get(key);
+            if (block == nullptr || block->code == nullptr) {
+                continue;
+            }
+
             if (m_compiledCode.enableBlockLinking) {
                 // Undo patches
-                RevertDirectLinkPatches(it->first);
+                RevertDirectLinkPatches(key);
 
                 // Remove any pending patches for this block
-                m_compiledCode.pendingPatches.erase(it->first);
+                m_compiledCode.pendingPatches.erase(key);
             }
 
             // Remove the block from the cache
-            it = m_compiledCode.blockCache.erase(it);
+            block->code = nullptr;
         }
     }
 }
@@ -301,37 +306,44 @@ void x64Host::CompileIRQEntry() {
     // IRQ handler block linking
 
     if (m_options.enableBlockLinking) {
-        // Build cache key
-        auto cacheKeyReg64 = cpsrReg32.cvt64();
-        m_codegen.mov(cacheKeyReg64, dword[abi::kARMStateReg + cpsrOffset]);
-        m_codegen.and_(cacheKeyReg64, 0x3F); // We only need the mode and T bits
-        m_codegen.shl(cacheKeyReg64, 32);
-        m_codegen.or_(cacheKeyReg64, pcReg32.cvt64());
+        auto cpsrReg64 = cpsrReg32.cvt64();
+        auto pcReg64 = pcReg32.cvt64();
+        auto lrReg64 = lrReg32.cvt64();
 
-        // Save return register
-        m_codegen.push(abi::kIntReturnValueReg);
-        constexpr uint64_t volatileRegsSize = (1 + 1) * sizeof(uint64_t);
-        constexpr uint64_t stackAlignmentOffset =
-            abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
+        // Build cache key
+        m_codegen.mov(cpsrReg64, dword[abi::kARMStateReg + cpsrOffset]);
+        m_codegen.and_(cpsrReg64, 0x3F); // We only need the mode and T bits
+        m_codegen.shl(cpsrReg64, 32);
+        m_codegen.or_(cpsrReg64, pcReg32.cvt64());
 
         // Lookup entry in block cache
-        // TODO: redesign cache to not rely on this function call
-        m_codegen.mov(abi::kIntArgRegs[0], CastUintPtr(&m_compiledCode.blockCache)); // 1st argument
-        m_codegen.mov(abi::kIntReturnValueReg, CastUintPtr(CompiledCode::GetCodeForLocationTrampoline));
-        if (stackAlignmentOffset != 0) {
-            m_codegen.sub(rsp, stackAlignmentOffset);
-        }
-        m_codegen.call(abi::kIntReturnValueReg);
-        if (stackAlignmentOffset != 0) {
-            m_codegen.add(rsp, stackAlignmentOffset);
+        m_codegen.mov(pcReg64, m_compiledCode.blockCache.MapAddress());
+
+        // Level 1 check
+        m_codegen.mov(lrReg64, cpsrReg64);
+        m_codegen.shr(lrReg64, m_compiledCode.blockCache.kL1Shift);
+        // m_codegen.and_(lrReg64, m_compiledCode.blockCache.kL1Mask); // shouldn't be necessary
+        m_codegen.mov(pcReg64, qword[pcReg64 + lrReg64 * sizeof(void *)]);
+        m_codegen.test(pcReg64, pcReg64);
+        m_codegen.jz(m_compiledCode.epilog);
+
+        // Level 2 check
+        // m_codegen.shr(cpsrReg64, m_compiledCode.blockCache.kL2Shift); // shift by zero
+        m_codegen.and_(cpsrReg64, m_compiledCode.blockCache.kL2Mask);
+        static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
+        static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
+        if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
+            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 * valueSize + offset]);
+        } else {
+            m_codegen.imul(cpsrReg64, cpsrReg64, valueSize);
+            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 + offset]);
         }
 
         // Jump to block if present, or epilog if not
-        m_codegen.test(abi::kIntReturnValueReg, abi::kIntReturnValueReg);
-        m_codegen.mov(cpsrReg32.cvt64(), CastUintPtr(m_compiledCode.epilog));
-        m_codegen.cmovnz(cpsrReg32.cvt64(), abi::kIntReturnValueReg);
-        m_codegen.pop(abi::kIntReturnValueReg); // Restore return register
-        m_codegen.jmp(cpsrReg32.cvt64());
+        m_codegen.test(pcReg64, pcReg64);
+        m_codegen.mov(cpsrReg64, CastUintPtr(m_compiledCode.epilog));
+        m_codegen.cmovnz(cpsrReg64, pcReg64);
+        m_codegen.jmp(cpsrReg64);
     } else {
         // Jump to epilog if block linking is disabled.
         // This allows the dispatcher to see and react to the IRQ entry.
@@ -342,7 +354,7 @@ void x64Host::CompileIRQEntry() {
 }
 
 HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
-    auto &cachedBlock = m_compiledCode.blockCache[block.Location().ToUint64()];
+    auto &cachedBlock = m_compiledCode.blockCache.GetOrCreate(block.Location().ToUint64());
     Compiler compiler{m_context, m_commonData->stateOffsets, m_compiledCode, m_codegen, block, m_alloc};
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
@@ -431,8 +443,8 @@ void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
     auto itPatch = m_compiledCode.pendingPatches.find(key);
     while (itPatch != m_compiledCode.pendingPatches.end() && itPatch->first == key) {
         auto &patchInfo = itPatch->second;
-        auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-        if (itPatchBlock != m_compiledCode.blockCache.end()) {
+        auto patchBlock = m_compiledCode.blockCache.Get(patchInfo.cachedBlockKey);
+        if (patchBlock != nullptr && patchBlock->code != nullptr) {
             // Remember current location
             auto prevSize = m_codegen.getSize();
 
@@ -471,8 +483,8 @@ void x64Host::RevertDirectLinkPatches(uint64_t key) {
     auto itPatch = m_compiledCode.appliedPatches.find(key);
     while (itPatch != m_compiledCode.appliedPatches.end() && itPatch->first == key) {
         auto &patchInfo = itPatch->second;
-        auto itPatchBlock = m_compiledCode.blockCache.find(patchInfo.cachedBlockKey);
-        if (itPatchBlock != m_compiledCode.blockCache.end()) {
+        auto patchBlock = m_compiledCode.blockCache.Get(patchInfo.cachedBlockKey);
+        if (patchBlock != nullptr && patchBlock->code != nullptr) {
             // Remember current location
             auto prevSize = m_codegen.getSize();
 

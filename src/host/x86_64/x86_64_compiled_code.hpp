@@ -3,16 +3,16 @@
 #include "core/location_ref.hpp"
 #include "host/host_code.hpp"
 #include "util/pointer_cast.hpp"
+#include "util/two_level_array.hpp"
 
 #include <cstdint>
-#include <map>           // TODO: I'll probably regret this...
 #include <unordered_map> // TODO: I'll probably regret this...
 
 namespace armajitto::x86_64 {
 
 struct CompiledCode {
     struct CachedBlock {
-        HostCode code;
+        HostCode code = nullptr;
     };
 
     struct PatchInfo {
@@ -30,29 +30,23 @@ struct CompiledCode {
     bool enableBlockLinking;
 
     // Cached blocks by LocationRef::ToUint64()
-    std::map<uint64_t, CachedBlock> blockCache;
+    util::TwoLevelArray<uint64_t, CachedBlock, 38> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
     std::unordered_multimap<uint64_t, PatchInfo> pendingPatches;
     std::unordered_multimap<uint64_t, PatchInfo> appliedPatches;
 
-    // Helper function to retrieve a cached block, to be invoked by compiled code
-    static HostCode GetCodeForLocationTrampoline(std::map<uint64_t, CachedBlock> &blockCache, uint64_t lochash) {
-        auto it = blockCache.find(lochash);
-        if (it != blockCache.end()) {
-            return it->second.code;
-        } else {
-            return nullptr;
-        }
-    }
-
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
-        return GetCodeForLocationTrampoline(blockCache, loc.ToUint64());
+        auto *entry = blockCache.Get(loc.ToUint64());
+        if (entry == nullptr) {
+            return nullptr;
+        }
+        return entry->code;
     }
 
     void Clear() {
-        blockCache.clear();
+        blockCache.Clear();
         pendingPatches.clear();
         appliedPatches.clear();
         prolog = nullptr;

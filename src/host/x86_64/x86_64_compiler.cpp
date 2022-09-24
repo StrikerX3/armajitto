@@ -250,22 +250,40 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         m_codegen.and_(cacheKeyReg64, 0x3F); // We only need the mode and T bits
         m_codegen.shl(cacheKeyReg64, 32);
         m_codegen.or_(cacheKeyReg64, pcReg32.cvt64());
-        m_regAlloc.ReleaseTemporaries(); // Temporary register not needed anymore
 
         // Lookup entry
-        // TODO: redesign cache to not rely on this function call
-        CompileInvokeHostFunction(cacheKeyReg64, CompiledCode::GetCodeForLocationTrampoline, m_compiledCode.blockCache,
-                                  cacheKeyReg64);
+        auto tmpReg64 = m_regAlloc.GetTemporary().cvt64();
+        auto jmpDstReg64 = pcReg32.cvt64();
+        m_codegen.mov(jmpDstReg64, m_compiledCode.blockCache.MapAddress());
+
+        // Level 1 check
+        m_codegen.mov(tmpReg64, cacheKeyReg64);
+        m_codegen.shr(tmpReg64, m_compiledCode.blockCache.kL1Shift);
+        // m_codegen.and_(tmpReg64, m_compiledCode.blockCache.kL1Mask); // shouldn't be necessary
+        m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + tmpReg64 * sizeof(void *)]);
+        m_codegen.test(jmpDstReg64, jmpDstReg64);
+        m_codegen.jz(m_compiledCode.epilog);
+
+        // Level 2 check
+        // m_codegen.shr(cacheKeyReg64, m_compiledCode.blockCache.kL2Shift); // shift by zero
+        m_codegen.and_(cacheKeyReg64, m_compiledCode.blockCache.kL2Mask);
+        static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
+        static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
+        if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
+            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 * valueSize + offset]);
+        } else {
+            m_codegen.imul(cacheKeyReg64, cacheKeyReg64, valueSize);
+            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 + offset]);
+        }
 
         // Check for nullptr
-        auto cacheEntryReg64 = cacheKeyReg64;
-        m_codegen.test(cacheEntryReg64, cacheEntryReg64);
+        m_codegen.test(jmpDstReg64, jmpDstReg64);
 
         // Entry not found, jump to epilog
         m_codegen.jz(m_compiledCode.epilog);
 
         // Entry found, jump to linked block
-        m_codegen.jmp(cacheEntryReg64);
+        m_codegen.jmp(jmpDstReg64);
         m_regAlloc.ReleaseTemporaries();
         break;
     }
@@ -291,9 +309,9 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         return;
     }
 
-    auto it = m_compiledCode.blockCache.find(target.ToUint64());
-    if (it != m_compiledCode.blockCache.end()) {
-        auto code = it->second.code;
+    auto block = m_compiledCode.blockCache.Get(target.ToUint64());
+    if (block != nullptr && block->code != nullptr) {
+        auto code = block->code;
 
         // Jump to the compiled code's address directly
         m_codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
