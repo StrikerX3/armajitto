@@ -34,10 +34,17 @@ struct Recompiler::Impl {
 
             // Compile code if not yet compiled
             if (code == nullptr) {
+                // Invalidate block at the specified location.
+                // This should clean up pending patches and undo applied patches.
+                host.Invalidate(loc);
+
+                // Compile the new block
                 auto *block = allocator.Allocate<ir::BasicBlock>(allocator, loc);
                 translator.Translate(*block);
                 optimizer.Optimize(*block);
                 code = host.Compile(*block);
+
+                // Cleanup
                 if constexpr (ir::BasicBlock::kFreeErasedIROps) {
                     block->Clear();
                     allocator.Free(block);
@@ -74,6 +81,10 @@ struct Recompiler::Impl {
 
     void InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
         host.InvalidateCodeCacheRange(start, end);
+    }
+
+    void ReportMemoryWrite(uint32_t start, uint32_t end) {
+        host.ReportMemoryWrite(start, end);
     }
 
     memory::Allocator allocator;

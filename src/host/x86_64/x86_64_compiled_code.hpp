@@ -36,6 +36,10 @@ struct CompiledCode {
     std::unordered_multimap<uint64_t, PatchInfo> pendingPatches;
     std::unordered_multimap<uint64_t, PatchInfo> appliedPatches;
 
+    // Memory generation tracker; used to check for modifications
+    static constexpr uint32_t kPageShift = 12;
+    alignas(16) std::array<uint32_t, 1u << (32u - kPageShift)> memPageGenerations;
+
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
         auto *entry = blockCache.Get(loc.ToUint64());
@@ -49,6 +53,7 @@ struct CompiledCode {
         blockCache.Clear();
         pendingPatches.clear();
         appliedPatches.clear();
+        memPageGenerations.fill(0);
         prolog = nullptr;
         epilog = nullptr;
         irqEntry = nullptr;

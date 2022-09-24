@@ -81,6 +81,25 @@ void x64Host::Clear() {
     CompileCommon();
 }
 
+void x64Host::Invalidate(LocationRef loc) {
+    const uint64_t key = loc.ToUint64();
+    auto *block = m_compiledCode.blockCache.Get(key);
+    if (block == nullptr) {
+        return;
+    }
+
+    if (m_compiledCode.enableBlockLinking) {
+        // Undo patches
+        RevertDirectLinkPatches(key);
+
+        // Remove any pending patches for this block
+        m_compiledCode.pendingPatches.erase(key);
+    }
+
+    // Remove the block from the cache
+    block->code = nullptr;
+}
+
 void x64Host::InvalidateCodeCache() {
     m_compiledCode.blockCache.Clear();
     m_compiledCode.pendingPatches.clear();
@@ -115,6 +134,15 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
             // Remove the block from the cache
             block->code = nullptr;
         }
+    }
+}
+
+void x64Host::ReportMemoryWrite(uint32_t start, uint32_t end) {
+    // Increment memory generations for all affected pages
+    const uint32_t basePage = start >> CompiledCode::kPageShift;
+    const uint32_t finalPage = end >> CompiledCode::kPageShift;
+    for (uint32_t page = basePage; page <= finalPage; page++) {
+        ++m_compiledCode.memPageGenerations[page];
     }
 }
 
@@ -363,6 +391,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
     Xbyak::Label lblCondFail{};
 
     // Compile pre-execution checks
+    compiler.CompileGenerationCheck(block.Location(), block.InstructionCount());
     compiler.CompileIRQLineCheck();
     compiler.CompileCondCheck(block.Condition(), lblCondFail);
 

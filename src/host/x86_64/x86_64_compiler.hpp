@@ -23,6 +23,7 @@ public:
     void PreProcessOp(const ir::IROp *op);
     void PostProcessOp(const ir::IROp *op);
 
+    void CompileGenerationCheck(const LocationRef &baseLoc, const uint32_t instrCount);
     void CompileIRQLineCheck();
     void CompileCondCheck(arm::Condition cond, Xbyak::Label &lblCondFail);
     void CompileTerminal(const ir::BasicBlock &block);

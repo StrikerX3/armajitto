@@ -46,8 +46,11 @@ public:
 
     void Clear() final;
 
+    void Invalidate(LocationRef loc) final;
     void InvalidateCodeCache() final;
     void InvalidateCodeCacheRange(uint32_t start, uint32_t end) final;
+
+    void ReportMemoryWrite(uint32_t start, uint32_t end) final;
 
 private:
     struct CustomCodeGenerator : public Xbyak::CodeGenerator {

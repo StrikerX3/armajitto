@@ -49,11 +49,25 @@ public:
     // Clears all compiled code.
     virtual void Clear() = 0;
 
+    // Invalidates the block at the specified location.
+    virtual void Invalidate(LocationRef loc) = 0;
+
     // Invalidates all cached code blocks.
     virtual void InvalidateCodeCache() = 0;
 
     // Invalidates all cached code blocks in the specified range. Both <start> and <end> are inclusive.
     virtual void InvalidateCodeCacheRange(uint32_t start, uint32_t end) = 0;
+
+    // Reports a memory write to the specified range, which causes the blocks in the range to be invalidated.
+    // Both <start> and <end> are inclusive.
+    virtual void ReportMemoryWrite(uint32_t start, uint32_t end) = 0;
+
+    // Reports a T-sized memory write to the specified address, which causes the blocks in the affected area to be
+    // invalidated.
+    template <typename T>
+    void ReportMemoryWrite(uint32_t address) {
+        ReportMemoryWrite(address, address + sizeof(T) - 1);
+    }
 
 protected:
     Context &m_context;
