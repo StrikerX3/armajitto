@@ -650,7 +650,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     auto genReg64 = m_regAlloc.GetTemporary().cvt64();
     if (op->address.immediate) {
         const uint32_t page = op->address.imm.value >> CompiledCode::kPageShift;
-        m_codegen.mov(genReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()) + page);
+        m_codegen.mov(genReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()) + page * sizeof(uint32_t));
         m_codegen.inc(dword[genReg64]);
     } else {
         auto addrReg32 = m_regAlloc.Get(op->address.var.var);
@@ -658,7 +658,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.mov(tmpReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()));
         m_codegen.mov(genReg64.cvt32(), addrReg32);
         m_codegen.shr(genReg64, CompiledCode::kPageShift);
-        m_codegen.inc(dword[genReg64 + tmpReg64]);
+        m_codegen.inc(dword[tmpReg64 + genReg64 * sizeof(uint32_t)]);
     }
 
     Xbyak::Label lblSlowMem;
