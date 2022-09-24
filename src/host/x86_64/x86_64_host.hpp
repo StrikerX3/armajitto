@@ -37,7 +37,7 @@ public:
     }
 
     int64_t Call(HostCode code, uint64_t cycles) final {
-        if (code != 0) {
+        if (code != nullptr) {
             return m_compiledCode.prolog(code, cycles);
         } else {
             return cycles;
