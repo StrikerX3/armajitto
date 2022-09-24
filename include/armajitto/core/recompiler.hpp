@@ -50,6 +50,8 @@ public:
     void InvalidateCodeCache();
     void InvalidateCodeCacheRange(uint32_t start, uint32_t end);
 
+    void ReportMemoryWrite(uint32_t start, uint32_t end);
+
 private:
     Specification m_spec;
     Context m_context;
