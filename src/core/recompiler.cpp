@@ -129,4 +129,8 @@ void Recompiler::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
     m_impl->InvalidateCodeCacheRange(start, end);
 }
 
+void Recompiler::ReportMemoryWrite(uint32_t start, uint32_t end) {
+    m_impl->ReportMemoryWrite(start, end);
+}
+
 } // namespace armajitto
