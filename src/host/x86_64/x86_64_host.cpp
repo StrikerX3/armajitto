@@ -512,20 +512,18 @@ void x64Host::RevertDirectLinkPatches(uint64_t key) {
     auto itPatch = m_compiledCode.appliedPatches.find(key);
     while (itPatch != m_compiledCode.appliedPatches.end() && itPatch->first == key) {
         auto &patchInfo = itPatch->second;
-        auto patchBlock = m_compiledCode.blockCache.Get(patchInfo.cachedBlockKey);
-        if (patchBlock != nullptr && patchBlock->code != nullptr) {
-            // Remember current location
-            auto prevSize = m_codegen.getSize();
 
-            // Go to patch location
-            m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
+        // Remember current location
+        auto prevSize = m_codegen.getSize();
 
-            // Overwrite with a jump to the epilog
-            m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+        // Go to patch location
+        m_codegen.setSize(patchInfo.codePos - m_codegen.getCode());
 
-            // Restore code generator position
-            m_codegen.setSize(prevSize);
-        }
+        // Overwrite with a jump to the epilog
+        m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
+
+        // Restore code generator position
+        m_codegen.setSize(prevSize);
 
         // Remove the patch from the applied list
         itPatch = m_compiledCode.appliedPatches.erase(itPatch);
