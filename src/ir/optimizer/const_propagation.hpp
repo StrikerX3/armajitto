@@ -177,7 +177,7 @@ private:
     // GPR substitutions
 
     // GPR substitutions lookup table
-    std::array<Value, 16 * arm::kNumBankedModes> m_gprSubsts;
+    alignas(16) std::array<Value, 16 * arm::kNumBankedModes> m_gprSubsts;
 
     // GPR substitution operations
     void Assign(const GPRArg &gpr, VarOrImmArg value);
