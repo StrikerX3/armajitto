@@ -137,7 +137,7 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
 void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const uint32_t instrCount) {
     const uint32_t instrSize = baseLoc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
     const uint32_t baseAddress = baseLoc.PC() - instrSize * 2;
-    const uint32_t finalAddress = baseAddress + instrSize * instrCount;
+    const uint32_t finalAddress = baseAddress + instrSize * instrCount - 1;
     const uint32_t basePage = baseAddress >> CompiledCode::kPageShift;
     const uint32_t finalPage = finalAddress >> CompiledCode::kPageShift;
 
