@@ -6,7 +6,7 @@
 #include "util/two_level_array.hpp"
 
 #include <cstdint>
-#include <unordered_map> // TODO: I'll probably regret this...
+#include <map> // TODO: I'll probably regret this...
 
 namespace armajitto::x86_64 {
 
@@ -33,8 +33,8 @@ struct CompiledCode {
     util::TwoLevelArray<uint64_t, CachedBlock, 38> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
-    std::unordered_multimap<uint64_t, PatchInfo> pendingPatches;
-    std::unordered_multimap<uint64_t, PatchInfo> appliedPatches;
+    std::multimap<uint64_t, PatchInfo> pendingPatches;
+    std::multimap<uint64_t, PatchInfo> appliedPatches;
 
     // Memory generation tracker; used to check for modifications
     static constexpr uint32_t kPageShift = 12;
