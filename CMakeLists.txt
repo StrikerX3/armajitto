@@ -100,6 +100,7 @@ add_library(armajitto
     src/ir/translator.hpp
     src/ir/var_lifetime.cpp
     src/ir/var_lifetime.hpp
+    src/ir/verifier.hpp
     src/ir/defs/arguments.hpp
     src/ir/defs/memory_access.hpp
     src/ir/defs/opcode_types.hpp

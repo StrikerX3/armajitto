@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
     // - System uses all base registers
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
-    /*std::default_random_engine generator;
+    std::default_random_engine generator;
     std::uniform_int_distribution<uint32_t> distribution{};
 
     const uint64_t numIters = 100;
@@ -397,7 +397,7 @@ int main(int argc, char *argv[]) {
             // Compare states and print any discrepancies
             compareStates(true, [&] { printf("[!] Discrepancies found on mode %d\n", mode); });
         }
-    }*/
+    }
 
     // -----------------------------------------------------------------------------------------------------------------
 
@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
 
-    std::vector<uint8_t> code;
+    /*std::vector<uint8_t> code;
     uint32_t numInstrs = 0;
     auto writeInstr = [&](uint32_t instr) {
         code.push_back(instr >> 0);
@@ -415,7 +415,7 @@ int main(int argc, char *argv[]) {
         code.push_back(instr >> 16);
         code.push_back(instr >> 24);
         ++numInstrs;
-    };
+    };*/
 
     // writeInstr(0xE3B004DE); // movs r0, #0xDE000000
     // writeInstr(0x039008AD); // orrseq r0, #0x00AD0000
@@ -467,7 +467,7 @@ int main(int argc, char *argv[]) {
                     0x3F, 0x5F, 0xE6, 0xB7, 0x98, 0xFC, 0xDD, 0x3E, 0x15, 0x67, 0xF9, 0xF7, 0x20, 0x2D, 0x14, 0x55,
                 });*/
 
-    writeInstr(0xE3A01001); // mov r1, #1
+    /*writeInstr(0xE3A01001); // mov r1, #1
     writeInstr(0x13A02002); // movne r2, #2
     writeInstr(0x43A03003); // movmi r3, #3    -- should pass
     writeInstr(0x03A04004); // moveq r4, #4    -- should fail
@@ -516,22 +516,22 @@ int main(int argc, char *argv[]) {
         // 3 = run movne r2, #3   (condition passes)
         // 4 = run movmi r3, #3   (condition passes)
         // 5 = skip moveq r4, #4  (condition fails)
-        /*for (int iter = 0; iter < 6; iter++) {
-            // Assert IRQ lines on an specific iteration
-            bool assertIRQ = (iter == 1);
-            jitState.IRQLine() = assertIRQ;
-            interp->IRQLine() = assertIRQ;
-
-            // Run both the interpreter and the JIT
-            auto cyclesExecuted = jit.Run(1);
-            interp->Run(cyclesExecuted);
-
-            printStates(true);
-            printf("%llu cycles executed\n\n", cyclesExecuted);
-
-            // Compare states and print any discrepancies
-            compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter); });
-        }*/
+        // for (int iter = 0; iter < 6; iter++) {
+        //     // Assert IRQ lines on an specific iteration
+        //     bool assertIRQ = (iter == 1);
+        //     jitState.IRQLine() = assertIRQ;
+        //     interp->IRQLine() = assertIRQ;
+        //
+        //     // Run both the interpreter and the JIT
+        //     auto cyclesExecuted = jit.Run(1);
+        //     interp->Run(cyclesExecuted);
+        //
+        //     printStates(true);
+        //     printf("%llu cycles executed\n\n", cyclesExecuted);
+        //
+        //     // Compare states and print any discrepancies
+        //     compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter); });
+        // }
 
         // Deassert IRQ lines
         jitState.IRQLine() = false;
@@ -599,7 +599,7 @@ int main(int argc, char *argv[]) {
 
         // Compare states and print any discrepancies
         compareStates(false, [&] { printf("[!] Discrepancies found on mode %d\n", mode); });
-    }
+    }*/
 
     return 0;
 }

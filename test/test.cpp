@@ -398,7 +398,7 @@ void testGBA() {
     }};
 
     SDL_Init(SDL_INIT_VIDEO);
-    auto window = SDL_CreateWindow("[REDACTED]", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 2, 160 * 2,
+    auto window = SDL_CreateWindow("armajitto", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 2, 160 * 2,
                                    SDL_WINDOW_ALLOW_HIGHDPI);
 
     auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -580,7 +580,7 @@ void testNDS() {
     }};
 
     SDL_Init(SDL_INIT_VIDEO);
-    auto window = SDL_CreateWindow("[REDACTED]", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 2, 192 * 2,
+    auto window = SDL_CreateWindow("armajitto", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 2, 192 * 2,
                                    SDL_WINDOW_ALLOW_HIGHDPI);
 
     auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);

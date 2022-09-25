@@ -6,6 +6,7 @@
 
 #include "ir/optimizer.hpp"
 #include "ir/translator.hpp"
+#include "ir/verifier.hpp"
 
 #include <memory_resource>
 
@@ -42,6 +43,7 @@ struct Recompiler::Impl {
                 auto *block = allocator.Allocate<ir::BasicBlock>(allocator, loc);
                 translator.Translate(*block);
                 optimizer.Optimize(*block);
+                verifier.Verify(*block);
                 code = host.Compile(*block);
 
                 // Cleanup
@@ -94,6 +96,7 @@ struct Recompiler::Impl {
     Context &context;
     ir::Translator translator;
     ir::Optimizer optimizer;
+    ir::Verifier verifier;
 
     // TODO: select based on host system
     x86_64::x64Host host;
