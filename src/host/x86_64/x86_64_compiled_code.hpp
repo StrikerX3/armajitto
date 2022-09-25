@@ -36,9 +36,10 @@ struct CompiledCode {
     std::multimap<uint64_t, PatchInfo> pendingPatches;
     std::multimap<uint64_t, PatchInfo> appliedPatches;
 
-    // Memory generation tracker; used to check for modifications
-    static constexpr uint32_t kPageShift = 12;
-    alignas(16) std::array<uint32_t, 1u << (32u - kPageShift)> memPageGenerations;
+    // Memory generation tracker; used to invalidate modified blocks
+    static constexpr uint32_t kPageShift = 10;
+    static constexpr uint32_t kPageCount = 1u << (32u - kPageShift);
+    alignas(16) std::array<uint32_t, kPageCount> memPageGenerations;
 
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
