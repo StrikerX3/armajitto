@@ -16,6 +16,34 @@ namespace armajitto::x86_64 {
 using namespace Xbyak::util;
 
 // ---------------------------------------------------------------------------------------------------------------------
+// Xbyak helpers
+
+static Xbyak::Reg8 GetReg8(Xbyak::Reg reg) {
+    assert(reg.isREG());
+    assert(reg.getIdx() >= 0 && reg.getIdx() <= 15);
+
+    switch (reg.getIdx()) {
+    case 0: return al;
+    case 1: return cl;
+    case 2: return dl;
+    case 3: return bl;
+    case 4: return spl;
+    case 5: return bpl;
+    case 6: return sil;
+    case 7: return dil;
+    case 8: return r8b;
+    case 9: return r9b;
+    case 10: return r10b;
+    case 11: return r11b;
+    case 12: return r12b;
+    case 13: return r13b;
+    case 14: return r14b;
+    case 15: return r15b;
+    default: util::unreachable();
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // System method accessor trampolines
 
 // ARMv4T and ARMv5TE LDRB
@@ -836,12 +864,13 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         auto shiftReg64 = m_regAlloc.GetRCX();
         auto valueReg64 = m_regAlloc.Get(op->value.var.var).cvt64();
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..63
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
-        m_codegen.cmp(amountReg32, 63);
-        m_codegen.cmovbe(shiftReg64.cvt8(), amountReg32);
+        m_codegen.cmp(amountReg8, 63);
+        m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
+        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
 
         // Get destination register
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
@@ -873,12 +902,13 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         auto shiftReg64 = m_regAlloc.GetRCX();
         auto value = op->value.imm.value;
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..63
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
-        m_codegen.cmp(amountReg32, 63);
-        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.cmp(amountReg8, 63);
+        m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
+        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
 
         // Get destination register
         Xbyak::Reg64 dstReg64{};
@@ -963,12 +993,13 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         auto shiftReg64 = m_regAlloc.GetRCX();
         auto valueReg64 = m_regAlloc.Get(op->value.var.var).cvt64();
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..63
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
-        m_codegen.cmp(amountReg32, 63);
-        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.cmp(amountReg8, 63);
+        m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
+        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
 
         // Compute the shift
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
@@ -998,12 +1029,13 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         auto shiftReg64 = m_regAlloc.GetRCX();
         auto value = op->value.imm.value;
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..63
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg64, 63);
-        m_codegen.cmp(amountReg32, 63);
-        m_codegen.cmovbe(shiftReg64.cvt32(), amountReg32);
+        m_codegen.cmp(amountReg8, 63);
+        m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
+        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
@@ -1088,12 +1120,13 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..32
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg32, 32);
-        m_codegen.cmp(amountReg32, 32);
-        m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
+        m_codegen.cmp(amountReg8, 32);
+        m_codegen.cmovbe(shiftReg32, amountReg32);
+        m_codegen.movzx(shiftReg32, shiftReg32.cvt8());
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
@@ -1121,12 +1154,13 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
         auto value = static_cast<int32_t>(op->value.imm.value);
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
+        auto amountReg8 = GetReg8(amountReg32);
 
         // Get shift amount, clamped to 0..32
-        m_codegen.and_(amountReg32, 0xFF);
         m_codegen.mov(shiftReg32, 32);
-        m_codegen.cmp(amountReg32, 32);
-        m_codegen.cmovbe(shiftReg32.cvt32(), amountReg32);
+        m_codegen.cmp(amountReg8, 32);
+        m_codegen.cmovbe(shiftReg32, amountReg32);
+        m_codegen.movzx(shiftReg32, shiftReg32.cvt8());
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
