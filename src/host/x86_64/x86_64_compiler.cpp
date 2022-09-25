@@ -378,12 +378,10 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         return;
     }
 
-    auto block = m_compiledCode.blockCache.Get(target.ToUint64());
-    if (block != nullptr && block->code != nullptr) {
-        auto code = block->code;
-
+    auto code = m_compiledCode.blockCache.Get(target.ToUint64());
+    if (code != nullptr && *code != nullptr) {
         // Jump to the compiled code's address directly
-        m_codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
+        m_codegen.jmp(*code, Xbyak::CodeGenerator::T_NEAR);
     } else {
         // Store this code location to be patched later
         CompiledCode::PatchInfo patchInfo{.cachedBlockKey = blockLocKey, .codePos = m_codegen.getCurr()};

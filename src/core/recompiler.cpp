@@ -19,8 +19,11 @@ struct Recompiler::Impl {
         , optimizer(params.optimizer, pmrBuffer)
         , host(context, params.compiler, pmrBuffer) {}
 
-    void Reset() {
+    void Reset(bool freeAllMemory) {
         FlushCachedBlocks();
+        if (freeAllMemory) {
+            host.FreeAllMemory();
+        }
         context.GetARMState().Reset();
     }
 
@@ -112,8 +115,8 @@ Recompiler::Recompiler(const Specification &spec)
 
 Recompiler::~Recompiler() = default;
 
-void Recompiler::Reset() {
-    m_impl->Reset();
+void Recompiler::Reset(bool freeAllMemory) {
+    m_impl->Reset(freeAllMemory);
 }
 
 uint64_t Recompiler::Run(uint64_t minCycles) {

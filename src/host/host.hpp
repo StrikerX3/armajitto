@@ -49,6 +49,9 @@ public:
     // Clears all compiled code.
     virtual void Clear() = 0;
 
+    // Frees all memory used by the host, including memory used for the compiled code.
+    virtual void FreeAllMemory() = 0;
+
     // Invalidates the block at the specified location.
     virtual void Invalidate(LocationRef loc) = 0;
 

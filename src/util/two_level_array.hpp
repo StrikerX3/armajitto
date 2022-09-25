@@ -6,6 +6,8 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <unordered_set>
 #include <utility>
 
 namespace util {
@@ -35,16 +37,17 @@ public:
     }
 
     ~TwoLevelArray() {
-        Clear();
+        FreeAll();
         delete[] m_map;
     }
 
-    TValue *Get(TKey key) const {
+    TValue *Get(TKey key) {
         const auto l1Index = Level1Index(key);
         const auto l2Index = Level2Index(key);
         if (m_map[l1Index] == nullptr) {
             return nullptr;
         }
+        m_allocatedEntries.insert(key);
         return &m_map[l1Index][l2Index];
     }
 
@@ -54,15 +57,36 @@ public:
         if (m_map[l1Index] == nullptr) {
             m_map[l1Index] = new TValue[kL2Size];
         }
+        m_allocatedEntries.insert(key);
         return m_map[l1Index][l2Index];
     }
 
     void Clear() {
-        for (std::size_t i = 0; i < kL1Size; i++) {
-            if (m_map[i] != nullptr) {
-                delete[] m_map[i];
-                m_map[i] = nullptr;
+        for (auto entry : m_allocatedEntries) {
+            const auto l1Index = Level1Index(entry);
+            const auto l2Index = Level2Index(entry);
+            m_map[l1Index][l2Index] = {};
+        }
+        m_allocatedEntries.clear();
+    }
+
+    void FreeAll() {
+        for (auto entry : m_allocatedEntries) {
+            const auto l1Index = Level1Index(entry);
+            if (m_map[l1Index] != nullptr) {
+                delete[] m_map[l1Index];
+                m_map[l1Index] = nullptr;
             }
+        }
+        m_allocatedEntries.clear();
+    }
+
+    std::optional<TKey> LowerBound(TKey key) const {
+        auto it = m_allocatedEntries.lower_bound(key);
+        if (it != m_allocatedEntries.end()) {
+            return *it;
+        } else {
+            return std::nullopt;
         }
     }
 
@@ -73,6 +97,8 @@ public:
 private:
     using Page = TValue *; // array of kL2Size TValues
     Page *m_map = nullptr; // array of kL1Size Pages
+
+    std::unordered_set<TKey> m_allocatedEntries;
 
     static constexpr TKey Level1Index(TKey key) {
         return (key >> kL1Shift) & kL1Mask;

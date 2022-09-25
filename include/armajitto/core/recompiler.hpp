@@ -14,7 +14,7 @@ public:
     Recompiler(const Specification &spec);
     ~Recompiler();
 
-    void Reset();
+    void Reset(bool freeAllMemory = false);
 
     Options &GetOptions() {
         return m_options;

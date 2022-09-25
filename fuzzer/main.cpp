@@ -787,9 +787,6 @@ void DualJITFuzzer(uint32_t offset, uint32_t limit) {
         }
     }*/
 
-    int offset = 0;
-    uint32_t limit = 0x20;
-
     // Test *all* ARM instructions with AL and NV conditions in selected modes.
     // These modes differ in the banked registers used:
     // - System uses all base registers

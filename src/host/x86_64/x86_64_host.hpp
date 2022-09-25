@@ -45,6 +45,7 @@ public:
     }
 
     void Clear() final;
+    void FreeAllMemory() final;
 
     void Invalidate(LocationRef loc) final;
     void InvalidateCodeCache() final;

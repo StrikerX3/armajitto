@@ -203,6 +203,7 @@ target_precompile_headers(armajitto
         <tuple>
         <type_traits>
         <unordered_map>
+        <unordered_set>
         <utility>
         <vector>
 )

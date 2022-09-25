@@ -81,6 +81,15 @@ void x64Host::Clear() {
     CompileCommon();
 }
 
+void x64Host::FreeAllMemory() {
+    m_codeBufferSize = m_options.initialCodeBufferSize;
+    m_codeBuffer.reset(new uint8_t[m_codeBufferSize]);
+    m_codegen.setCodeBuffer(m_codeBuffer.get(), m_codeBufferSize);
+    m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
+    Clear();
+    m_compiledCode.blockCache.FreeAll();
+}
+
 void x64Host::Invalidate(LocationRef loc) {
     const uint64_t key = loc.ToUint64();
     auto *block = m_compiledCode.blockCache.Get(key);
@@ -94,7 +103,8 @@ void x64Host::Invalidate(LocationRef loc) {
     }
 
     // Remove the block from the cache
-    block->code = nullptr;
+    block = nullptr;
+    m_compiledCode.cachedBlocks.erase(key);
 }
 
 void x64Host::InvalidateCodeCache() {
@@ -113,10 +123,16 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
     // - consider moving CPSR to the lower bits of the key
     for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
         const uint64_t upper = cpsr << 32ull;
-        for (uint64_t addr = start; addr <= end; addr += 2) {
-            const uint64_t key = addr | upper;
-            auto *block = m_compiledCode.blockCache.Get(key);
-            if (block == nullptr || block->code == nullptr) {
+        const uint64_t key = start | upper;
+        auto it = m_compiledCode.cachedBlocks.lower_bound(key);
+        while (it != m_compiledCode.cachedBlocks.end()) {
+            const LocationRef loc{it->first};
+            if (loc.BaseAddress() > end) {
+                break;
+            }
+
+            auto *block = m_compiledCode.blockCache.Get(it->first);
+            if (block == nullptr || *block == nullptr) {
                 continue;
             }
 
@@ -126,7 +142,8 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
             }
 
             // Remove the block from the cache
-            block->code = nullptr;
+            block = nullptr;
+            m_compiledCode.cachedBlocks.erase(key);
         }
     }
 }
@@ -352,13 +369,12 @@ void x64Host::CompileIRQEntry() {
         // Level 2 check
         // m_codegen.shr(cpsrReg64, m_compiledCode.blockCache.kL2Shift); // shift by zero
         m_codegen.and_(cpsrReg64, m_compiledCode.blockCache.kL2Mask);
-        static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
         static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
-            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 * valueSize + offset]);
+            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 * valueSize]);
         } else {
             m_codegen.imul(cpsrReg64, cpsrReg64, valueSize);
-            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 + offset]);
+            m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64]);
         }
 
         // Jump to block if present, or epilog if not
@@ -376,11 +392,13 @@ void x64Host::CompileIRQEntry() {
 }
 
 HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
-    auto &cachedBlock = m_compiledCode.blockCache.GetOrCreate(block.Location().ToUint64());
+    const uint32_t instrSize = block.Location().IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+    const auto blockKey = block.Location().ToUint64();
+    auto &cachedBlock = m_compiledCode.blockCache.GetOrCreate(blockKey);
     Compiler compiler{m_context, m_commonData->stateOffsets, m_compiledCode, m_codegen, block, m_alloc};
 
     auto fnPtr = m_codegen.getCurr<HostCode>();
-    cachedBlock.code = fnPtr;
+    cachedBlock = fnPtr;
 
     Xbyak::Label lblCondFail{};
 
@@ -456,6 +474,8 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
         ApplyDirectLinkPatches(block.Location(), fnPtr);
     }
 
+    m_compiledCode.cachedBlocks.insert({blockKey, {cachedBlock, block.InstructionCount() * instrSize}});
+
     // Cleanup, cache block and return pointer to code
     vtune::ReportBasicBlock(CastUintPtr(fnPtr), m_codegen.getCurr<uintptr_t>(), block.Location());
     return fnPtr;
@@ -467,7 +487,7 @@ void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
     while (itPatch != m_compiledCode.pendingPatches.end() && itPatch->first == key) {
         auto &patchInfo = itPatch->second;
         auto patchBlock = m_compiledCode.blockCache.Get(patchInfo.cachedBlockKey);
-        if (patchBlock != nullptr && patchBlock->code != nullptr) {
+        if (patchBlock != nullptr && *patchBlock != nullptr) {
             // Remember current location
             auto prevSize = m_codegen.getSize();
 
