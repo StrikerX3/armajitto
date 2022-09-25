@@ -630,7 +630,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     }*/
 }
 
-void DualJITFuzzer() {
+void DualJITFuzzer(uint32_t offset, uint32_t limit) {
     FuzzerSystem jit1Sys;
     Specification unoptSpec{jit1Sys, CPUModel::ARM946ES};
     Recompiler jit1{unoptSpec};
@@ -854,7 +854,15 @@ int main(int argc, char *argv[]) {
         interpVsJITFuzzer(offset, limit);
     }*/
 
-    DualJITFuzzer();
+    {
+        int offset = 0;
+        uint32_t limit = 0x20;
+        if (argc >= 2) {
+            offset = std::clamp(atoi(argv[1]), 0, 0x20);
+            limit = 1;
+        }
+        DualJITFuzzer(offset, limit);
+    }
 
     return 0;
 }
