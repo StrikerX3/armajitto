@@ -439,6 +439,11 @@ namespace detail {
     }
 
     template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRConstantOp *op, Visitor &&visitor) {
+        VisitVar(op, op->dst, false, visitor);
+    }
+
+    template <bool writesFirst, typename Visitor>
     void VisitIROpVars(ir::IRCopyVarOp *op, Visitor &&visitor) {
         if constexpr (writesFirst) {
             VisitVar(op, op->dst, false, visitor);
