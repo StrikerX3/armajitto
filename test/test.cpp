@@ -720,7 +720,41 @@ void testCompiler() {
     // ARM ALU ops with PC as operand
     // writeARM(0xE00F0080); // and r0, pc, r0, lsl #1
 
-    writeThumb(0x40D4); // lsrs r4, r2
+    // writeThumb(0x40D4); // lsrs r4, r2
+
+    // Bad dead reg optimization
+    writeARM(0xE59F10DC); // ldr r1, [pc, #0xDC]
+    writeARM(0xE3A08000); // mov r8, #0x0
+    writeARM(0xE5911000); // ldr r1, [r1]
+    writeARM(0xE59F30D4); // ldr r3, [pc, #0xD4]
+    writeARM(0xE59F20D4); // ldr r2, [pc, #0xD4]
+    writeARM(0xE2811B27); // add r1, r1, #0x9C00
+    writeARM(0xE0807108); // add r7, r0, r8, lsl #0x2
+    writeARM(0xE1D1C0D0); // ldrsb r12, [r1]
+    writeARM(0xE1D758D2); // ldrsb r5, [r7, #0x82]
+    writeARM(0xE1D160D1); // ldrsb r6, [r1, #0x1]
+    writeARM(0xE1D748D3); // ldrsb r4, [r7, #0x83]
+    writeARM(0xE005059C); // mul r5, r12, r5
+    writeARM(0xE00E0496); // mul lr, r6, r4
+    writeARM(0xE0C64592); // smull r4, r6, r2, r5
+    writeARM(0xE0856006); // add r6, r5, r6
+    writeARM(0xE0C4CE92); // smull r12, r4, r2, lr
+    writeARM(0xE08E4004); // add r4, lr, r4
+    writeARM(0xE1A0C088); // mov r12, r8, lsl #0x1
+    writeARM(0xE2888001); // add r8, r8, #0x1
+    writeARM(0xE1D798D4); // ldrsb r9, [r7, #0x84]
+    writeARM(0xE1A05FA5); // mov r5, r5, lsr #0x1F
+    writeARM(0xE1A07FAE); // mov r7, lr, lsr #0x1F
+    writeARM(0xE3580004); // cmp r8, #0x4
+    writeARM(0xE1D1E0D2); // ldrsb lr, [r1, #0x2]
+    writeARM(0xE1A06246); // mov r6, r6, asr #0x4
+    writeARM(0xE0856006); // add r6, r5, r6
+    writeARM(0xE009099E); // mul r9, lr, r9
+    writeARM(0xE0CE5992); // smull r5, lr, r2, r9
+    writeARM(0xE089E00E); // add lr, r9, lr
+    writeARM(0xE1A05FA9); // mov r5, r9, lsr #0x1F
+    writeARM(0xE1A0E24E); // mov lr, lr, asr #0x4
+    writeARM(0xE085E00E); // add lr, r5, lr
 
     using namespace armajitto;
 
@@ -738,6 +772,8 @@ void testCompiler() {
     armState.SPSR(arm::Mode::Abort).u32 = sysCPSR;
     armState.SPSR(arm::Mode::Undefined).u32 = sysCPSR;
     armState.JumpTo(baseAddress, thumb);
+
+    jit.GetOptions().optimizer.passes.constantPropagation = false;
 
     /*for (uint32_t reg = 0; reg < 15; reg++) {
         auto gpr = static_cast<arm::GPR>(reg);

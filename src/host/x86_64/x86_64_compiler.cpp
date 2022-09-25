@@ -470,7 +470,19 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
     Xbyak::Label lblEnd{};
 
-    auto compileRead = [this, op, &lblEnd](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
+    // Get destination register if present
+    Xbyak::Reg32 dstReg32{};
+    if (op->dst.var.IsPresent()) {
+        dstReg32 = m_regAlloc.Get(op->dst.var);
+    }
+
+    // Get base address register if it is a variable
+    Xbyak::Reg32 baseAddrReg32{};
+    if (!op->address.immediate) {
+        baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
+    }
+
+    auto compileRead = [this, op, &lblEnd, &baseAddrReg32](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
         switch (op->size) {
         case ir::MemAccessSize::Byte:
             if (op->mode == ir::MemAccessMode::Signed) {
@@ -491,7 +503,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                     } else {
                         Xbyak::Label lblByteRead{};
 
-                        auto baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
                         m_codegen.test(baseAddrReg32, 1);
                         m_codegen.jnz(lblByteRead);
 
@@ -515,7 +526,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                             m_codegen.ror(dstReg32.cvt16(), shiftOffset);
                         }
                     } else {
-                        auto baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
                         auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
                         m_codegen.mov(shiftReg32, baseAddrReg32);
                         m_codegen.and_(shiftReg32, 1);
@@ -579,7 +589,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
         // Read from selected page
         if (op->dst.var.IsPresent()) {
             const uint32_t offset = address & memMapRef.GetPageMask() & addrMask;
-            auto dstReg32 = m_regAlloc.Get(op->dst.var);
             compileRead(dstReg32, memMapReg64, offset);
         }
     } else {
@@ -603,7 +612,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
         // Read from selected page
         if (op->dst.var.IsPresent()) {
-            auto dstReg32 = m_regAlloc.Get(op->dst.var);
             m_codegen.mov(indexReg32, addrReg32);
             m_codegen.and_(indexReg32, memMapRef.GetPageMask() & addrMask);
             compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
@@ -656,10 +664,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
     auto &system = m_context.GetSystem();
 
-    Xbyak::Reg dstReg32{};
-    if (op->dst.var.IsPresent()) {
-        dstReg32 = m_regAlloc.Get(op->dst.var);
-    }
     if (op->address.immediate) {
         CompileInvokeHostFunction(dstReg32, readFn, system, op->address.imm.value);
     } else {
@@ -687,6 +691,18 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.mov(genReg64.cvt32(), addrReg32);
         m_codegen.shr(genReg64, CompiledCode::kPageShift);
         m_codegen.inc(dword[tmpReg64 + genReg64 * sizeof(uint32_t)]);
+    }
+
+    // Get source register if it is a variable
+    Xbyak::Reg32 srcReg32{};
+    if (!op->src.immediate) {
+        srcReg32 = m_regAlloc.Get(op->src.var.var);
+    }
+
+    // Get address register if it is a variable
+    Xbyak::Reg32 addrReg32{};
+    if (!op->address.immediate) {
+        addrReg32 = m_regAlloc.Get(op->address.var.var);
     }
 
     Xbyak::Label lblSlowMem;
@@ -728,7 +744,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             default: util::unreachable();
             }
         } else {
-            auto srcReg32 = m_regAlloc.Get(op->src.var.var);
             switch (op->size) {
             case ir::MemAccessSize::Byte: m_codegen.mov(byte[memMapReg64 + offset], srcReg32.cvt8()); break;
             case ir::MemAccessSize::Half: m_codegen.mov(word[memMapReg64 + offset], srcReg32.cvt16()); break;
@@ -767,7 +782,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             default: util::unreachable();
             }
         } else {
-            auto srcReg32 = m_regAlloc.Get(op->src.var.var);
             switch (op->size) {
             case ir::MemAccessSize::Byte: m_codegen.mov(byte[memMapReg64 + indexReg32.cvt64()], srcReg32.cvt8()); break;
             case ir::MemAccessSize::Half:
@@ -791,7 +805,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         if (address.immediate) {
             CompileInvokeHostFunction(fn, system, address.imm.value, (uint32_t)src);
         } else {
-            auto addrReg32 = m_regAlloc.Get(address.var.var);
             CompileInvokeHostFunction(fn, system, addrReg32, (uint32_t)src);
         }
     };
@@ -800,7 +813,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         if (address.immediate) {
             CompileInvokeHostFunction(fn, system, address.imm.value, (uint32_t)src);
         } else {
-            auto addrReg32 = m_regAlloc.Get(address.var.var);
             CompileInvokeHostFunction(fn, system, addrReg32, (uint32_t)src);
         }
     };
@@ -809,7 +821,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         if (address.immediate) {
             CompileInvokeHostFunction(fn, system, address.imm.value, src);
         } else {
-            auto addrReg32 = m_regAlloc.Get(address.var.var);
             CompileInvokeHostFunction(fn, system, addrReg32, src);
         }
     };
@@ -1047,11 +1058,12 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
+
             Xbyak::Label lblNoEffect{};
             m_codegen.cmp(shiftReg64, shiftReg64);
             m_codegen.jz(lblNoEffect);
 
-            auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg64);
             SetCFromFlags();
@@ -1172,11 +1184,12 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
                 SetCFromFlags();
             }
         } else if (op->setCarry) {
+            auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
+
             Xbyak::Label lblNoEffect{};
             m_codegen.cmp(shiftReg32, shiftReg32);
             m_codegen.jz(lblNoEffect);
 
-            auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg32.cvt64());
             SetCFromFlags();
@@ -1221,6 +1234,13 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         auto valueReg32 = m_regAlloc.Get(op->value.var.var);
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
+        Xbyak::Reg32 dstReg32{};
+        if (op->dst.var.IsPresent()) {
+            dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+        } else {
+            dstReg32 = m_regAlloc.GetTemporary();
+        }
+
         // Skip if rotation amount is zero
         Xbyak::Label lblNoRotation{};
         m_codegen.test(amountReg32, amountReg32);
@@ -1231,12 +1251,9 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             m_codegen.mov(shiftReg32, amountReg32);
 
             // Put value to shift into the result register
-            Xbyak::Reg32 dstReg32{};
             if (op->dst.var.IsPresent()) {
-                dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 CopyIfDifferent(dstReg32, valueReg32);
             } else {
-                dstReg32 = m_regAlloc.GetTemporary();
                 m_codegen.mov(dstReg32, valueReg32);
             }
 
@@ -1256,6 +1273,14 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         auto value = op->value.imm.value;
         auto amountReg32 = m_regAlloc.Get(op->amount.var.var);
 
+        // Put value to shift into the result register
+        Xbyak::Reg32 dstReg32{};
+        if (op->dst.var.IsPresent()) {
+            dstReg32 = m_regAlloc.Get(op->dst.var);
+        } else {
+            dstReg32 = m_regAlloc.GetTemporary();
+        }
+
         // Skip if rotation amount is zero
         Xbyak::Label lblNoRotation{};
         m_codegen.test(amountReg32, amountReg32);
@@ -1264,14 +1289,6 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
         {
             // Put shift amount into ECX
             m_codegen.mov(shiftReg32, amountReg32);
-
-            // Put value to shift into the result register
-            Xbyak::Reg32 dstReg32{};
-            if (op->dst.var.IsPresent()) {
-                dstReg32 = m_regAlloc.Get(op->dst.var);
-            } else if (op->setCarry) {
-                dstReg32 = m_regAlloc.GetTemporary();
-            }
 
             // Compute the shift
             m_codegen.mov(dstReg32, value);
@@ -2528,6 +2545,11 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
     Xbyak::Label lblEnd;
     Xbyak::Label lblExchange;
 
+    Xbyak::Reg32 addrReg32{};
+    if (!op->address.immediate) {
+        addrReg32 = m_regAlloc.Get(op->address.var.var);
+    }
+
     auto pcReg32 = m_regAlloc.GetTemporary();
     const auto pcFieldOffset = m_stateOffsets.GPROffset(arm::GPR::PC, m_mode);
     const auto cpsrFieldOffset = m_stateOffsets.CPSROffset();
@@ -2563,8 +2585,6 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
                 m_codegen.lea(pcReg32, dword[pcReg32 * 4 + offset]);
             }
         } else {
-            auto addrReg32 = m_regAlloc.Get(op->address.var.var);
-
             // Adjust PC by +8 if ARM or +4 if Thumb
             // ARM:   PC + 1*4 + 4 = PC + 8
             // Thumb: PC + 0*4 + 4 = PC + 4
@@ -2594,7 +2614,6 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
                     m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset],
                                   (op->address.imm.value & addrMask) + pcOffset);
                 } else {
-                    auto addrReg32 = m_regAlloc.Get(op->address.var.var);
                     m_codegen.lea(pcReg32, dword[addrReg32 + pcOffset]);
                     m_codegen.and_(pcReg32, addrMask);
                     m_codegen.mov(dword[abi::kARMStateReg + pcFieldOffset], pcReg32);
@@ -2620,8 +2639,6 @@ void x64Host::Compiler::CompileOp(const ir::IRBranchExchangeOp *op) {
         } else {
             Xbyak::Label lblBranchARM;
             Xbyak::Label lblSetPC;
-
-            auto addrReg32 = m_regAlloc.Get(op->address.var.var);
 
             // Determine if this is a Thumb or ARM branch based on bit 0 of the given address
             m_codegen.test(addrReg32, 1);
