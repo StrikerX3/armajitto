@@ -412,8 +412,13 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
     }
 
     if (block.Condition() != arm::Condition::AL) {
-        // Go to next block or epilog
-        compiler.CompileTerminal(block);
+        if (block.Condition() != arm::Condition::NV) {
+            // Go to next block or epilog
+            compiler.CompileTerminal(block);
+        } else {
+            // Allow registers to be spilled if necessary
+            compiler.ReserveTerminalRegisters(block);
+        }
 
         // Condition fail block
         {

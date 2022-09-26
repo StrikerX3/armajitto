@@ -30,6 +30,8 @@ public:
     void CompileDirectLinkToSuccessor(const ir::BasicBlock &block);
     void CompileExit();
 
+    void ReserveTerminalRegisters(const ir::BasicBlock &block);
+
 private:
     void CompileDirectLink(LocationRef target, uint64_t blockLocKey);
 

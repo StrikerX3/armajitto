@@ -372,6 +372,24 @@ void x64Host::Compiler::CompileExit() {
     m_codegen.jmp(m_compiledCode.epilog, Xbyak::CodeGenerator::T_NEAR);
 }
 
+void x64Host::Compiler::ReserveTerminalRegisters(const ir::BasicBlock &block) {
+    // This is invoked when the block condition is NV, which means CompileTerminal is only invoked after the condition
+    // fail block, which may potentially branch to another block before the current block has the chance to spill
+    // variables to the stack.
+    if (!m_compiledCode.enableBlockLinking) {
+        return;
+    }
+
+    // Indirect links use three temporary registers.
+    // Reserve them now to force variable spilling before branches.
+    if (block.GetTerminal() == ir::BasicBlock::Terminal::IndirectLink) {
+        m_regAlloc.GetTemporary();
+        m_regAlloc.GetTemporary();
+        m_regAlloc.GetTemporary();
+        m_regAlloc.ReleaseTemporaries();
+    }
+}
+
 void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocKey) {
     if (!m_compiledCode.enableBlockLinking) {
         CompileExit();
