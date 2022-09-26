@@ -13,7 +13,7 @@
 namespace armajitto {
 
 struct Recompiler::Impl {
-    Impl(Context &context, const Specification &spec, Options &params)
+    Impl(Context &context, Specification spec, Options &params)
         : context(context)
         , translator(context, params.translator)
         , optimizer(params.optimizer, pmrBuffer)
@@ -105,7 +105,7 @@ struct Recompiler::Impl {
     static constexpr uint32_t kCompiledBlocksReleaseThreshold = 500;
 };
 
-Recompiler::Recompiler(const Specification &spec)
+Recompiler::Recompiler(Specification spec)
     : m_spec(spec)
     , m_context(spec.model, spec.system)
     , m_impl(std::make_unique<Impl>(m_context, spec, m_options)) {}

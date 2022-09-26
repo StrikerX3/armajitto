@@ -11,7 +11,7 @@ namespace armajitto {
 
 class Recompiler {
 public:
-    Recompiler(const Specification &spec);
+    Recompiler(Specification spec);
     ~Recompiler();
 
     void Reset();
