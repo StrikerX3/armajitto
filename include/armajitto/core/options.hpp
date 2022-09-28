@@ -10,6 +10,29 @@ struct Options {
     struct Translator {
         // Specifies the maximum number of instructions to translate into a basic block.
         uint32_t maxBlockSize = 32;
+
+        enum class CycleCountingMethod {
+            // Each instruction takes a fixed amount of cycles to execute.
+            InstructionFixed,
+
+            // Compute S/N/I cycles, assuming all memory accesses take a constant number of cycles.
+            SubinstructionFixed,
+
+            // TODO: implement this
+            // Compute S/N/I cycles using a memory access timing table.
+            // SubinstructionTimingTable,
+        };
+
+        // Specifies how the translator counts cycles.
+        CycleCountingMethod method = CycleCountingMethod::InstructionFixed;
+
+        // Number of cycles per instruction.
+        // Used when method == CycleCountingMethod::InstructionFixed.
+        uint64_t cyclesPerInstruction = 2;
+
+        // Number of cycles per memory access.
+        // Used when method == CycleCountingMethod::SubinstructionFixed.
+        uint64_t cyclesPerMemoryAccess = 1;
     } translator;
 
     // Options for the optimization stage
