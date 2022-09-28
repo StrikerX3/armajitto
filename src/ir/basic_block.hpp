@@ -56,6 +56,14 @@ public:
         return m_instrCount;
     }
 
+    uint64_t PassCycles() const {
+        return m_passCycles;
+    }
+
+    uint64_t FailCycles() const {
+        return m_failCycles;
+    }
+
     IROp *Head() {
         return m_opsHead;
     }
@@ -112,8 +120,11 @@ private:
 
     IROp *m_opsHead = nullptr;
     IROp *m_opsTail = nullptr;
-    uint32_t m_instrCount = 0; // ARM/Thumb instructions
+    uint32_t m_instrCount = 0; // Number of ARM/Thumb instructions translated into this block
     uint32_t m_nextVarID = 0;
+
+    uint64_t m_passCycles = 0; // Number of cycles taken if the block is executed (condition passes)
+    uint64_t m_failCycles = 0; // Number of cycles taken if the block is skipped (condition fails)
 
     Terminal m_terminal = Terminal::Return;
     LocationRef m_terminalLocation{};
