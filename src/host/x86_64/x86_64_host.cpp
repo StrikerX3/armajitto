@@ -417,6 +417,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
             compiler.CompileTerminal(block);
         } else {
             // Allow registers to be spilled if necessary
+            // FIXME: this is hacky af... ideally the code generator should prepend all spilled registers
             compiler.ReserveTerminalRegisters(block);
         }
 
