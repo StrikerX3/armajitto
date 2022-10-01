@@ -73,9 +73,13 @@ struct Options {
     // Options for the host compiler stage
     struct Compiler {
         static constexpr size_t kDefaultBufferCodeSize = static_cast<size_t>(1) * 1024 * 1024;
+        static constexpr size_t kDefaultMaxBufferCodeSize = static_cast<size_t>(1024) * 1024 * 1024;
 
         // Initial size of the code buffer
         size_t initialCodeBufferSize = kDefaultBufferCodeSize;
+
+        // Maximum size of the code buffer
+        size_t maximumCodeBufferSize = kDefaultMaxBufferCodeSize;
 
         // Enables block linking, which can significantly speed up execution
         // This option only takes effect on construction or after invoking Host::Clear()

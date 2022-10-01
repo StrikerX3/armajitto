@@ -57,10 +57,16 @@ HostCode x64Host::Compile(ir::BasicBlock &block) {
         } catch (Xbyak::Error e) {
             if ((int)e == Xbyak::ERR_CODE_IS_TOO_BIG) {
                 // If compilation fails due to filling up the code buffer, double its size and try compiling again
+                const auto prevCodeBufferSize = m_codeBufferSize;
                 m_codeBufferSize *= 2;
-                m_codeBuffer.reset(new uint8_t[m_codeBufferSize]);
-                m_codegen.setCodeBuffer(m_codeBuffer.get(), m_codeBufferSize);
-                m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
+                if (m_codeBufferSize > m_options.maximumCodeBufferSize) {
+                    m_codeBufferSize = m_options.maximumCodeBufferSize;
+                }
+                if (prevCodeBufferSize != m_codeBufferSize) {
+                    m_codeBuffer.reset(new uint8_t[m_codeBufferSize]);
+                    m_codegen.setCodeBuffer(m_codeBuffer.get(), m_codeBufferSize);
+                    m_codegen.setProtectMode(Xbyak::CodeGenerator::PROTECT_RWE);
+                }
                 Clear();
             } else {
                 // Otherwise, rethrow exception
