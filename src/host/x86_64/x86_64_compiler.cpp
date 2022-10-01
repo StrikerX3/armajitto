@@ -190,7 +190,7 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
         // This will cause the recompiler to request a block invalidation later on, to clean up patches.
         const auto blockPtr = m_compiledCode.blockCache.Get(baseLoc.ToUint64());
         if (blockPtr != nullptr) {
-            m_codegen.mov(ptrReg64, CastUintPtr(blockPtr) + offsetof(CompiledCode::CachedBlock, code));
+            m_codegen.mov(ptrReg64, CastUintPtr(blockPtr));
             m_codegen.mov(qword[ptrReg64], CastUintPtr(nullptr));
         }
 
@@ -346,13 +346,12 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         // Level 3 check
         // m_codegen.shr(cacheKeyReg64, CacheType::kL3Shift); // shift by zero
         m_codegen.and_(cacheKeyReg64, CacheType::kL3Mask);
-        static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
         static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
-            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 * valueSize + offset]);
+            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 * valueSize]);
         } else {
             m_codegen.imul(cacheKeyReg64, cacheKeyReg64, valueSize);
-            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 + offset]);
+            m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64]);
         }
 
         // Check for nullptr
@@ -415,8 +414,8 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
     }
 
     auto block = m_compiledCode.blockCache.Get(target.ToUint64());
-    if (block != nullptr && block->code != nullptr) {
-        auto code = block->code;
+    if (block != nullptr && *block != nullptr) {
+        auto code = *block;
 
         // Jump to the compiled code's address directly
         m_codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);

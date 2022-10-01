@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/location_ref.hpp"
+#include "host/block_cache.hpp"
 #include "host/host_code.hpp"
 #include "util/pointer_cast.hpp"
-#include "util/three_level_array.hpp"
 
 #include <cstdint>
 #include <map> // TODO: I'll probably regret this...
@@ -11,10 +11,6 @@
 namespace armajitto::x86_64 {
 
 struct CompiledCode {
-    struct CachedBlock {
-        HostCode code = nullptr;
-    };
-
     struct PatchInfo {
         uint64_t cachedBlockKey;
         const uint8_t *codePos;
@@ -30,7 +26,7 @@ struct CompiledCode {
     bool enableBlockLinking;
 
     // Cached blocks by LocationRef::ToUint64()
-    util::ThreeLevelArray<uint64_t, CachedBlock, 13, 13, 12> blockCache;
+    BlockCache blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
     std::multimap<uint64_t, PatchInfo> pendingPatches;
@@ -47,7 +43,7 @@ struct CompiledCode {
         if (entry == nullptr) {
             return nullptr;
         }
-        return entry->code;
+        return *entry;
     }
 
     void Clear() {
