@@ -302,10 +302,7 @@ void x64Host::CompileIRQEntry() {
     m_codegen.mov(dword[abi::kARMStateReg + cpsrOffset], cpsrReg32);
 
     // Update I in EAX
-    m_codegen.and_(cpsrReg32, (1 << ARMflgIPos));
-    m_codegen.and_(abi::kHostFlagsReg, ~x64flgI);
-    m_codegen.shl(cpsrReg32, x64flgIPos - ARMflgIPos);
-    m_codegen.or_(abi::kHostFlagsReg, cpsrReg32);
+    m_codegen.or_(abi::kHostFlagsReg, x64flgI);
 
     // Set PC
     constexpr uint32_t irqVectorOffset =
@@ -340,7 +337,7 @@ void x64Host::CompileIRQEntry() {
         auto lrReg64 = lrReg32.cvt64();
 
         // Build cache key
-        m_codegen.mov(cpsrReg64, dword[abi::kARMStateReg + cpsrOffset]);
+        m_codegen.mov(cpsrReg64.cvt32(), dword[abi::kARMStateReg + cpsrOffset]);
         m_codegen.and_(cpsrReg64, 0x3F); // We only need the mode and T bits
         m_codegen.shl(cpsrReg64, 32);
         m_codegen.or_(cpsrReg64, pcReg32.cvt64());
