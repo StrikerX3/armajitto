@@ -342,17 +342,27 @@ void x64Host::CompileIRQEntry() {
         // Lookup entry in block cache
         m_codegen.mov(pcReg64, m_compiledCode.blockCache.MapAddress());
 
+        using CacheType = decltype(m_compiledCode.blockCache);
+
         // Level 1 check
         m_codegen.mov(lrReg64, cpsrReg64);
-        m_codegen.shr(lrReg64, m_compiledCode.blockCache.kL1Shift);
-        // m_codegen.and_(lrReg64, m_compiledCode.blockCache.kL1Mask); // shouldn't be necessary
+        m_codegen.shr(lrReg64, CacheType::kL1Shift);
+        // m_codegen.and_(lrReg64, CacheType::kL1Mask); // shouldn't be necessary
         m_codegen.mov(pcReg64, qword[pcReg64 + lrReg64 * sizeof(void *)]);
         m_codegen.test(pcReg64, pcReg64);
         m_codegen.jz(m_compiledCode.epilog);
 
         // Level 2 check
-        // m_codegen.shr(cpsrReg64, m_compiledCode.blockCache.kL2Shift); // shift by zero
-        m_codegen.and_(cpsrReg64, m_compiledCode.blockCache.kL2Mask);
+        m_codegen.mov(lrReg64, cpsrReg64);
+        m_codegen.shr(lrReg64, CacheType::kL2Shift);
+        m_codegen.and_(lrReg64, CacheType::kL2Mask);
+        m_codegen.mov(pcReg64, qword[pcReg64 + lrReg64 * sizeof(void *)]);
+        m_codegen.test(pcReg64, pcReg64);
+        m_codegen.jz(m_compiledCode.epilog);
+
+        // Level 3 check
+        // m_codegen.shr(cpsrReg64, CacheType::kL3Shift); // shift by zero
+        m_codegen.and_(cpsrReg64, CacheType::kL3Mask);
         static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
         static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {

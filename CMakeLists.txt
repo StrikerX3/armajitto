@@ -148,7 +148,7 @@ add_library(armajitto
     src/util/noitree.hpp
     src/util/pointer_cast.hpp
     src/util/scope_guard.hpp
-    src/util/two_level_array.hpp
+    src/util/three_level_array.hpp
     src/util/type_traits.hpp
     src/util/unreachable.hpp
     src/util/unsafe_circular_buffer.hpp

@@ -325,17 +325,27 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         auto jmpDstReg64 = pcReg32.cvt64();
         m_codegen.mov(jmpDstReg64, m_compiledCode.blockCache.MapAddress());
 
+        using CacheType = decltype(m_compiledCode.blockCache);
+
         // Level 1 check
         m_codegen.mov(tmpReg64, cacheKeyReg64);
-        m_codegen.shr(tmpReg64, m_compiledCode.blockCache.kL1Shift);
-        // m_codegen.and_(tmpReg64, m_compiledCode.blockCache.kL1Mask); // shouldn't be necessary
+        m_codegen.shr(tmpReg64, CacheType::kL1Shift);
+        // m_codegen.and_(tmpReg64, CacheType::kL1Mask); // shouldn't be necessary
         m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + tmpReg64 * sizeof(void *)]);
         m_codegen.test(jmpDstReg64, jmpDstReg64);
         m_codegen.jz(m_compiledCode.epilog);
 
         // Level 2 check
-        // m_codegen.shr(cacheKeyReg64, m_compiledCode.blockCache.kL2Shift); // shift by zero
-        m_codegen.and_(cacheKeyReg64, m_compiledCode.blockCache.kL2Mask);
+        m_codegen.mov(tmpReg64, cacheKeyReg64);
+        m_codegen.shr(tmpReg64, CacheType::kL2Shift);
+        m_codegen.and_(tmpReg64, CacheType::kL2Mask);
+        m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + tmpReg64 * sizeof(void *)]);
+        m_codegen.test(jmpDstReg64, jmpDstReg64);
+        m_codegen.jz(m_compiledCode.epilog);
+
+        // Level 3 check
+        // m_codegen.shr(cacheKeyReg64, CacheType::kL3Shift); // shift by zero
+        m_codegen.and_(cacheKeyReg64, CacheType::kL3Mask);
         static constexpr auto offset = offsetof(CompiledCode::CachedBlock, code);
         static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {

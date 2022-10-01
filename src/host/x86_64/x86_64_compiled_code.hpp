@@ -3,7 +3,7 @@
 #include "core/location_ref.hpp"
 #include "host/host_code.hpp"
 #include "util/pointer_cast.hpp"
-#include "util/two_level_array.hpp"
+#include "util/three_level_array.hpp"
 
 #include <cstdint>
 #include <map> // TODO: I'll probably regret this...
@@ -30,7 +30,7 @@ struct CompiledCode {
     bool enableBlockLinking;
 
     // Cached blocks by LocationRef::ToUint64()
-    util::TwoLevelArray<uint64_t, CachedBlock, 38> blockCache;
+    util::ThreeLevelArray<uint64_t, CachedBlock, 13, 13, 12> blockCache;
 
     // Xbyak patch locations by LocationRef::ToUint64()
     std::multimap<uint64_t, PatchInfo> pendingPatches;
