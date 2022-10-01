@@ -63,6 +63,8 @@ public:
 
     void NextInstruction();
     void SetCondition(arm::Condition cond);
+    void AddPassCycles(uint64_t cycles);
+    void AddFailCycles(uint64_t cycles);
 
     // -----------------------------------------------------------------------------------------------------------------
     // Optimizer helper functions

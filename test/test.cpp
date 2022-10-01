@@ -498,6 +498,8 @@ void testNDS() {
     }};
     auto &armState = jit.GetARMState();
 
+    using namespace armajitto::arm::cp15;
+
     // Configure CP15
     // These specs match the NDS's ARM946E-S
     auto &cp15 = armState.GetSystemControlCoprocessor();
@@ -508,14 +510,14 @@ void testNDS() {
         .code =
             {
                 .size = 0x2000,
-                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                .lineLength = cache::LineLength::_32B,
+                .associativity = cache::Associativity::_4WayOr6Way,
             },
         .data =
             {
                 .size = 0x1000,
-                .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                .lineLength = cache::LineLength::_32B,
+                .associativity = cache::Associativity::_4WayOr6Way,
             },
     });
 
@@ -534,16 +536,12 @@ void testNDS() {
     cp15.StoreRegister(0x0911, 0x00000020);
     cp15.StoreRegister(0x0100, cp15.LoadRegister(0x0100) | 0x00050000);
 
-    // auto &optParams = jit.GetOptimizationParameters();
-    // optParams.passes.constantPropagation = false;
-    // optParams.passes.deadRegisterStoreElimination = false;
-    // optParams.passes.deadGPRStoreElimination = false;
-    // optParams.passes.deadHostFlagStoreElimination = false;
-    // optParams.passes.deadFlagValueStoreElimination = false;
-    // optParams.passes.deadVariableStoreElimination = false;
-    // optParams.passes.bitwiseOpsCoalescence = false;
-    // optParams.passes.arithmeticOpsCoalescence = false;
-    // optParams.passes.hostFlagsOpsCoalescence = false;
+    using CycleCountingMethod = armajitto::Options::Translator::CycleCountingMethod;
+    auto &options = jit.GetOptions();
+    // options.translator.cycleCountingMethod = CycleCountingMethod::InstructionFixed;
+    // options.translator.cyclesPerInstruction = 2;
+    options.translator.cycleCountingMethod = CycleCountingMethod::SubinstructionFixed;
+    options.translator.cyclesPerMemoryAccess = 1;
 
     using namespace std::chrono_literals;
 

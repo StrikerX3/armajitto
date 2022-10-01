@@ -143,6 +143,14 @@ private:
         m_cond = cond;
     }
 
+    void AddPassCycles(uint64_t cycles) {
+        m_passCycles += cycles;
+    }
+
+    void AddFailCycles(uint64_t cycles) {
+        m_failCycles += cycles;
+    }
+
     template <typename T, typename... Args>
     IROp *CreateOp(Args &&...args) {
         return m_alloc.Allocate<T>(std::forward<Args>(args)...);

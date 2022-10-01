@@ -14,6 +14,15 @@
 
 #include <bit>
 
+// Cycle counting notes:
+// ARMv4T only has one bus. Comments show a summary of cycles executed by the instruction.
+//   e.g. 1S + 2N + 1I means 1 sequential cycle, 2 nonsequential cycles and 1 internal cycle.
+// ARMv5TE has a code and a data bus. Comments list a code|data pair for each step of the instruction.
+//   e.g. S|I, I|N, I|S means:
+//    step 1: sequential code cycle in parallel with an internal data cycle
+//    step 2: internal code cycle in parallel with a nonsequential data cycle
+//    step 3: internal code cycle in parallel with a sequential data cycle
+
 using namespace armajitto::arm;
 using namespace armajitto::arm::instrs;
 
@@ -28,6 +37,8 @@ void Translator::Translate(BasicBlock &block) {
     const bool thumb = block.Location().IsThumbMode();
     const uint32_t opcodeSize = thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     const CPUArch arch = m_context.GetCPUArch();
+    const bool fixedCyclesPerInstruction =
+        (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::InstructionFixed);
 
     auto parseARMCond = [](uint32_t opcode, CPUArch arch) {
         const auto cond = static_cast<Condition>(bit::extract<28, 4>(opcode));
@@ -76,6 +87,11 @@ void Translator::Translate(BasicBlock &block) {
                 break;
             }
             TranslateARM(opcode, emitter);
+        }
+
+        if (fixedCyclesPerInstruction) {
+            emitter.AddPassCycles(m_options.cyclesPerInstruction);
+            emitter.AddFailCycles(m_options.cyclesPerInstruction);
         }
 
         emitter.NextInstruction();
@@ -433,6 +449,17 @@ void Translator::Translate(const BranchOffset &instr, Emitter &emitter) {
     }
 
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter) {
@@ -443,6 +470,17 @@ void Translator::Translate(const BranchExchangeRegister &instr, Emitter &emitter
     emitter.BranchExchange(addr);
 
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter) {
@@ -459,6 +497,17 @@ void Translator::Translate(const ThumbLongBranchSuffix &instr, Emitter &emitter)
     }
 
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
@@ -475,6 +524,14 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
     // PC is incremented before if using a register-specified shift
     if (!instr.immediate && !instr.rhs.shift.immediate) {
         emitter.FetchInstruction();
+    }
+
+    // ARMv4T: 1I if using register specified shift
+    // ARMv5TE: I|I if using register specified shift
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        if (!instr.rhs.shift.immediate) {
+            emitter.AddPassCycles(1);
+        }
     }
 
     // Copy SPSR to CPSR when the S flag is set with Rd = 15 and the operation is not a comparison.
@@ -560,12 +617,34 @@ void Translator::Translate(const DataProcessing &instr, Emitter &emitter) {
         }
 
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            // ARMv4T:
+            //   Pass: 1N + 2S to fetch and fill pipeline
+            //   Fail: 1S to fetch next instruction
+            // ARMv5TE:
+            //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+            //   Fail: S|I to fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+            emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+        }
     } else {
         m_flagsUpdated = updateFlags;
 
         // PC is incremented before if using an immediate or shift by immediate
         if (instr.immediate || instr.rhs.shift.immediate) {
             emitter.FetchInstruction();
+        }
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            // ARMv4T:
+            //   Pass: 1S to fetch next instruction
+            //   Fail: 1S to fetch next instruction
+            // ARMv5TE:
+            //   Pass: S|I to fetch next instruction
+            //   Fail: S|I to fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+            emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
         }
     }
 }
@@ -576,6 +655,17 @@ void Translator::Translate(const CountLeadingZeros &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
@@ -596,6 +686,17 @@ void Translator::Translate(const SaturatingAddSub &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
@@ -615,6 +716,36 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
     }
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        switch (m_context.GetCPUArch()) {
+        case CPUArch::ARMv4T:
+            // TODO: variable I cycles based on multiplier
+            emitter.AddPassCycles(2);
+            if (instr.accumulate) {
+                // 1I for accumulate operation
+                emitter.AddPassCycles(1);
+            }
+            break;
+        case CPUArch::ARMv5TE:
+            // I|I base
+            emitter.AddPassCycles(1);
+            if (instr.setFlags) {
+                // I|I, I|I to store flags
+                emitter.AddPassCycles(2);
+            }
+            break;
+        }
+
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter) {
@@ -636,6 +767,36 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
     }
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        switch (m_context.GetCPUArch()) {
+        case CPUArch::ARMv4T:
+            // TODO: variable I cycles based on multiplier
+            emitter.AddPassCycles(2);
+            if (instr.accumulate) {
+                // 1I for accumulate operation
+                emitter.AddPassCycles(1);
+            }
+            break;
+        case CPUArch::ARMv5TE:
+            // I|I, I|I base
+            emitter.AddPassCycles(2);
+            if (instr.setFlags) {
+                // I|I, I|I to store flags
+                emitter.AddPassCycles(2);
+            }
+            break;
+        }
+
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitter) {
@@ -659,6 +820,14 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // Note: not available on ARMv4T
+        // Pass: S|I to fetch next instruction
+        // Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &emitter) {
@@ -683,6 +852,14 @@ void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &e
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // Note: not available on ARMv4T
+        // Pass: S|I to fetch next instruction
+        // Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &emitter) {
@@ -705,6 +882,18 @@ void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &e
     emitter.SetRegisterExceptPC(instr.dstAccHiReg, accResult.hi);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // Note: not available on ARMv4T
+
+        // I|I to perform operation
+        emitter.AddPassCycles(1);
+
+        // Pass: S|I to fetch next instruction
+        // Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
@@ -717,6 +906,22 @@ void Translator::Translate(const PSRRead &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, psr);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv5TE: I|I to update PSR
+        if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
+            emitter.AddPassCycles(1);
+        }
+
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
@@ -777,6 +982,24 @@ void Translator::Translate(const PSRWrite &instr, Emitter &emitter) {
         emitter.TerminateIndirectLink();
         m_endBlock = true;
     }
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv5TE: I|I, I|I to load anything but flags
+        if (m_context.GetCPUArch() == CPUArch::ARMv5TE) {
+            if (instr.s || instr.x || instr.c) {
+                emitter.AddPassCycles(2);
+            }
+        }
+
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
@@ -786,6 +1009,14 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
         address = emitter.BitClear(address, 3, false);
     }
     auto finalAddress = emitter.ApplyAddressOffset(address, instr.address);
+
+    // ARMv4T: 1I if using register specified shift
+    // ARMv5TE: I|I if using register specified shift
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        if (!instr.address.shift.immediate) {
+            emitter.AddPassCycles(1);
+        }
+    }
 
     if (instr.preindexed) {
         address = finalAddress;
@@ -850,6 +1081,62 @@ void Translator::Translate(const SingleDataTransfer &instr, Emitter &emitter) {
         }
 
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // 1N + 2S to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            case CPUArch::ARMv5TE:
+                // I|I for PC load operation
+                emitter.AddPassCycles(1);
+
+                // I|N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // N|I, S|I, S|I to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            }
+        }
+    } else {
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // 1N to fetch next instruction
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                break;
+            case CPUArch::ARMv5TE:
+                // S|N to fetch next instruction and transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                break;
+            }
+        }
+    }
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Fail: S|I to fetch next instruction
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
     }
 }
 
@@ -965,6 +1252,68 @@ void Translator::Translate(const HalfwordAndSignedTransfer &instr, Emitter &emit
             emitter.Branch(pcValue);
         }
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // 1N + 2S to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            case CPUArch::ARMv5TE:
+                // I|I for PC load operation
+                emitter.AddPassCycles(1);
+
+                // I|N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // N|I, S|I, S|I to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            }
+        }
+    } else {
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+                // 1N to fetch next instruction
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                break;
+            case CPUArch::ARMv5TE:
+                // Handle LDRD and STRD
+                if (!instr.load && instr.sign) {
+                    // N|I to transfer first portion of data
+                    emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                }
+
+                // S|N to fetch next instruction and transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                break;
+            }
+        }
+    }
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Fail: S|I to fetch next instruction
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
     }
 }
 
@@ -1091,6 +1440,82 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
         }
 
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N + nS to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * std::popcount(instr.regList));
+
+                // 1N + 2S to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            case CPUArch::ARMv5TE: {
+                // I|I for PC load operation
+                emitter.AddPassCycles(1);
+
+                // I|N, I|S, ... to transfer data
+                const uint32_t numTransfers = std::popcount(instr.regList);
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * numTransfers);
+
+                // N|I, S|I, S|I to fetch and fill pipeline
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+                break;
+            }
+            }
+        }
+    } else {
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            switch (m_context.GetCPUArch()) {
+            case CPUArch::ARMv4T:
+                // 1I for loads
+                if (instr.load) {
+                    emitter.AddPassCycles(1);
+                }
+
+                // 1N + nS to transfer data
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * std::popcount(instr.regList));
+
+                // 1N to fetch next instruction
+                emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                break;
+            case CPUArch::ARMv5TE: {
+                // I|I for PC load operation
+                emitter.AddPassCycles(1);
+
+                const uint32_t numTransfers = std::popcount(instr.regList);
+                if (numTransfers > 1) {
+                    // I|N, I|S, ... to transfer data (except the last transfer)
+                    emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * (numTransfers - 1));
+
+                    // S|S to perform the last transfer and fetch next instruction
+                    emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                } else {
+                    if (numTransfers == 1) {
+                        // I|N to transfer data
+                        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                    }
+
+                    // S|I to fetch next instruction
+                    emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+                }
+                break;
+            }
+            }
+        }
+    }
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Fail: S|I to fetch next instruction
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
     }
 }
 
@@ -1110,16 +1535,66 @@ void Translator::Translate(const SingleDataSwap &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, value);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        switch (m_context.GetCPUArch()) {
+        case CPUArch::ARMv4T:
+            // 1I base
+            emitter.AddPassCycles(1);
+
+            // 1N for the read + 1N for the write
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 2);
+
+            // 1S to fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+            break;
+        case CPUArch::ARMv5TE:
+            // I|N to read data
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+
+            // S|N to write data and fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+            break;
+        }
+
+        // ARMv4T:
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Fail: S|I to fetch next instruction
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SoftwareInterrupt &instr, Emitter &emitter) {
     emitter.EnterException(arm::Exception::SoftwareInterrupt);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const SoftwareBreakpoint &instr, Emitter &emitter) {
     emitter.EnterException(arm::Exception::PrefetchAbort);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const Preload &instr, Emitter &emitter) {
@@ -1127,18 +1602,51 @@ void Translator::Translate(const Preload &instr, Emitter &emitter) {
     emitter.Preload(address);
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const CopDataOperations &instr, Emitter &emitter) {
     // TODO: implement
     emitter.EnterException(arm::Exception::UndefinedInstruction);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const CopDataTransfer &instr, Emitter &emitter) {
     // TODO: implement
     emitter.EnterException(arm::Exception::UndefinedInstruction);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
@@ -1146,11 +1654,33 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
     if (!cop.IsPresent()) {
         emitter.EnterException(arm::Exception::UndefinedInstruction);
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            // ARMv4T:
+            //   Pass: 1N + 2S to fetch and fill pipeline
+            //   Fail: 1S to fetch next instruction
+            // ARMv5TE:
+            //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+            //   Fail: S|I to fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+            emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+        }
         return;
     }
     if (instr.ext && !cop.SupportsExtendedRegTransfers()) {
         emitter.EnterException(arm::Exception::UndefinedInstruction);
         m_endBlock = true;
+
+        if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+            // ARMv4T:
+            //   Pass: 1N + 2S to fetch and fill pipeline
+            //   Fail: 1S to fetch next instruction
+            // ARMv5TE:
+            //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+            //   Fail: S|I to fetch next instruction
+            emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+            emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+        }
         return;
     }
 
@@ -1179,17 +1709,52 @@ void Translator::Translate(const CopRegTransfer &instr, Emitter &emitter) {
     }
 
     emitter.FetchInstruction();
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // TODO: coprocessor timings
+
+        // ARMv4T:
+        //   Pass: 1S to fetch next instruction
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: S|I to fetch next instruction
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const CopDualRegTransfer &instr, Emitter &emitter) {
     // TODO: implement
     emitter.EnterException(arm::Exception::UndefinedInstruction);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 void Translator::Translate(const Undefined &instr, Emitter &emitter) {
     emitter.EnterException(arm::Exception::UndefinedInstruction);
     m_endBlock = true;
+
+    if (m_options.cycleCountingMethod == Options::Translator::CycleCountingMethod::SubinstructionFixed) {
+        // ARMv4T:
+        //   Pass: 1N + 2S to fetch and fill pipeline
+        //   Fail: 1S to fetch next instruction
+        // ARMv5TE:
+        //   Pass: N|I, S|I, S|I to fetch and fill pipeline
+        //   Fail: S|I to fetch next instruction
+        emitter.AddPassCycles(m_options.cyclesPerMemoryAccess * 3);
+        emitter.AddFailCycles(m_options.cyclesPerMemoryAccess);
+    }
 }
 
 } // namespace armajitto::ir

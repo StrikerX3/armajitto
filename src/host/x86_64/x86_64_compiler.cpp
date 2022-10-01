@@ -390,6 +390,14 @@ void x64Host::Compiler::ReserveTerminalRegisters(const ir::BasicBlock &block) {
     }
 }
 
+void x64Host::Compiler::SubtractCycles(uint64_t cycles) {
+    if (cycles > 1) {
+        m_codegen.sub(abi::kCycleCountReg, cycles);
+    } else if (cycles == 1) {
+        m_codegen.dec(abi::kCycleCountReg);
+    }
+}
+
 void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocKey) {
     if (!m_compiledCode.enableBlockLinking) {
         CompileExit();

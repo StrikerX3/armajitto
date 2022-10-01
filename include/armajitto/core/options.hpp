@@ -24,7 +24,7 @@ struct Options {
         };
 
         // Specifies how the translator counts cycles.
-        CycleCountingMethod method = CycleCountingMethod::InstructionFixed;
+        CycleCountingMethod cycleCountingMethod = CycleCountingMethod::InstructionFixed;
 
         // Number of cycles per instruction.
         // Used when method == CycleCountingMethod::InstructionFixed.

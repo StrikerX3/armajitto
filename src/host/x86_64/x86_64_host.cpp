@@ -322,6 +322,7 @@ void x64Host::CompileIRQEntry() {
     m_codegen.mov(byte[abi::kARMStateReg + execStateOffset], static_cast<uint8_t>(arm::ExecState::Running));
 
     // Count cycles
+    // TODO: compute cycles for pipeline refill
     m_codegen.dec(abi::kCycleCountReg);
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -400,12 +401,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
         }
 
         // Decrement cycles for this block
-        // TODO: proper cycle counting
-        if (block.InstructionCount() == 1) {
-            m_codegen.dec(abi::kCycleCountReg);
-        } else {
-            m_codegen.sub(abi::kCycleCountReg, block.InstructionCount());
-        }
+        compiler.SubtractCycles(block.PassCycles());
 
         // Bail out if we ran out of cycles
         m_codegen.jle(m_compiledCode.epilog);
@@ -432,12 +428,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
                           block.Location().PC() + block.InstructionCount() * instrSize);
 
             // Decrement cycles for this block's condition fail branch
-            // TODO: properly decrement cycles for failing the check
-            if (block.InstructionCount() == 1) {
-                m_codegen.dec(abi::kCycleCountReg);
-            } else {
-                m_codegen.sub(abi::kCycleCountReg, block.InstructionCount());
-            }
+            compiler.SubtractCycles(block.FailCycles());
 
             if (m_compiledCode.enableBlockLinking) {
                 // Bail out if we ran out of cycles

@@ -15,6 +15,14 @@ void Emitter::SetCondition(arm::Condition cond) {
     m_block.SetCondition(cond);
 }
 
+void Emitter::AddPassCycles(uint64_t cycles) {
+    m_block.AddPassCycles(cycles);
+}
+
+void Emitter::AddFailCycles(uint64_t cycles) {
+    m_block.AddFailCycles(cycles);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Basic IR instruction emitters
 
