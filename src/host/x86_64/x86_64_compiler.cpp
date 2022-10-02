@@ -324,6 +324,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         auto tmpReg64 = m_regAlloc.GetTemporary().cvt64();
         auto jmpDstReg64 = pcReg32.cvt64();
         m_codegen.mov(jmpDstReg64, m_compiledCode.blockCache.MapAddress());
+        m_codegen.mov(jmpDstReg64, qword[jmpDstReg64]);
 
         using CacheType = decltype(m_compiledCode.blockCache);
 

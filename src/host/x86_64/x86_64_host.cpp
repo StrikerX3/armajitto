@@ -344,6 +344,7 @@ void x64Host::CompileIRQEntry() {
 
         // Lookup entry in block cache
         m_codegen.mov(pcReg64, m_compiledCode.blockCache.MapAddress());
+        m_codegen.mov(pcReg64, qword[pcReg64]);
 
         using CacheType = decltype(m_compiledCode.blockCache);
 
@@ -366,7 +367,7 @@ void x64Host::CompileIRQEntry() {
         // Level 3 check
         // m_codegen.shr(cpsrReg64, CacheType::kL3Shift); // shift by zero
         m_codegen.and_(cpsrReg64, CacheType::kL3Mask);
-        static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
+        static constexpr auto valueSize = CacheType::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
             m_codegen.mov(pcReg64, qword[pcReg64 + cpsrReg64 * valueSize]);
         } else {

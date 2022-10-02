@@ -75,7 +75,7 @@ public:
     }
 
     uintptr_t MapAddress() const {
-        return CastUintPtr(m_map);
+        return CastUintPtr(&m_map);
     }
 
 private:
