@@ -346,7 +346,7 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         // Level 3 check
         // m_codegen.shr(cacheKeyReg64, CacheType::kL3Shift); // shift by zero
         m_codegen.and_(cacheKeyReg64, CacheType::kL3Mask);
-        static constexpr auto valueSize = decltype(m_compiledCode.blockCache)::kValueSize;
+        static constexpr auto valueSize = CacheType::kValueSize;
         if constexpr (valueSize >= 1 && valueSize <= 8 && std::popcount(valueSize) == 1) {
             m_codegen.mov(jmpDstReg64, qword[jmpDstReg64 + cacheKeyReg64 * valueSize]);
         } else {

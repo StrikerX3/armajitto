@@ -340,7 +340,7 @@ void x64Host::CompileIRQEntry() {
         m_codegen.mov(cpsrReg64.cvt32(), dword[abi::kARMStateReg + cpsrOffset]);
         m_codegen.and_(cpsrReg64, 0x3F); // We only need the mode and T bits
         m_codegen.shl(cpsrReg64, 32);
-        m_codegen.or_(cpsrReg64, pcReg32.cvt64());
+        m_codegen.or_(cpsrReg64, pcReg64);
 
         // Lookup entry in block cache
         m_codegen.mov(pcReg64, m_compiledCode.blockCache.MapAddress());
