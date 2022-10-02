@@ -344,7 +344,6 @@ void x64Host::CompileIRQEntry() {
 
         // Lookup entry in block cache
         m_codegen.mov(pcReg64, m_compiledCode.blockCache.MapAddress());
-        m_codegen.mov(pcReg64, qword[pcReg64]);
 
         using CacheType = decltype(m_compiledCode.blockCache);
 

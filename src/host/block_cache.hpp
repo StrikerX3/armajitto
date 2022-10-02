@@ -32,8 +32,12 @@ public:
     static constexpr uint64_t kL3Shift = 0;
 
     BlockCache() {
-        m_map = (Page *)m_allocator.AllocateRaw(sizeof(Page) * kL1Size, 16);
+        m_map = new Page[kL1Size];
         std::fill_n(m_map, kL1Size, nullptr);
+    }
+
+    ~BlockCache() {
+        delete[] m_map;
     }
 
     HostCode *Get(uint64_t key) const {
@@ -70,12 +74,11 @@ public:
 
     void Clear() {
         m_allocator.Release();
-        m_map = (Page *)m_allocator.AllocateRaw(sizeof(Page) * kL1Size, 16);
         std::fill_n(m_map, kL1Size, nullptr);
     }
 
     uintptr_t MapAddress() const {
-        return CastUintPtr(&m_map);
+        return CastUintPtr(m_map);
     }
 
 private:
