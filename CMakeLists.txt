@@ -197,7 +197,6 @@ target_precompile_headers(armajitto
         <memory>
         <memory_resource>
         <optional>
-        <ranges>
         <sstream>
         <string>
         <tuple>
