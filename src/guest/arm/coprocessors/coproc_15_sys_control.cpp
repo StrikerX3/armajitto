@@ -14,13 +14,11 @@ void SystemControlCoprocessor::Install(cp15::id::Implementor implementor, uint32
                                        cp15::id::Architecture architecture, uint32_t primaryPartNumber,
                                        uint32_t revision, MemoryMap &memMap) {
     m_installed = true;
-    m_id = {
-        .implementor = implementor,
-        .variant = variant,
-        .architecture = architecture,
-        .primaryPartNumber = primaryPartNumber,
-        .revision = revision,
-    };
+    m_id.implementor = implementor;
+    m_id.variant = variant;
+    m_id.architecture = architecture;
+    m_id.primaryPartNumber = primaryPartNumber;
+    m_id.revision = revision;
     m_tcm.memMap = &memMap;
 }
 

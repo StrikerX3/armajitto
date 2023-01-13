@@ -17,7 +17,7 @@ inline void cpuid(uint32_t leaf, uint32_t &eax, uint32_t &ebx, uint32_t &ecx, ui
     ecx = regs[2];
     edx = regs[3];
 #else
-    __cpuid(leaf, &eax, &ebx, &ecx, &edx);
+    __cpuid(leaf, eax, ebx, ecx, edx);
 #endif
 }
 
@@ -31,7 +31,7 @@ inline void cpuid(uint32_t leaf, uint32_t subleaf, uint32_t &eax, uint32_t &ebx,
     ecx = regs[2];
     edx = regs[3];
 #else
-    __cpuidex(leaf, subleaf, &eax, &ebx, &ecx, &edx);
+    __cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
 #endif
 }
 
