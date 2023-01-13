@@ -153,8 +153,8 @@ private:
 
     // General purpose registers
     // R0..R7 and R15 for all modes
-    // R8..R12 for all modes but SVC, ABT, IRQ, UND and FIQ
-    // R13 and R14 for all modes but FIQ
+    // R8..R12 for all modes but FIQ
+    // R13 and R14 for all modes but SVC, ABT, IRQ, UND and FIQ
     alignas(16) std::array<uint32_t, 16> m_regsUSR;
     std::array<uint32_t, 14 - 13 + 1> m_regsSVC; // R13 and R14 for SVC
     std::array<uint32_t, 14 - 13 + 1> m_regsABT; // R13 and R14 for ABT
