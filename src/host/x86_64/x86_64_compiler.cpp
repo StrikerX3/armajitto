@@ -2983,6 +2983,7 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
 
     const uint64_t volatileRegsSize = (savedRegsCount + 2) * sizeof(uint64_t);
     const uint64_t stackAlignmentOffset = abi::Align<abi::kStackAlignmentShift>(volatileRegsSize) - volatileRegsSize;
+    const uint64_t stackOffset = stackAlignmentOffset + abi::kMinStackReserveSize;
 
     // -----------------------------------------------------------------------------------------------------------------
     // Function call ABI registers handling
@@ -3125,8 +3126,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     (setArg(std::forward<Args>(args)), ...);
 
     // Align stack to ABI requirement
-    if (stackAlignmentOffset != 0) {
-        m_codegen.sub(rsp, stackAlignmentOffset);
+    if (stackOffset != 0) {
+        m_codegen.sub(rsp, stackOffset);
     }
 
     // Call host function using the return value register as a pointer
@@ -3134,8 +3135,8 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     m_codegen.call(abi::kIntReturnValueReg);
 
     // Undo stack alignment
-    if (stackAlignmentOffset != 0) {
-        m_codegen.add(rsp, stackAlignmentOffset);
+    if (stackOffset != 0) {
+        m_codegen.add(rsp, stackOffset);
     }
 
     // Pop all saved registers
