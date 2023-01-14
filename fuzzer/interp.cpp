@@ -49,10 +49,21 @@ public:
 
         interp::arm::Bank bank;
         switch (gpr) {
-        case arm::GPR::R0... arm::GPR::R7:
+        case arm::GPR::R0:
+        case arm::GPR::R1:
+        case arm::GPR::R2:
+        case arm::GPR::R3:
+        case arm::GPR::R4:
+        case arm::GPR::R5:
+        case arm::GPR::R6:
+        case arm::GPR::R7:
         case arm::GPR::R15: return m_interp.GetRegisters().regs[static_cast<size_t>(gpr)];
 
-        case arm::GPR::R8... arm::GPR::R12:
+        case arm::GPR::R8:
+        case arm::GPR::R9:
+        case arm::GPR::R10:
+        case arm::GPR::R11:
+        case arm::GPR::R12:
             if ((mode == arm::Mode::FIQ && currModeBank == interp::arm::Bank_FIQ) ||
                 (mode != arm::Mode::FIQ && currModeBank != interp::arm::Bank_FIQ)) {
                 return m_interp.GetRegisters().regs[static_cast<size_t>(gpr)];
