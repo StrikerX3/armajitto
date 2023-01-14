@@ -222,16 +222,16 @@ if(is_top_level)
     set_target_properties(armajitto-test PROPERTIES
                           VERSION ${armajitto_VERSION}
                           SOVERSION ${armajitto_VERSION_MAJOR})
-    if(UNIX)
+    if(UNIX OR MINGW)
         include(CMakeModules/FindSDL2.cmake)
         find_package(SDL2 REQUIRED)
         target_link_libraries(armajitto-test PRIVATE ${SDL2_LIBRARY})
-	target_include_directories(armajitto-test PRIVATE ${SDL2_INCLUDE_DIR})
+        target_include_directories(armajitto-test PRIVATE ${SDL2_INCLUDE_DIR})
     else()
         find_package(SDL2 CONFIG REQUIRED)
         target_link_libraries(armajitto-test PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
     endif()
-    target_link_libraries(armajitto-test PRIVATE armajitto -lstdc++)
+    target_link_libraries(armajitto-test PRIVATE armajitto)
     target_compile_features(armajitto-test PUBLIC cxx_std_20)
 
     ## Add the fuzzer project
