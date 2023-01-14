@@ -9,6 +9,7 @@ project(armajitto VERSION 1.0.0)
 string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
 
 option(ARMAJITTO_USE_VTUNE "Use VTune JIT Profiling API if available" OFF)
+option(ARMAJITTO_BUILD_DEMOS "Build demo projects" ${is_top_level})
 
 ## C++ language configuration boilerplate
 if (NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET AND
@@ -213,7 +214,7 @@ target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_MINOR=${armajitto_
 target_compile_definitions(armajitto PUBLIC ARMAJITTO_VERSION_PATCH=${armajitto_VERSION_PATCH}u)
 
 ######### TEMPORARY #########
-if(is_top_level)
+if(ARMAJITTO_BUILD_DEMOS)
     ## Add a test executable to aid development
     add_executable(armajitto-test
         test/test.cpp
@@ -263,7 +264,7 @@ if (MSVC)
 
     ######### TEMPORARY #########
     ## Configure startup project
-    if(is_top_level)
+    if(ARMAJITTO_BUILD_DEMOS)
         set_property(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}" PROPERTY VS_STARTUP_PROJECT armajitto-test)
     endif()
 
@@ -273,7 +274,7 @@ if (MSVC)
     vs_set_filters(TARGET armajitto)
     set_target_properties(armajitto PROPERTIES FOLDER "armajitto")
     
-    if(is_top_level)
+    if(ARMAJITTO_BUILD_DEMOS)
         vs_set_filters(TARGET armajitto-test)
         set_target_properties(armajitto-test PROPERTIES FOLDER "armajitto")
 

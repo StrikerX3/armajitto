@@ -8,7 +8,7 @@ ARMv4T/v5TE to x86-64 dynamic recompiler.
 
 This library requires [CMake](https://cmake.org/) 3.19 or later to build.
 
-armajitto has been succesfully compiled on the following toolchains:
+armajitto has been succesfully compiled with the following toolchains:
 
 - Windows 10 (10.0.19045.2486)
   - MSVC 19.34.31937.0 from Visual Studio 2022
