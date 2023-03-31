@@ -16,6 +16,12 @@
 
 namespace armajitto::ir {
 
+#ifdef _DEBUG
+constexpr bool printBlocks = true;
+#else
+constexpr bool printBlocks = false;
+#endif
+
 bool Optimizer::Optimize(BasicBlock &block) {
     Emitter emitter{block};
     ConstPropagationOptimizerPass constPropPass{emitter, m_pmrBuffer};
@@ -33,31 +39,121 @@ bool Optimizer::Optimize(BasicBlock &block) {
     for (int i = 0; i < maxIters; i++) {
         bool dirty = false;
         if (m_options.passes.constantPropagation) {
-            dirty |= constPropPass.Optimize();
+            bool changed = constPropPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter constant propagation:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.deadRegisterStoreElimination) {
-            dirty |= deadRegStoreElimPass.Optimize();
+            bool changed = deadRegStoreElimPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter dead register store elimination:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.deadGPRStoreElimination) {
-            dirty |= deadGPRStoreElimPass.Optimize();
+            bool changed = deadGPRStoreElimPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter dead GPR store elimination:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.deadHostFlagStoreElimination) {
-            dirty |= deadHostFlagStoreElimPass.Optimize();
+            bool changed = deadHostFlagStoreElimPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter dead host flags store elimination:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.deadFlagValueStoreElimination) {
-            dirty |= deadFlagValueStoreElimPass.Optimize();
+            bool changed = deadFlagValueStoreElimPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter dead flag value store elimination:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.deadVariableStoreElimination) {
-            dirty |= deadVarStoreElimPass.Optimize();
+            bool changed = deadVarStoreElimPass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter dead var store elimination:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.bitwiseOpsCoalescence) {
-            dirty |= bitwiseCoalescencePass.Optimize();
+            bool changed = bitwiseCoalescencePass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter bitwise ops coalescence:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.arithmeticOpsCoalescence) {
-            dirty |= arithmeticCoalescencePass.Optimize();
+            bool changed = arithmeticCoalescencePass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter arithmetic ops coalescence:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         if (m_options.passes.hostFlagsOpsCoalescence) {
-            dirty |= hostFlagsCoalescencePass.Optimize();
+            bool changed = hostFlagsCoalescencePass.Optimize();
+            dirty |= changed;
+            if constexpr (printBlocks) {
+                if (changed) {
+                    printf("\nafter host flags ops coalescence:\n");
+                    for (auto *op = block.Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
+            }
         }
         optimized |= dirty;
         if (!dirty) {

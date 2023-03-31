@@ -324,7 +324,6 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordGPRWrite(GPRArg gpr, Varia
         // GPR is overwritten; erase previous write instruction
         m_emitter.Erase(gprWrite);
     }
-    gprWrite = op;
 
     if (!src.var.IsPresent()) {
         return;
@@ -395,7 +394,7 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRRead(size_t index, Vari
         if (versionEntry.writeOp->type == IROpcodeType::SetCPSR) {
             if (index == 0) {
                 m_emitter.Erase(loadOp);
-                m_emitter.Erase(versionEntry.writeOp);
+                // m_emitter.Erase(versionEntry.writeOp);
                 versionEntry.writeOp = nullptr;
             }
         } else if (auto spsrStoreOp = Cast<IRSetSPSROp>(versionEntry.writeOp)) {
@@ -414,7 +413,6 @@ void DeadRegisterStoreEliminationOptimizerPass::RecordPSRWrite(size_t index, Var
         // PSR is overwritten; erase previous write instruction
         m_emitter.Erase(psrWrite);
     }
-    psrWrite = op;
 
     if (!src.var.IsPresent()) {
         return;

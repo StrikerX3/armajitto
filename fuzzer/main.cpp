@@ -379,7 +379,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     // - System uses all base registers
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
-    std::default_random_engine generator;
+    /*std::default_random_engine generator;
     std::uniform_int_distribution<uint32_t> distribution{};
 
     const uint64_t numIters = 100;
@@ -424,7 +424,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
             // Compare states and print any discrepancies
             compareStates(true, [&] { printf("[!] Discrepancies found on mode %d\n", mode); });
         }
-    }
+    }*/
 
     // -----------------------------------------------------------------------------------------------------------------
 
@@ -434,7 +434,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     // - IRQ has its own R13 and R14
     // - FIQ has its own R8 through R14
 
-    /*std::vector<uint8_t> code;
+    std::vector<uint8_t> code;
     uint32_t numInstrs = 0;
     auto writeInstr = [&](uint32_t instr) {
         code.push_back(instr >> 0);
@@ -442,7 +442,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
         code.push_back(instr >> 16);
         code.push_back(instr >> 24);
         ++numInstrs;
-    };*/
+    };
 
     // writeInstr(0xE3B004DE); // movs r0, #0xDE000000
     // writeInstr(0x039008AD); // orrseq r0, #0x00AD0000
@@ -498,12 +498,52 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     writeInstr(0x13A02002); // movne r2, #2
     writeInstr(0x43A03003); // movmi r3, #3    -- should pass
     writeInstr(0x03A04004); // moveq r4, #4    -- should fail
+    */
+
+    writeInstr(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
+    writeInstr(0xE3E03000); // mov r3, #0xFFFFFFFF  (mvn r3, #0x0)
+    writeInstr(0xE0921002); // adds r1, r2, r2   N..V
+    // writeInstr(0xE0921003); // adds r1, r2, r3   ..C.
+    // writeInstr(0xE1020052); // qadd r0, r2, r2   Q
+    writeInstr(0xE1030052); // qadd r0, r2, r3   no change
 
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.GetOptions().compiler.enableBlockLinking = true;
+    jit.GetOptions().optimizer.passes.SetAll(true);
+    jit.GetOptions().translator.cycleCountingMethod =
+        armajitto::Options::Translator::CycleCountingMethod::InstructionFixed;
+    jit.GetOptions().translator.cyclesPerInstruction = 1;
 
-    for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
+    // Reset interpreter and JIT
+    interp->Reset();
+    jit.Reset();
+
+    // Reset system memory
+    interpSys.Reset();
+    jitSys.Reset();
+
+    // Fill code memory
+    std::copy(code.begin(), code.end(), jitSys.codemem.begin());
+    interpSys.codemem = jitSys.codemem;
+
+    init(arm::Mode::System, 0x10000, false);
+
+    // Disable IRQs
+    jitState.CPSR().i = 1;
+    interp->SetCPSR(interp->GetCPSR() | (1 << 7));
+
+    // Run both the interpreter and the JIT
+    auto cyclesExecuted = jit.Run(1);
+    interp->Run(cyclesExecuted);
+
+    printStates(true);
+    printf("%llu cycles executed\n\n", cyclesExecuted);
+
+    // Compare states and print any discrepancies
+    compareStates(false, [&] { printf("[!] Discrepancies found\n"); });
+
+    /*for (auto mode : {arm::Mode::System, arm::Mode::IRQ, arm::Mode::FIQ}) {
         printf("===============================\n");
         printf("Testing mode %d\n\n", mode);
         printf("\n");
@@ -557,8 +597,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
         //     printf("%llu cycles executed\n\n", cyclesExecuted);
         //
         //     // Compare states and print any discrepancies
-        //     compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter);
-    });
+        //     compareStates(false, [&] { printf("[!] Discrepancies found on mode %d, iteration %d\n", mode, iter); });
         // }
 
         // Deassert IRQ lines
@@ -841,16 +880,6 @@ void DualJITFuzzer(uint32_t offset, uint32_t limit) {
 }
 
 int main(int argc, char *argv[]) {
-    /*{
-        int offset = 0;
-        uint32_t limit = 0x20;
-        if (argc >= 2) {
-            offset = std::clamp(atoi(argv[1]), 0, 0x20);
-            limit = 1;
-        }
-        interpVsJITFuzzer(offset, limit);
-    }*/
-
     {
         int offset = 0;
         uint32_t limit = 0x20;
@@ -858,8 +887,18 @@ int main(int argc, char *argv[]) {
             offset = std::clamp(atoi(argv[1]), 0, 0x20);
             limit = 1;
         }
-        DualJITFuzzer(offset, limit);
+        interpVsJITFuzzer(offset, limit);
     }
+
+    /*{
+        int offset = 0;
+        uint32_t limit = 0x20;
+        if (argc >= 2) {
+            offset = std::clamp(atoi(argv[1]), 0, 0x20);
+            limit = 1;
+        }
+        DualJITFuzzer(offset, limit);
+    }*/
 
     return 0;
 }

@@ -12,6 +12,15 @@
 
 namespace armajitto {
 
+#ifdef _DEBUG
+static constexpr bool printEnable = true;
+static constexpr bool printBlocks = printEnable;
+static constexpr bool printOptBlocks = printEnable;
+#else
+static constexpr bool printBlocks = false;
+static constexpr bool printOptBlocks = false;
+#endif
+
 struct Recompiler::Impl {
     Impl(Context &context, Specification spec, Options &params)
         : context(context)
@@ -42,7 +51,30 @@ struct Recompiler::Impl {
                 // Compile the new block
                 auto *block = allocator.Allocate<ir::BasicBlock>(allocator, loc);
                 translator.Translate(*block);
+                if constexpr (printBlocks || printOptBlocks) {
+                    auto locStr = loc.ToString();
+                    static constexpr const char *condStrs[] = {"EQ", "NE", "CS", "CC", "MI", "PL", "VS", "VC",
+                                                               "HI", "LS", "GE", "LT", "GT", "LE", "AL", "NV"};
+                    printf("----------------------------------------------\n");
+                    printf("block %s, cond %s, %u instructions, %llu cycles on pass, %llu cycles on fail\n",
+                           locStr.c_str(), condStrs[static_cast<size_t>(block->Condition())], block->InstructionCount(),
+                           block->PassCycles(), block->FailCycles());
+                }
+                if constexpr (printBlocks) {
+                    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
                 optimizer.Optimize(*block);
+                if constexpr (printOptBlocks) {
+                    printf("\n");
+                    printf("after optimization\n");
+                    for (auto *op = block->Head(); op != nullptr; op = op->Next()) {
+                        auto str = op->ToString();
+                        printf("  %s\n", str.c_str());
+                    }
+                }
                 verifier.Verify(*block);
                 code = host.Compile(*block);
 
