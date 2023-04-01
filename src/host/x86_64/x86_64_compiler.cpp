@@ -2277,6 +2277,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
                     auto dstHiReg64 = m_regAlloc.Get(op->dstHi.var).cvt64();
                     if (CPUID::HasBMI2()) {
                         m_codegen.rorx(dstHiReg64, dstReg64, 32);
+                        m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
                     } else {
                         m_codegen.mov(dstHiReg64, dstReg64);
                         m_codegen.shr(dstHiReg64, 32);
@@ -2350,6 +2351,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
                     auto dstHiReg64 = m_regAlloc.Get(op->dstHi.var).cvt64();
                     if (CPUID::HasBMI2()) {
                         m_codegen.rorx(dstHiReg64, dstReg64, 32);
+                        m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
                     } else {
                         m_codegen.mov(dstHiReg64, dstReg64);
                         m_codegen.shr(dstHiReg64, 32);

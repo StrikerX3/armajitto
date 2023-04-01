@@ -499,18 +499,61 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     writeInstr(0x43A03003); // movmi r3, #3    -- should pass
     writeInstr(0x03A04004); // moveq r4, #4    -- should fail
     */
-
-    writeInstr(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
+    
+    /*writeInstr(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
     writeInstr(0xE3E03000); // mov r3, #0xFFFFFFFF  (mvn r3, #0x0)
     writeInstr(0xE0921002); // adds r1, r2, r2   N..V
     // writeInstr(0xE0921003); // adds r1, r2, r3   ..C.
     // writeInstr(0xE1020052); // qadd r0, r2, r2   Q
-    writeInstr(0xE1030052); // qadd r0, r2, r3   no change
+    writeInstr(0xE1030052); // qadd r0, r2, r3   no change*/
+
+    /*writeInstr(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
+    //writeInstr(0xE3E03000); // mov r3, #0xFFFFFFFF  (mvn r3, #0x0)
+    //writeInstr(0xE3A04001); // mov r4, #0x1
+    writeInstr(0xE0921002); // adds r1, r2, r2   N..V
+    writeInstr(0xE1204382); // smlawb r0, r2, r3, r4
+    writeInstr(0xE12143C2); // smlawt r1, r2, r3, r4
+    //writeInstr(0xE1020052); // qadd r0, r2, r2   Q*/
+
+    // From Mario Kart DS, causes camera to go wonky with optimizations
+    //writeInstr(0xE59F70AC); // ldr r7, [pc, #0xAC]
+    //writeInstr(0xE5905000); // ldr r5, [r0]
+    writeInstr(0xE5976000); // ldr r6, [r7]
+    //writeInstr(0xE1A04FCC); // mov r4, r12, asr #0x1F
+    writeInstr(0xE0823C96); // umull r3, r2, r6, r12
+    //writeInstr(0xE0222496); // mla r2, r6, r4, r2
+    //writeInstr(0xE5978004); // ldr r8, [r7, #0x4]
+    //writeInstr(0xE1A04FC5); // mov r4, r5, asr #0x1F
+    //writeInstr(0xE0867593); // umull r7, r6, r3, r5
+    //writeInstr(0xE3A0E000); // mov lr, #0x0
+    //writeInstr(0xE0222C98); // mla r2, r8, r12, r2
+    //writeInstr(0xE0266493); // mla r6, r3, r4, r6
+    //writeInstr(0xE0266592); // mla r6, r2, r5, r6
+    //writeInstr(0xE097400E); // adds r4, r7, lr
+    //writeInstr(0xE2A64A01); // adc r4, r6, #0x1000
+    //writeInstr(0xE1A046C4); // mov r4, r4, asr #0xD
+    //writeInstr(0xE5814000); // str r4, [r1]
+    //writeInstr(0xE5905004); // ldr r5, [r0, #0x4]
+    //writeInstr(0xE28CC001); // add r12, r12, #0x1
+    //writeInstr(0xE0867593); // umull r7, r6, r3, r5
+    //writeInstr(0xE1A04FC5); // mov r4, r5, asr #0x1F
+    //writeInstr(0xE097700E); // adds r7, r7, lr
+    //writeInstr(0xE0266493); // mla r6, r3, r4, r6
+    //writeInstr(0xE0266592); // mla r6, r2, r5, r6
+    //writeInstr(0xE2A64A01); // adc r4, r6, #0x1000
+    //writeInstr(0xE1A046C4); // mov r4, r4, asr #0xD
+    //writeInstr(0xE5814004); // str r4, [r1, #0x4]
+    //writeInstr(0xE5904008); // ldr r4, [r0, #0x8]
+    //writeInstr(0xE1A000CC); // mov r0, r12, asr #0x1
+    writeInstr(0xE085C493); // umull r12, r5, r3, r4
+    //writeInstr(0xE09CC00E); // adds r12, r12, lr
+    //writeInstr(0xE1A0CFC4); // mov r12, r4, asr #0x1F
 
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.GetOptions().compiler.enableBlockLinking = true;
-    jit.GetOptions().optimizer.passes.SetAll(true);
+    //jit.GetOptions().optimizer.passes.SetAll(false);
+    //jit.GetOptions().optimizer.passes.constantPropagation = true;
     jit.GetOptions().translator.cycleCountingMethod =
         armajitto::Options::Translator::CycleCountingMethod::InstructionFixed;
     jit.GetOptions().translator.cyclesPerInstruction = 1;
