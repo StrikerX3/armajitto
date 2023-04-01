@@ -2251,18 +2251,20 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
                 } else {
                     dstReg64 = m_regAlloc.GetTemporary().cvt64();
                 }
-                if (op->signedMul) {
-                    m_codegen.movsxd(dstReg64, varReg32);
-                } else if (dstReg64.cvt32() != varReg32) {
-                    m_codegen.mov(dstReg64.cvt32(), varReg32);
-                }
 
                 // Multiply and shift down if needed
                 // If dstLo is present, the result is already in place
                 if (op->signedMul) {
+                    m_codegen.movsxd(dstReg64, varReg32);
                     m_codegen.imul(dstReg64, dstReg64, static_cast<int32_t>(imm));
-                } else {
+                } else if (imm < 0x80000000) {
+                    if (dstReg64.cvt32() != varReg32) {
+                        m_codegen.mov(dstReg64.cvt32(), varReg32);
+                    }
                     m_codegen.imul(dstReg64, dstReg64, imm);
+                } else {
+                    m_codegen.mov(dstReg64.cvt32(), imm);
+                    m_codegen.imul(dstReg64, varReg32.cvt64());
                 }
                 if (op->shiftDownHalf) {
                     if (op->signedMul) {
@@ -2333,7 +2335,9 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
                 }
 
                 if (op->signedMul) {
-                    m_codegen.movsxd(op2Reg32.cvt64(), op2Reg32);
+                    if (op2Reg32.getIdx() != dstReg64.getIdx()) {
+                        m_codegen.movsxd(op2Reg32.cvt64(), op2Reg32);
+                    }
                     m_codegen.imul(dstReg64, op2Reg32.cvt64());
                 } else {
                     m_codegen.imul(dstReg64, op2Reg32.cvt64());
