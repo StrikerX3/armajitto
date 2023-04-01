@@ -161,7 +161,12 @@ public:
         case 0x02: return *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]);
         case 0x03: return *reinterpret_cast<T *>(&sharedWRAM[address & 0x7FFF]);
         case 0x04: return MMIORead<T>(address);
-        case 0x06: return *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]);
+        case 0x06:
+            if ((address & 0x1FFFFFF) < 0xA4000) {
+                return *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]);
+            } else {
+                return 0;
+            }
         default: return 0;
         }
     }
@@ -173,7 +178,11 @@ public:
         case 0x02: *reinterpret_cast<T *>(&mainRAM[address & 0x3FFFFF]) = value; break;
         case 0x03: *reinterpret_cast<T *>(&sharedWRAM[address & 0x7FFF]) = value; break;
         case 0x04: MMIOWrite<T>(address, value); break;
-        case 0x06: *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]) = value; break;
+        case 0x06:
+            if ((address & 0x1FFFFFF) < 0xA4000) {
+                *reinterpret_cast<T *>(&vram[address & 0x1FFFFF]) = value;
+            }
+            break;
         }
     }
 

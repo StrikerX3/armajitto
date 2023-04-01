@@ -497,8 +497,7 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     /*writeInstr(0xE3A01001); // mov r1, #1
     writeInstr(0x13A02002); // movne r2, #2
     writeInstr(0x43A03003); // movmi r3, #3    -- should pass
-    writeInstr(0x03A04004); // moveq r4, #4    -- should fail
-    */
+    writeInstr(0x03A04004); // moveq r4, #4    -- should fail*/
 
     /*writeInstr(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
     writeInstr(0xE3E03000); // mov r3, #0xFFFFFFFF  (mvn r3, #0x0)
@@ -582,12 +581,12 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     // writeInstr(0xE2683A01); // rsb r3, r8, #0x1000*/
 
     writeInstr(0xE1A04000); // mov r4, r0
-    //writeInstr(0xE59F1020); // ldr r1, [pc, #0x20]
+    // writeInstr(0xE59F1020); // ldr r1, [pc, #0x20]
     writeInstr(0xE3A0001C); // mov r0, #0x1C
-    //writeInstr(0xE0221095); // mla r2, r5, r0, r1
+    // writeInstr(0xE0221095); // mla r2, r5, r0, r1
     writeInstr(0xE1A00004); // mov r0, r4
-    //writeInstr(0xE1A01005); // mov r1, r5
-    //writeInstr(0xEB0000BB); // bl #0x216F624
+    // writeInstr(0xE1A01005); // mov r1, r5
+    // writeInstr(0xEB0000BB); // bl #0x216F624
 
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;

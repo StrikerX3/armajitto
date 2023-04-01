@@ -1,5 +1,6 @@
 #include "armajitto/core/recompiler.hpp"
 
+#include "host/interp/interp_host.hpp" // TODO: select based on host system
 #include "host/x86_64/x86_64_host.hpp" // TODO: select based on host system
 
 #include "core/allocator.hpp"
@@ -132,6 +133,7 @@ struct Recompiler::Impl {
 
     // TODO: select based on host system
     x86_64::x64Host host;
+    // interp::InterpreterHost host;
 
     uint32_t compiledBlocks = 0;
     static constexpr uint32_t kCompiledBlocksReleaseThreshold = 500;
