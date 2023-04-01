@@ -132,6 +132,27 @@ public:
         return m_pageMask;
     }
 
+    template <typename T>
+    T *GetPointer(uint32_t address) {
+        // Get level 1 pointer
+        const uint32_t l1Index = address >> m_l1Shift;
+        auto *l1Ptr = m_map[l1Index];
+        if (l1Ptr == nullptr) {
+            return nullptr;
+        }
+
+        // Get level 2 pointer
+        const uint32_t l2Index = (address >> m_l2Shift) & m_l2Mask;
+        auto *l2Ptr = l1Ptr[l2Index];
+        if (l2Ptr == nullptr) {
+            return nullptr;
+        }
+
+        // Read from selected page
+        const uint32_t offset = address & m_pageMask;
+        return static_cast<T *>(static_cast<void *>(&static_cast<uint8_t *>(l2Ptr)[offset]));
+    }
+
 private:
     const uint32_t m_pageSize;
     const uint32_t m_pageMask;
