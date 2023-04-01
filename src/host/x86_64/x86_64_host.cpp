@@ -288,8 +288,8 @@ void x64Host::CompileIRQEntry() {
 
     // Set LR
     m_codegen.test(cpsrReg32, (1u << ARMflgTPos)); // Test against CPSR T bit
-    m_codegen.setne(cpsrReg32.cvt8());             // cpsrReg32 will be 1 in Thumb mode
-    m_codegen.movzx(cpsrReg32, cpsrReg32.cvt8());
+    m_codegen.setne(GetReg8(cpsrReg32));           // cpsrReg32 will be 1 in Thumb mode
+    m_codegen.movzx(cpsrReg32, GetReg8(cpsrReg32));
     m_codegen.mov(lrReg32, dword[abi::kARMStateReg + pcOffset]); // LR = PC
     m_codegen.lea(lrReg32, dword[lrReg32 + cpsrReg32 * 4 - 4]);  // LR = PC + 0 (Thumb)
     m_codegen.mov(dword[abi::kARMStateReg + lrOffset], lrReg32); // LR = PC - 4 (ARM)

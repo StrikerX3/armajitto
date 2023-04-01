@@ -4,6 +4,8 @@
 
 #include "core/memory_map_host_access.hpp"
 
+#include "util/unreachable.hpp"
+
 #include "reg_alloc.hpp"
 
 #ifdef _WIN32
@@ -146,5 +148,33 @@ private:
     arm::Mode m_mode;
     bool m_thumb;
 };
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Xbyak helpers
+
+inline Xbyak::Reg8 GetReg8(Xbyak::Reg reg) {
+    assert(reg.isREG());
+    assert(reg.getIdx() >= 0 && reg.getIdx() <= 15);
+
+    switch (reg.getIdx()) {
+    case 0: return al;
+    case 1: return cl;
+    case 2: return dl;
+    case 3: return bl;
+    case 4: return spl;
+    case 5: return bpl;
+    case 6: return sil;
+    case 7: return dil;
+    case 8: return r8b;
+    case 9: return r9b;
+    case 10: return r10b;
+    case 11: return r11b;
+    case 12: return r12b;
+    case 13: return r13b;
+    case 14: return r14b;
+    case 15: return r15b;
+    default: util::unreachable();
+    }
+}
 
 } // namespace armajitto::x86_64

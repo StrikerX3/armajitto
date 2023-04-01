@@ -16,34 +16,6 @@ namespace armajitto::x86_64 {
 using namespace Xbyak::util;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Xbyak helpers
-
-static Xbyak::Reg8 GetReg8(Xbyak::Reg reg) {
-    assert(reg.isREG());
-    assert(reg.getIdx() >= 0 && reg.getIdx() <= 15);
-
-    switch (reg.getIdx()) {
-    case 0: return al;
-    case 1: return cl;
-    case 2: return dl;
-    case 3: return bl;
-    case 4: return spl;
-    case 5: return bpl;
-    case 6: return sil;
-    case 7: return dil;
-    case 8: return r8b;
-    case 9: return r9b;
-    case 10: return r10b;
-    case 11: return r11b;
-    case 12: return r12b;
-    case 13: return r13b;
-    case 14: return r14b;
-    case 15: return r15b;
-    default: util::unreachable();
-    }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
 // System method accessor trampolines
 
 // ARMv4T and ARMv5TE LDRB
@@ -205,7 +177,7 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
 
 void x64Host::Compiler::CompileIRQLineCheck() {
     const auto irqLineOffset = m_stateOffsets.IRQLineOffset();
-    auto tmpReg8 = m_regAlloc.GetTemporary().cvt8();
+    auto tmpReg8 = GetReg8(m_regAlloc.GetTemporary());
 
     // Get inverted CPSR I bit
     m_codegen.test(abi::kHostFlagsReg, x64flgI);
@@ -565,7 +537,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                         m_codegen.mov(shiftReg32, baseAddrReg32);
                         m_codegen.and_(shiftReg32, 1);
                         m_codegen.shl(shiftReg32, 3);
-                        m_codegen.ror(dstReg32.cvt16(), shiftReg32.cvt8());
+                        m_codegen.ror(dstReg32.cvt16(), GetReg8(shiftReg32));
                     }
                 }
             } else { // aligned
@@ -586,7 +558,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                     m_codegen.mov(shiftReg32, baseAddrReg32);
                     m_codegen.and_(shiftReg32, 3);
                     m_codegen.shl(shiftReg32, 3);
-                    m_codegen.ror(dstReg32, shiftReg32.cvt8());
+                    m_codegen.ror(dstReg32, GetReg8(shiftReg32));
                 }
             }
             break;
@@ -780,7 +752,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             }
         } else {
             switch (op->size) {
-            case ir::MemAccessSize::Byte: m_codegen.mov(byte[memMapReg64 + offset], srcReg32.cvt8()); break;
+            case ir::MemAccessSize::Byte: m_codegen.mov(byte[memMapReg64 + offset], GetReg8(srcReg32)); break;
             case ir::MemAccessSize::Half: m_codegen.mov(word[memMapReg64 + offset], srcReg32.cvt16()); break;
             case ir::MemAccessSize::Word: m_codegen.mov(dword[memMapReg64 + offset], srcReg32); break;
             default: util::unreachable();
@@ -818,7 +790,9 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             }
         } else {
             switch (op->size) {
-            case ir::MemAccessSize::Byte: m_codegen.mov(byte[memMapReg64 + indexReg32.cvt64()], srcReg32.cvt8()); break;
+            case ir::MemAccessSize::Byte:
+                m_codegen.mov(byte[memMapReg64 + indexReg32.cvt64()], GetReg8(srcReg32));
+                break;
             case ir::MemAccessSize::Half:
                 m_codegen.mov(word[memMapReg64 + indexReg32.cvt64()], srcReg32.cvt16());
                 break;
@@ -916,7 +890,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg8, 63);
         m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
-        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
+        m_codegen.movzx(shiftReg64, GetReg8(shiftReg64));
 
         // Get destination register
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
@@ -935,7 +909,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             // Compute the shift
             m_codegen.shl(dstReg, 32);                    // Shift value to the top half of the 64-bit register
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.shl(dstReg, shiftReg64.cvt8());
+            m_codegen.shl(dstReg, GetReg8(shiftReg64));
             if (op->setCarry) {
                 SetCFromFlags();
             }
@@ -954,7 +928,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg8, 63);
         m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
-        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
+        m_codegen.movzx(shiftReg64, GetReg8(shiftReg64));
 
         // Get destination register
         Xbyak::Reg64 dstReg64{};
@@ -967,7 +941,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         // Compute the shift
         m_codegen.mov(dstReg64, static_cast<uint64_t>(value) << 32ull);
         m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-        m_codegen.shl(dstReg64, shiftReg64.cvt8());
+        m_codegen.shl(dstReg64, GetReg8(shiftReg64));
         if (op->setCarry) {
             SetCFromFlags();
         }
@@ -1045,7 +1019,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg8, 63);
         m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
-        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
+        m_codegen.movzx(shiftReg64, GetReg8(shiftReg64));
 
         // Compute the shift
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
@@ -1055,7 +1029,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             CopyIfDifferent(dstReg64, valueReg64);
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.shr(dstReg64, shiftReg64.cvt8());
+            m_codegen.shr(dstReg64, GetReg8(shiftReg64));
             if (op->setCarry) {
                 SetCFromFlags();
             }
@@ -1081,14 +1055,14 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         m_codegen.mov(shiftReg64, 63);
         m_codegen.cmp(amountReg8, 63);
         m_codegen.cmovbe(shiftReg64, amountReg32.cvt64());
-        m_codegen.movzx(shiftReg64, shiftReg64.cvt8());
+        m_codegen.movzx(shiftReg64, GetReg8(shiftReg64));
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.Get(op->dst.var).cvt64();
             m_codegen.mov(dstReg64, value);
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.shr(dstReg64, shiftReg64.cvt8());
+            m_codegen.shr(dstReg64, GetReg8(shiftReg64));
             if (op->setCarry) {
                 SetCFromFlags();
             }
@@ -1173,7 +1147,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         m_codegen.mov(shiftReg32, 32);
         m_codegen.cmp(amountReg8, 32);
         m_codegen.cmovbe(shiftReg32, amountReg32);
-        m_codegen.movzx(shiftReg32, shiftReg32.cvt8());
+        m_codegen.movzx(shiftReg32, GetReg8(shiftReg32));
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
@@ -1181,7 +1155,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             CopyIfDifferent(dstReg64.cvt32(), valueReg32);
             m_codegen.movsxd(dstReg64, dstReg64.cvt32());
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.sar(dstReg64, shiftReg32.cvt8());
+            m_codegen.sar(dstReg64, GetReg8(shiftReg32));
             if (op->setCarry) {
                 SetCFromFlags();
             }
@@ -1207,14 +1181,14 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
         m_codegen.mov(shiftReg32, 32);
         m_codegen.cmp(amountReg8, 32);
         m_codegen.cmovbe(shiftReg32, amountReg32);
-        m_codegen.movzx(shiftReg32, shiftReg32.cvt8());
+        m_codegen.movzx(shiftReg32, GetReg8(shiftReg32));
 
         // Compute the shift
         if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.Get(op->dst.var).cvt64();
             m_codegen.mov(dstReg64, value);
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.sar(dstReg64, shiftReg32.cvt8());
+            m_codegen.sar(dstReg64, GetReg8(shiftReg32));
             if (op->setCarry) {
                 SetCFromFlags();
             }
@@ -1294,7 +1268,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 
             // Compute the shift
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.ror(dstReg32, shiftReg32.cvt8());
+            m_codegen.ror(dstReg32, GetReg8(shiftReg32));
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
                 SetCFromFlags();
@@ -1328,7 +1302,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             // Compute the shift
             m_codegen.mov(dstReg32, value);
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.ror(dstReg32, shiftReg32.cvt8());
+            m_codegen.ror(dstReg32, GetReg8(shiftReg32));
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
                 SetCFromFlags();
@@ -2780,7 +2754,7 @@ void x64Host::Compiler::SetCFromValue(bool carry) {
 
 void x64Host::Compiler::SetCFromFlags() {
     auto tmp16 = m_regAlloc.GetTemporary().cvt16();
-    m_codegen.setc(tmp16.cvt8());                         // Put new C into a temporary register
+    m_codegen.setc(GetReg8(tmp16));                       // Put new C into a temporary register
     m_codegen.shl(tmp16, x64flgCPos);                     // Move it to the correct position
     m_codegen.and_(abi::kHostFlagsReg.cvt16(), ~x64flgC); // Clear existing C flag from AX
     m_codegen.or_(abi::kHostFlagsReg.cvt16(), tmp16);     // Write new C flag into AX
@@ -2788,14 +2762,14 @@ void x64Host::Compiler::SetCFromFlags() {
 
 void x64Host::Compiler::SetVFromValue(bool overflow) {
     if (overflow) {
-        m_codegen.mov(abi::kHostFlagsReg.cvt8(), 1);
+        m_codegen.mov(GetReg8(abi::kHostFlagsReg), 1);
     } else {
-        m_codegen.xor_(abi::kHostFlagsReg.cvt8(), abi::kHostFlagsReg.cvt8());
+        m_codegen.xor_(GetReg8(abi::kHostFlagsReg), GetReg8(abi::kHostFlagsReg));
     }
 }
 
 void x64Host::Compiler::SetVFromFlags() {
-    m_codegen.seto(abi::kHostFlagsReg.cvt8());
+    m_codegen.seto(GetReg8(abi::kHostFlagsReg));
 }
 
 void x64Host::Compiler::SetNZFromValue(uint32_t value) {
@@ -2853,12 +2827,12 @@ void x64Host::Compiler::SetNZCVFromValue(uint32_t value, bool carry, bool overfl
     if (zeros != 0) {
         m_codegen.and_(abi::kHostFlagsReg, ~zeros);
     }
-    m_codegen.mov(abi::kHostFlagsReg.cvt8(), static_cast<uint8_t>(overflow));
+    m_codegen.mov(GetReg8(abi::kHostFlagsReg), static_cast<uint8_t>(overflow));
 }
 
 void x64Host::Compiler::SetNZCVFromFlags() {
     m_codegen.lahf();
-    m_codegen.seto(abi::kHostFlagsReg.cvt8());
+    m_codegen.seto(GetReg8(abi::kHostFlagsReg));
 }
 
 void x64Host::Compiler::MOVImmediate(Xbyak::Reg32 reg, uint32_t value) {
@@ -3153,7 +3127,11 @@ void x64Host::Compiler::CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnT
     // Copy result to destination register if present
     if constexpr (!std::is_void_v<ReturnType>) {
         if (!dstReg.isNone()) {
-            m_codegen.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
+            if (dstReg.getBit() == 8) {
+                m_codegen.mov(dstReg, GetReg8(abi::kIntReturnValueReg));
+            } else {
+                m_codegen.mov(dstReg, abi::kIntReturnValueReg.changeBit(dstReg.getBit()));
+            }
         }
     }
 
