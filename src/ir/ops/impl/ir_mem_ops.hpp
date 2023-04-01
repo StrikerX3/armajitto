@@ -18,7 +18,7 @@ namespace armajitto::ir {
 //             a is hidden
 //             s sign-extends, a and u zero-extend
 //   Valid size/mode combinations: (a)b, (a)h, (a)w, uh, uw, sb, sh
-//   Code reads can only be half or word
+//   Code reads can only be aligned halfword or word
 //
 // Reads a byte, halfword or word from address into the dst variable.
 // Byte and halfword reads extend values to 32 bits.
