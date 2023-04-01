@@ -40,7 +40,9 @@ void DeadRegisterStoreEliminationOptimizerPass::Process(IRGetRegisterOp *op) {
 
 void DeadRegisterStoreEliminationOptimizerPass::Process(IRSetRegisterOp *op) {
     SubstituteVar(op->src);
-    if (!op->src.immediate) {
+    if (op->src.immediate) {
+        m_gprVersions[op->dst.Index()] = 0;
+    } else {
         RecordGPRWrite(op->dst, op->src.var, op);
     }
 }
@@ -51,7 +53,9 @@ void DeadRegisterStoreEliminationOptimizerPass::Process(IRGetCPSROp *op) {
 
 void DeadRegisterStoreEliminationOptimizerPass::Process(IRSetCPSROp *op) {
     SubstituteVar(op->src);
-    if (!op->src.immediate) {
+    if (op->src.immediate) {
+        m_psrVersions[0] = 0;
+    } else {
         RecordCPSRWrite(op->src.var, op);
     }
 }
@@ -62,7 +66,9 @@ void DeadRegisterStoreEliminationOptimizerPass::Process(IRGetSPSROp *op) {
 
 void DeadRegisterStoreEliminationOptimizerPass::Process(IRSetSPSROp *op) {
     SubstituteVar(op->src);
-    if (!op->src.immediate) {
+    if (op->src.immediate) {
+        m_psrVersions[SPSRIndex(op->mode)] = 0;
+    } else {
         RecordSPSRWrite(op->mode, op->src.var, op);
     }
 }
