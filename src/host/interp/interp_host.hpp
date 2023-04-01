@@ -46,6 +46,10 @@ public:
             }
             return cycles;
         }
+        if (m_armState.ExecutionState() != arm::ExecState::Running) {
+            return 0;
+        }
+
         m_flags = static_cast<arm::Flags>(m_armState.CPSR().u32 & 0xF0000000);
         m_flagQ = m_armState.CPSR().q;
 
