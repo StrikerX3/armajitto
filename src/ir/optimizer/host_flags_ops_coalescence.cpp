@@ -134,11 +134,17 @@ void HostFlagsOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
                 op->flags |= flag;
                 loadOp->flags &= ~flag;
 
-                // If the previous load instruction no longer updates any flags, erase it and repoint the current
-                // instruction's source CPSR to the previous instruction's
+                // If the previous load instruction no longer updates any flags, replace it with a simple copy and
+                // repoint the current instruction's source CPSR to the previous instruction's
                 if (loadOp->flags == arm::Flags::None) {
                     op->srcCPSR = loadOp->srcCPSR;
-                    m_emitter.Erase(loadOp);
+
+                    auto guard = m_emitter.Overwrite().GoTo(loadOp);
+                    if (loadOp->srcCPSR.immediate) {
+                        m_emitter.Constant(loadOp->dstCPSR, loadOp->srcCPSR.imm.value);
+                    } else {
+                        m_emitter.CopyVar(loadOp->dstCPSR, loadOp->srcCPSR.var);
+                    }
                 }
             }
         } else if (bmFlags.AnyOf(flag)) {
