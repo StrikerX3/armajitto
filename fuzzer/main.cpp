@@ -580,19 +580,47 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     // writeInstr(0xE59DE028); // ldr lr, [sp, #0x28]
     // writeInstr(0xE2683A01); // rsb r3, r8, #0x1000*/
 
-    writeInstr(0xE1A04000); // mov r4, r0
+    /*writeInstr(0xE1A04000); // mov r4, r0
     // writeInstr(0xE59F1020); // ldr r1, [pc, #0x20]
     writeInstr(0xE3A0001C); // mov r0, #0x1C
     // writeInstr(0xE0221095); // mla r2, r5, r0, r1
     writeInstr(0xE1A00004); // mov r0, r4
     // writeInstr(0xE1A01005); // mov r1, r5
-    // writeInstr(0xEB0000BB); // bl #0x216F624
+    // writeInstr(0xEB0000BB); // bl #0x216F624*/
+
+    //writeInstr(0xE59D100C); // ldr r1, [sp, #0xC]
+    //writeInstr(0xE5902024); // ldr r2, [r0, #0x24]
+    //writeInstr(0xE04C1001); // sub r1, r12, r1
+    //writeInstr(0xE2415001); // sub r5, r1, #0x1
+    //writeInstr(0xE59F12A0); // ldr r1, [pc, #0x2A0]
+    writeInstr(0xE3A06102); // mov r6, #0x80000000
+    //writeInstr(0xE1A0E001); // mov lr, r1
+    //writeInstr(0xE59D1008); // ldr r1, [sp, #0x8]
+    //writeInstr(0xE59D000C); // ldr r0, [sp, #0xC]
+    //writeInstr(0xE1A0C001); // mov r12, r1
+    //writeInstr(0xE59D100C); // ldr r1, [sp, #0xC]
+    writeInstr(0xE1A05556); // mov r5, r6, asr r5
+    //writeInstr(0xE281B008); // add r11, r1, #0x8
+    //writeInstr(0xE59D1010); // ldr r1, [sp, #0x10]
+    //writeInstr(0xE2800018); // add r0, r0, #0x18
+    //writeInstr(0xE1A0A001); // mov r10, r1
+    //writeInstr(0xE59D1004); // ldr r1, [sp, #0x4]
+    writeInstr(0xE1A00035); // mov r0, r5, lsr r0
+    //writeInstr(0xE1A09001); // mov r9, r1
+    //writeInstr(0xE59D1010); // ldr r1, [sp, #0x10]
+    //writeInstr(0xE2825001); // add r5, r2, #0x1
+    //writeInstr(0xE2818001); // add r8, r1, #0x1
+    //writeInstr(0xE7DA11A3); // ldrb r1, [r10, r3, lsr #0x3]
+    //writeInstr(0xE7D821A3); // ldrb r2, [r8, r3, lsr #0x3]
+    //writeInstr(0xE2036007); // and r6, r3, #0x7
+    //writeInstr(0xE04B6006); // sub r6, r11, r6
+    //writeInstr(0xE1921401); // orrs r1, r2, r1, lsl #0x8
 
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.GetOptions().compiler.enableBlockLinking = true;
-    // jit.GetOptions().optimizer.passes.SetAll(false);
-    // jit.GetOptions().optimizer.passes.constantPropagation = true;
+    //jit.GetOptions().optimizer.passes.SetAll(false);
+    //jit.GetOptions().optimizer.passes.constantPropagation = true;
     jit.GetOptions().translator.cycleCountingMethod =
         armajitto::Options::Translator::CycleCountingMethod::InstructionFixed;
     jit.GetOptions().translator.cyclesPerInstruction = 1;
