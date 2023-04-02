@@ -353,31 +353,40 @@ static inline void UpdateNZCV(arm::Flags &dst, arm::Flags mask, uint32_t result,
 
 void InterpreterHost::HandleGetRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetRegisterOp>(varOp);
-    SetVar(op.dst.var, m_armState.GPR(op.src.gpr, op.src.Mode()));
+    const auto value = m_armState.GPR(op.src.gpr, op.src.Mode());
+    SetVar(op.dst.var, value);
 }
 
 void InterpreterHost::HandleSetRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetRegisterOp>(varOp);
-    m_armState.GPR(op.dst.gpr, op.dst.Mode()) = Get(op.src);
+    auto &gpr = m_armState.GPR(op.dst.gpr, op.dst.Mode());
+    const auto value = Get(op.src);
+    gpr = value;
 }
 
 void InterpreterHost::HandleGetCPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetCPSROp>(varOp);
-    SetVar(op.dst.var, m_armState.CPSR().u32);
+    const auto value = m_armState.CPSR().u32;
+    SetVar(op.dst.var, value);
 }
 
 void InterpreterHost::HandleSetCPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetCPSROp>(varOp);
-    m_armState.CPSR().u32 = Get(op.src);
+    auto &cpsr = m_armState.CPSR();
+    const auto value = Get(op.src);
+    cpsr.u32 = value;
 }
 void InterpreterHost::HandleGetSPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetSPSROp>(varOp);
-    SetVar(op.dst.var, m_armState.SPSR(op.mode).u32);
+    const auto value = m_armState.SPSR(op.mode).u32;
+    SetVar(op.dst.var, value);
 }
 
 void InterpreterHost::HandleSetSPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetSPSROp>(varOp);
-    m_armState.SPSR(op.mode).u32 = Get(op.src);
+    auto &spsr = m_armState.SPSR(op.mode);
+    const auto value = Get(op.src);
+    spsr.u32 = value;
 }
 
 void InterpreterHost::HandleMemRead(const Op &varOp, LocationRef loc) {
@@ -505,7 +514,7 @@ void InterpreterHost::HandleMemWrite(const Op &varOp, LocationRef loc) {
 }
 
 void InterpreterHost::HandlePreload(const Op &varOp, LocationRef loc) {
-    // auto &op = std::get<ir::Ipreload_Op>(varOp);
+    // auto &op = std::get<ir::IRPreloadOp>(varOp);
 }
 
 void InterpreterHost::HandleLogicalShiftLeft(const Op &varOp, LocationRef loc) {
@@ -555,7 +564,8 @@ void InterpreterHost::HandleRotateRight(const Op &varOp, LocationRef loc) {
 void InterpreterHost::HandleRotateRightExtended(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRRotateRightExtendedOp>(varOp);
     const auto value = Get(op.value);
-    const auto [result, carry] = arm::RRX(value, BitmaskEnum(m_flags).AnyOf(arm::Flags::C));
+    const bool hostCarry = BitmaskEnum(m_flags).AnyOf(arm::Flags::C);
+    const auto [result, carry] = arm::RRX(value, hostCarry);
     SetVar(op.dst.var, result);
     if (op.setCarry) {
         UpdateFlags(m_flags, arm::Flags::C, carry);
@@ -600,7 +610,9 @@ void InterpreterHost::HandleBitClear(const Op &varOp, LocationRef loc) {
 
 void InterpreterHost::HandleCountLeadingZeros(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRCountLeadingZerosOp>(varOp);
-    SetVar(op.dst.var, std::countl_zero(Get(op.value)));
+    const auto value = Get(op.value);
+    const auto result = std::countl_zero(value);
+    SetVar(op.dst.var, result);
 }
 
 void InterpreterHost::HandleAdd(const Op &varOp, LocationRef loc) {
@@ -662,7 +674,7 @@ void InterpreterHost::HandleSaturatingAdd(const Op &varOp, LocationRef loc) {
     const auto [result, saturated] = arm::Saturate(lhs + rhs);
     SetVar(op.dst.var, result);
     if (BitmaskEnum(op.flags).AnyOf(arm::Flags::V)) {
-        m_flagQ |= saturated;
+        m_flagQ = saturated;
     }
 }
 
@@ -673,7 +685,7 @@ void InterpreterHost::HandleSaturatingSubtract(const Op &varOp, LocationRef loc)
     const auto [result, saturated] = arm::Saturate(lhs - rhs);
     SetVar(op.dst.var, result);
     if (BitmaskEnum(op.flags).AnyOf(arm::Flags::V)) {
-        m_flagQ |= saturated;
+        m_flagQ = saturated;
     }
 }
 
@@ -756,20 +768,22 @@ void InterpreterHost::HandleLoadStickyOverflow(const Op &varOp, LocationRef loc)
 
 void InterpreterHost::HandleBranch(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBranchOp>(varOp);
+    auto &pc = m_armState.GPR(arm::GPR::PC);
     const uint32_t instrSize = (loc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t));
     const uint32_t pcOffset = 2 * instrSize;
     const uint32_t addrMask = ~(instrSize - 1);
     const auto addr = Get(op.address);
-    m_armState.GPR(arm::GPR::PC) = (addr & addrMask) + pcOffset;
+    pc = (addr & addrMask) + pcOffset;
 }
 
 void InterpreterHost::HandleBranchExchange(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBranchExchangeOp>(varOp);
+    auto &pc = m_armState.GPR(arm::GPR::PC);
+    auto &cpsr = m_armState.CPSR();
     const auto addr = Get(op.address);
 
     const bool thumb = [&] {
         using Mode = ir::IRBranchExchangeOp::ExchangeMode;
-        const bool cpsrT = m_armState.CPSR().t;
 
         switch (op.bxMode) {
         case Mode::AddrBit0: return bit::test<0>(addr);
@@ -781,34 +795,37 @@ void InterpreterHost::HandleBranchExchange(const Op &varOp, LocationRef loc) {
                 return bit::test<0>(addr);
             }
         }
-        case Mode::CPSRThumbFlag: return cpsrT;
+        case Mode::CPSRThumbFlag: return cpsr.t == 1;
         default: return bit::test<0>(addr);
         }
     }();
     const uint32_t instrSize = thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     const uint32_t pcOffset = 2 * instrSize;
     const uint32_t addrMask = ~(instrSize - 1);
-    m_armState.GPR(arm::GPR::PC) = (addr & addrMask) + pcOffset;
-    m_armState.CPSR().t = thumb;
+    pc = (addr & addrMask) + pcOffset;
+    cpsr.t = thumb;
 }
 
 void InterpreterHost::HandleLoadCopRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLoadCopRegisterOp>(varOp);
     auto &cop = m_armState.GetCoprocessor(op.cpnum);
     if (op.ext) {
-        SetVar(op.dstValue.var, cop.LoadExtRegister(op.reg));
+        const auto value = cop.LoadExtRegister(op.reg);
+        SetVar(op.dstValue.var, value);
     } else {
-        SetVar(op.dstValue.var, cop.LoadRegister(op.reg));
+        const auto value = cop.LoadRegister(op.reg);
+        SetVar(op.dstValue.var, value);
     }
 }
 
 void InterpreterHost::HandleStoreCopRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRStoreCopRegisterOp>(varOp);
     auto &cop = m_armState.GetCoprocessor(op.cpnum);
+    const auto value = Get(op.srcValue);
     if (op.ext) {
-        cop.StoreExtRegister(op.reg, Get(op.srcValue));
+        cop.StoreExtRegister(op.reg, value);
     } else {
-        cop.StoreRegister(op.reg, Get(op.srcValue));
+        cop.StoreRegister(op.reg, value);
     }
 }
 
@@ -819,7 +836,8 @@ void InterpreterHost::HandleConstant(const Op &varOp, LocationRef loc) {
 
 void InterpreterHost::HandleCopyVar(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRCopyVarOp>(varOp);
-    SetVar(op.dst.var, Get(op.var));
+    const auto value = Get(op.var);
+    SetVar(op.dst.var, value);
 }
 
 void InterpreterHost::HandleGetBaseVectorAddress(const Op &varOp, LocationRef loc) {
