@@ -52,7 +52,7 @@ Xbyak::Reg32 RegisterAllocator::Get(ir::Variable var) {
         if (entry.spillSlot != ~0) {
             // Variable was spilled; bring it back to a register
             entry.reg = AllocateRegister();
-            m_codegen.mov(entry.reg, dword[rbp + SpillSlotOffset(entry.spillSlot)]);
+            m_codegen.mov(entry.reg, dword[abi::kVarSpillBaseReg + SpillSlotOffset(entry.spillSlot)]);
             m_freeSpillSlots.Push(entry.spillSlot);
             entry.spillSlot = ~0;
         }
@@ -193,7 +193,7 @@ Xbyak::Reg32 RegisterAllocator::AllocateRegister() {
     // Spill the variable
     auto &entry = m_varAllocStates[varIndex];
     entry.spillSlot = m_freeSpillSlots.Pop();
-    m_codegen.mov(dword[rbp + SpillSlotOffset(entry.spillSlot)], entry.reg);
+    m_codegen.mov(dword[abi::kVarSpillBaseReg + SpillSlotOffset(entry.spillSlot)], entry.reg);
     return reg.cvt32();
 }
 
