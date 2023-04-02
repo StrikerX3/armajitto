@@ -49,6 +49,7 @@ HostCode InterpreterHost::Compile(ir::BasicBlock &block) {
 }
 
 void InterpreterHost::Clear() {
+    m_cacheInvalidations.clear();
     m_blockCache.clear();
     std::fill(m_vars.begin(), m_vars.end(), 0);
     m_flags = arm::Flags::None;
