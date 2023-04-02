@@ -60,22 +60,11 @@ void InterpreterHost::Invalidate(LocationRef loc) {
 }
 
 void InterpreterHost::InvalidateCodeCache() {
-    m_blockCache.clear();
+    m_cacheInvalidations.push_back({0, 0xFFFFFFFF});
 }
 
 void InterpreterHost::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
-    if (start == 0 && end == 0xFFFFFFFF) {
-        InvalidateCodeCache();
-        return;
-    }
-
-    for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
-        const uint64_t upper = cpsr << 32ull;
-        for (uint64_t addr = start; addr <= end; addr += 2) {
-            const uint64_t key = addr | upper;
-            m_blockCache.erase(key);
-        }
-    }
+    m_cacheInvalidations.push_back({start, end});
 }
 
 void InterpreterHost::ReportMemoryWrite(uint32_t start, uint32_t end) {
@@ -151,7 +140,7 @@ int64_t InterpreterHost::Execute(const CompiledBlock &block) {
 
     if (evalCondition(block.cond)) {
         for (auto &instr : block.instrs) {
-            (this->*instr.fn)(instr.op);
+            (this->*instr.fn)(instr.op, block.loc);
         }
         return block.passCycles;
     } else {
@@ -362,37 +351,36 @@ static inline void UpdateNZCV(arm::Flags &dst, arm::Flags mask, uint32_t result,
     }
 }
 
-void InterpreterHost::HandleGetRegister(const Op &varOp) {
+void InterpreterHost::HandleGetRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetRegisterOp>(varOp);
     SetVar(op.dst.var, m_armState.GPR(op.src.gpr, op.src.Mode()));
 }
 
-void InterpreterHost::HandleSetRegister(const Op &varOp) {
+void InterpreterHost::HandleSetRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetRegisterOp>(varOp);
     m_armState.GPR(op.dst.gpr, op.dst.Mode()) = Get(op.src);
 }
 
-void InterpreterHost::HandleGetCPSR(const Op &varOp) {
+void InterpreterHost::HandleGetCPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetCPSROp>(varOp);
     SetVar(op.dst.var, m_armState.CPSR().u32);
 }
 
-void InterpreterHost::HandleSetCPSR(const Op &varOp) {
+void InterpreterHost::HandleSetCPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetCPSROp>(varOp);
     m_armState.CPSR().u32 = Get(op.src);
-    m_armState.SetMode(m_armState.CPSR().mode);
 }
-void InterpreterHost::HandleGetSPSR(const Op &varOp) {
+void InterpreterHost::HandleGetSPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetSPSROp>(varOp);
     SetVar(op.dst.var, m_armState.SPSR(op.mode).u32);
 }
 
-void InterpreterHost::HandleSetSPSR(const Op &varOp) {
+void InterpreterHost::HandleSetSPSR(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSetSPSROp>(varOp);
     m_armState.SPSR(op.mode).u32 = Get(op.src);
 }
 
-void InterpreterHost::HandleMemRead(const Op &varOp) {
+void InterpreterHost::HandleMemRead(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMemReadOp>(varOp);
     auto &sys = m_context.GetSystem();
     const auto addr = Get(op.address);
@@ -471,7 +459,7 @@ void InterpreterHost::HandleMemRead(const Op &varOp) {
     SetVar(op.dst.var, value);
 }
 
-void InterpreterHost::HandleMemWrite(const Op &varOp) {
+void InterpreterHost::HandleMemWrite(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMemWriteOp>(varOp);
     auto &sys = m_context.GetSystem();
     const auto addr = Get(op.address);
@@ -516,11 +504,11 @@ void InterpreterHost::HandleMemWrite(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandlePreload(const Op &varOp) {
+void InterpreterHost::HandlePreload(const Op &varOp, LocationRef loc) {
     // auto &op = std::get<ir::Ipreload_Op>(varOp);
 }
 
-void InterpreterHost::HandleLogicalShiftLeft(const Op &varOp) {
+void InterpreterHost::HandleLogicalShiftLeft(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLogicalShiftLeftOp>(varOp);
     const auto value = Get(op.value);
     const auto amount = Get(op.amount);
@@ -531,7 +519,7 @@ void InterpreterHost::HandleLogicalShiftLeft(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleLogicalShiftRight(const Op &varOp) {
+void InterpreterHost::HandleLogicalShiftRight(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLogicalShiftRightOp>(varOp);
     const auto value = Get(op.value);
     const auto amount = Get(op.amount);
@@ -542,7 +530,7 @@ void InterpreterHost::HandleLogicalShiftRight(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleArithmeticShiftRight(const Op &varOp) {
+void InterpreterHost::HandleArithmeticShiftRight(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRArithmeticShiftRightOp>(varOp);
     const auto value = Get(op.value);
     const auto amount = Get(op.amount);
@@ -553,7 +541,7 @@ void InterpreterHost::HandleArithmeticShiftRight(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleRotateRight(const Op &varOp) {
+void InterpreterHost::HandleRotateRight(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRRotateRightOp>(varOp);
     const auto value = Get(op.value);
     const auto amount = Get(op.amount);
@@ -564,7 +552,7 @@ void InterpreterHost::HandleRotateRight(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleRotateRightExtended(const Op &varOp) {
+void InterpreterHost::HandleRotateRightExtended(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRRotateRightExtendedOp>(varOp);
     const auto value = Get(op.value);
     const auto [result, carry] = arm::RRX(value, BitmaskEnum(m_flags).AnyOf(arm::Flags::C));
@@ -574,7 +562,7 @@ void InterpreterHost::HandleRotateRightExtended(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleBitwiseAnd(const Op &varOp) {
+void InterpreterHost::HandleBitwiseAnd(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBitwiseAndOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -583,7 +571,7 @@ void InterpreterHost::HandleBitwiseAnd(const Op &varOp) {
     UpdateNZ(m_flags, op.flags, result);
 }
 
-void InterpreterHost::HandleBitwiseOr(const Op &varOp) {
+void InterpreterHost::HandleBitwiseOr(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBitwiseOrOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -592,7 +580,7 @@ void InterpreterHost::HandleBitwiseOr(const Op &varOp) {
     UpdateNZ(m_flags, op.flags, result);
 }
 
-void InterpreterHost::HandleBitwiseXor(const Op &varOp) {
+void InterpreterHost::HandleBitwiseXor(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBitwiseXorOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -601,7 +589,7 @@ void InterpreterHost::HandleBitwiseXor(const Op &varOp) {
     UpdateNZ(m_flags, op.flags, result);
 }
 
-void InterpreterHost::HandleBitClear(const Op &varOp) {
+void InterpreterHost::HandleBitClear(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBitClearOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -610,12 +598,12 @@ void InterpreterHost::HandleBitClear(const Op &varOp) {
     UpdateNZ(m_flags, op.flags, result);
 }
 
-void InterpreterHost::HandleCountLeadingZeros(const Op &varOp) {
+void InterpreterHost::HandleCountLeadingZeros(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRCountLeadingZerosOp>(varOp);
     SetVar(op.dst.var, std::countl_zero(Get(op.value)));
 }
 
-void InterpreterHost::HandleAdd(const Op &varOp) {
+void InterpreterHost::HandleAdd(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRAddOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -624,7 +612,7 @@ void InterpreterHost::HandleAdd(const Op &varOp) {
     UpdateNZCV(m_flags, op.flags, result, carry, overflow);
 }
 
-void InterpreterHost::HandleAddCarry(const Op &varOp) {
+void InterpreterHost::HandleAddCarry(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRAddCarryOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -634,7 +622,7 @@ void InterpreterHost::HandleAddCarry(const Op &varOp) {
     UpdateNZCV(m_flags, op.flags, result, carry, overflow);
 }
 
-void InterpreterHost::HandleSubtract(const Op &varOp) {
+void InterpreterHost::HandleSubtract(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSubtractOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -643,7 +631,7 @@ void InterpreterHost::HandleSubtract(const Op &varOp) {
     UpdateNZCV(m_flags, op.flags, result, carry, overflow);
 }
 
-void InterpreterHost::HandleSubtractCarry(const Op &varOp) {
+void InterpreterHost::HandleSubtractCarry(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSubtractCarryOp>(varOp);
     const auto lhs = Get(op.lhs);
     const auto rhs = Get(op.rhs);
@@ -653,21 +641,21 @@ void InterpreterHost::HandleSubtractCarry(const Op &varOp) {
     UpdateNZCV(m_flags, op.flags, result, carry, overflow);
 }
 
-void InterpreterHost::HandleMove(const Op &varOp) {
+void InterpreterHost::HandleMove(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMoveOp>(varOp);
     const auto value = Get(op.value);
     SetVar(op.dst.var, value);
     UpdateNZ(m_flags, op.flags, value);
 }
 
-void InterpreterHost::HandleMoveNegated(const Op &varOp) {
+void InterpreterHost::HandleMoveNegated(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMoveNegatedOp>(varOp);
     const auto value = ~Get(op.value);
     SetVar(op.dst.var, value);
     UpdateNZ(m_flags, op.flags, value);
 }
 
-void InterpreterHost::HandleSaturatingAdd(const Op &varOp) {
+void InterpreterHost::HandleSaturatingAdd(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSaturatingAddOp>(varOp);
     const int64_t lhs = static_cast<int32_t>(Get(op.lhs));
     const int64_t rhs = static_cast<int32_t>(Get(op.rhs));
@@ -678,7 +666,7 @@ void InterpreterHost::HandleSaturatingAdd(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleSaturatingSubtract(const Op &varOp) {
+void InterpreterHost::HandleSaturatingSubtract(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRSaturatingSubtractOp>(varOp);
     const int64_t lhs = static_cast<int32_t>(Get(op.lhs));
     const int64_t rhs = static_cast<int32_t>(Get(op.rhs));
@@ -689,7 +677,7 @@ void InterpreterHost::HandleSaturatingSubtract(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleMultiply(const Op &varOp) {
+void InterpreterHost::HandleMultiply(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMultiplyOp>(varOp);
     if (op.signedMul) {
         const auto lhs = static_cast<int32_t>(Get(op.lhs));
@@ -706,7 +694,7 @@ void InterpreterHost::HandleMultiply(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleMultiplyLong(const Op &varOp) {
+void InterpreterHost::HandleMultiplyLong(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRMultiplyLongOp>(varOp);
     if (op.signedMul) {
         const int64_t lhs = static_cast<int32_t>(Get(op.lhs));
@@ -731,7 +719,7 @@ void InterpreterHost::HandleMultiplyLong(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleAddLong(const Op &varOp) {
+void InterpreterHost::HandleAddLong(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRAddLongOp>(varOp);
     auto value64 = [](uint32_t lo, uint32_t hi) -> uint64_t { return (uint64_t)lo | ((uint64_t)hi << 32ull); };
     const auto lhs = value64(Get(op.lhsLo), Get(op.lhsHi));
@@ -742,14 +730,14 @@ void InterpreterHost::HandleAddLong(const Op &varOp) {
     UpdateNZLong(m_flags, op.flags, result);
 }
 
-void InterpreterHost::HandleStoreFlags(const Op &varOp) {
+void InterpreterHost::HandleStoreFlags(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRStoreFlagsOp>(varOp);
     const auto flags = static_cast<uint32_t>(op.flags);
     const auto values = Get(op.values);
     m_flags = static_cast<arm::Flags>((static_cast<uint32_t>(m_flags) & ~flags) | (values & flags));
 }
 
-void InterpreterHost::HandleLoadFlags(const Op &varOp) {
+void InterpreterHost::HandleLoadFlags(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLoadFlagsOp>(varOp);
     const auto flags = static_cast<uint32_t>(op.flags);
     auto value = Get(op.srcCPSR);
@@ -757,7 +745,7 @@ void InterpreterHost::HandleLoadFlags(const Op &varOp) {
     SetVar(op.dstCPSR.var, value);
 }
 
-void InterpreterHost::HandleLoadStickyOverflow(const Op &varOp) {
+void InterpreterHost::HandleLoadStickyOverflow(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLoadStickyOverflowOp>(varOp);
     auto value = Get(op.srcCPSR);
     if (op.setQ && m_flagQ) {
@@ -766,39 +754,37 @@ void InterpreterHost::HandleLoadStickyOverflow(const Op &varOp) {
     SetVar(op.dstCPSR.var, value);
 }
 
-void InterpreterHost::HandleBranch(const Op &varOp) {
+void InterpreterHost::HandleBranch(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBranchOp>(varOp);
-    const uint32_t instrSize = (m_armState.CPSR().t ? sizeof(uint16_t) : sizeof(uint32_t));
+    const uint32_t instrSize = (loc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t));
     const uint32_t pcOffset = 2 * instrSize;
     const uint32_t addrMask = ~(instrSize - 1);
     const auto addr = Get(op.address);
     m_armState.GPR(arm::GPR::PC) = (addr & addrMask) + pcOffset;
 }
 
-void InterpreterHost::HandleBranchExchange(const Op &varOp) {
+void InterpreterHost::HandleBranchExchange(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRBranchExchangeOp>(varOp);
     const auto addr = Get(op.address);
 
-    const bool bxOnAddrBit0 = [&] {
+    const bool thumb = [&] {
         using Mode = ir::IRBranchExchangeOp::ExchangeMode;
+        const bool cpsrT = m_armState.CPSR().t;
+
         switch (op.bxMode) {
-        case Mode::AddrBit0: return true;
+        case Mode::AddrBit0: return bit::test<0>(addr);
         case Mode::L4: {
-            if (m_context.GetCPUArch() != CPUArch::ARMv5TE) {
-                return true;
-            }
             const auto &cp15 = m_context.GetARMState().GetSystemControlCoprocessor();
-            if (!cp15.IsPresent()) {
-                return true;
+            if (cp15.IsPresent() && cp15.GetControlRegister().value.preARMv5) {
+                return loc.IsThumbMode();
+            } else {
+                return bit::test<0>(addr);
             }
-            return !cp15.GetControlRegister().value.preARMv5;
         }
-        case Mode::CPSRThumbFlag: return false;
-        default: return true;
+        case Mode::CPSRThumbFlag: return cpsrT;
+        default: return bit::test<0>(addr);
         }
     }();
-
-    const bool thumb = bxOnAddrBit0 ? bit::test<0>(addr) : m_armState.CPSR().t;
     const uint32_t instrSize = thumb ? sizeof(uint16_t) : sizeof(uint32_t);
     const uint32_t pcOffset = 2 * instrSize;
     const uint32_t addrMask = ~(instrSize - 1);
@@ -806,7 +792,7 @@ void InterpreterHost::HandleBranchExchange(const Op &varOp) {
     m_armState.CPSR().t = thumb;
 }
 
-void InterpreterHost::HandleLoadCopRegister(const Op &varOp) {
+void InterpreterHost::HandleLoadCopRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRLoadCopRegisterOp>(varOp);
     auto &cop = m_armState.GetCoprocessor(op.cpnum);
     if (op.ext) {
@@ -816,7 +802,7 @@ void InterpreterHost::HandleLoadCopRegister(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleStoreCopRegister(const Op &varOp) {
+void InterpreterHost::HandleStoreCopRegister(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRStoreCopRegisterOp>(varOp);
     auto &cop = m_armState.GetCoprocessor(op.cpnum);
     if (op.ext) {
@@ -826,17 +812,17 @@ void InterpreterHost::HandleStoreCopRegister(const Op &varOp) {
     }
 }
 
-void InterpreterHost::HandleConstant(const Op &varOp) {
+void InterpreterHost::HandleConstant(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRConstantOp>(varOp);
     SetVar(op.dst.var, op.value);
 }
 
-void InterpreterHost::HandleCopyVar(const Op &varOp) {
+void InterpreterHost::HandleCopyVar(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRCopyVarOp>(varOp);
     SetVar(op.dst.var, Get(op.var));
 }
 
-void InterpreterHost::HandleGetBaseVectorAddress(const Op &varOp) {
+void InterpreterHost::HandleGetBaseVectorAddress(const Op &varOp, LocationRef loc) {
     auto &op = std::get<ir::IRGetBaseVectorAddressOp>(varOp);
     auto &cp15 = m_armState.GetSystemControlCoprocessor();
     const auto value = (cp15.IsPresent() ? cp15.GetControlRegister().baseVectorAddress : 0x00000000);

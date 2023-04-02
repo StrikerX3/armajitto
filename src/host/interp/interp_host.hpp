@@ -39,12 +39,34 @@ public:
     }
 
     int64_t Call(HostCode code, uint64_t cycles) final {
+        for (auto &cacheInvalidation : m_cacheInvalidations) {
+            if (cacheInvalidation.start == 0 && cacheInvalidation.end == 0xFFFFFFFF) {
+                m_blockCache.clear();
+                break;
+            }
+
+            for (uint64_t cpsr = 0; cpsr < 63; cpsr++) {
+                const uint64_t upper = cpsr << 32ull;
+                const uint64_t keyStart = cacheInvalidation.start | upper;
+                const uint64_t keyEnd = cacheInvalidation.end | upper;
+                auto it = m_blockCache.lower_bound(keyStart);
+                while (it != m_blockCache.end()) {
+                    if (it->first >= keyStart && it->first <= keyEnd) {
+                        it = m_blockCache.erase(it);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        m_cacheInvalidations.clear();
+
         if (m_armState.IRQLine()) {
             m_armState.ExecutionState() = arm::ExecState::Running;
             if (!m_armState.CPSR().i) {
                 m_armState.EnterException(arm::Exception::NormalInterrupt);
+                return cycles - 1;
             }
-            return cycles;
         }
         if (m_armState.ExecutionState() != arm::ExecState::Running) {
             return 0;
@@ -57,6 +79,7 @@ public:
         if (it != m_blockCache.end()) {
             cycles -= Execute(it->second);
         }
+
         return cycles;
     }
 
@@ -72,6 +95,32 @@ private:
     std::pmr::memory_resource &m_alloc;
     arm::State &m_armState;
     MemoryMapHostAccess m_memMap;
+
+    struct CacheInvalidation {
+        enum Type { AddrRange, Location };
+
+        Type type;
+        uint32_t start;
+        uint32_t end;
+        LocationRef location;
+
+        CacheInvalidation(uint32_t start, uint32_t end)
+            : type(Type::AddrRange)
+            , start(start)
+            , end(end) {}
+
+        CacheInvalidation(LocationRef loc)
+            : type(Type::Location)
+            , start(0)
+            , end(0)
+            , location(loc) {}
+
+        CacheInvalidation(const CacheInvalidation &other) = default;
+
+        CacheInvalidation &operator=(const CacheInvalidation &other) = default;
+    };
+
+    std::pmr::vector<CacheInvalidation> m_cacheInvalidations;
 
     std::pmr::vector<uint32_t> m_vars;
     arm::Flags m_flags = arm::Flags::None;
@@ -117,7 +166,7 @@ private:
         // Miscellaneous operations
         ir::IRConstantOp, ir::IRCopyVarOp, ir::IRGetBaseVectorAddressOp>;
 
-    using FnIROpHandler = void (InterpreterHost::*)(const Op &);
+    using FnIROpHandler = void (InterpreterHost::*)(const Op &op, LocationRef loc);
 
     struct InterpInstr {
         FnIROpHandler fn;
@@ -189,46 +238,46 @@ private:
     // -------------------------------------------------------------------------------------------
     // IR opcode interpreter handlers
 
-    void HandleGetRegister(const Op &varOp);
-    void HandleSetRegister(const Op &varOp);
-    void HandleGetCPSR(const Op &varOp);
-    void HandleSetCPSR(const Op &varOp);
-    void HandleGetSPSR(const Op &varOp);
-    void HandleSetSPSR(const Op &varOp);
-    void HandleMemRead(const Op &varOp);
-    void HandleMemWrite(const Op &varOp);
-    void HandlePreload(const Op &varOp);
-    void HandleLogicalShiftLeft(const Op &varOp);
-    void HandleLogicalShiftRight(const Op &varOp);
-    void HandleArithmeticShiftRight(const Op &varOp);
-    void HandleRotateRight(const Op &varOp);
-    void HandleRotateRightExtended(const Op &varOp);
-    void HandleBitwiseAnd(const Op &varOp);
-    void HandleBitwiseOr(const Op &varOp);
-    void HandleBitwiseXor(const Op &varOp);
-    void HandleBitClear(const Op &varOp);
-    void HandleCountLeadingZeros(const Op &varOp);
-    void HandleAdd(const Op &varOp);
-    void HandleAddCarry(const Op &varOp);
-    void HandleSubtract(const Op &varOp);
-    void HandleSubtractCarry(const Op &varOp);
-    void HandleMove(const Op &varOp);
-    void HandleMoveNegated(const Op &varOp);
-    void HandleSaturatingAdd(const Op &varOp);
-    void HandleSaturatingSubtract(const Op &varOp);
-    void HandleMultiply(const Op &varOp);
-    void HandleMultiplyLong(const Op &varOp);
-    void HandleAddLong(const Op &varOp);
-    void HandleStoreFlags(const Op &varOp);
-    void HandleLoadFlags(const Op &varOp);
-    void HandleLoadStickyOverflow(const Op &varOp);
-    void HandleBranch(const Op &varOp);
-    void HandleBranchExchange(const Op &varOp);
-    void HandleLoadCopRegister(const Op &varOp);
-    void HandleStoreCopRegister(const Op &varOp);
-    void HandleConstant(const Op &varOp);
-    void HandleCopyVar(const Op &varOp);
-    void HandleGetBaseVectorAddress(const Op &varOp);
+    void HandleGetRegister(const Op &varOp, LocationRef loc);
+    void HandleSetRegister(const Op &varOp, LocationRef loc);
+    void HandleGetCPSR(const Op &varOp, LocationRef loc);
+    void HandleSetCPSR(const Op &varOp, LocationRef loc);
+    void HandleGetSPSR(const Op &varOp, LocationRef loc);
+    void HandleSetSPSR(const Op &varOp, LocationRef loc);
+    void HandleMemRead(const Op &varOp, LocationRef loc);
+    void HandleMemWrite(const Op &varOp, LocationRef loc);
+    void HandlePreload(const Op &varOp, LocationRef loc);
+    void HandleLogicalShiftLeft(const Op &varOp, LocationRef loc);
+    void HandleLogicalShiftRight(const Op &varOp, LocationRef loc);
+    void HandleArithmeticShiftRight(const Op &varOp, LocationRef loc);
+    void HandleRotateRight(const Op &varOp, LocationRef loc);
+    void HandleRotateRightExtended(const Op &varOp, LocationRef loc);
+    void HandleBitwiseAnd(const Op &varOp, LocationRef loc);
+    void HandleBitwiseOr(const Op &varOp, LocationRef loc);
+    void HandleBitwiseXor(const Op &varOp, LocationRef loc);
+    void HandleBitClear(const Op &varOp, LocationRef loc);
+    void HandleCountLeadingZeros(const Op &varOp, LocationRef loc);
+    void HandleAdd(const Op &varOp, LocationRef loc);
+    void HandleAddCarry(const Op &varOp, LocationRef loc);
+    void HandleSubtract(const Op &varOp, LocationRef loc);
+    void HandleSubtractCarry(const Op &varOp, LocationRef loc);
+    void HandleMove(const Op &varOp, LocationRef loc);
+    void HandleMoveNegated(const Op &varOp, LocationRef loc);
+    void HandleSaturatingAdd(const Op &varOp, LocationRef loc);
+    void HandleSaturatingSubtract(const Op &varOp, LocationRef loc);
+    void HandleMultiply(const Op &varOp, LocationRef loc);
+    void HandleMultiplyLong(const Op &varOp, LocationRef loc);
+    void HandleAddLong(const Op &varOp, LocationRef loc);
+    void HandleStoreFlags(const Op &varOp, LocationRef loc);
+    void HandleLoadFlags(const Op &varOp, LocationRef loc);
+    void HandleLoadStickyOverflow(const Op &varOp, LocationRef loc);
+    void HandleBranch(const Op &varOp, LocationRef loc);
+    void HandleBranchExchange(const Op &varOp, LocationRef loc);
+    void HandleLoadCopRegister(const Op &varOp, LocationRef loc);
+    void HandleStoreCopRegister(const Op &varOp, LocationRef loc);
+    void HandleConstant(const Op &varOp, LocationRef loc);
+    void HandleCopyVar(const Op &varOp, LocationRef loc);
+    void HandleGetBaseVectorAddress(const Op &varOp, LocationRef loc);
 };
 
 } // namespace armajitto::interp
