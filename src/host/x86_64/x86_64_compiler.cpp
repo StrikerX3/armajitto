@@ -909,24 +909,24 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             m_codegen.shlx(dstReg64, valueReg64, shiftReg64);
         } else {
-            Xbyak::Reg64 dstReg{};
+            Xbyak::Reg64 dstReg64{};
             if (op->dst.var.IsPresent()) {
-                dstReg = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
-                CopyIfDifferent(dstReg, valueReg64);
+                dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
+                CopyIfDifferent(dstReg64, valueReg64);
             } else {
-                dstReg = m_regAlloc.GetTemporary().cvt64();
-                m_codegen.mov(dstReg, valueReg64);
+                dstReg64 = m_regAlloc.GetTemporary().cvt64();
+                m_codegen.mov(dstReg64, valueReg64);
             }
 
             // Compute the shift
-            m_codegen.shl(dstReg, 32);                    // Shift value to the top half of the 64-bit register
+            m_codegen.shl(dstReg64, 32);                  // Shift value to the top half of the 64-bit register
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
-            m_codegen.shl(dstReg, GetReg8(shiftReg64));
+            m_codegen.shl(dstReg64, GetReg8(shiftReg64));
             if (op->setCarry) {
                 SetCFromFlags(tmp16);
             }
             if (op->dst.var.IsPresent()) {
-                m_codegen.shr(dstReg, 32); // Shift value back down to the bottom half
+                m_codegen.shr(dstReg64, 32); // Shift value back down to the bottom half
             }
         }
     } else if (valueImm) {
@@ -1043,6 +1043,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
         if (CPUID::HasBMI2() && op->dst.var.IsPresent() && !op->setCarry) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             m_codegen.shrx(dstReg64, valueReg64, shiftReg64);
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->dst.var.IsPresent()) {
             auto dstReg64 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var).cvt64();
             CopyIfDifferent(dstReg64, valueReg64);
@@ -1051,6 +1052,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
             if (op->setCarry) {
                 SetCFromFlags(tmp16);
             }
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->setCarry) {
             Xbyak::Label lblNoEffect{};
             m_codegen.cmp(shiftReg64, shiftReg64);
@@ -1084,6 +1086,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
             if (op->setCarry) {
                 SetCFromFlags(tmp16);
             }
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->setCarry) {
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
 
@@ -1183,6 +1186,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             if (op->setCarry) {
                 SetCFromFlags(tmp16);
             }
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->setCarry) {
             Xbyak::Label lblNoEffect{};
             m_codegen.cmp(shiftReg32, shiftReg32);
@@ -1216,6 +1220,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             if (op->setCarry) {
                 SetCFromFlags(tmp16);
             }
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->setCarry) {
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
 
@@ -1242,6 +1247,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             if (amount > 0 && op->setCarry) {
                 SetCFromFlags(tmp16);
             }
+            m_codegen.mov(dstReg64.cvt32(), dstReg64.cvt32()); // TODO: ideally MOV to another register
         } else if (op->setCarry) {
             m_codegen.bt(valueReg32.cvt64(), amount - 1);
             SetCFromFlags(tmp16);
