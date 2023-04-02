@@ -481,12 +481,21 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     Xbyak::Reg32 dstReg32{};
     if (op->dst.var.IsPresent()) {
         dstReg32 = m_regAlloc.Get(op->dst.var);
+    } else {
+        dstReg32 = m_regAlloc.GetTemporary();
     }
 
     // Get base address register if it is a variable
     Xbyak::Reg32 baseAddrReg32{};
     if (!op->address.immediate) {
         baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
+    }
+
+    // Reserve temporary registers for the slow memory path
+    auto memMapReg64 = m_regAlloc.GetTemporary().cvt64();
+    Xbyak::Reg32 indexReg32{};
+    if (!op->address.immediate) {
+        indexReg32 = m_regAlloc.GetTemporary();
     }
 
     auto compileRead = [this, op, &lblEnd, &baseAddrReg32](Xbyak::Reg32 dstReg32, Xbyak::Reg64 addrReg64, auto offset) {
@@ -553,7 +562,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
                         m_codegen.ror(dstReg32, shiftOffset);
                     }
                 } else {
-                    auto baseAddrReg32 = m_regAlloc.Get(op->address.var.var);
                     auto shiftReg32 = m_regAlloc.GetRCX().cvt32();
                     m_codegen.mov(shiftReg32, baseAddrReg32);
                     m_codegen.and_(shiftReg32, 3);
@@ -575,7 +583,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? m_memMap.codeRead : m_memMap.dataRead;
 
     // Get map pointer
-    auto memMapReg64 = m_regAlloc.GetTemporary().cvt64();
     m_codegen.mov(memMapReg64, memMapRef.GetL1MapAddress());
 
     if (op->address.immediate) {
@@ -599,18 +606,15 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
             compileRead(dstReg32, memMapReg64, offset);
         }
     } else {
-        auto addrReg32 = m_regAlloc.Get(op->address.var.var);
-        auto indexReg32 = m_regAlloc.GetTemporary();
-
         // Get level 1 pointer
-        m_codegen.mov(indexReg32, addrReg32);
+        m_codegen.mov(indexReg32, baseAddrReg32);
         m_codegen.shr(indexReg32, memMapRef.GetL1Shift());
         m_codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
         m_codegen.test(memMapReg64, memMapReg64);
         m_codegen.je(lblSlowMem);
 
         // Get level 2 pointer
-        m_codegen.mov(indexReg32, addrReg32);
+        m_codegen.mov(indexReg32, baseAddrReg32);
         m_codegen.shr(indexReg32, memMapRef.GetL2Shift());
         m_codegen.and_(indexReg32, memMapRef.GetL2Mask());
         m_codegen.mov(memMapReg64, qword[memMapReg64 + indexReg32.cvt64() * sizeof(void *)]);
@@ -619,7 +623,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
 
         // Read from selected page
         if (op->dst.var.IsPresent()) {
-            m_codegen.mov(indexReg32, addrReg32);
+            m_codegen.mov(indexReg32, baseAddrReg32);
             m_codegen.and_(indexReg32, memMapRef.GetPageMask() & addrMask);
             compileRead(dstReg32, memMapReg64, indexReg32.cvt64());
         }
@@ -712,6 +716,12 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         addrReg32 = m_regAlloc.Get(op->address.var.var);
     }
 
+    // Reserve temporary register for the slow memory path
+    Xbyak::Reg32 indexReg32{};
+    if (!op->address.immediate) {
+        indexReg32 = m_regAlloc.GetTemporary();
+    }
+
     Xbyak::Label lblSlowMem;
     Xbyak::Label lblEnd{};
 
@@ -759,9 +769,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             }
         }
     } else {
-        auto addrReg32 = m_regAlloc.Get(op->address.var.var);
-        auto indexReg32 = m_regAlloc.GetTemporary();
-
         // Get level 1 pointer
         m_codegen.mov(indexReg32, addrReg32);
         m_codegen.shr(indexReg32, memMapRef.GetL1Shift());
@@ -839,7 +846,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         if (address.immediate) {
             CompileInvokeHostFunction(fn, system, address.imm.value, srcReg32);
         } else {
-            auto addrReg32 = m_regAlloc.Get(address.var.var);
             CompileInvokeHostFunction(fn, system, addrReg32, srcReg32);
         }
     };
@@ -870,6 +876,12 @@ void x64Host::Compiler::CompileOp(const ir::IRPreloadOp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
     const bool valueImm = op->value.immediate;
     const bool amountImm = op->amount.immediate;
+
+    // Reserve temporary register for carry flag update
+    Xbyak::Reg16 tmp16{};
+    if (op->setCarry) {
+        tmp16 = m_regAlloc.GetTemporary().cvt16();
+    }
 
     // x86 masks the shift amount to 31 or 63.
     // ARM does not -- larger amounts simply output zero.
@@ -911,7 +923,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shl(dstReg, GetReg8(shiftReg64));
             if (op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
             if (op->dst.var.IsPresent()) {
                 m_codegen.shr(dstReg, 32); // Shift value back down to the bottom half
@@ -943,7 +955,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
         m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
         m_codegen.shl(dstReg64, GetReg8(shiftReg64));
         if (op->setCarry) {
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
         }
         if (op->dst.var.IsPresent()) {
             m_codegen.shr(dstReg64, 32); // Shift value back down to the bottom half
@@ -967,21 +979,21 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
             // Compute shift and update flags
             m_codegen.shl(dstReg32, amount);
             if (amount > 0 && op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (amount == 32) {
             if (op->dst.var.IsPresent()) {
                 // Update carry flag before zeroing out the register
                 if (op->setCarry) {
                     m_codegen.bt(valueReg32, 0);
-                    SetCFromFlags();
+                    SetCFromFlags(tmp16);
                 }
 
                 auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 m_codegen.xor_(dstReg32, dstReg32);
             } else if (op->setCarry) {
                 m_codegen.bt(valueReg32, 0);
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else {
             // Zero out destination
@@ -999,6 +1011,12 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftLeftOp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
     const bool valueImm = op->value.immediate;
     const bool amountImm = op->amount.immediate;
+
+    // Reserve temporary register for carry flag update
+    Xbyak::Reg16 tmp16{};
+    if (op->setCarry) {
+        tmp16 = m_regAlloc.GetTemporary().cvt16();
+    }
 
     // x86 masks the shift amount to 31 or 63.
     // ARM does not -- larger amounts simply output zero.
@@ -1031,7 +1049,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shr(dstReg64, GetReg8(shiftReg64));
             if (op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (op->setCarry) {
             Xbyak::Label lblNoEffect{};
@@ -1040,7 +1058,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
 
             m_codegen.dec(shiftReg64);
             m_codegen.bt(valueReg64, shiftReg64);
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
 
             m_codegen.L(lblNoEffect);
         }
@@ -1064,7 +1082,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.shr(dstReg64, GetReg8(shiftReg64));
             if (op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (op->setCarry) {
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
@@ -1075,7 +1093,7 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
 
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg64);
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
 
             m_codegen.L(lblNoEffect);
         }
@@ -1091,25 +1109,25 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
                 CopyIfDifferent(dstReg32, valueReg32);
                 m_codegen.shr(dstReg32, amount);
                 if (amount > 0 && op->setCarry) {
-                    SetCFromFlags();
+                    SetCFromFlags(tmp16);
                 }
             } else if (amount > 0 && op->setCarry) {
                 m_codegen.bt(valueReg32.cvt64(), amount - 1);
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (amount == 32) {
             if (op->dst.var.IsPresent()) {
                 // Update carry flag before zeroing out the register
                 if (op->setCarry) {
                     m_codegen.bt(valueReg32, 31);
-                    SetCFromFlags();
+                    SetCFromFlags(tmp16);
                 }
 
                 auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
                 m_codegen.xor_(dstReg32, dstReg32);
             } else if (op->setCarry) {
                 m_codegen.bt(valueReg32, 31);
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else {
             // Zero out destination
@@ -1127,6 +1145,12 @@ void x64Host::Compiler::CompileOp(const ir::IRLogicalShiftRightOp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
     const bool valueImm = op->value.immediate;
     const bool amountImm = op->amount.immediate;
+
+    // Reserve temporary register for carry flag update
+    Xbyak::Reg16 tmp16{};
+    if (op->setCarry) {
+        tmp16 = m_regAlloc.GetTemporary().cvt16();
+    }
 
     // x86 masks the shift amount to 31 or 63.
     // ARM does not, though the output value is the same for shifts by 31 or more.
@@ -1157,7 +1181,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.sar(dstReg64, GetReg8(shiftReg32));
             if (op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (op->setCarry) {
             Xbyak::Label lblNoEffect{};
@@ -1166,7 +1190,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
 
             m_codegen.dec(shiftReg32);
             m_codegen.bt(valueReg32, shiftReg32);
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
 
             m_codegen.L(lblNoEffect);
         }
@@ -1190,7 +1214,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             m_codegen.bt(abi::kHostFlagsReg, x64flgCPos); // Load carry flag
             m_codegen.sar(dstReg64, GetReg8(shiftReg32));
             if (op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (op->setCarry) {
             auto valueReg64 = m_regAlloc.GetTemporary().cvt64();
@@ -1201,7 +1225,7 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
 
             m_codegen.mov(valueReg64, (static_cast<uint64_t>(value) << 1ull));
             m_codegen.bt(valueReg64, shiftReg32.cvt64());
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
 
             m_codegen.L(lblNoEffect);
         }
@@ -1216,11 +1240,11 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
             m_codegen.movsxd(dstReg64, valueReg32);
             m_codegen.sar(dstReg64, amount);
             if (amount > 0 && op->setCarry) {
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         } else if (op->setCarry) {
             m_codegen.bt(valueReg32.cvt64(), amount - 1);
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
         }
     }
 }
@@ -1228,6 +1252,12 @@ void x64Host::Compiler::CompileOp(const ir::IRArithmeticShiftRightOp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
     const bool valueImm = op->value.immediate;
     const bool amountImm = op->amount.immediate;
+
+    // Reserve temporary register for carry flag update
+    Xbyak::Reg16 tmp16{};
+    if (op->setCarry) {
+        tmp16 = m_regAlloc.GetTemporary().cvt16();
+    }
 
     // x86 masks the shift amount to 31 or 63.
     // ARM does not, though the output value is the same for shifts by 32 or more.
@@ -1271,7 +1301,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             m_codegen.ror(dstReg32, GetReg8(shiftReg32));
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         }
 
@@ -1305,7 +1335,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
             m_codegen.ror(dstReg32, GetReg8(shiftReg32));
             if (op->setCarry) {
                 m_codegen.bt(dstReg32, 31);
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         }
 
@@ -1337,7 +1367,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
                 if ((amount & 31) == 0) {
                     m_codegen.bt(dstReg32, 31);
                 }
-                SetCFromFlags();
+                SetCFromFlags(tmp16);
             }
         }
     }
@@ -1345,6 +1375,12 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightOp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRRotateRightExtendedOp *op) {
     // ARM RRX works exactly the same as x86 RCR by 1, including carry flag behavior.
+
+    // Reserve temporary register for carry flag update
+    Xbyak::Reg16 tmp16{};
+    if (op->setCarry) {
+        tmp16 = m_regAlloc.GetTemporary().cvt16();
+    }
 
     if (op->dst.var.IsPresent()) {
         Xbyak::Reg32 dstReg32{};
@@ -1362,7 +1398,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightExtendedOp *op) {
         m_codegen.rcr(dstReg32, 1);                   // Perform RRX
 
         if (op->setCarry) {
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
         }
     } else if (op->setCarry) {
         if (op->value.immediate) {
@@ -1370,7 +1406,7 @@ void x64Host::Compiler::CompileOp(const ir::IRRotateRightExtendedOp *op) {
         } else {
             auto valueReg32 = m_regAlloc.Get(op->value.var.var);
             m_codegen.bt(valueReg32, 0);
-            SetCFromFlags();
+            SetCFromFlags(tmp16);
         }
     }
 }
@@ -1379,6 +1415,12 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseAndOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
 
     if (lhsImm && rhsImm) {
         // Both are immediates
@@ -1421,7 +1463,7 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseAndOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -1430,6 +1472,12 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseOrOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
 
     if (lhsImm && rhsImm) {
         // Both are immediates
@@ -1477,7 +1525,7 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseOrOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -1486,6 +1534,12 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseXorOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
 
     if (lhsImm && rhsImm) {
         // Both are immediates
@@ -1533,7 +1587,7 @@ void x64Host::Compiler::CompileOp(const ir::IRBitwiseXorOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -1542,6 +1596,12 @@ void x64Host::Compiler::CompileOp(const ir::IRBitClearOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
 
     if (lhsImm && rhsImm) {
         // Both are immediates
@@ -1589,7 +1649,7 @@ void x64Host::Compiler::CompileOp(const ir::IRBitClearOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -1869,6 +1929,13 @@ void x64Host::Compiler::CompileOp(const ir::IRSubtractCarryOp *op) {
 
 void x64Host::Compiler::CompileOp(const ir::IRMoveOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
+
     if (op->dst.var.IsPresent()) {
         if (op->value.immediate) {
             auto dstReg32 = m_regAlloc.Get(op->dst.var);
@@ -1881,20 +1948,27 @@ void x64Host::Compiler::CompileOp(const ir::IRMoveOp *op) {
 
         if (setFlags) {
             auto dstReg32 = m_regAlloc.Get(op->dst.var);
-            SetNZFromReg(dstReg32);
+            SetNZFromReg(dstReg32, tmp32);
         }
     } else if (setFlags) {
         if (op->value.immediate) {
             SetNZFromValue(op->value.imm.value);
         } else {
             auto valReg32 = m_regAlloc.Get(op->value.var.var);
-            SetNZFromReg(valReg32);
+            SetNZFromReg(valReg32, tmp32);
         }
     }
 }
 
 void x64Host::Compiler::CompileOp(const ir::IRMoveNegatedOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
+
     if (op->dst.var.IsPresent()) {
         if (op->value.immediate) {
             auto dstReg32 = m_regAlloc.Get(op->dst.var);
@@ -1909,7 +1983,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMoveNegatedOp *op) {
 
         if (setFlags) {
             auto dstReg32 = m_regAlloc.Get(op->dst.var);
-            SetNZFromReg(dstReg32);
+            SetNZFromReg(dstReg32, tmp32);
         }
     } else if (setFlags) {
         if (op->value.immediate) {
@@ -1919,7 +1993,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMoveNegatedOp *op) {
             auto tmpReg32 = m_regAlloc.GetTemporary();
             m_codegen.mov(tmpReg32, valReg32);
             m_codegen.not_(tmpReg32);
-            SetNZFromReg(tmpReg32);
+            SetNZFromReg(tmpReg32, tmp32);
         }
     }
 }
@@ -2113,6 +2187,12 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyOp *op) {
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
 
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
+
     if (lhsImm && rhsImm) {
         // Both are immediates
         if (op->signedMul) {
@@ -2185,7 +2265,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -2194,6 +2274,12 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;
     const bool setFlags = BitmaskEnum(op->flags).Any();
+
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
 
     if (lhsImm && rhsImm) {
         // Both are immediates
@@ -2357,7 +2443,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
         }
 
         if (setFlags) {
-            SetNZFromFlags();
+            SetNZFromFlags(tmp32);
         }
     }
 }
@@ -2365,7 +2451,13 @@ void x64Host::Compiler::CompileOp(const ir::IRMultiplyLongOp *op) {
 void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
     const bool setFlags = BitmaskEnum(op->flags).Any();
 
-    // Contains the value 32 to be used in shifts
+    // Reserve temporary register for flags update
+    Xbyak::Reg32 tmp32{};
+    if (setFlags) {
+        tmp32 = m_regAlloc.GetTemporary();
+    }
+
+    // Reserve a register to contain the value 32 to be used in BMI2 shifts
     Xbyak::Reg64 shiftBy32Reg64{};
     if (CPUID::HasBMI2()) {
         shiftBy32Reg64 = m_regAlloc.GetTemporary().cvt64();
@@ -2447,7 +2539,7 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
 
     // Update flags if requested
     if (setFlags) {
-        SetNZFromFlags();
+        SetNZFromFlags(tmp32);
     }
 
     // Put top half of the result into dstHi if it is present
@@ -2459,6 +2551,11 @@ void x64Host::Compiler::CompileOp(const ir::IRAddLongOp *op) {
             m_codegen.mov(dstHiReg64, dstLoReg64);
             m_codegen.shr(dstHiReg64, 32);
         }
+    }
+
+    // Clear top half of the 64-bit low destination register
+    if (op->dstLo.var.IsPresent()) {
+        m_codegen.mov(dstLoReg64.cvt32(), dstLoReg64.cvt32()); // TODO: ideally MOV to another register
     }
 }
 
@@ -2505,18 +2602,18 @@ void x64Host::Compiler::CompileOp(const ir::IRLoadFlagsOp *op) {
         auto dstReg32 = m_regAlloc.Get(op->dstCPSR.var);
 
         // Extract the host flags we need from EAX into flags
-        auto flags = m_regAlloc.GetTemporary();
+        auto flagsReg32 = m_regAlloc.GetTemporary();
         if (CPUID::HasFastPDEPAndPEXT()) {
-            m_codegen.mov(flags, x64FlagsMask);
-            m_codegen.pext(flags, abi::kHostFlagsReg, flags);
-            m_codegen.shl(flags, 28);
+            m_codegen.mov(flagsReg32, x64FlagsMask);
+            m_codegen.pext(flagsReg32, abi::kHostFlagsReg, flagsReg32);
+            m_codegen.shl(flagsReg32, 28);
         } else {
-            m_codegen.imul(flags, abi::kHostFlagsReg, x64ToARMFlagsMult);
-            // m_codegen.and_(flags, ARMFlagsMask);
+            m_codegen.imul(flagsReg32, abi::kHostFlagsReg, x64ToARMFlagsMult);
+            // m_codegen.and_(flagsReg32, ARMFlagsMask);
         }
-        m_codegen.and_(flags, cpsrMask);     // Keep only the affected bits
-        m_codegen.and_(dstReg32, ~cpsrMask); // Clear affected bits from dst value
-        m_codegen.or_(dstReg32, flags);      // Store new bits into dst value
+        m_codegen.and_(flagsReg32, cpsrMask); // Keep only the affected bits
+        m_codegen.and_(dstReg32, ~cpsrMask);  // Clear affected bits from dst value
+        m_codegen.or_(dstReg32, flagsReg32);  // Store new bits into dst value
     }
 }
 
@@ -2752,12 +2849,11 @@ void x64Host::Compiler::SetCFromValue(bool carry) {
     }
 }
 
-void x64Host::Compiler::SetCFromFlags() {
-    auto tmp16 = m_regAlloc.GetTemporary().cvt16();
-    m_codegen.setc(GetReg8(tmp16));                       // Put new C into a temporary register
-    m_codegen.shl(tmp16, x64flgCPos);                     // Move it to the correct position
+void x64Host::Compiler::SetCFromFlags(Xbyak::Reg16 tmpReg16) {
+    m_codegen.setc(GetReg8(tmpReg16));                    // Put new C into a temporary register
+    m_codegen.shl(tmpReg16, x64flgCPos);                  // Move it to the correct position
     m_codegen.and_(abi::kHostFlagsReg.cvt16(), ~x64flgC); // Clear existing C flag from AX
-    m_codegen.or_(abi::kHostFlagsReg.cvt16(), tmp16);     // Write new C flag into AX
+    m_codegen.or_(abi::kHostFlagsReg.cvt16(), tmpReg16);  // Write new C flag into AX
 }
 
 void x64Host::Compiler::SetVFromValue(bool overflow) {
@@ -2798,22 +2894,20 @@ void x64Host::Compiler::SetNZFromValue(uint64_t value) {
     }
 }
 
-void x64Host::Compiler::SetNZFromReg(Xbyak::Reg32 value) {
-    auto tmp32 = m_regAlloc.GetTemporary();
-    m_codegen.test(value, value);             // Updates NZ, clears CV; V won't be changed here
-    m_codegen.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
-    m_codegen.lahf();                         // Load NZC; C is 0
-    m_codegen.and_(tmp32, x64flgC);           // Keep previous C only
-    m_codegen.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
+void x64Host::Compiler::SetNZFromReg(Xbyak::Reg32 value, Xbyak::Reg32 tmpReg32) {
+    m_codegen.test(value, value);                // Updates NZ, clears CV; V won't be changed here
+    m_codegen.mov(tmpReg32, abi::kHostFlagsReg); // Copy current flags to preserve C later
+    m_codegen.lahf();                            // Load NZC; C is 0
+    m_codegen.and_(tmpReg32, x64flgC);           // Keep previous C only
+    m_codegen.or_(abi::kHostFlagsReg, tmpReg32); // Put previous C into AH; NZ is now updated and C is preserved
 }
 
-void x64Host::Compiler::SetNZFromFlags() {
-    auto tmp32 = m_regAlloc.GetTemporary();
-    m_codegen.clc();                          // Clear C to make way for the previous C
-    m_codegen.mov(tmp32, abi::kHostFlagsReg); // Copy current flags to preserve C later
-    m_codegen.lahf();                         // Load NZC; C is 0
-    m_codegen.and_(tmp32, x64flgC);           // Keep previous C only
-    m_codegen.or_(abi::kHostFlagsReg, tmp32); // Put previous C into AH; NZ is now updated and C is preserved
+void x64Host::Compiler::SetNZFromFlags(Xbyak::Reg32 tmpReg32) {
+    m_codegen.clc();                             // Clear C to make way for the previous C
+    m_codegen.mov(tmpReg32, abi::kHostFlagsReg); // Copy current flags to preserve C later
+    m_codegen.lahf();                            // Load NZC; C is 0
+    m_codegen.and_(tmpReg32, x64flgC);           // Keep previous C only
+    m_codegen.or_(abi::kHostFlagsReg, tmpReg32); // Put previous C into AH; NZ is now updated and C is preserved
 }
 
 void x64Host::Compiler::SetNZCVFromValue(uint32_t value, bool carry, bool overflow) {

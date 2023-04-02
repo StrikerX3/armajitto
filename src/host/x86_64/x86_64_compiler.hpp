@@ -89,15 +89,15 @@ public:
     // Building blocks
 
     void SetCFromValue(bool carry);
-    void SetCFromFlags();
+    void SetCFromFlags(Xbyak::Reg16 tmpReg16);
 
     void SetVFromValue(bool overflow);
     void SetVFromFlags();
 
     void SetNZFromValue(uint32_t value);
     void SetNZFromValue(uint64_t value);
-    void SetNZFromReg(Xbyak::Reg32 value);
-    void SetNZFromFlags();
+    void SetNZFromReg(Xbyak::Reg32 value, Xbyak::Reg32 tmpReg32);
+    void SetNZFromFlags(Xbyak::Reg32 tmpReg32);
 
     void SetNZCVFromValue(uint32_t value, bool carry, bool overflow);
     void SetNZCVFromFlags();
