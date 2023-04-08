@@ -59,8 +59,8 @@ add_library(armajitto
     src/core/context.cpp
     src/core/location_ref.hpp
     src/core/memory_map.cpp
-    src/core/memory_map_host_access.hpp
     src/core/memory_map_impl.hpp
+    src/core/memory_map_priv_access.hpp
     src/core/recompiler.cpp
     src/guest/arm/arithmetic.hpp
     src/guest/arm/exception_vectors.hpp
@@ -72,7 +72,7 @@ add_library(armajitto
     src/guest/arm/state.cpp
     src/guest/arm/state_offsets.hpp
     src/guest/arm/coprocessors/coproc_15_sys_control.cpp
-    src/guest/arm/coprocessors/cp15_host_access.hpp
+    src/guest/arm/coprocessors/cp15_priv_access.hpp
     src/guest/arm/coprocessors/cp15/cp15_cache.cpp
     src/guest/arm/coprocessors/cp15/cp15_tcm.cpp
     src/host/block_cache.hpp

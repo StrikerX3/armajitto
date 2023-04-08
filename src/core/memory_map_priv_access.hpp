@@ -4,8 +4,8 @@
 
 namespace armajitto {
 
-struct MemoryMapHostAccess {
-    MemoryMapHostAccess(MemoryMap &memMap)
+struct MemoryMapPrivateAccess {
+    MemoryMapPrivateAccess(MemoryMap &memMap)
         : codeRead(memMap.m_impl->codeRead)
         , dataRead(memMap.m_impl->dataRead)
         , dataWrite(memMap.m_impl->dataWrite) {}

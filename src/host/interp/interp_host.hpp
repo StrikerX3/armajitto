@@ -2,7 +2,7 @@
 
 #include "host/host.hpp"
 
-#include "core/memory_map_host_access.hpp"
+#include "core/memory_map_priv_access.hpp"
 
 #include "ir/defs/arguments.hpp"
 #include "ir/ir_ops.hpp"
@@ -94,7 +94,7 @@ public:
 private:
     std::pmr::memory_resource &m_alloc;
     arm::State &m_armState;
-    MemoryMapHostAccess m_memMap;
+    MemoryMapPrivateAccess m_memMap;
 
     struct CacheInvalidation {
         enum Type { AddrRange, Location };

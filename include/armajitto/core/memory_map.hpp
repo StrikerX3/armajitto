@@ -4,7 +4,7 @@
 
 namespace armajitto {
 
-struct MemoryMapHostAccess;
+struct MemoryMapPrivateAccess;
 
 struct MemoryMap {
     enum class Areas {
@@ -29,7 +29,7 @@ private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 
-    friend struct MemoryMapHostAccess;
+    friend struct MemoryMapPrivateAccess;
 };
 
 } // namespace armajitto

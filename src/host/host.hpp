@@ -5,7 +5,7 @@
 
 #include "ir/basic_block.hpp"
 
-#include "guest/arm/coprocessors/cp15_host_access.hpp"
+#include "guest/arm/coprocessors/cp15_priv_access.hpp"
 #include "guest/arm/state_offsets.hpp"
 
 #include "host_code.hpp"
@@ -76,7 +76,7 @@ protected:
     arm::StateOffsets m_stateOffsets;
 
     void SetInvalidateCodeCacheCallback(arm::InvalidateCodeCacheCallback callback, void *ctx) {
-        arm::SystemControlCoprocessor::HostAccess{m_context.GetARMState().GetSystemControlCoprocessor()}
+        arm::SystemControlCoprocessor::PrivateAccess{m_context.GetARMState().GetSystemControlCoprocessor()}
             .SetInvalidateCodeCacheCallback(callback, ctx);
     }
 };

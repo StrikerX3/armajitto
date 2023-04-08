@@ -4,8 +4,8 @@
 
 namespace armajitto::arm {
 
-struct SystemControlCoprocessor::HostAccess {
-    HostAccess(SystemControlCoprocessor &cp15)
+struct SystemControlCoprocessor::PrivateAccess {
+    PrivateAccess(SystemControlCoprocessor &cp15)
         : m_cp15(cp15) {}
 
     // Configures the callback invoked when the code cache is invalidated.
