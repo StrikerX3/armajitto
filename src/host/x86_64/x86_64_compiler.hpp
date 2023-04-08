@@ -2,7 +2,7 @@
 
 #include "x86_64_host.hpp"
 
-#include "core/memory_map_host_access.hpp"
+#include "core/memory_map_priv_access.hpp"
 
 #include "util/unreachable.hpp"
 
@@ -142,7 +142,7 @@ private:
     CompiledCode &m_compiledCode;
     arm::State &m_armState;
     arm::StateOffsets &m_stateOffsets;
-    MemoryMapHostAccess m_memMap;
+    MemoryMapPrivateAccess m_memMap;
     Xbyak::CodeGenerator &m_codegen;
     RegisterAllocator m_regAlloc;
     arm::Mode m_mode;

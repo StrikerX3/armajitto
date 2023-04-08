@@ -711,7 +711,7 @@ void Translator::Translate(const MultiplyAccumulate &instr, Emitter &emitter) {
     emitter.SetRegisterExceptPC(instr.dstReg, result);
 
     if (instr.setFlags) {
-        emitter.LoadFlags(Flags::N | Flags::Z);
+        emitter.LoadFlags(Flags::NZ);
         m_flagsUpdated = true;
     }
 
@@ -762,7 +762,7 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
     emitter.SetRegisterExceptPC(instr.dstAccHiReg, result.hi);
 
     if (instr.setFlags) {
-        emitter.LoadFlags(Flags::N | Flags::Z);
+        emitter.LoadFlags(Flags::NZ);
         m_flagsUpdated = true;
     }
 

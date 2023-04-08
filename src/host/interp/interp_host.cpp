@@ -2,6 +2,7 @@
 
 #include "armajitto/guest/arm/exceptions.hpp"
 #include "guest/arm/arithmetic.hpp"
+#include "guest/arm/flags.hpp"
 
 #include "ir/ops/ir_ops_visitor.hpp"
 
@@ -315,9 +316,11 @@ auto InterpreterHost::CompileOp(const ir::IRGetBaseVectorAddressOp *op) -> Inter
 
 static inline void UpdateFlags(arm::Flags &dst, arm::Flags mask, bool value) {
     if (value) {
-        dst |= mask;
+        // dst |= mask;
+        dst = static_cast<arm::Flags>(static_cast<uint32_t>(dst) | static_cast<uint32_t>(mask));
     } else {
-        dst &= ~mask;
+        // dst &= ~mask;
+        dst = static_cast<arm::Flags>(static_cast<uint32_t>(dst) & ~static_cast<uint32_t>(mask));
     }
 }
 

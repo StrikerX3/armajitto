@@ -94,7 +94,7 @@ private:
     cp15::Cache m_cache;
 
     // Gives hosts access to the callback fields above.
-    struct HostAccess;
+    struct PrivateAccess;
     friend class armajitto::Host;
 };
 
