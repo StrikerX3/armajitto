@@ -4,7 +4,7 @@
 
 #include "util/bitmask_enum.hpp"
 
-ENABLE_BITMASK_OPERATORS(armajitto::MemoryMap::Areas);
+ENABLE_BITMASK_OPERATORS(armajitto::MemoryArea);
 
 namespace armajitto {
 
@@ -13,32 +13,32 @@ MemoryMap::MemoryMap(size_t pageSize)
 
 MemoryMap::~MemoryMap() = default;
 
-void MemoryMap::Map(Areas areas, uint8_t layer, uint32_t baseAddress, uint32_t size, Attributes attrs, uint8_t *ptr,
-                    uint64_t mirrorSize) {
+void MemoryMap::Map(MemoryArea areas, uint8_t layer, uint32_t baseAddress, uint32_t size, MemoryAttributes attrs,
+                    uint8_t *ptr, uint64_t mirrorSize) {
 
     // TODO: send attrs to the memory map to be assigned to the layers
 
     auto bmAreas = BitmaskEnum(areas);
-    if (bmAreas.AllOf(Areas::CodeRead)) {
+    if (bmAreas.AllOf(MemoryArea::CodeRead)) {
         m_impl->codeRead.Map(layer, baseAddress, size, ptr, mirrorSize);
     }
-    if (bmAreas.AllOf(Areas::DataRead)) {
+    if (bmAreas.AllOf(MemoryArea::DataRead)) {
         m_impl->dataRead.Map(layer, baseAddress, size, ptr, mirrorSize);
     }
-    if (bmAreas.AllOf(Areas::DataWrite)) {
+    if (bmAreas.AllOf(MemoryArea::DataWrite)) {
         m_impl->dataWrite.Map(layer, baseAddress, size, ptr, mirrorSize);
     }
 }
 
-void MemoryMap::Unmap(Areas areas, uint8_t layer, uint32_t baseAddress, uint64_t size) {
+void MemoryMap::Unmap(MemoryArea areas, uint8_t layer, uint32_t baseAddress, uint64_t size) {
     auto bmAreas = BitmaskEnum(areas);
-    if (bmAreas.AllOf(Areas::CodeRead)) {
+    if (bmAreas.AllOf(MemoryArea::CodeRead)) {
         m_impl->codeRead.Unmap(layer, baseAddress, size);
     }
-    if (bmAreas.AllOf(Areas::DataRead)) {
+    if (bmAreas.AllOf(MemoryArea::DataRead)) {
         m_impl->dataRead.Unmap(layer, baseAddress, size);
     }
-    if (bmAreas.AllOf(Areas::DataWrite)) {
+    if (bmAreas.AllOf(MemoryArea::DataWrite)) {
         m_impl->dataWrite.Unmap(layer, baseAddress, size);
     }
 }

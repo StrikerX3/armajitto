@@ -29,6 +29,7 @@ add_library(armajitto
     include/armajitto/version.hpp
     include/armajitto/core/context.hpp
     include/armajitto/core/memory_map.hpp
+    include/armajitto/core/memory_params.hpp
     include/armajitto/core/options.hpp
     include/armajitto/core/recompiler.hpp
     include/armajitto/core/specification.hpp
