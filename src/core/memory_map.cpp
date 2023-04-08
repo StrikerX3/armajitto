@@ -13,8 +13,10 @@ MemoryMap::MemoryMap(size_t pageSize)
 
 MemoryMap::~MemoryMap() = default;
 
-void MemoryMap::Map(Areas areas, uint8_t layer, uint32_t baseAddress, uint32_t size, uint8_t *ptr,
+void MemoryMap::Map(Areas areas, uint8_t layer, uint32_t baseAddress, uint32_t size, Attributes attrs, uint8_t *ptr,
                     uint64_t mirrorSize) {
+
+    // TODO: send attrs to the memory map to be assigned to the layers
 
     auto bmAreas = BitmaskEnum(areas);
     if (bmAreas.AllOf(Areas::CodeRead)) {
