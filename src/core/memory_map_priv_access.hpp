@@ -10,9 +10,9 @@ struct MemoryMapPrivateAccess {
         , dataRead(memMap.m_impl->dataRead)
         , dataWrite(memMap.m_impl->dataWrite) {}
 
-    util::LayeredMemoryMap<3> &codeRead;
-    util::LayeredMemoryMap<3> &dataRead;
-    util::LayeredMemoryMap<3> &dataWrite;
+    util::LayeredMemoryMap<3, MemoryAttributes> &codeRead;
+    util::LayeredMemoryMap<3, MemoryAttributes> &dataRead;
+    util::LayeredMemoryMap<3, MemoryAttributes> &dataWrite;
 };
 
 } // namespace armajitto

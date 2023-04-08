@@ -12,7 +12,7 @@
 
 namespace util {
 
-template <size_t numLayers>
+template <size_t numLayers, typename TAttrs>
 class LayeredMemoryMap {
 public:
     LayeredMemoryMap(uint32_t pageSize)
@@ -38,7 +38,8 @@ public:
         delete[] m_map;
     }
 
-    void Map(uint8_t layer, uint32_t baseAddress, uint64_t size, uint8_t *ptr, uint64_t mirrorSize = 0x1'0000'0000) {
+    void Map(uint8_t layer, uint32_t baseAddress, uint64_t size, TAttrs attrs, uint8_t *ptr,
+             uint64_t mirrorSize = 0x1'0000'0000) {
         if (size == 0) {
             return;
         }
@@ -53,7 +54,7 @@ public:
         const uint64_t finalAddress = (uint64_t)baseAddress + size;
         for (uint64_t address = baseAddress; address < finalAddress; address += mirrorSize) {
             const uint32_t blockSize = std::min((uint64_t)mirrorSize, finalAddress - address);
-            DoMap(layer, address, blockSize, ptr);
+            DoMap(layer, address, blockSize, attrs, ptr);
         }
     }
 
@@ -153,6 +154,15 @@ public:
         return static_cast<T *>(static_cast<void *>(&static_cast<uint8_t *>(l2Ptr)[offset]));
     }
 
+    TAttrs GetAttributes(uint32_t address) {
+        for (size_t layer = numLayers - 1; layer < numLayers; --layer) {
+            if (m_layers[layer].Contains(address)) {
+                return m_layers[layer].At(address).attrs;
+            }
+        }
+        return {};
+    }
+
 private:
     const uint32_t m_pageSize;
     const uint32_t m_pageMask;
@@ -174,9 +184,9 @@ private:
     using Page = Entry *;  // array of Entry
     Page *m_map = nullptr; // array of Page
 
-    void DoMap(uint8_t layer, uint32_t baseAddress, uint64_t size, uint8_t *ptr) {
+    void DoMap(uint8_t layer, uint32_t baseAddress, uint64_t size, TAttrs attrs, uint8_t *ptr) {
         const uint32_t finalAddress = baseAddress + size - 1;
-        m_layers[layer].Insert(baseAddress, finalAddress, ptr);
+        m_layers[layer].Insert(baseAddress, finalAddress, {ptr, attrs});
 
         uint32_t address = baseAddress;
         while (address <= finalAddress) {
@@ -259,7 +269,7 @@ private:
                         } else if (fillStart <= ub) {
                             fillEnd = std::min(fillEnd, (uint64_t)ub + 1);
                             nextAddress = fillEnd - 1;
-                            ptr = m_layers[prevLayer].At(lb) + (fillStart - lb);
+                            ptr = m_layers[prevLayer].At(lb).ptr + (fillStart - lb);
                             if (fillStart >= lb) {
                                 break;
                             }
@@ -274,7 +284,14 @@ private:
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    using Layer = util::NonOverlappingIntervalTree<uint32_t, uint8_t *>;
+    struct LayerEntry {
+        uint8_t *ptr;
+        TAttrs attrs;
+
+        bool operator==(const LayerEntry &) const = default;
+    };
+
+    using Layer = util::NonOverlappingIntervalTree<uint32_t, LayerEntry>;
     std::array<Layer, numLayers> m_layers;
 
     static uint64_t MakeKey(uint8_t layer, uint32_t baseAddress) {

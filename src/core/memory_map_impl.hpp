@@ -2,7 +2,11 @@
 
 #include "armajitto/core/memory_map.hpp"
 
+#include "util/bitmask_enum.hpp"
 #include "util/layered_memory_map.hpp"
+
+ENABLE_BITMASK_OPERATORS(armajitto::MemoryArea);
+ENABLE_BITMASK_OPERATORS(armajitto::MemoryAttributes);
 
 namespace armajitto {
 
@@ -12,9 +16,9 @@ struct MemoryMap::Impl {
         , dataRead(pageSize)
         , dataWrite(pageSize) {}
 
-    util::LayeredMemoryMap<3> codeRead;
-    util::LayeredMemoryMap<3> dataRead;
-    util::LayeredMemoryMap<3> dataWrite;
+    util::LayeredMemoryMap<3, MemoryAttributes> codeRead;
+    util::LayeredMemoryMap<3, MemoryAttributes> dataRead;
+    util::LayeredMemoryMap<3, MemoryAttributes> dataWrite;
 };
 
 } // namespace armajitto
