@@ -12,6 +12,13 @@
 
 namespace util {
 
+// A memory map consisting of multiple stacked layers of memory maps.
+//
+// Layers with larger indices are overlaid on top of those with lower indices.
+// The class automatically manages and builds an effective page map based on these overlaid layers.
+//
+// This allows simple and efficient memory pointer queries, and easy management of multiple layers of memory maps such
+// as those used in complex systems with caches overlaid on top of the base system memory view.
 template <size_t numLayers, typename TAttrs>
 class LayeredMemoryMap {
 public:
@@ -49,7 +56,7 @@ public:
         assert(layer < numLayers);               // layer index must be in-bounds
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
-        assert(ptr != nullptr);                  // pointer must not be null
+        // ptr may be nullptr, which can be used to assign attributes to MMIO ranges
 
         const uint64_t finalAddress = (uint64_t)baseAddress + size;
         for (uint64_t address = baseAddress; address < finalAddress; address += mirrorSize) {
@@ -66,7 +73,7 @@ public:
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
 
-        const uint64_t finalAddress = (uint64_t)baseAddress + size;
+        const uint64_t finalAddress = (uint64_t)baseAddress + size - 1;
 
         uint32_t address = baseAddress;
         while (address <= finalAddress) {
@@ -154,6 +161,25 @@ public:
         return static_cast<T *>(static_cast<void *>(&static_cast<uint8_t *>(l2Ptr)[offset]));
     }
 
+    bool IsMapped(uint32_t address) {
+        // Get level 1 pointer
+        const uint32_t l1Index = address >> m_l1Shift;
+        auto *l1Ptr = m_map[l1Index];
+        if (l1Ptr == nullptr) {
+            return false;
+        }
+
+        // Get level 2 pointer
+        const uint32_t l2Index = (address >> m_l2Shift) & m_l2Mask;
+        auto *l2Ptr = l1Ptr[l2Index];
+        if (l2Ptr == nullptr) {
+            return false;
+        }
+
+        // Page is mapped
+        return true;
+    }
+
     TAttrs GetAttributes(uint32_t address) {
         for (size_t layer = numLayers - 1; layer < numLayers; --layer) {
             if (m_layers[layer].Contains(address)) {
@@ -207,8 +233,12 @@ private:
                 }
             }
             if (fillStart < fillEnd) {
-                const uint32_t offset = fillStart - baseAddress;
-                SetRange(fillStart, fillEnd - fillStart, ptr + offset);
+                if (ptr != nullptr) {
+                    const uint32_t offset = fillStart - baseAddress;
+                    SetRange(fillStart, fillEnd - fillStart, ptr + offset);
+                } else {
+                    SetRange(fillStart, fillEnd - fillStart, nullptr);
+                }
             }
             address = nextAddress + 1;
         }
