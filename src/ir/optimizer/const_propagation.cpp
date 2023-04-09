@@ -12,8 +12,10 @@
 
 namespace armajitto::ir {
 
-ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc)
+ConstPropagationOptimizerPass::ConstPropagationOptimizerPass(Emitter &emitter, MemoryMapPrivateAccess &memMap,
+                                                             std::pmr::memory_resource &alloc)
     : OptimizerPassBase(emitter)
+    , m_memMap(memMap)
     , m_varSubsts(&alloc) {
 
     const uint32_t varCount = emitter.VariableCount();
@@ -58,11 +60,44 @@ void ConstPropagationOptimizerPass::Process(IRSetSPSROp *op) {
 
 void ConstPropagationOptimizerPass::Process(IRMemReadOp *op) {
     Substitute(op->address);
+
+    // TODO: need to track these modifications to recompile blocks when the memory mapping changes
+    /*if (op->address.immediate) {
+        auto &memMapRef = (op->bus == ir::MemAccessBus::Code) ? m_memMap.codeRead : m_memMap.dataRead;
+        const auto address = op->address.imm.value;
+        if (memMapRef.IsMapped(address)) {
+            const auto bmAttrs = BitmaskEnum(memMapRef.GetAttributes(address));
+            if (bmAttrs.AllOf(MemoryAttributes::Readable | MemoryAttributes::Constant) &&
+                bmAttrs.NoneOf(MemoryAttributes::Volatile)) {
+
+                // TODO: reimplement entire memory reading logic here
+                if (op->size == MemAccessSize::Word) {
+                    auto value = *memMapRef.GetPointer<uint32_t>(address & ~3);
+                    if (op->mode == ir::MemAccessMode::Unaligned) {
+                        value = std::rotr(value, (address & 3) * 8);
+                    }
+                    m_emitter.Overwrite().Constant(op->dst, value);
+                }
+            }
+        }
+    }*/
 }
 
 void ConstPropagationOptimizerPass::Process(IRMemWriteOp *op) {
     Substitute(op->src);
     Substitute(op->address);
+
+    // TODO: need to track these modifications to recompile blocks when the memory mapping changes
+    /*if (op->address.immediate) {
+        auto &memMapRef = m_memMap.dataWrite;
+        const auto address = op->address.imm.value;
+        if (memMapRef.IsMapped(address)) {
+            const auto bmAttrs = BitmaskEnum(memMapRef.GetAttributes(address));
+            if (bmAttrs.NoneOf(MemoryAttributes::Writable | MemoryAttributes::Volatile)) {
+                m_emitter.Erase(op);
+            }
+        }
+    }*/
 }
 
 void ConstPropagationOptimizerPass::Process(IRPreloadOp *op) {

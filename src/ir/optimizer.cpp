@@ -18,7 +18,7 @@ namespace armajitto::ir {
 
 bool Optimizer::Optimize(BasicBlock &block) {
     Emitter emitter{block};
-    ConstPropagationOptimizerPass constPropPass{emitter, m_pmrBuffer};
+    ConstPropagationOptimizerPass constPropPass{emitter, m_memMap, m_pmrBuffer};
     DeadRegisterStoreEliminationOptimizerPass deadRegStoreElimPass{emitter, m_pmrBuffer};
     DeadGPRStoreEliminationOptimizerPass deadGPRStoreElimPass{emitter};
     DeadHostFlagStoreEliminationOptimizerPass deadHostFlagStoreElimPass{emitter};

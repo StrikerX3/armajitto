@@ -2,6 +2,8 @@
 
 #include "optimizer_pass_base.hpp"
 
+#include "core/memory_map_priv_access.hpp"
+
 #include <array>
 #include <memory_resource>
 #include <optional>
@@ -74,9 +76,11 @@ namespace armajitto::ir {
 // variables are substituted in subsequent instructions.
 class ConstPropagationOptimizerPass final : public OptimizerPassBase {
 public:
-    ConstPropagationOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
+    ConstPropagationOptimizerPass(Emitter &emitter, MemoryMapPrivateAccess &memMap, std::pmr::memory_resource &alloc);
 
 private:
+    MemoryMapPrivateAccess &m_memMap;
+
     void Reset() final;
 
     void PreProcess() final;
