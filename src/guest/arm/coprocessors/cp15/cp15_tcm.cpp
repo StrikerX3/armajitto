@@ -93,7 +93,7 @@ void TCM::SetupITCM(bool enable, bool load) {
 
     // Apply changes to memory map
     if (memMap != nullptr) {
-        static constexpr auto kAttrs = MemoryAttributes::RWX | MemoryAttributes::Dynamic;
+        static constexpr auto kAttrs = MemoryAttributes::RWX;
 
         if (itcmReadSize > prevReadSize) {
             // TODO: be more efficient and only map what's added, aligned to itcmSize
@@ -127,7 +127,7 @@ void TCM::SetupDTCM(bool enable, bool load) {
 
     // Apply changes to the memory map
     if (memMap != nullptr) {
-        static constexpr auto kAttrs = MemoryAttributes::RW | MemoryAttributes::Dynamic;
+        static constexpr auto kAttrs = MemoryAttributes::RW;
 
         if (prevBase != dtcmBase) {
             memMap->Unmap(MemoryArea::DataRead, kDTCMLayer, prevBase, prevReadSize);

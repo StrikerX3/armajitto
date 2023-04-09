@@ -25,7 +25,6 @@ enum class MemoryAttributes {
 
     Constant = (1 << 3),
     Volatile = (1 << 4),
-    Dynamic = (1 << 5),
 
     RW = Readable | Writable,
     RX = Readable | Executable,
