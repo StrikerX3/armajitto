@@ -56,12 +56,13 @@ public:
         assert(layer < numLayers);               // layer index must be in-bounds
         assert((baseAddress & m_pageMask) == 0); // baseAddress must be page-aligned
         assert((size & m_pageMask) == 0);        // size must be page-aligned
-        // ptr may be nullptr, which can be used to assign attributes to MMIO ranges
+        assert(std::has_single_bit(mirrorSize)); // mirrorSize must be a power of two
+        // ptr may be null, which can be used to assign attributes to MMIO ranges
 
         const uint64_t finalAddress = (uint64_t)baseAddress + size;
         for (uint64_t address = baseAddress; address < finalAddress; address += mirrorSize) {
             const uint32_t blockSize = std::min((uint64_t)mirrorSize, finalAddress - address);
-            DoMap(layer, address, blockSize, attrs, ptr);
+            DoMap(layer, address, blockSize, mirrorSize - 1, attrs, ptr);
         }
     }
 
@@ -210,9 +211,9 @@ private:
     using Page = Entry *;  // array of Entry
     Page *m_map = nullptr; // array of Page
 
-    void DoMap(uint8_t layer, uint32_t baseAddress, uint64_t size, TAttrs attrs, uint8_t *ptr) {
+    void DoMap(uint8_t layer, uint32_t baseAddress, uint64_t size, uint32_t mask, TAttrs attrs, uint8_t *ptr) {
         const uint32_t finalAddress = baseAddress + size - 1;
-        m_layers[layer].Insert(baseAddress, finalAddress, {ptr, attrs});
+        m_layers[layer].Insert(baseAddress, finalAddress, {ptr, mask, attrs});
 
         uint32_t address = baseAddress;
         while (address <= finalAddress) {
@@ -235,16 +236,16 @@ private:
             if (fillStart < fillEnd) {
                 if (ptr != nullptr) {
                     const uint32_t offset = fillStart - baseAddress;
-                    SetRange(fillStart, fillEnd - fillStart, ptr + offset);
+                    SetRange(fillStart, fillEnd - fillStart, mask, ptr + offset);
                 } else {
-                    SetRange(fillStart, fillEnd - fillStart, nullptr);
+                    SetRange(fillStart, fillEnd - fillStart, mask, nullptr);
                 }
             }
             address = nextAddress + 1;
         }
     }
 
-    void SetRange(uint32_t baseAddress, uint64_t size, uint8_t *ptr) {
+    void SetRange(uint32_t baseAddress, uint64_t size, uint32_t mask, uint8_t *ptr, uint32_t initialOffset = 0) {
         const uint32_t numPages = size >> m_pageShift;
         const uint32_t startPage = baseAddress >> m_pageShift;
         const uint32_t endPage = startPage + numPages;
@@ -257,7 +258,7 @@ private:
             }
             if (ptr != nullptr) {
                 const uint32_t offset = (page - startPage) << m_pageShift;
-                m_map[pageIndex][entryIndex] = ptr + offset;
+                m_map[pageIndex][entryIndex] = ptr + ((initialOffset + offset) & mask);
             } else {
                 m_map[pageIndex][entryIndex] = nullptr;
             }
@@ -290,6 +291,8 @@ private:
             if (fillStart < fillEnd) {
                 // Map ranges from layers below the current layer, or nullptr if empty
                 uint8_t *ptr = nullptr;
+                uint32_t mask = 0;
+                uint32_t offset = 0;
                 for (int32_t prevLayer = layer - 1; prevLayer >= 0; prevLayer--) {
                     if (auto range = m_layers[prevLayer].LowerBound(fillStart)) {
                         auto [lb, ub] = *range;
@@ -299,14 +302,17 @@ private:
                         } else if (fillStart <= ub) {
                             fillEnd = std::min(fillEnd, (uint64_t)ub + 1);
                             nextAddress = fillEnd - 1;
-                            ptr = m_layers[prevLayer].At(lb).ptr + (fillStart - lb);
+                            auto layerEntry = m_layers[prevLayer].At(lb);
+                            ptr = layerEntry.ptr;
+                            mask = layerEntry.mask;
+                            offset = fillStart - lb;
                             if (fillStart >= lb) {
                                 break;
                             }
                         }
                     }
                 }
-                SetRange(fillStart, fillEnd - fillStart, ptr);
+                SetRange(fillStart, fillEnd - fillStart, mask, ptr, offset);
             }
             address = nextAddress + 1;
         }
@@ -316,6 +322,7 @@ private:
 
     struct LayerEntry {
         uint8_t *ptr;
+        uint32_t mask;
         TAttrs attrs;
 
         bool operator==(const LayerEntry &) const = default;
