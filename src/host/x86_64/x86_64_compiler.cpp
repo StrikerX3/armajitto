@@ -385,19 +385,23 @@ void x64Host::Compiler::CompileDirectLink(LocationRef target, uint64_t blockLocK
         return;
     }
 
+    CompiledCode::PatchInfo patchInfo{.cachedBlockKey = blockLocKey, .codePos = m_codegen.getCurr()};
+    patchInfo.codeEnd = m_codegen.getCurr();
+
     auto block = m_compiledCode.blockCache.Get(target.ToUint64());
     if (block != nullptr && *block != nullptr) {
         auto code = *block;
 
         // Jump to the compiled code's address directly
         m_codegen.jmp(code, Xbyak::CodeGenerator::T_NEAR);
-    } else {
-        // Store this code location to be patched later
-        CompiledCode::PatchInfo patchInfo{.cachedBlockKey = blockLocKey, .codePos = m_codegen.getCurr()};
 
+        // Store this code location as "patched"
+        m_compiledCode.appliedPatches.insert({target.ToUint64(), patchInfo});
+    } else {
         // Exit due to cache miss; need to compile new block
         CompileExit();
-        patchInfo.codeEnd = m_codegen.getCurr();
+
+        // Store this code location to be patched later
         m_compiledCode.pendingPatches.insert({target.ToUint64(), patchInfo});
     }
 }

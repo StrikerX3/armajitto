@@ -83,7 +83,7 @@ private:
     HostCode CompileImpl(ir::BasicBlock &block);
 
     void ApplyDirectLinkPatches(LocationRef target, HostCode blockCode);
-    void RevertDirectLinkPatches(uint64_t target);
+    void RevertDirectLinkPatches(uint64_t target, bool eraseBlock);
 };
 
 } // namespace armajitto::x86_64

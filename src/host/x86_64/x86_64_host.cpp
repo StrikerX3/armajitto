@@ -96,7 +96,7 @@ void x64Host::Invalidate(LocationRef loc) {
 
     if (m_compiledCode.enableBlockLinking) {
         // Undo patches
-        RevertDirectLinkPatches(key);
+        RevertDirectLinkPatches(key, true);
     }
 
     // Remove the block from the cache
@@ -128,7 +128,7 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
 
             if (m_compiledCode.enableBlockLinking) {
                 // Undo patches
-                RevertDirectLinkPatches(key);
+                RevertDirectLinkPatches(key, true);
             }
 
             // Remove the block from the cache
@@ -511,7 +511,7 @@ void x64Host::ApplyDirectLinkPatches(LocationRef target, HostCode blockCode) {
     }
 }
 
-void x64Host::RevertDirectLinkPatches(uint64_t key) {
+void x64Host::RevertDirectLinkPatches(uint64_t key, bool eraseBlock) {
     auto itPatch = m_compiledCode.appliedPatches.find(key);
     while (itPatch != m_compiledCode.appliedPatches.end() && itPatch->first == key) {
         auto &patchInfo = itPatch->second;
@@ -528,8 +528,10 @@ void x64Host::RevertDirectLinkPatches(uint64_t key) {
         // Restore code generator position
         m_codegen.setSize(prevSize);
 
-        // Add the patch to the pending patch list
-        m_compiledCode.pendingPatches.insert({itPatch->first, itPatch->second});
+        if (!eraseBlock) {
+            // Add the patch to the pending patch list
+            m_compiledCode.pendingPatches.insert({itPatch->first, itPatch->second});
+        }
 
         // Remove the patch from the applied list
         itPatch = m_compiledCode.appliedPatches.erase(itPatch);
