@@ -1626,13 +1626,18 @@ void x64Host::Compiler::CompileOp(const ir::IRBitClearOp *op) {
             if (op->dst.var.IsPresent()) {
                 auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->rhs.var.var);
                 CopyIfDifferent(dstReg32, rhsReg32);
-                m_codegen.not_(dstReg32);
 
                 if (lhsImm) {
+                    m_codegen.not_(dstReg32);
                     m_codegen.and_(dstReg32, op->lhs.imm.value);
                 } else {
                     auto lhsReg32 = m_regAlloc.Get(op->lhs.var.var);
-                    m_codegen.and_(dstReg32, lhsReg32);
+                    if (CPUID::HasBMI1()) {
+                        m_codegen.andn(dstReg32, dstReg32, lhsReg32);
+                    } else {
+                        m_codegen.not_(dstReg32);
+                        m_codegen.and_(dstReg32, lhsReg32);
+                    }
                 }
             } else if (setFlags) {
                 auto tmpReg32 = m_regAlloc.GetTemporary();

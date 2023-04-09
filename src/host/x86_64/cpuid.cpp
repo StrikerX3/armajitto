@@ -63,9 +63,10 @@ CPUID::CPUID() noexcept {
         }
     }
 
-    // Detect BMI2 instruction set
+    // Detect BMI1 and BMI2 instruction sets
     if (maxLeaf >= 0x0000'0007) {
         cpuid(0x0000'0007, 0, eax, ebx, ecx, edx);
+        hasBMI1 = ebx & (1 << 3);
         hasBMI2 = ebx & (1 << 8);
     }
 

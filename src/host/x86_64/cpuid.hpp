@@ -12,6 +12,9 @@ public:
         return s_instance.vendor;
     }
 
+    [[nodiscard]] static bool HasBMI1() noexcept {
+        return s_instance.hasBMI1;
+    }
     [[nodiscard]] static bool HasBMI2() noexcept {
         return s_instance.hasBMI2;
     }
@@ -38,6 +41,7 @@ private:
     Vendor vendor = Vendor::Unknown;
     uint8_t family = 0;
 
+    bool hasBMI1 = false;
     bool hasBMI2 = false;
     bool hasLZCNT = false;
 };
