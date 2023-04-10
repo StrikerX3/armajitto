@@ -20,14 +20,15 @@ public:
         vram.fill(0);
         rom.fill(0xFF);
 
-        using MemArea = armajitto::MemoryMap::Areas;
+        using MemArea = armajitto::MemoryArea;
+        using MemAttr = armajitto::MemoryAttributes;
 
-        m_memMap.Map(MemArea::AllRead, 0, 0x0000000, 0x4000, bios.data(), bios.size());
-        m_memMap.Map(MemArea::All, 0, 0x2000000, 0x40000, ewram.data(), ewram.size());
-        m_memMap.Map(MemArea::All, 0, 0x3000000, 0x8000, iwram.data(), iwram.size());
-        // m_memMap.Map(MemArea::All, 0, 0x5000000, 0x200, pram.data(), pram.size());
-        m_memMap.Map(MemArea::All, 0, 0x6000000, 0x18000, vram.data(), vram.size());
-        m_memMap.Map(MemArea::AllRead, 0, 0x8000000, 0x2000000, rom.data(), rom.size());
+        m_memMap.Map(MemArea::AllRead, 0, 0x0000000, 0x4000, MemAttr::RXC, bios.data(), bios.size());
+        m_memMap.Map(MemArea::All, 0, 0x2000000, 0x40000, MemAttr::RWX, ewram.data(), ewram.size());
+        m_memMap.Map(MemArea::All, 0, 0x3000000, 0x8000, MemAttr::RWX, iwram.data(), iwram.size());
+        // m_memMap.Map(MemArea::All, 0, 0x5000000, 0x200, MemAttr::RWX, pram.data(), pram.size());
+        m_memMap.Map(MemArea::All, 0, 0x6000000, 0x18000, MemAttr::RWX, vram.data(), vram.size());
+        m_memMap.Map(MemArea::AllRead, 0, 0x8000000, 0x2000000, MemAttr::RXC, rom.data(), rom.size());
     }
 
     uint8_t MemReadByte(uint32_t address) final {
@@ -119,11 +120,12 @@ public:
         sharedWRAM.fill(0);
         vram.fill(0);
 
-        using MemArea = armajitto::MemoryMap::Areas;
+        using MemArea = armajitto::MemoryArea;
+        using MemAttr = armajitto::MemoryAttributes;
 
-        m_memMap.Map(MemArea::All, 0, 0x2000000, 0x1000000, mainRAM.data(), mainRAM.size());
-        m_memMap.Map(MemArea::All, 0, 0x3000000, 0x1000000, sharedWRAM.data(), sharedWRAM.size());
-        m_memMap.Map(MemArea::All, 0, 0x6800000, 0xA4000, vram.data(), vram.size());
+        m_memMap.Map(MemArea::All, 0, 0x2000000, 0x1000000, MemAttr::RWX, mainRAM.data(), mainRAM.size());
+        m_memMap.Map(MemArea::All, 0, 0x3000000, 0x1000000, MemAttr::RWX, sharedWRAM.data(), sharedWRAM.size());
+        m_memMap.Map(MemArea::All, 0, 0x6800000, 0xA4000, MemAttr::RWX, vram.data());
     }
 
     uint8_t MemReadByte(uint32_t address) final {
@@ -730,7 +732,7 @@ void testCompiler() {
     // writeThumb(0x40D4); // lsrs r4, r2
 
     // Bad dead reg optimization
-    writeARM(0xE59F10DC); // ldr r1, [pc, #0xDC]
+    /*writeARM(0xE59F10DC); // ldr r1, [pc, #0xDC]
     writeARM(0xE3A08000); // mov r8, #0x0
     writeARM(0xE5911000); // ldr r1, [r1]
     writeARM(0xE59F30D4); // ldr r3, [pc, #0xD4]
@@ -761,7 +763,23 @@ void testCompiler() {
     writeARM(0xE089E00E); // add lr, r9, lr
     writeARM(0xE1A05FA9); // mov r5, r9, lsr #0x1F
     writeARM(0xE1A0E24E); // mov lr, lr, asr #0x4
-    writeARM(0xE085E00E); // add lr, r5, lr
+    writeARM(0xE085E00E); // add lr, r5, lr*/
+
+    // Poor CPSR optimization
+    writeThumb(0x880B); // ldrh r3, [r1]
+    writeThumb(0x0704); // lsls r4, r0, #0x1C
+    writeThumb(0x0EE4); // lsrs r4, r4, #0x1B
+    writeThumb(0x5B2C); // ldrh r4, [r5, r4]
+    writeThumb(0x0900); // lsrs r0, r0, #0x4
+    writeThumb(0x4060); // eors r0, r4
+    writeThumb(0x1C1C); // adds r4, r3, #0x0
+    writeThumb(0x40D4); // lsrs r4, r2
+    writeThumb(0x0724); // lsls r4, r4, #0x1C
+    writeThumb(0x0EE4); // lsrs r4, r4, #0x1B
+    writeThumb(0x5B2C); // ldrh r4, [r5, r4]
+    writeThumb(0x3204); // adds r2, #0x4
+    writeThumb(0x4060); // eors r0, r4
+    writeThumb(0x2A10); // cmp r2, #0x10
 
     using namespace armajitto;
 
@@ -808,8 +826,8 @@ int main(int argc, char *argv[]) {
     printf("armajitto %s\n\n", armajitto::version::name);
 
     // testGBA();
-    testNDS();
-    // testCompiler();
+    // testNDS();
+    testCompiler();
 
     return EXIT_SUCCESS;
 }
