@@ -2,265 +2,289 @@
 
 namespace armajitto::ir {
 
-VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter)
-    : OptimizerPassBase(emitter) {}
+VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc)
+    : OptimizerPassBase(emitter) {
 
-void VarLifetimeOptimizerPass::PostProcess() {}
+    const uint32_t varCount = emitter.VariableCount();
+    m_varAccesses.resize(varCount);
+}
+
+void VarLifetimeOptimizerPass::Reset() {
+    AccessRecord empty{};
+
+    m_opIndex = 0;
+
+    std::fill(m_varAccesses.begin(), m_varAccesses.end(), empty);
+    m_gprAccesses.fill(empty);
+    m_psrAccesses.fill(empty);
+    m_flagNAccesses = empty;
+    m_flagZAccesses = empty;
+    m_flagCAccesses = empty;
+    m_flagVAccesses = empty;
+}
+
+void VarLifetimeOptimizerPass::PostProcess(IROp *op) {
+    ++m_opIndex;
+}
+
+void VarLifetimeOptimizerPass::PostProcess() {
+    // TODO: implement second phase of the algorithm
+}
 
 void VarLifetimeOptimizerPass::Process(IRGetRegisterOp *op) {
-    RecordRead(op->src);
-    RecordWrite(op->dst);
+    RecordRead(op, op->src);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSetRegisterOp *op) {
-    RecordRead(op->src);
-    RecordWrite(op->dst);
+    RecordRead(op, op->src);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRGetCPSROp *op) {
-    RecordCPSRRead();
-    RecordWrite(op->dst);
+    RecordCPSRRead(op);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSetCPSROp *op) {
-    RecordRead(op->src);
-    RecordCPSRWrite();
+    RecordRead(op, op->src);
+    RecordCPSRWrite(op);
 }
 
 void VarLifetimeOptimizerPass::Process(IRGetSPSROp *op) {
-    RecordSPSRRead(op->mode);
-    RecordWrite(op->dst);
+    RecordSPSRRead(op, op->mode);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSetSPSROp *op) {
-    RecordRead(op->src);
-    RecordSPSRWrite(op->mode);
+    RecordRead(op, op->src);
+    RecordSPSRWrite(op, op->mode);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMemReadOp *op) {
-    RecordRead(op->address);
-    RecordWrite(op->dst);
+    RecordRead(op, op->address);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMemWriteOp *op) {
-    RecordRead(op->address);
-    RecordRead(op->src);
+    RecordRead(op, op->address);
+    RecordRead(op, op->src);
 }
 
 void VarLifetimeOptimizerPass::Process(IRPreloadOp *op) {
-    RecordRead(op->address);
+    RecordRead(op, op->address);
 }
 
 void VarLifetimeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    RecordRead(op->value);
-    RecordRead(op->amount);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordRead(op, op->amount);
+    RecordWrite(op, op->dst);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C);
+        RecordWrite(op, arm::Flags::C);
     }
 }
 
 void VarLifetimeOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    RecordRead(op->value);
-    RecordRead(op->amount);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordRead(op, op->amount);
+    RecordWrite(op, op->dst);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C);
+        RecordWrite(op, arm::Flags::C);
     }
 }
 
 void VarLifetimeOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    RecordRead(op->value);
-    RecordRead(op->amount);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordRead(op, op->amount);
+    RecordWrite(op, op->dst);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C);
+        RecordWrite(op, arm::Flags::C);
     }
 }
 
 void VarLifetimeOptimizerPass::Process(IRRotateRightOp *op) {
-    RecordRead(op->value);
-    RecordRead(op->amount);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordRead(op, op->amount);
+    RecordWrite(op, op->dst);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C);
+        RecordWrite(op, arm::Flags::C);
     }
 }
 
 void VarLifetimeOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    RecordRead(op->value);
-    RecordRead(arm::Flags::C);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordRead(op, arm::Flags::C);
+    RecordWrite(op, op->dst);
     if (op->setCarry) {
-        RecordWrite(arm::Flags::C);
+        RecordWrite(op, arm::Flags::C);
     }
 }
 
 void VarLifetimeOptimizerPass::Process(IRBitwiseAndOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRBitwiseOrOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRBitwiseXorOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRBitClearOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    RecordRead(op->value);
-    RecordWrite(op->dst);
+    RecordRead(op, op->value);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRAddOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRAddCarryOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordRead(arm::Flags::C);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordRead(op, arm::Flags::C);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSubtractOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSubtractCarryOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordRead(arm::Flags::C);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordRead(op, arm::Flags::C);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMoveOp *op) {
-    RecordRead(op->value);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->value);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMoveNegatedOp *op) {
-    RecordRead(op->value);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->value);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSaturatingAddOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMultiplyOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dst);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dst);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRMultiplyLongOp *op) {
-    RecordRead(op->lhs);
-    RecordRead(op->rhs);
-    RecordWrite(op->dstLo);
-    RecordWrite(op->dstHi);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhs);
+    RecordRead(op, op->rhs);
+    RecordWrite(op, op->dstLo);
+    RecordWrite(op, op->dstHi);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRAddLongOp *op) {
-    RecordRead(op->lhsLo);
-    RecordRead(op->lhsHi);
-    RecordRead(op->rhsLo);
-    RecordRead(op->rhsHi);
-    RecordWrite(op->dstLo);
-    RecordWrite(op->dstHi);
-    RecordWrite(op->flags);
+    RecordRead(op, op->lhsLo);
+    RecordRead(op, op->lhsHi);
+    RecordRead(op, op->rhsLo);
+    RecordRead(op, op->rhsHi);
+    RecordWrite(op, op->dstLo);
+    RecordWrite(op, op->dstHi);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRStoreFlagsOp *op) {
-    RecordRead(op->values);
-    RecordWrite(op->flags);
+    RecordRead(op, op->values);
+    RecordWrite(op, op->flags);
 }
 
 void VarLifetimeOptimizerPass::Process(IRLoadFlagsOp *op) {
-    RecordRead(op->srcCPSR);
-    RecordRead(op->flags);
-    RecordWrite(op->dstCPSR);
+    RecordRead(op, op->srcCPSR);
+    RecordRead(op, op->flags);
+    RecordWrite(op, op->dstCPSR);
 }
 
 void VarLifetimeOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    RecordRead(op->srcCPSR);
+    RecordRead(op, op->srcCPSR);
     if (op->setQ) {
-        RecordRead(arm::Flags::V);
+        RecordRead(op, arm::Flags::V);
     }
-    RecordWrite(op->dstCPSR);
+    RecordWrite(op, op->dstCPSR);
 }
 
 void VarLifetimeOptimizerPass::Process(IRBranchOp *op) {
-    RecordRead(op->address);
-    RecordCPSRRead();
-    RecordWrite(arm::GPR::PC);
+    RecordRead(op, op->address);
+    RecordCPSRRead(op);
+    RecordWrite(op, arm::GPR::PC);
 }
 
 void VarLifetimeOptimizerPass::Process(IRBranchExchangeOp *op) {
-    RecordRead(op->address);
-    RecordCPSRRead();
-    RecordWrite(arm::GPR::PC);
-    RecordCPSRWrite();
+    RecordRead(op, op->address);
+    RecordCPSRRead(op);
+    RecordWrite(op, arm::GPR::PC);
+    RecordCPSRWrite(op);
 }
 
 void VarLifetimeOptimizerPass::Process(IRLoadCopRegisterOp *op) {
-    RecordWrite(op->dstValue);
+    RecordWrite(op, op->dstValue);
 }
 
 void VarLifetimeOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    RecordRead(op->srcValue);
+    RecordRead(op, op->srcValue);
 }
 
 void VarLifetimeOptimizerPass::Process(IRConstantOp *op) {
-    RecordWrite(op->dst);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRCopyVarOp *op) {
-    RecordRead(op->var);
-    RecordWrite(op->dst);
+    RecordRead(op, op->var);
+    RecordWrite(op, op->dst);
 }
 
 void VarLifetimeOptimizerPass::Process(IRGetBaseVectorAddressOp *op) {
-    RecordWrite(op->dst);
+    RecordWrite(op, op->dst);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -270,64 +294,122 @@ static inline size_t SPSRIndex(arm::Mode mode) {
     return arm::NormalizedIndex(mode) + 1;
 }
 
-void VarLifetimeOptimizerPass::RecordRead(VarOrImmArg arg) {
-    if (!arg.immediate) {
-        RecordRead(arg.var);
+void VarLifetimeOptimizerPass::ResizeVarAccesses(size_t index) {
+    if (m_varAccesses.size() <= index) {
+        m_varAccesses.resize(index + 1);
     }
 }
 
-void VarLifetimeOptimizerPass::RecordRead(VariableArg arg) {
-    // TODO: implement
-}
-
-void VarLifetimeOptimizerPass::RecordRead(GPRArg arg) {
-    // TODO: implement
-}
-
-void VarLifetimeOptimizerPass::RecordCPSRRead() {
-    RecordPSRRead(0);
-}
-
-void VarLifetimeOptimizerPass::RecordSPSRRead(arm::Mode mode) {
-    RecordPSRRead(SPSRIndex(mode));
-}
-
-void VarLifetimeOptimizerPass::RecordPSRRead(size_t index) {
-    // TODO: implement
-}
-
-void VarLifetimeOptimizerPass::RecordRead(arm::Flags flags) {
-    // TODO: implement
-}
-
-void VarLifetimeOptimizerPass::RecordWrite(VarOrImmArg arg) {
+void VarLifetimeOptimizerPass::RecordRead(IROp *op, VarOrImmArg arg) {
     if (!arg.immediate) {
-        RecordWrite(arg.var);
+        RecordRead(op, arg.var);
     }
 }
 
-void VarLifetimeOptimizerPass::RecordWrite(VariableArg arg) {
-    // TODO: implement
+void VarLifetimeOptimizerPass::RecordRead(IROp *op, VariableArg arg) {
+    if (!arg.var.IsPresent()) {
+        return;
+    }
+
+    const auto varIndex = arg.var.Index();
+    ResizeVarAccesses(varIndex);
+    AddReadDependencyEdge(op, m_varAccesses[varIndex]);
 }
 
-void VarLifetimeOptimizerPass::RecordWrite(GPRArg arg) {
-    // TODO: implement
+void VarLifetimeOptimizerPass::RecordRead(IROp *op, GPRArg arg) {
+    AddReadDependencyEdge(op, m_gprAccesses[arg.Index()]);
 }
 
-void VarLifetimeOptimizerPass::RecordCPSRWrite() {
-    RecordPSRWrite(0);
+void VarLifetimeOptimizerPass::RecordCPSRRead(IROp *op) {
+    RecordPSRRead(op, 0);
 }
 
-void VarLifetimeOptimizerPass::RecordSPSRWrite(arm::Mode mode) {
-    RecordPSRWrite(SPSRIndex(mode));
+void VarLifetimeOptimizerPass::RecordSPSRRead(IROp *op, arm::Mode mode) {
+    RecordPSRRead(op, SPSRIndex(mode));
 }
 
-void VarLifetimeOptimizerPass::RecordPSRWrite(size_t index) {
-    // TODO: implement
+void VarLifetimeOptimizerPass::RecordPSRRead(IROp *op, size_t index) {
+    AddReadDependencyEdge(op, m_psrAccesses[index]);
 }
 
-void VarLifetimeOptimizerPass::RecordWrite(arm::Flags flags) {
-    // TODO: implement
+void VarLifetimeOptimizerPass::RecordRead(IROp *op, arm::Flags flags) {
+    const auto bmFlags = BitmaskEnum(flags);
+    auto update = [&](arm::Flags flag, AccessRecord &accessRecord) {
+        if (bmFlags.AnyOf(flag)) {
+            AddReadDependencyEdge(op, accessRecord);
+        }
+    };
+    update(arm::Flags::N, m_flagNAccesses);
+    update(arm::Flags::Z, m_flagZAccesses);
+    update(arm::Flags::C, m_flagCAccesses);
+    update(arm::Flags::V, m_flagVAccesses);
+}
+
+void VarLifetimeOptimizerPass::RecordWrite(IROp *op, VarOrImmArg arg) {
+    if (!arg.immediate) {
+        RecordWrite(op, arg.var);
+    }
+}
+
+void VarLifetimeOptimizerPass::RecordWrite(IROp *op, VariableArg arg) {
+    if (!arg.var.IsPresent()) {
+        return;
+    }
+
+    const auto varIndex = arg.var.Index();
+    ResizeVarAccesses(varIndex);
+    AddWriteDependencyEdge(op, m_varAccesses[varIndex]);
+}
+
+void VarLifetimeOptimizerPass::RecordWrite(IROp *op, GPRArg arg) {
+    AddWriteDependencyEdge(op, m_gprAccesses[arg.Index()]);
+}
+
+void VarLifetimeOptimizerPass::RecordCPSRWrite(IROp *op) {
+    RecordPSRWrite(op, 0);
+}
+
+void VarLifetimeOptimizerPass::RecordSPSRWrite(IROp *op, arm::Mode mode) {
+    RecordPSRWrite(op, SPSRIndex(mode));
+}
+
+void VarLifetimeOptimizerPass::RecordPSRWrite(IROp *op, size_t index) {
+    AddWriteDependencyEdge(op, m_psrAccesses[index]);
+}
+
+void VarLifetimeOptimizerPass::RecordWrite(IROp *op, arm::Flags flags) {
+    const auto bmFlags = BitmaskEnum(flags);
+    auto update = [&](arm::Flags flag, AccessRecord &accessRecord) {
+        if (bmFlags.AnyOf(flag)) {
+            AddWriteDependencyEdge(op, accessRecord);
+        }
+    };
+    update(arm::Flags::N, m_flagNAccesses);
+    update(arm::Flags::Z, m_flagZAccesses);
+    update(arm::Flags::C, m_flagCAccesses);
+    update(arm::Flags::V, m_flagVAccesses);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Dependency graph
+
+void VarLifetimeOptimizerPass::AddReadDependencyEdge(IROp *op, AccessRecord &record) {
+    if (record.write.op != nullptr) {
+        // TODO: add edge to graph from record.write.index to m_opIndex
+    }
+    record.read.op = op;
+    record.read.index = m_opIndex;
+}
+
+void VarLifetimeOptimizerPass::AddWriteDependencyEdge(IROp *op, AccessRecord &record) {
+    if (record.read.op != nullptr) {
+        // TODO: add edge to graph from record.read.index to m_opIndex
+    }
+    if (record.write.op != nullptr) {
+        // TODO: add edge to graph from record.write.index to m_opIndex
+    }
+    record.write.op = op;
+    record.write.index = m_opIndex;
 }
 
 } // namespace armajitto::ir

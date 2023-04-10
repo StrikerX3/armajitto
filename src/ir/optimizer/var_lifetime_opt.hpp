@@ -2,6 +2,10 @@
 
 #include "optimizer_pass_base.hpp"
 
+#include <array>
+#include <memory_resource>
+#include <vector>
+
 namespace armajitto::ir {
 
 // Optimizes variable lifetimes.
@@ -11,9 +15,13 @@ namespace armajitto::ir {
 // (TODO: demonstrate algorithm with an example)
 class VarLifetimeOptimizerPass final : public OptimizerPassBase {
 public:
-    VarLifetimeOptimizerPass(Emitter &emitter);
+    VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc);
 
 private:
+    void Reset() final;
+
+    void PostProcess(IROp *op) final;
+
     void PostProcess() final;
 
     void Process(IRGetRegisterOp *op) final;
@@ -60,27 +68,49 @@ private:
     // -------------------------------------------------------------------------
     // Read/write tracking
 
-    // TODO:
-    // - Variables
-    // - GPRs
-    // - PSRs
-    // - Host flags
+    struct OpRef {
+        IROp *op = nullptr;
+        size_t index = ~0;
+    };
 
-    void RecordRead(VarOrImmArg arg);
-    void RecordRead(VariableArg arg);
-    void RecordRead(GPRArg arg);
-    void RecordCPSRRead();
-    void RecordSPSRRead(arm::Mode mode);
-    void RecordPSRRead(size_t index);
-    void RecordRead(arm::Flags flags);
+    struct AccessRecord {
+        OpRef read;
+        OpRef write;
+    };
 
-    void RecordWrite(VarOrImmArg arg);
-    void RecordWrite(VariableArg arg);
-    void RecordWrite(GPRArg arg);
-    void RecordCPSRWrite();
-    void RecordSPSRWrite(arm::Mode mode);
-    void RecordPSRWrite(size_t index);
-    void RecordWrite(arm::Flags flags);
+    size_t m_opIndex = 0;
+
+    std::pmr::vector<AccessRecord> m_varAccesses;
+    alignas(16) std::array<AccessRecord, 16 * arm::kNumBankedModes> m_gprAccesses;
+    alignas(16) std::array<AccessRecord, 1 + arm::kNumBankedModes> m_psrAccesses; // 0=CPSR, 1..6=SPSR by mode
+    AccessRecord m_flagNAccesses;
+    AccessRecord m_flagZAccesses;
+    AccessRecord m_flagCAccesses;
+    AccessRecord m_flagVAccesses;
+
+    void ResizeVarAccesses(size_t index);
+
+    void RecordRead(IROp *op, VarOrImmArg arg);
+    void RecordRead(IROp *op, VariableArg arg);
+    void RecordRead(IROp *op, GPRArg arg);
+    void RecordCPSRRead(IROp *op);
+    void RecordSPSRRead(IROp *op, arm::Mode mode);
+    void RecordPSRRead(IROp *op, size_t index);
+    void RecordRead(IROp *op, arm::Flags flags);
+
+    void RecordWrite(IROp *op, VarOrImmArg arg);
+    void RecordWrite(IROp *op, VariableArg arg);
+    void RecordWrite(IROp *op, GPRArg arg);
+    void RecordCPSRWrite(IROp *op);
+    void RecordSPSRWrite(IROp *op, arm::Mode mode);
+    void RecordPSRWrite(IROp *op, size_t index);
+    void RecordWrite(IROp *op, arm::Flags flags);
+
+    // -------------------------------------------------------------------------
+    // Dependency graph
+
+    void AddReadDependencyEdge(IROp *op, AccessRecord &record);
+    void AddWriteDependencyEdge(IROp *op, AccessRecord &record);
 };
 
 } // namespace armajitto::ir

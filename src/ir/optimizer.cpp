@@ -28,7 +28,7 @@ bool Optimizer::Optimize(BasicBlock &block) {
     BitwiseOpsCoalescenceOptimizerPass bitwiseCoalescencePass{emitter, m_pmrBuffer};
     ArithmeticOpsCoalescenceOptimizerPass arithmeticCoalescencePass{emitter, m_pmrBuffer};
     HostFlagsOpsCoalescenceOptimizerPass hostFlagsCoalescencePass{emitter};
-    VarLifetimeOptimizerPass varLifetimeOptimizerPass{emitter};
+    VarLifetimeOptimizerPass varLifetimeOptimizerPass{emitter, m_pmrBuffer};
 
     bool optimized = false;
     int maxIters = m_options.maxIterations;
