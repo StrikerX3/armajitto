@@ -608,7 +608,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
         const uint32_t flips = value->flippedBits & ~value->knownBitsMask;
         const uint32_t rotate = value->rotateOffset;
 
-        // Check if the sequence of instructions contains an ORR (if ones is non-zero), BIC (if zeros is non-zero)
+        // Check if the sequence of instructions contains an ORR (if ones is non-zero), AND (if zeros is non-zero)
         // and/or EOR (if flips is non-zero), and that the first consumed variable is value->source and the last output
         // variable is var.
         match = BitwiseOpsMatchState{*value, var.var, m_values}.Check(value);
@@ -616,7 +616,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
             // Replace the last instruction with:
             // - ROR, LSR or LSL for rotation or shifts
             // - ORR for ones
-            // - BIC for zeros
+            // - AND for zeros (negated)
             // - EOR for flips
             if (value->writerOp != nullptr) {
                 // Writer op points to a non-const instruction
@@ -646,10 +646,10 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
                 }
 
                 if (ones != 0 && zeros != 0 && flips != 0) {
-                    // Emit an optimized sequence with BIC/EOR instead of ORR/BIC/EOR by merging the ones into the other
-                    // two instructions. This works because BIC will clear all one bits to zeros, then EOR will flip
-                    // those to one.
-                    result = m_emitter.BitClear(result, zeros | ones, false);
+                    // Emit an optimized sequence with AND/EOR instead of ORR/AND/EOR by merging the ones into the other
+                    // two instructions. This works because AND will clear all negated one bits to zeros, then EOR will
+                    // flip those to one.
+                    result = m_emitter.BitwiseAnd(result, ~(zeros | ones), false);
                     result = m_emitter.BitwiseXor(result, flips | ones, false);
                 } else {
                     // Emit ORR for all known one bits
@@ -657,9 +657,10 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
                         result = m_emitter.BitwiseOr(result, ones, false);
                     }
 
-                    // Emit BIC for all known zero bits, unless all of those zero bits are covered by LSR or LSL
+                    // Emit AND for all known zero bits (negated), unless all of those zero bits are covered by LSR or
+                    // LSL
                     if (zeros != 0 && !rightShiftExactMatch && !leftShiftExactMatch) {
-                        result = m_emitter.BitClear(result, zeros, false);
+                        result = m_emitter.BitwiseAnd(result, ~zeros, false);
                     }
 
                     if (flips == ~0) {
@@ -712,10 +713,10 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::BitwiseOpsMatchState(V
     , expectedOutput(expectedOutput)
     , values(values) {
 
-    // When we have the trifecta, only look for BIC and EOR
+    // When we have the trifecta, only look for AND and EOR
     trifecta = (ones != 0) && (zeros != 0) && (flips != 0);
 
-    // When LSR is used and the only zero bits are the most significant <rotate> bits, we can omit BIC.
+    // When LSR is used and the only zero bits are the most significant <rotate> bits, we can omit AND.
     // This happens when all zeros are covered by the rotation mask and no other zeros exist.
     const uint32_t rightShiftMask = ~(~0u >> rotate);
     const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
@@ -749,7 +750,7 @@ bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Check(const Value
 
 bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Valid() const {
     if (trifecta) {
-        return valid && hasTrifectaClear && hasTrifectaFlip && inputMatches && outputMatches;
+        return valid && hasTrifectaAnd && hasTrifectaFlip && inputMatches && outputMatches;
     } else {
         return valid && hasOnes && hasZeros && hasFlips && inputMatches && outputMatches;
     }
@@ -767,19 +768,19 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRRota
     CommonShiftCheck(op->value, op->amount, op->dst);
 }
 
+void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseAndOp *op) {
+    if (trifecta) {
+        CommonCheck(hasTrifectaAnd, ~(zeros | ones), op->lhs, op->rhs, op->dst);
+    } else {
+        CommonCheck(hasZeros, ~zeros, op->lhs, op->rhs, op->dst);
+    }
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitwiseOrOp *op) {
     if (trifecta) {
         valid = false;
     } else {
         CommonCheck(hasOnes, ones, op->lhs, op->rhs, op->dst);
-    }
-}
-
-void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::operator()(IRBitClearOp *op) {
-    if (trifecta) {
-        CommonCheck(hasTrifectaClear, zeros | ones, op->lhs, op->rhs, op->dst);
-    } else {
-        CommonCheck(hasZeros, zeros, op->lhs, op->rhs, op->dst);
     }
 }
 
@@ -853,7 +854,7 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CheckInputVar(Var
     // Check only after all instructions have been matched
     bool test;
     if (trifecta) {
-        test = hasTrifectaClear && hasTrifectaFlip;
+        test = hasTrifectaAnd && hasTrifectaFlip;
     } else {
         test = hasOnes && hasZeros && hasFlips;
     }

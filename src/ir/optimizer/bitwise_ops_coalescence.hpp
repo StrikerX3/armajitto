@@ -73,7 +73,7 @@ namespace armajitto::ir {
 // - LSR for the rotation, if it is non-zero and all <rotation offset> most significant bits are known
 // - ROR for the rotation, if it is non-zero but some <rotation offset> most significant bits are unknown
 // - ORR for all known ones, if any
-// - BIC for all known zeros, if any
+// - AND for all known zeros (negated), if any
 // - EOR for all flipped bits, if any
 // - MVN if all bits are flipped (which implies they're all unknown)
 //
@@ -81,10 +81,10 @@ namespace armajitto::ir {
 //
 //    known mask  known values  flipped bits  rotation  output sequence
 //    0xFF00FF00  0xF0..0F..    0x00000000    0         orr <intermediate var>, <base var>, 0xF0000F00
-//                                                      bic <final var>, <intermediate var>,  0x0F00F000
+//                                                      and <final var>, <intermediate var>,  0xF0FF0FFF
 //    0xFF00FF00  0xFF..FF..    0x00000000    0         orr <final var>, <base var>, 0xFF00FF00
-//    0xFF00FF00  0x00..00..    0x00000000    0         bic <final var>, <base var>, 0xFF00FF00
-//    0xFF00FF00  0x00..00..    0x00FF00FF    0         bic <intermediate var>, <base var>, 0xFF00FF00
+//    0xFF00FF00  0x00..00..    0x00000000    0         and <final var>, <base var>, 0x00FF00FF
+//    0xFF00FF00  0x00..00..    0x00FF00FF    0         and <intermediate var>, <base var>, 0x00FF00FF
 //                                                      eor <final var>, <intermediate var>, 0x00FF00FF
 //    0xFF00FF00  0xFF..FF..    0x00000000    4         lsr <intermediate var>, <base var>, 4
 //                                                      orr <final var>, <intermediate var>, 0xFF00FF00
@@ -92,7 +92,7 @@ namespace armajitto::ir {
 //                                                      orr <final var>, <intermediate var>, 0x0000FF00
 //    0x0000FF00  0x....F0..    0x00FF0000    4         ror <intermediate var 1>, <base var>, 4
 //                                                      orr <intermediate var 2> <intermediate var 1>, 0x0000F000
-//                                                      bic <intermediate var 3>, <intermediate var 2>, 0x00000F00
+//                                                      and <intermediate var 3>, <intermediate var 2>, 0xFFFFF0FF
 //                                                      eor <final var>, <intermediate var 3>, 0x00FF0000
 //    0x00000000  0x........    0xFFFFFFFF    0         mvn <final var>, <base var>
 class BitwiseOpsCoalescenceOptimizerPass final : public OptimizerPassBase {
@@ -305,14 +305,14 @@ private:
     void ConsumeValue(VariableArg &var, IROp *op);
     void ConsumeValue(VarOrImmArg &var, IROp *op);
 
-    // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, BIC and EOR instructions
+    // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, AND and EOR instructions
     // matching the ones, zeros and flip bits as well as the rotation offset and input and output variables from the
     // given value.
     struct BitwiseOpsMatchState {
         bool valid = true;
 
         // true when ones, zeros and flips all have bits set.
-        // This allows for an optimized BIC/EOR sequence -- one instruction shorten than the naïve ORR/BIC/EOR.
+        // This allows for an optimized AND/EOR sequence -- one instruction shorten than the naïve ORR/AND/EOR.
         bool trifecta;
 
         // These are checked when trifecta == false
@@ -321,7 +321,7 @@ private:
         bool hasFlips;
 
         // These are checked when trifecta == true
-        bool hasTrifectaClear = false;
+        bool hasTrifectaAnd = false;
         bool hasTrifectaFlip = false;
 
         // These are checked in both cases
@@ -354,8 +354,8 @@ private:
         void operator()(IRLogicalShiftLeftOp *op);
         void operator()(IRLogicalShiftRightOp *op);
         void operator()(IRRotateRightOp *op);
+        void operator()(IRBitwiseAndOp *op);
         void operator()(IRBitwiseOrOp *op);
-        void operator()(IRBitClearOp *op);
         void operator()(IRBitwiseXorOp *op);
         void operator()(IRMoveNegatedOp *op);
 
