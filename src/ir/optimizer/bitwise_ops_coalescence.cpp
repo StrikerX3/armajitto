@@ -627,7 +627,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
 
                 // Emit a ROR, LSR or LSL for rotation
                 const uint32_t rightShiftMask = ~(~0u >> rotate);
-                const uint32_t leftShiftMask = ~(~0u << (32 - rotate));
+                const uint32_t leftShiftMask = (rotate == 0) ? ~0 : ~(~0u << (32 - rotate));
                 const auto [rightShiftBitMatch, rightShiftExactMatch] =
                     ShiftMatch(value->knownBitsMask, value->knownBitsValue, rotate, rightShiftMask);
                 const auto [leftShiftBitMatch, leftShiftExactMatch] =
