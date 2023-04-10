@@ -17,6 +17,7 @@ void VarLifetimeOptimizerPass::Reset() {
     const size_t opCount = m_emitter.IROpCount();
     m_rootNodes.resize((opCount + 63) / 64);
     m_dependencies.resize(opCount);
+    m_maxDistances.resize(opCount);
 
     m_opIndex = 0;
 
@@ -29,6 +30,7 @@ void VarLifetimeOptimizerPass::Reset() {
     m_flagVAccesses = empty;
 
     std::fill(m_rootNodes.begin(), m_rootNodes.end(), ~0ull);
+    std::fill(m_maxDistances.begin(), m_maxDistances.end(), 0);
     for (auto &deps : m_dependencies) {
         deps.clear();
     }
@@ -39,7 +41,79 @@ void VarLifetimeOptimizerPass::PostProcess(IROp *op) {
 }
 
 void VarLifetimeOptimizerPass::PostProcess() {
-    // TODO: implement second phase of the algorithm
+    if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466) {
+        printf("------------------------------------------------------------\n");
+        auto locStr = m_emitter.GetBlock().Location().ToString();
+        printf("block %s:\n", locStr.c_str());
+        IROp *op = m_emitter.GetBlock().Head();
+        size_t opIndex = 0;
+        while (op != nullptr) {
+            auto opStr = op->ToString();
+            printf(" %3zu  %s\n", opIndex, opStr.c_str());
+            op = op->Next();
+            ++opIndex;
+        }
+        printf("\n");
+
+        printf("root nodes:");
+        const size_t opCount = m_maxDistances.size();
+        for (size_t i = 0; i < m_rootNodes.size(); i++) {
+            uint64_t bitmap = m_rootNodes[i];
+            size_t bmindex = std::countr_zero(bitmap);
+            while (bmindex < 64) {
+                const size_t rootIndex = bmindex + i * 64;
+                if (rootIndex >= opCount) {
+                    break;
+                }
+
+                printf(" %zu", rootIndex);
+
+                bitmap &= ~(1ull << bmindex);
+                bmindex = std::countr_zero(bitmap);
+            }
+        }
+        printf("\n");
+
+        printf("dependencies:\n");
+        for (size_t i = 0; i < m_dependencies.size(); i++) {
+            if (!m_dependencies[i].empty()) {
+                printf("%zu:", i);
+                for (auto dep : m_dependencies[i]) {
+                    printf(" %zu", dep);
+                }
+                printf("\n");
+            }
+        }
+        printf("\n");
+    }
+
+    // Compute distances and determine root node order
+    m_rootNodeOrder.clear();
+
+    // Iterate over all root nodes
+    const size_t opCount = m_maxDistances.size();
+    for (size_t i = 0; i < m_rootNodes.size(); i++) {
+        uint64_t bitmap = m_rootNodes[i];
+        size_t bmindex = std::countr_zero(bitmap);
+        while (bmindex < 64) {
+            const size_t rootIndex = bmindex + i * 64;
+            if (rootIndex >= opCount) {
+                break;
+            }
+
+            // Traverse all children nodes, counting distances from root, and update maximum distances:
+            // - root nodes: longest distance traversed
+            // - non-root nodes: maximum distance from root to that node
+            for (auto node : m_dependencies[rootIndex]) {
+                m_maxDistances[rootIndex] = CalcMaxDistance(node);
+            }
+
+            bitmap &= ~(1ull << bmindex);
+            bmindex = std::countr_zero(bitmap);
+        }
+    }
+
+    // TODO: implement instruction reordering
 }
 
 void VarLifetimeOptimizerPass::Process(IRGetRegisterOp *op) {
@@ -424,13 +498,33 @@ void VarLifetimeOptimizerPass::AddWriteDependencyEdge(IROp *op, AccessRecord &re
 }
 
 void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
+    // Don't add self-dependencies
+    if (from == to) {
+        return;
+    }
+
+    // Don't readd the same edge
+    auto &deps = m_dependencies[from];
+    if (!deps.empty() && deps.back() == to) {
+        return;
+    }
+
     // Add edge to graph
-    m_dependencies[from].push_back(to);
+    deps.push_back(to);
 
     // Mark "to" node as non-root
     const size_t vecIndex = to / 64;
     const size_t bitIndex = to % 64;
     m_rootNodes[vecIndex] &= ~(1ull << bitIndex);
+}
+
+size_t VarLifetimeOptimizerPass::CalcMaxDistance(size_t nodeIndex, size_t totalDist) {
+    size_t maxDist = totalDist;
+    for (auto node : m_dependencies[nodeIndex]) {
+        maxDist = std::max(maxDist, CalcMaxDistance(node, totalDist + 1));
+        m_maxDistances[node] = std::max(m_maxDistances[node], totalDist);
+    }
+    return maxDist;
 }
 
 } // namespace armajitto::ir

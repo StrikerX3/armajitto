@@ -109,13 +109,17 @@ private:
     // -------------------------------------------------------------------------
     // Dependency graph
 
-    std::pmr::vector<uint64_t> m_rootNodes;
-    std::pmr::vector<std::pmr::vector<size_t>> m_dependencies;
+    std::pmr::vector<uint64_t> m_rootNodes;                    // bit vector
+    std::pmr::vector<std::pmr::vector<size_t>> m_dependencies; // deps[from] -> {to, to, to}; duplicates are harmless
+    std::pmr::vector<size_t> m_rootNodeOrder;
+    std::pmr::vector<size_t> m_maxDistances; // root: distance to furthest node; non-root: max distance from root
 
     void AddReadDependencyEdge(IROp *op, AccessRecord &record);
     void AddWriteDependencyEdge(IROp *op, AccessRecord &record);
 
     void AddEdge(size_t from, size_t to);
+
+    size_t CalcMaxDistance(size_t nodeIndex, size_t totalDist = 1);
 };
 
 } // namespace armajitto::ir
