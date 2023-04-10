@@ -766,7 +766,7 @@ void testCompiler() {
     writeARM(0xE085E00E); // add lr, r5, lr*/
 
     // Poor CPSR optimization
-    writeThumb(0x880B); // ldrh r3, [r1]
+    /*writeThumb(0x880B); // ldrh r3, [r1]
     writeThumb(0x0704); // lsls r4, r0, #0x1C
     writeThumb(0x0EE4); // lsrs r4, r4, #0x1B
     writeThumb(0x5B2C); // ldrh r4, [r5, r4]
@@ -779,7 +779,24 @@ void testCompiler() {
     writeThumb(0x5B2C); // ldrh r4, [r5, r4]
     writeThumb(0x3204); // adds r2, #0x4
     writeThumb(0x4060); // eors r0, r4
-    writeThumb(0x2A10); // cmp r2, #0x10
+    writeThumb(0x2A10); // cmp r2, #0x10*/
+
+    // Too aggressive CPSR optimization
+    /*writeARM(0xE3E02102); // mov r2, #0x7FFFFFFF  (mvn r2, #0x80000000)
+    writeARM(0xE3E03000); // mov r3, #0xFFFFFFFF  (mvn r3, #0x0)
+    writeARM(0xE0921002); // adds r1, r2, r2   N..V
+    // writeARM(0xE0921003); // adds r1, r2, r3   ..C.
+    writeARM(0xE1020052); // qadd r0, r2, r2   Q
+    // writeARM(0xE1030052); // qadd r0, r2, r3   no change*/
+
+    // Bad bitwise ops coalescence due to circular reference
+    writeThumb(0x25FF); // movs r5, #0xFF
+    writeThumb(0x400D); // ands r5, r1
+    writeThumb(0x022A); // lsls r2, r5, #0x8
+    writeThumb(0x432A); // orrs r2, r5
+    writeThumb(0x0415); // lsls r5, r2, #0x10
+    // writeThumb(0x4315); // orrs r5, r2
+    // writeThumb(0x2C0F); // cmp r4, #0xF
 
     using namespace armajitto;
 
@@ -798,7 +815,8 @@ void testCompiler() {
     armState.SPSR(arm::Mode::Undefined).u32 = sysCPSR;
     armState.JumpTo(baseAddress, thumb);
 
-    jit.GetOptions().optimizer.passes.constantPropagation = false;
+    // jit.GetOptions().optimizer.passes.constantPropagation = false;
+    jit.GetOptions().optimizer.passes.varLifetimeOptimization = false;
 
     /*for (uint32_t reg = 0; reg < 15; reg++) {
         auto gpr = static_cast<arm::GPR>(reg);

@@ -42,16 +42,28 @@ private:
 
     void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
+    void Process(IRGetCPSROp *op) final;
+    void Process(IRSetCPSROp *op) final;
+    void Process(IRGetSPSROp *op) final;
+    void Process(IRSetSPSROp *op) final;
     void Process(IRBranchOp *op) final;
     void Process(IRBranchExchangeOp *op) final;
 
     // -------------------------------------------------------------------------
-    // GPR read and write tracking
+    // GPR and PSR read and write tracking
 
     std::array<IROp *, 16 * arm::kNumBankedModes> m_gprWrites;
+    std::array<IROp *, 1 + arm::kNumBankedModes> m_psrWrites;
 
     void RecordGPRRead(GPRArg gpr);
+    void RecordCPSRRead();
+    void RecordSPSRRead(arm::Mode mode);
+    void RecordPSRRead(size_t index);
+
     void RecordGPRWrite(GPRArg gpr, IROp *op);
+    void RecordCPSRWrite(IROp *op);
+    void RecordSPSRWrite(arm::Mode mode, IROp *op);
+    void RecordPSRWrite(size_t index, IROp *op);
 };
 
 } // namespace armajitto::ir
