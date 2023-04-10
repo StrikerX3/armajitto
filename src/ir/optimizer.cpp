@@ -9,6 +9,7 @@
 #include "optimizer/dead_reg_store_elimination.hpp"
 #include "optimizer/dead_var_store_elimination.hpp"
 #include "optimizer/host_flags_ops_coalescence.hpp"
+#include "optimizer/var_lifetime_opt.hpp"
 
 #include "emitter.hpp"
 
@@ -27,6 +28,7 @@ bool Optimizer::Optimize(BasicBlock &block) {
     BitwiseOpsCoalescenceOptimizerPass bitwiseCoalescencePass{emitter, m_pmrBuffer};
     ArithmeticOpsCoalescenceOptimizerPass arithmeticCoalescencePass{emitter, m_pmrBuffer};
     HostFlagsOpsCoalescenceOptimizerPass hostFlagsCoalescencePass{emitter};
+    VarLifetimeOptimizerPass varLifetimeOptimizerPass{emitter};
 
     bool optimized = false;
     int maxIters = m_options.maxIterations;
@@ -58,6 +60,9 @@ bool Optimizer::Optimize(BasicBlock &block) {
         }
         if (m_options.passes.hostFlagsOpsCoalescence) {
             dirty |= hostFlagsCoalescencePass.Optimize();
+        }
+        if (m_options.passes.varLifetimeOptimization) {
+            dirty |= varLifetimeOptimizerPass.Optimize();
         }
         optimized |= dirty;
         if (!dirty) {

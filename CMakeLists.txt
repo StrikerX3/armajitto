@@ -141,6 +141,8 @@ add_library(armajitto
     src/ir/optimizer/host_flags_ops_coalescence.hpp
     src/ir/optimizer/optimizer_pass_base.cpp
     src/ir/optimizer/optimizer_pass_base.hpp
+    src/ir/optimizer/var_lifetime_opt.cpp
+    src/ir/optimizer/var_lifetime_opt.hpp
     src/ir/optimizer/common/host_flags_tracking.cpp
     src/ir/optimizer/common/host_flags_tracking.hpp
     src/ir/optimizer/common/var_subst.cpp
