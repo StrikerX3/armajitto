@@ -29,6 +29,9 @@ enum class MemoryAttributes {
     RW = Readable | Writable,
     RX = Readable | Executable,
     RWX = Readable | Writable | Executable,
+
+    RXC = Readable | Executable | Constant, // ROM areas
+    RWV = Readable | Writable | Volatile,   // MMIO areas
 };
 
 } // namespace armajitto
