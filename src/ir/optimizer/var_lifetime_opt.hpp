@@ -109,8 +109,12 @@ private:
     // -------------------------------------------------------------------------
     // Dependency graph
 
+    std::pmr::vector<uint64_t> m_rootNodes;
+
     void AddReadDependencyEdge(IROp *op, AccessRecord &record);
     void AddWriteDependencyEdge(IROp *op, AccessRecord &record);
+
+    void AddEdge(size_t from, size_t to);
 };
 
 } // namespace armajitto::ir

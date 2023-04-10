@@ -3,14 +3,16 @@
 namespace armajitto::ir {
 
 VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc)
-    : OptimizerPassBase(emitter) {
-
-    const uint32_t varCount = emitter.VariableCount();
-    m_varAccesses.resize(varCount);
-}
+    : OptimizerPassBase(emitter) {}
 
 void VarLifetimeOptimizerPass::Reset() {
     AccessRecord empty{};
+
+    const uint32_t varCount = m_emitter.VariableCount();
+    m_varAccesses.resize(varCount);
+
+    const size_t opCount = m_emitter.IROpCount();
+    m_rootNodes.resize((opCount + 63) / 64);
 
     m_opIndex = 0;
 
@@ -21,6 +23,8 @@ void VarLifetimeOptimizerPass::Reset() {
     m_flagZAccesses = empty;
     m_flagCAccesses = empty;
     m_flagVAccesses = empty;
+
+    std::fill(m_rootNodes.begin(), m_rootNodes.end(), ~0ull);
 }
 
 void VarLifetimeOptimizerPass::PostProcess(IROp *op) {
@@ -395,7 +399,7 @@ void VarLifetimeOptimizerPass::RecordWrite(IROp *op, arm::Flags flags) {
 
 void VarLifetimeOptimizerPass::AddReadDependencyEdge(IROp *op, AccessRecord &record) {
     if (record.write.op != nullptr) {
-        // TODO: add edge to graph from record.write.index to m_opIndex
+        AddEdge(record.write.index, m_opIndex);
     }
     record.read.op = op;
     record.read.index = m_opIndex;
@@ -403,13 +407,22 @@ void VarLifetimeOptimizerPass::AddReadDependencyEdge(IROp *op, AccessRecord &rec
 
 void VarLifetimeOptimizerPass::AddWriteDependencyEdge(IROp *op, AccessRecord &record) {
     if (record.read.op != nullptr) {
-        // TODO: add edge to graph from record.read.index to m_opIndex
+        AddEdge(record.read.index, m_opIndex);
     }
     if (record.write.op != nullptr) {
-        // TODO: add edge to graph from record.write.index to m_opIndex
+        AddEdge(record.write.index, m_opIndex);
     }
     record.write.op = op;
     record.write.index = m_opIndex;
+}
+
+void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
+    // TODO: add edge to graph
+
+    // Mark "to" node as non-root
+    const size_t vecIndex = to / 64;
+    const size_t bitIndex = to % 64;
+    m_rootNodes[vecIndex] &= ~(1ull << bitIndex);
 }
 
 } // namespace armajitto::ir

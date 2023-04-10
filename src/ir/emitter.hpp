@@ -57,6 +57,20 @@ public:
         return m_block.VariableCount();
     }
 
+    size_t IROpCount() const {
+        // TODO: might have to optimize this...
+        IROp *op = m_block.Head();
+        if (op == nullptr) {
+            return 0;
+        }
+        size_t count = 1;
+        while (op->Next() != nullptr) {
+            op = op->Next();
+            ++count;
+        }
+        return count;
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Translator helper functions
     // TODO: figure out a way to expose these methods only to the translator
