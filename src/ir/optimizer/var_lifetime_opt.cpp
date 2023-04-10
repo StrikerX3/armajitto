@@ -44,7 +44,7 @@ void VarLifetimeOptimizerPass::PostProcess() {
     if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466) {
         printf("------------------------------------------------------------\n");
         auto locStr = m_emitter.GetBlock().Location().ToString();
-        printf("block %s:\n", locStr.c_str());
+        printf("block %s, %u instructions:\n", locStr.c_str(), m_emitter.GetBlock().InstructionCount());
         IROp *op = m_emitter.GetBlock().Head();
         size_t opIndex = 0;
         while (op != nullptr) {
