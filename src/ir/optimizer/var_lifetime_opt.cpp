@@ -425,7 +425,7 @@ void VarLifetimeOptimizerPass::AddWriteDependencyEdge(IROp *op, AccessRecord &re
 
 void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
     // Add edge to graph
-    m_dependencies[from].insert(to);
+    m_dependencies[from].push_back(to);
 
     // Mark "to" node as non-root
     const size_t vecIndex = to / 64;
