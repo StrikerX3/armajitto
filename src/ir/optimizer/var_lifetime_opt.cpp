@@ -3,7 +3,10 @@
 namespace armajitto::ir {
 
 VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::memory_resource &alloc)
-    : OptimizerPassBase(emitter) {}
+    : OptimizerPassBase(emitter)
+    , m_varAccesses(&alloc)
+    , m_rootNodes(&alloc)
+    , m_dependencies(&alloc) {}
 
 void VarLifetimeOptimizerPass::Reset() {
     AccessRecord empty{};
@@ -13,6 +16,7 @@ void VarLifetimeOptimizerPass::Reset() {
 
     const size_t opCount = m_emitter.IROpCount();
     m_rootNodes.resize((opCount + 63) / 64);
+    m_dependencies.resize(opCount);
 
     m_opIndex = 0;
 
@@ -25,6 +29,9 @@ void VarLifetimeOptimizerPass::Reset() {
     m_flagVAccesses = empty;
 
     std::fill(m_rootNodes.begin(), m_rootNodes.end(), ~0ull);
+    for (auto &deps : m_dependencies) {
+        deps.clear();
+    }
 }
 
 void VarLifetimeOptimizerPass::PostProcess(IROp *op) {
@@ -417,7 +424,8 @@ void VarLifetimeOptimizerPass::AddWriteDependencyEdge(IROp *op, AccessRecord &re
 }
 
 void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
-    // TODO: add edge to graph
+    // Add edge to graph
+    m_dependencies[from].insert(to);
 
     // Mark "to" node as non-root
     const size_t vecIndex = to / 64;

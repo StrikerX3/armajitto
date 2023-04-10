@@ -4,6 +4,7 @@
 
 #include <array>
 #include <memory_resource>
+#include <set>
 #include <vector>
 
 namespace armajitto::ir {
@@ -110,6 +111,7 @@ private:
     // Dependency graph
 
     std::pmr::vector<uint64_t> m_rootNodes;
+    std::pmr::vector<std::pmr::set<size_t>> m_dependencies;
 
     void AddReadDependencyEdge(IROp *op, AccessRecord &record);
     void AddWriteDependencyEdge(IROp *op, AccessRecord &record);
