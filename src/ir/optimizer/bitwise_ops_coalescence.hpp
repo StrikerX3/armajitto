@@ -105,6 +105,10 @@ private:
     void PreProcess(IROp *op) final;
     void PostProcess(IROp *op) final;
 
+    // Catch-all method for unused ops, required by the visitor
+    template <typename T>
+    void Process(T *) {}
+
     // void Process(IRGetRegisterOp *op) final;
     void Process(IRSetRegisterOp *op) final;
     // void Process(IRGetCPSROp *op) final;
@@ -161,6 +165,17 @@ private:
         Variable prev;            // Previous variable from which this was derived
 
         bool consumed = false; // Indicates if this value was consumed, to prevent overoptimization
+
+        void Reset() {
+            valid = false;
+            knownBitsMask = 0;
+            knownBitsValue = 0;
+            flippedBits = 0;
+            rotateOffset = 0;
+            writerOp = nullptr;
+            source = {};
+            prev = {};
+        }
 
         uint32_t Ones() const {
             return knownBitsValue & knownBitsMask;
@@ -304,6 +319,8 @@ private:
 
     void ConsumeValue(VariableArg &var, IROp *op);
     void ConsumeValue(VarOrImmArg &var, IROp *op);
+
+    std::pmr::vector<IROp *> m_reanalysisChain;
 
     // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, AND and EOR instructions
     // matching the ones, zeros and flip bits as well as the rotation offset and input and output variables from the

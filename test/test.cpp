@@ -789,14 +789,27 @@ void testCompiler() {
     writeARM(0xE1020052); // qadd r0, r2, r2   Q
     // writeARM(0xE1030052); // qadd r0, r2, r3   no change*/
 
-    // Bad bitwise ops coalescence due to circular reference
-    writeThumb(0x25FF); // movs r5, #0xFF
+    // Bad bitwise ops coalescence due to instruction consuming multiple variables from different instructions
+    /*writeThumb(0x25FF); // movs r5, #0xFF
     writeThumb(0x400D); // ands r5, r1
     writeThumb(0x022A); // lsls r2, r5, #0x8
     writeThumb(0x432A); // orrs r2, r5
     writeThumb(0x0415); // lsls r5, r2, #0x10
     // writeThumb(0x4315); // orrs r5, r2
-    // writeThumb(0x2C0F); // cmp r4, #0xF
+    // writeThumb(0x2C0F); // cmp r4, #0xF*/
+
+    // More advanced scenario for the bad bitwise ops coalescence
+    writeThumb(0x26FF); // movs r6, #0xFF
+    writeThumb(0x0136); // lsls r6, #0x4
+    writeThumb(0x270F); // movs r7, #0xF
+    writeThumb(0x433E); // orrs r7, r6
+    writeThumb(0x25FF); // movs r5, #0xFF
+    writeThumb(0x400D); // ands r5, r1
+    writeThumb(0x4035); // ands r5, r7
+    writeThumb(0x022A); // lsls r2, r5, #0x8
+    writeThumb(0x432A); // orrs r2, r5
+    writeThumb(0x4032); // ands r2, r6
+    writeThumb(0x0415); // lsls r5, r2, #0x10
 
     using namespace armajitto;
 

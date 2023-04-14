@@ -8,6 +8,7 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &
                                                                        std::pmr::memory_resource &alloc)
     : OptimizerPassBase(emitter)
     , m_values(&alloc)
+    , m_reanalysisChain(&alloc)
     , m_varLifetimes(alloc)
     , m_varSubst(emitter.VariableCount(), alloc) {
 
@@ -266,8 +267,8 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
         ConsumeValue(op->rhs, op);
+        ConsumeValue(op->lhs, op);
     }
 }
 
@@ -526,7 +527,7 @@ auto BitwiseOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, VariableAr
     dstValue.valid = false; // Not yet valid
     dstValue.prev = src.var;
     dstValue.writerOp = op;
-    if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
+    if (srcIndex < m_values.size() && m_values[srcIndex].valid && !m_values[srcIndex].consumed) {
         auto &srcValue = m_values[srcIndex];
         dstValue.source = srcValue.source;
         dstValue.knownBitsMask = srcValue.knownBitsMask;
@@ -579,6 +580,32 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op
 
     // Mark this value as consumed
     value->consumed = true;
+
+    // Reanalyze the value in a previous value in the chain was consumed
+    if (value->prev != value->source) {
+        m_reanalysisChain.push_back(value->writerOp);
+        auto var = value->prev;
+        auto *prevValue = value;
+        auto *chainValue = GetValue(value->prev);
+        while (chainValue != nullptr && chainValue->valid) {
+            if (chainValue->consumed) {
+                // Found a consumed value; reanalyze from the next instruction
+                prevValue->Reset();
+                while (!m_reanalysisChain.empty()) {
+                    IROp *op = m_reanalysisChain.back();
+                    m_reanalysisChain.pop_back();
+                    VisitIROp(op, [this](auto op) -> void { Process(op); });
+                }
+                break;
+            } else {
+                m_reanalysisChain.push_back(chainValue->writerOp);
+            }
+            prevValue = chainValue;
+            var = chainValue->prev;
+            chainValue = GetValue(chainValue->prev);
+        }
+    }
+    m_reanalysisChain.clear();
 
     bool match = false;
     if (value->knownBitsMask == ~0) {
