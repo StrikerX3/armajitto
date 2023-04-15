@@ -28,7 +28,7 @@ bool Optimizer::Optimize(BasicBlock &block) {
     BitwiseOpsCoalescenceOptimizerPass bitwiseCoalescencePass{emitter, m_pmrBuffer};
     ArithmeticOpsCoalescenceOptimizerPass arithmeticCoalescencePass{emitter, m_pmrBuffer};
     HostFlagsOpsCoalescenceOptimizerPass hostFlagsCoalescencePass{emitter};
-    VarLifetimeOptimizerPass varLifetimeOptimizerPass{emitter, m_pmrBuffer};
+    // VarLifetimeOptimizerPass varLifetimeOptimizerPass{emitter, m_pmrBuffer};
 
     bool optimized = false;
     int maxIters = m_options.maxIterations;
@@ -61,9 +61,9 @@ bool Optimizer::Optimize(BasicBlock &block) {
         if (m_options.passes.hostFlagsOpsCoalescence) {
             dirty |= hostFlagsCoalescencePass.Optimize();
         }
-        if (m_options.passes.varLifetimeOptimization) {
+        /*if (m_options.passes.varLifetimeOptimization) {
             dirty |= varLifetimeOptimizerPass.Optimize();
-        }
+        }*/
         optimized |= dirty;
         if (!dirty) {
             break;
