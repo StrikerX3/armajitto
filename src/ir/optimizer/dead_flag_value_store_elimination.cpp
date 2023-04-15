@@ -75,7 +75,7 @@ void DeadFlagValueStoreEliminationOptimizerPass::Process(IRRotateRightExtendedOp
 void DeadFlagValueStoreEliminationOptimizerPass::Process(IRBitwiseAndOp *op) {
     if (auto split = SplitImmVarPair(op->lhs, op->rhs)) {
         auto [imm, var] = *split;
-        RecordFlagWrites(op->dst, var, static_cast<arm::Flags>(imm), op);
+        RecordFlagWrites(op->dst, var, static_cast<arm::Flags>(~imm), op);
     } else {
         ConsumeFlags(op->lhs);
         ConsumeFlags(op->rhs);
