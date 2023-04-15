@@ -694,8 +694,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(Variable &var, IROp *op) {
                         result = m_emitter.BitwiseOr(result, ones, false);
                     }
 
-                    // Emit AND for all known zero bits (negated), unless all of those zero bits are covered by LSR or
-                    // LSL
+                    // Emit AND for all known zero bits (negated), unless all of those bits are covered by LSR or LSL
                     if (zeros != 0 && !rightShiftExactMatch && !leftShiftExactMatch) {
                         result = m_emitter.BitwiseAnd(result, ~zeros, false);
                     }
