@@ -6,7 +6,10 @@ VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::m
     : OptimizerPassBase(emitter)
     , m_varAccesses(&alloc)
     , m_rootNodes(&alloc)
-    , m_dependencies(&alloc) {}
+    , m_dependencies(&alloc)
+    , m_rootNodeOrder(&alloc)
+    , m_maxDistToLeaves(&alloc)
+    , m_maxDistFromRoot(&alloc) {}
 
 void VarLifetimeOptimizerPass::Reset() {
     AccessRecord empty{};
@@ -17,7 +20,8 @@ void VarLifetimeOptimizerPass::Reset() {
     const size_t opCount = m_emitter.IROpCount();
     m_rootNodes.resize((opCount + 63) / 64);
     m_dependencies.resize(opCount);
-    m_maxDistances.resize(opCount);
+    m_maxDistToLeaves.resize(opCount);
+    m_maxDistFromRoot.resize(opCount);
 
     m_opIndex = 0;
 
@@ -30,7 +34,8 @@ void VarLifetimeOptimizerPass::Reset() {
     m_flagVAccesses = empty;
 
     std::fill(m_rootNodes.begin(), m_rootNodes.end(), ~0ull);
-    std::fill(m_maxDistances.begin(), m_maxDistances.end(), 0);
+    std::fill(m_maxDistToLeaves.begin(), m_maxDistToLeaves.end(), ~0);
+    std::fill(m_maxDistFromRoot.begin(), m_maxDistFromRoot.end(), 0);
     for (auto &deps : m_dependencies) {
         deps.clear();
     }
@@ -56,7 +61,7 @@ void VarLifetimeOptimizerPass::PostProcess() {
         printf("\n");
 
         printf("root nodes:");
-        const size_t opCount = m_maxDistances.size();
+        const size_t opCount = m_maxDistToLeaves.size();
         for (size_t i = 0; i < m_rootNodes.size(); i++) {
             uint64_t bitmap = m_rootNodes[i];
             size_t bmindex = std::countr_zero(bitmap);
@@ -90,8 +95,13 @@ void VarLifetimeOptimizerPass::PostProcess() {
     // Compute distances and determine root node order
     m_rootNodeOrder.clear();
 
-    // Iterate over all root nodes
-    const size_t opCount = m_maxDistances.size();
+    // Iterate over all nodes in reverse order to compute maximum distances from node to leaves
+    const size_t opCount = m_maxDistToLeaves.size();
+    for (size_t i = 0; i < opCount; i++) {
+        CalcMaxDistanceToLeaves(opCount - i - 1);
+    }
+
+    // Iterate over all root nodes to compute maximum distances from node to root
     for (size_t i = 0; i < m_rootNodes.size(); i++) {
         uint64_t bitmap = m_rootNodes[i];
         size_t bmindex = std::countr_zero(bitmap);
@@ -101,16 +111,26 @@ void VarLifetimeOptimizerPass::PostProcess() {
                 break;
             }
 
-            // Traverse all children nodes, counting distances from root, and update maximum distances:
-            // - root nodes: longest distance traversed
-            // - non-root nodes: maximum distance from root to that node
+            // Traverse all children nodes, computing maximum distances from root
             for (auto node : m_dependencies[rootIndex]) {
-                m_maxDistances[rootIndex] = CalcMaxDistance(node);
+                CalcMaxDistanceFromRoot(node);
             }
 
             bitmap &= ~(1ull << bmindex);
             bmindex = std::countr_zero(bitmap);
         }
+    }
+
+    if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466) {
+        printf("max distances:\n");
+        for (size_t i = 0; i < m_maxDistToLeaves.size(); i++) {
+            printf("  %zu = %zu // %zu", i, m_maxDistToLeaves[i], m_maxDistFromRoot[i]);
+            if (IsRootNode(i)) {
+                printf(" (root)");
+            }
+            printf("\n");
+        }
+        printf("\n");
     }
 
     // TODO: implement instruction reordering
@@ -503,7 +523,7 @@ void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
         return;
     }
 
-    // Don't readd the same edge
+    // Don't repeat the same edge
     auto &deps = m_dependencies[from];
     if (!deps.empty() && deps.back() == to) {
         return;
@@ -513,16 +533,43 @@ void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
     deps.push_back(to);
 
     // Mark "to" node as non-root
-    const size_t vecIndex = to / 64;
-    const size_t bitIndex = to % 64;
+    ClearRootNode(to);
+}
+
+bool VarLifetimeOptimizerPass::IsRootNode(size_t index) const {
+    const size_t vecIndex = index / 64;
+    const size_t bitIndex = index % 64;
+    return m_rootNodes[vecIndex] & (1ull << bitIndex);
+}
+
+void VarLifetimeOptimizerPass::ClearRootNode(size_t index) {
+    const size_t vecIndex = index / 64;
+    const size_t bitIndex = index % 64;
     m_rootNodes[vecIndex] &= ~(1ull << bitIndex);
 }
 
-size_t VarLifetimeOptimizerPass::CalcMaxDistance(size_t nodeIndex, size_t totalDist) {
-    size_t maxDist = totalDist;
-    for (auto node : m_dependencies[nodeIndex]) {
-        maxDist = std::max(maxDist, CalcMaxDistance(node, totalDist + 1));
-        m_maxDistances[node] = std::max(m_maxDistances[node], totalDist);
+size_t VarLifetimeOptimizerPass::CalcMaxDistanceToLeaves(size_t nodeIndex) {
+    if (m_maxDistToLeaves[nodeIndex] != ~0) {
+        return m_maxDistToLeaves[nodeIndex];
+    }
+
+    size_t maxDist = 0;
+    for (auto depIndex : m_dependencies[nodeIndex]) {
+        maxDist = std::max(maxDist, CalcMaxDistanceToLeaves(depIndex) + 1);
+    }
+    m_maxDistToLeaves[nodeIndex] = maxDist;
+    return maxDist;
+}
+
+size_t VarLifetimeOptimizerPass::CalcMaxDistanceFromRoot(size_t nodeIndex, size_t dist) {
+    if (m_maxDistFromRoot[nodeIndex] > dist) {
+        return m_maxDistFromRoot[nodeIndex];
+    }
+    m_maxDistFromRoot[nodeIndex] = dist;
+
+    size_t maxDist = dist;
+    for (auto depIndex : m_dependencies[nodeIndex]) {
+        maxDist = std::max(maxDist, CalcMaxDistanceFromRoot(depIndex, dist + 1));
     }
     return maxDist;
 }
