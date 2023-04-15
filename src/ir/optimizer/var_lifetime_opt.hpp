@@ -111,7 +111,7 @@ private:
 
     std::pmr::vector<uint64_t> m_rootNodes;                    // bit vector
     std::pmr::vector<std::pmr::vector<size_t>> m_dependencies; // deps[from] -> {to, to, to}; duplicates are harmless
-    std::pmr::vector<size_t> m_rootNodeOrder;
+    std::pmr::vector<size_t> m_sortedRootNodes;
     std::pmr::vector<size_t> m_maxDistToLeaves; // distance to furthest node
     std::pmr::vector<size_t> m_maxDistFromRoot; // max distance from root
 

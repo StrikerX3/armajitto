@@ -7,7 +7,7 @@ VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::m
     , m_varAccesses(&alloc)
     , m_rootNodes(&alloc)
     , m_dependencies(&alloc)
-    , m_rootNodeOrder(&alloc)
+    , m_sortedRootNodes(&alloc)
     , m_maxDistToLeaves(&alloc)
     , m_maxDistFromRoot(&alloc) {}
 
@@ -92,9 +92,6 @@ void VarLifetimeOptimizerPass::PostProcess() {
         printf("\n");
     }
 
-    // Compute distances and determine root node order
-    m_rootNodeOrder.clear();
-
     // Iterate over all nodes in reverse order to compute maximum distances from node to leaves
     const size_t opCount = m_maxDistToLeaves.size();
     for (size_t i = 0; i < opCount; i++) {
@@ -102,6 +99,7 @@ void VarLifetimeOptimizerPass::PostProcess() {
     }
 
     // Iterate over all root nodes to compute maximum distances from node to root
+    m_sortedRootNodes.clear();
     for (size_t i = 0; i < m_rootNodes.size(); i++) {
         uint64_t bitmap = m_rootNodes[i];
         size_t bmindex = std::countr_zero(bitmap);
@@ -110,6 +108,7 @@ void VarLifetimeOptimizerPass::PostProcess() {
             if (rootIndex >= opCount) {
                 break;
             }
+            m_sortedRootNodes.push_back(rootIndex);
 
             // Traverse all children nodes, computing maximum distances from root
             for (auto node : m_dependencies[rootIndex]) {
@@ -132,6 +131,34 @@ void VarLifetimeOptimizerPass::PostProcess() {
         }
         printf("\n");
     }
+
+    // Sort root nodes from longest to shortest, then highest to lowest index for stability over multiple executions
+    std::sort(m_sortedRootNodes.begin(), m_sortedRootNodes.end(), [&](uint64_t lhs, uint64_t rhs) {
+        if (m_maxDistToLeaves[lhs] > m_maxDistToLeaves[rhs]) {
+            return true;
+        }
+        if (m_maxDistToLeaves[lhs] < m_maxDistToLeaves[rhs]) {
+            return false;
+        }
+
+        return lhs > rhs;
+    });
+
+    if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466) {
+        printf("sorted root nodes:");
+        for (auto index : m_sortedRootNodes) {
+            printf(" %zu", index);
+        }
+        printf("\n");
+    }
+
+    // TODO: initialize bit vector of written nodes
+    // TODO: iterate over sorted nodes and visit every child node, depth first:
+    // - track distance from root to that node
+    // - if every child of the visited node has been written and the current distance matches the visited node's
+    //   distance:
+    //   - prepend the node to the beginning of the block
+    //   - mark node as written
 
     // TODO: implement instruction reordering
 }
