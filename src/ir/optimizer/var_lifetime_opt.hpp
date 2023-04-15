@@ -72,6 +72,7 @@ private:
         size_t readIndex = ~0;
         size_t writeIndex = ~0;
     };
+    size_t m_memAccessIndex = ~0;
 
     size_t m_opIndex = 0;
 
@@ -101,6 +102,8 @@ private:
     void RecordSPSRWrite(arm::Mode mode);
     void RecordPSRWrite(size_t index);
     void RecordWrite(arm::Flags flags);
+
+    void RecordMemAccess();
 
     // -------------------------------------------------------------------------
     // Dependency graph

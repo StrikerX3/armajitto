@@ -29,6 +29,8 @@ void VarLifetimeOptimizerPass::Reset() {
     m_maxDistFromRoot.resize(opCount);
     m_writtenNodes.resize((opCount + 63) / 64);
 
+    m_memAccessIndex = ~0;
+
     m_opIndex = 0;
 
     {
@@ -164,15 +166,18 @@ void VarLifetimeOptimizerPass::Process(IRSetSPSROp *op) {
 void VarLifetimeOptimizerPass::Process(IRMemReadOp *op) {
     RecordRead(op->address);
     RecordWrite(op->dst);
+    RecordMemAccess();
 }
 
 void VarLifetimeOptimizerPass::Process(IRMemWriteOp *op) {
     RecordRead(op->address);
     RecordRead(op->src);
+    RecordMemAccess();
 }
 
 void VarLifetimeOptimizerPass::Process(IRPreloadOp *op) {
     RecordRead(op->address);
+    RecordMemAccess();
 }
 
 void VarLifetimeOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
@@ -488,6 +493,13 @@ void VarLifetimeOptimizerPass::RecordWrite(arm::Flags flags) {
     update(arm::Flags::Z, m_flagZAccesses);
     update(arm::Flags::C, m_flagCAccesses);
     update(arm::Flags::V, m_flagVAccesses);
+}
+
+void VarLifetimeOptimizerPass::RecordMemAccess() {
+    if (m_memAccessIndex != ~0) {
+        AddEdge(m_memAccessIndex, m_opIndex);
+    }
+    m_memAccessIndex = m_opIndex;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
