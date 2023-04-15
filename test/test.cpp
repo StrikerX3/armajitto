@@ -823,7 +823,7 @@ void testCompiler() {
     writeARM(0xE2121102); // ands r1, r2, #0x80000000*/
 
     // Bad arithmetic ops coalescence
-    writeARM(0xE92D4000); // stmdb sp!, {lr}
+    /*writeARM(0xE92D4000); // stmdb sp!, {lr}
     writeARM(0xE24DD004); // sub sp, sp, #0x4
     writeARM(0xE3A0E301); // mov lr, #0x4000000
     writeARM(0xE59EC000); // ldr r12, [lr]
@@ -838,7 +838,26 @@ void testCompiler() {
     writeARM(0xE58E0000); // str r0, [lr]
     writeARM(0xE28DD004); // add sp, sp, #0x4
     writeARM(0xE8BD4000); // ldmia sp!, {lr}
-    writeARM(0xE12FFF1E); // bx lr
+    writeARM(0xE12FFF1E); // bx lr*/
+
+    // Bad bitwise ops coalescence due to multiple rotations in a chain
+    // writeThumb(0x0108); // lsls r0, r1, #0x4
+    // writeThumb(0x4308); // orrs r0, r1
+    writeThumb(0x0600); // lsls r0, r0, #0x18
+    writeThumb(0x0E01); // lsrs r1, r0, #0x18
+    writeThumb(0x060B); // lsls r3, r1, #0x18
+    writeThumb(0x0408); // lsls r0, r1, #0x10
+    // writeThumb(0x4318); // orrs r0, r3
+    writeThumb(0x020D); // lsls r5, r1, #0x8
+    // writeThumb(0x4328); // orrs r0, r5
+    // writeThumb(0x4308); // orrs r0, r1
+    writeThumb(0x68E1); // ldr r1, [r4, #0xC]
+    // writeThumb(0x7A23); // ldrb r3, [r4, #0x8]
+    // writeThumb(0x79E4); // ldrb r4, [r4, #0x7]
+    // writeThumb(0x4362); // muls r2, r4
+    // writeThumb(0x435A); // muls r2, r3
+    // writeThumb(0xF0A9); // (blx prefix)
+    // writeThumb(0xEEF0); // blx #0x20C4BBA
 
     using namespace armajitto;
 

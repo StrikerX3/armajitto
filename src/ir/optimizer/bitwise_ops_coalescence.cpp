@@ -845,13 +845,14 @@ void BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::CommonShiftCheck(
         return;
     }
 
-    if (!hasRotate) {
+    if (!hasRotate && !foundRotate) {
         // Found the instruction; check if the parameters match
         if (!value.immediate && amount.immediate) {
             hasRotate = (amount.imm.value == rotate);
             CheckInputVar(value.var.var);
             CheckOutputVar(dst.var);
         }
+        foundRotate = true;
     } else {
         // Found more than once
         valid = false;

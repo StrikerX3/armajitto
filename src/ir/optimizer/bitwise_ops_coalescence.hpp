@@ -347,7 +347,8 @@ private:
         bool hasTrifectaFlip = false;
 
         // These are checked in both cases
-        bool hasRotate;
+        bool hasRotate;           // has one rotate instruction matching the expected rotation amount
+        bool foundRotate = false; // found a rotate instruction once in the sequence; used to detect duplicates
         bool inputMatches = false;
         bool outputMatches = false;
 
