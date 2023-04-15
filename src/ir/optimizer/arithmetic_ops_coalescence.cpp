@@ -1,11 +1,15 @@
 #include "arithmetic_ops_coalescence.hpp"
 
+#include "ir/ops/ir_ops_visitor.hpp"
+
 namespace armajitto::ir {
 
 ArithmeticOpsCoalescenceOptimizerPass::ArithmeticOpsCoalescenceOptimizerPass(Emitter &emitter,
                                                                              std::pmr::memory_resource &alloc)
     : OptimizerPassBase(emitter)
     , m_values(&alloc)
+    , m_sortedVars(&alloc)
+    , m_reanalysisChain(&alloc)
     , m_varLifetimes(alloc)
     , m_varSubst(emitter.VariableCount(), alloc) {
 
@@ -33,62 +37,55 @@ void ArithmeticOpsCoalescenceOptimizerPass::PostProcess(IROp *op) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetRegisterOp *op) {
-    ConsumeValue(op->src, op);
+    ConsumeValue(op, op->src);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetCPSROp *op) {
-    ConsumeValue(op->src, op);
+    ConsumeValue(op, op->src);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSetSPSROp *op) {
-    ConsumeValue(op->src, op);
+    ConsumeValue(op, op->src);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMemReadOp *op) {
-    ConsumeValue(op->address, op);
+    ConsumeValue(op, op->address);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMemWriteOp *op) {
-    ConsumeValue(op->src, op);
-    ConsumeValue(op->address, op);
+    ConsumeValues(op, op->src, op->address);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRPreloadOp *op) {
-    ConsumeValue(op->address, op);
+    ConsumeValue(op, op->address);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLogicalShiftLeftOp *op) {
-    ConsumeValue(op->value, op);
-    ConsumeValue(op->amount, op);
+    ConsumeValues(op, op->value, op->amount);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLogicalShiftRightOp *op) {
-    ConsumeValue(op->value, op);
-    ConsumeValue(op->amount, op);
+    ConsumeValues(op, op->value, op->amount);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRArithmeticShiftRightOp *op) {
-    ConsumeValue(op->value, op);
-    ConsumeValue(op->amount, op);
+    ConsumeValues(op, op->value, op->amount);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRRotateRightOp *op) {
-    ConsumeValue(op->value, op);
-    ConsumeValue(op->amount, op);
+    ConsumeValues(op, op->value, op->amount);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRRotateRightExtendedOp *op) {
-    ConsumeValue(op->value, op);
+    ConsumeValue(op, op->value);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseAndOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseOrOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
@@ -127,18 +124,16 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
-        ConsumeValue(op->rhs, op);
+        ConsumeValues(op, op->lhs, op->rhs);
     }
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitClearOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRCountLeadingZerosOp *op) {
-    ConsumeValue(op->value, op);
+    ConsumeValue(op, op->value);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
@@ -172,8 +167,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
-        ConsumeValue(op->rhs, op);
+        ConsumeValues(op, op->lhs, op->rhs);
     }
 }
 
@@ -219,8 +213,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
-        ConsumeValue(op->rhs, op);
+        ConsumeValues(op, op->lhs, op->rhs);
     }
 }
 
@@ -261,8 +254,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
-        ConsumeValue(op->rhs, op);
+        ConsumeValues(op, op->lhs, op->rhs);
     }
 }
 
@@ -319,8 +311,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->lhs, op);
-        ConsumeValue(op->rhs, op);
+        ConsumeValues(op, op->lhs, op->rhs);
     }
 }
 
@@ -342,7 +333,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value, op);
+        ConsumeValue(op, op->value);
     }
 }
 
@@ -374,59 +365,52 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     }();
 
     if (!optimized) {
-        ConsumeValue(op->value, op);
+        ConsumeValue(op, op->value);
     }
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSaturatingSubtractOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMultiplyOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMultiplyLongOp *op) {
-    ConsumeValue(op->lhs, op);
-    ConsumeValue(op->rhs, op);
+    ConsumeValues(op, op->lhs, op->rhs);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddLongOp *op) {
-    ConsumeValue(op->lhsLo, op);
-    ConsumeValue(op->lhsHi, op);
-    ConsumeValue(op->rhsLo, op);
-    ConsumeValue(op->rhsHi, op);
+    ConsumeValues(op, op->lhsLo, op->lhsHi, op->rhsLo, op->rhsHi);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRStoreFlagsOp *op) {
-    ConsumeValue(op->values, op);
+    ConsumeValue(op, op->values);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLoadFlagsOp *op) {
-    ConsumeValue(op->srcCPSR, op);
+    ConsumeValue(op, op->srcCPSR);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRLoadStickyOverflowOp *op) {
-    ConsumeValue(op->srcCPSR, op);
+    ConsumeValue(op, op->srcCPSR);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBranchOp *op) {
-    ConsumeValue(op->address, op);
+    ConsumeValue(op, op->address);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBranchExchangeOp *op) {
-    ConsumeValue(op->address, op);
+    ConsumeValue(op, op->address);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRStoreCopRegisterOp *op) {
-    ConsumeValue(op->srcValue, op);
+    ConsumeValue(op, op->srcValue);
 }
 
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRCopyVarOp *op) {
@@ -479,7 +463,7 @@ auto ArithmeticOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, Variabl
     dstValue.valid = false; // Not yet valid
     dstValue.prev = src.var;
     dstValue.writerOp = op;
-    if (srcIndex < m_values.size() && m_values[srcIndex].valid) {
+    if (srcIndex < m_values.size() && m_values[srcIndex].valid && !m_values[srcIndex].consumed) {
         auto &srcValue = m_values[srcIndex];
         dstValue.source = srcValue.source;
         dstValue.runningSum = srcValue.runningSum;
@@ -491,12 +475,8 @@ auto ArithmeticOpsCoalescenceOptimizerPass::DeriveValue(VariableArg var, Variabl
     return &dstValue;
 }
 
-auto ArithmeticOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value * {
-    if (!var.var.IsPresent()) {
-        return nullptr;
-    }
-
-    const auto varIndex = var.var.Index();
+auto ArithmeticOpsCoalescenceOptimizerPass::GetValue(Variable var) -> Value * {
+    const auto varIndex = var.Index();
     if (varIndex >= m_values.size()) {
         return nullptr;
     }
@@ -508,11 +488,45 @@ auto ArithmeticOpsCoalescenceOptimizerPass::GetValue(VariableArg var) -> Value *
     return nullptr;
 }
 
-void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp *op) {
+template <typename... Args>
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValues(IROp *op, Args &...args) {
+    m_sortedVars.clear();
+    (
+        [&] {
+            using T = std::decay_t<decltype(args)>;
+            if constexpr (std::is_same_v<VariableArg, T>) {
+                if (args.var.IsPresent()) {
+                    m_sortedVars.push_back(&args.var);
+                }
+            } else if constexpr (std::is_same_v<VarOrImmArg, T>) {
+                if (!args.immediate && args.var.var.IsPresent()) {
+                    m_sortedVars.push_back(&args.var.var);
+                }
+            }
+        }(),
+        ...);
+    std::sort(m_sortedVars.begin(), m_sortedVars.end(),
+              [](const Variable *lhs, const Variable *rhs) { return lhs->Index() < rhs->Index(); });
+    for (auto *var : m_sortedVars) {
+        ConsumeValue(op, *var);
+    }
+}
+
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, VariableArg &var) {
     if (!var.var.IsPresent()) {
         return;
     }
 
+    ConsumeValue(op, var.var);
+}
+
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, VarOrImmArg &var) {
+    if (!var.immediate) {
+        ConsumeValue(op, var.var);
+    }
+}
+
+void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var) {
     Value *value = GetValue(var);
     if (value == nullptr) {
         return;
@@ -521,11 +535,35 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
         return;
     }
 
-    // Don't optimize now if the variable is not expired at this point
-    if (!m_varLifetimes.IsEndOfLife(var.var, op)) {
-        value->valid = false;
-        return;
+    // Mark this value as consumed
+    value->consumed = true;
+
+    // Reanalyze the value in a previous value in the chain was consumed
+    if (value->prev != value->source) {
+        m_reanalysisChain.push_back(value->writerOp);
+        auto var = value->prev;
+        auto *prevValue = value;
+        auto *chainValue = GetValue(value->prev);
+        while (chainValue != nullptr && chainValue->valid) {
+            if (chainValue->consumed) {
+                // Found a consumed value; reanalyze from the next instruction
+                prevValue->Reset();
+                while (!m_reanalysisChain.empty()) {
+                    IROp *op = m_reanalysisChain.back();
+                    m_reanalysisChain.pop_back();
+                    m_varSubst.Substitute(op);
+                    VisitIROp(op, [this](auto op) -> void { Process(op); });
+                }
+                break;
+            } else {
+                m_reanalysisChain.push_back(chainValue->writerOp);
+            }
+            prevValue = chainValue;
+            var = chainValue->prev;
+            chainValue = GetValue(chainValue->prev);
+        }
     }
+    m_reanalysisChain.clear();
 
     bool match = false;
     if (value->runningSum != 0 || value->negated) {
@@ -575,7 +613,7 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
             // Replace the last instruction with one of the arithmetic instructions
             if (value->writerOp != nullptr) {
                 auto _ = m_emitter.GoTo(value->writerOp);
-                OverwriteCoalescedOp(var.var, *value);
+                OverwriteCoalescedOp(var, *value);
             }
         }
     } else {
@@ -586,22 +624,15 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VariableArg &var, IROp 
         m_emitter.Erase(value->writerOp);
     }
 
+    // Erase previous instructions if changed
     if (!match) {
-        // Erase previous instructions if changed
+        auto var = value->prev;
         value = GetValue(value->prev);
-        while (value != nullptr && !value->derived) {
+        while (value != nullptr && value->valid && !value->consumed && m_varLifetimes.IsExpired(var)) {
             m_emitter.Erase(value->writerOp);
+            var = value->prev;
             value = GetValue(value->prev);
         }
-    } else {
-        // Isolate this instruction sequence as the value was consumed
-        value->valid = false;
-    }
-}
-
-void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(VarOrImmArg &var, IROp *op) {
-    if (!var.immediate) {
-        ConsumeValue(var.var, op);
     }
 }
 
