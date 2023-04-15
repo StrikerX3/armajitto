@@ -772,7 +772,7 @@ bool BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsMatchState::Check(const Value
             break;
         }
         value = &values[varIndex];
-        if (!value->valid) {
+        if (!value->valid || value->consumed) {
             break;
         }
     }
