@@ -799,7 +799,7 @@ void testCompiler() {
     // writeThumb(0x2C0F); // cmp r4, #0xF*/
 
     // More advanced scenario for the bad bitwise ops coalescence
-    writeThumb(0x26FF); // movs r6, #0xFF
+    /*writeThumb(0x26FF); // movs r6, #0xFF
     writeThumb(0x0136); // lsls r6, #0x4
     writeThumb(0x270F); // movs r7, #0xF
     writeThumb(0x433E); // orrs r7, r6
@@ -809,7 +809,18 @@ void testCompiler() {
     writeThumb(0x022A); // lsls r2, r5, #0x8
     writeThumb(0x432A); // orrs r2, r5
     writeThumb(0x4032); // ands r2, r6
-    writeThumb(0x0415); // lsls r5, r2, #0x10
+    writeThumb(0x0415); // lsls r5, r2, #0x10*/
+
+    // Another case of bad bitwise ops coalescence
+    writeARM(0xE59D0008); // ldr r0, [sp, #8]
+    writeARM(0xE5902000); // ldr r2, [r0]
+    writeARM(0xE2020CFF); // and r0, r2, #0xff00
+    writeARM(0xE1A00420); // lsr r0, r0, #8
+    writeARM(0xE1A01220); // lsr r1, r0, #4
+    writeARM(0xE58D0014); // str r0, [sp, #0x14]
+    writeARM(0xE200300F); // and r3, r0, #0xf
+    writeARM(0xE201000F); // and r0, r1, #0xf
+    writeARM(0xE2121102); // ands r1, r2, #0x80000000
 
     using namespace armajitto;
 

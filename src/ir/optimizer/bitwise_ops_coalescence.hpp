@@ -315,10 +315,16 @@ private:
     void CopyValue(VariableArg var, VariableArg src, IROp *op);
     Value *DeriveValue(VariableArg var, VariableArg src, IROp *op);
 
-    Value *GetValue(VariableArg var);
+    Value *GetValue(Variable var);
+
+    template <typename... Args>
+    void ConsumeValues(IROp *op, Args &...args);
 
     void ConsumeValue(VariableArg &var, IROp *op);
     void ConsumeValue(VarOrImmArg &var, IROp *op);
+    void ConsumeValue(Variable &var, IROp *op);
+
+    std::pmr::vector<Variable *> m_sortedVars;
 
     std::pmr::vector<IROp *> m_reanalysisChain;
 
