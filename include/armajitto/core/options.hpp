@@ -51,7 +51,7 @@ struct Options {
             bool arithmeticOpsCoalescence = true;
             bool hostFlagsOpsCoalescence = true;
 
-            bool varLifetimeOptimization = true;
+            // bool varLifetimeOptimization = true;
 
             void SetAll(bool enabled) {
                 constantPropagation = enabled;
@@ -66,7 +66,7 @@ struct Options {
                 arithmeticOpsCoalescence = enabled;
                 hostFlagsOpsCoalescence = enabled;
 
-                varLifetimeOptimization = enabled;
+                // varLifetimeOptimization = enabled;
             }
         } passes;
 
