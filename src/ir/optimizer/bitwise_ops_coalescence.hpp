@@ -309,6 +309,9 @@ private:
     // Value per variable
     std::pmr::vector<Value> m_values;
 
+    std::pmr::vector<Variable *> m_sortedVars;
+    std::pmr::vector<IROp *> m_reanalysisChain;
+
     void ResizeValues(size_t index);
 
     void AssignConstant(VariableArg var, uint32_t value);
@@ -320,13 +323,9 @@ private:
     template <typename... Args>
     void ConsumeValues(IROp *op, Args &...args);
 
-    void ConsumeValue(VariableArg &var, IROp *op);
-    void ConsumeValue(VarOrImmArg &var, IROp *op);
-    void ConsumeValue(Variable &var, IROp *op);
-
-    std::pmr::vector<Variable *> m_sortedVars;
-
-    std::pmr::vector<IROp *> m_reanalysisChain;
+    void ConsumeValue(IROp *op, VariableArg &arg);
+    void ConsumeValue(IROp *op, VarOrImmArg &arg);
+    void ConsumeValue(IROp *op, Variable &var);
 
     // Helper struct to evaluate a sequence of values to check if they contain ROR, LSR, ORR, AND and EOR instructions
     // matching the ones, zeros and flip bits as well as the rotation offset and input and output variables from the
