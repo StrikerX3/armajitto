@@ -109,9 +109,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRBitwiseXorOp *op) {
             if (imm == ~0) {
                 value->FlipAllBits();
 
-                // Coalesce previous operation into this if possible
-                Coalesce(*value, op->dst.var, var, op);
-
                 return true;
             }
 
@@ -156,9 +153,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddOp *op) {
             // ADD adds to the running sum
             value->Add(imm);
 
-            // Coalesce previous operation into this if possible
-            Coalesce(*value, op->dst.var, var, op);
-
             return true;
         }
 
@@ -202,9 +196,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRAddCarryOp *op) {
             // ADC adds to the running sum
             value->Add(imm);
 
-            // Coalesce previous operation into this if possible
-            Coalesce(*value, op->dst.var, var, op);
-
             return true;
         }
 
@@ -242,9 +233,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractOp *op) {
                 // When the immediate is on the right-hand side, SUB subtracts from the running sum
                 value->Subtract(imm);
             }
-
-            // Coalesce previous operation into this if possible
-            Coalesce(*value, op->dst.var, var, op);
 
             return true;
         }
@@ -300,9 +288,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSubtractCarryOp *op) {
                 value->Subtract(imm);
             }
 
-            // Coalesce previous operation into this if possible
-            Coalesce(*value, op->dst.var, var, op);
-
             return true;
         }
 
@@ -357,9 +342,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
 
         // MVN inverts all bits
         value->FlipAllBits();
-
-        // Coalesce previous operation into this if possible
-        Coalesce(*value, op->dst.var, op->value.var.var, op);
 
         return true;
     }();
@@ -632,18 +614,6 @@ void ArithmeticOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var
             m_emitter.Erase(value->writerOp);
             var = value->prev;
             value = GetValue(value->prev);
-        }
-    }
-}
-
-void ArithmeticOpsCoalescenceOptimizerPass::Coalesce(Value &value, Variable dst, Variable src, IROp *op) {
-    if (value.valid && value.source != value.prev) {
-        auto *prevValue = GetValue(value.prev);
-        if (prevValue != nullptr && !prevValue->used && m_varLifetimes.IsEndOfLife(src, op)) {
-            m_emitter.Erase(prevValue->writerOp);
-            OverwriteCoalescedOp(dst, value);
-        } else {
-            prevValue->used = true;
         }
     }
 }

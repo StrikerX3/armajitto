@@ -170,7 +170,6 @@ private:
     void ConsumeValue(IROp *op, VarOrImmArg &var);
     void ConsumeValue(IROp *op, Variable &var);
 
-    void Coalesce(Value &value, Variable dst, Variable src, IROp *op);
     void OverwriteCoalescedOp(Variable var, Value &value);
 
     // -------------------------------------------------------------------------

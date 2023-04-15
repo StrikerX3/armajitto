@@ -812,7 +812,7 @@ void testCompiler() {
     writeThumb(0x0415); // lsls r5, r2, #0x10*/
 
     // Another case of bad bitwise ops coalescence
-    writeARM(0xE59D0008); // ldr r0, [sp, #8]
+    /*writeARM(0xE59D0008); // ldr r0, [sp, #8]
     writeARM(0xE5902000); // ldr r2, [r0]
     writeARM(0xE2020CFF); // and r0, r2, #0xff00
     writeARM(0xE1A00420); // lsr r0, r0, #8
@@ -820,7 +820,25 @@ void testCompiler() {
     writeARM(0xE58D0014); // str r0, [sp, #0x14]
     writeARM(0xE200300F); // and r3, r0, #0xf
     writeARM(0xE201000F); // and r0, r1, #0xf
-    writeARM(0xE2121102); // ands r1, r2, #0x80000000
+    writeARM(0xE2121102); // ands r1, r2, #0x80000000*/
+
+    // Bad arithmetic ops coalescence
+    writeARM(0xE92D4000); // stmdb sp!, {lr}
+    writeARM(0xE24DD004); // sub sp, sp, #0x4
+    writeARM(0xE3A0E301); // mov lr, #0x4000000
+    writeARM(0xE59EC000); // ldr r12, [lr]
+    writeARM(0xE59F1028); // ldr r1, [pc, #0x28]
+    writeARM(0xE20C2803); // and r2, r12, #0x30000
+    writeARM(0xE3A03000); // mov r3, #0x0
+    writeARM(0xE59F0020); // ldr r0, [pc, #0x20]
+    writeARM(0xE1A02822); // mov r2, r2, lsr #0x10
+    writeARM(0xE1C130B0); // strh r3, [r1]
+    writeARM(0xE1C020B0); // strh r2, [r0]
+    writeARM(0xE3CC0803); // bic r0, r12, #0x30000
+    writeARM(0xE58E0000); // str r0, [lr]
+    writeARM(0xE28DD004); // add sp, sp, #0x4
+    writeARM(0xE8BD4000); // ldmia sp!, {lr}
+    writeARM(0xE12FFF1E); // bx lr
 
     using namespace armajitto;
 
