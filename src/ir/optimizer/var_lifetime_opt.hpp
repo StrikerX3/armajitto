@@ -110,7 +110,6 @@ private:
     std::pmr::vector<std::pmr::vector<size_t>> m_fwdDeps; // deps[from] -> {to, to, ...}; sorted, no dupes
     std::pmr::vector<std::pmr::vector<size_t>> m_revDeps; // deps[to] -> {from, from, ...}; sorted, no dupes
     std::pmr::vector<size_t> m_sortedLeafNodes;
-    std::pmr::vector<size_t> m_maxDistToLeaves; // distance to furthest node
     std::pmr::vector<size_t> m_maxDistFromRoot; // max distance from root
     std::pmr::vector<uint64_t> m_writtenNodes;  // bit vector indicating which nodes have been written
 
@@ -119,13 +118,9 @@ private:
 
     void AddEdge(size_t from, size_t to);
 
-    bool IsRootNode(size_t index) const;
     void ClearRootNode(size_t index);
-
-    bool IsLeafNode(size_t index) const;
     void ClearLeafNode(size_t index);
 
-    size_t CalcMaxDistanceToLeaves(size_t nodeIndex);
     size_t CalcMaxDistanceFromRoot(size_t nodeIndex, size_t dist = 1);
 
     void Rewrite(size_t nodeIndex, size_t dist = 0);

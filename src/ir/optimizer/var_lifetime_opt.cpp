@@ -11,7 +11,6 @@ VarLifetimeOptimizerPass::VarLifetimeOptimizerPass(Emitter &emitter, std::pmr::m
     , m_fwdDeps(&alloc)
     , m_revDeps(&alloc)
     , m_sortedLeafNodes(&alloc)
-    , m_maxDistToLeaves(&alloc)
     , m_maxDistFromRoot(&alloc)
     , m_writtenNodes(&alloc) {}
 
@@ -27,7 +26,6 @@ void VarLifetimeOptimizerPass::Reset() {
     m_leafNodes.resize((opCount + 63) / 64);
     m_fwdDeps.resize(opCount);
     m_revDeps.resize(opCount);
-    m_maxDistToLeaves.resize(opCount);
     m_maxDistFromRoot.resize(opCount);
     m_writtenNodes.resize((opCount + 63) / 64);
 
@@ -52,7 +50,6 @@ void VarLifetimeOptimizerPass::Reset() {
 
     std::fill(m_rootNodes.begin(), m_rootNodes.end(), ~0ull);
     std::fill(m_leafNodes.begin(), m_leafNodes.end(), ~0ull);
-    std::fill(m_maxDistToLeaves.begin(), m_maxDistToLeaves.end(), ~0);
     std::fill(m_maxDistFromRoot.begin(), m_maxDistFromRoot.end(), 0);
     std::fill(m_writtenNodes.begin(), m_writtenNodes.end(), 0);
     for (auto &deps : m_fwdDeps) {
@@ -68,88 +65,7 @@ void VarLifetimeOptimizerPass::PostProcess(IROp *op) {
 }
 
 void VarLifetimeOptimizerPass::PostProcess() {
-    /*if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466)*/ {
-        const size_t opCount = m_maxDistToLeaves.size();
-
-        printf("------------------------------------------------------------\n");
-        auto locStr = m_emitter.GetBlock().Location().ToString();
-        printf("block %s, %u instructions:\n", locStr.c_str(), m_emitter.GetBlock().InstructionCount());
-        IROp *op = m_emitter.GetBlock().Head();
-        size_t opIndex = 0;
-        while (op != nullptr) {
-            auto opStr = op->ToString();
-            printf(" %3zu  %s\n", opIndex, opStr.c_str());
-            op = op->Next();
-            ++opIndex;
-        }
-        printf("\n");
-
-        printf("root nodes:");
-        for (size_t i = 0; i < m_rootNodes.size(); i++) {
-            uint64_t bitmap = m_rootNodes[i];
-            size_t bmindex = std::countr_zero(bitmap);
-            while (bmindex < 64) {
-                const size_t rootIndex = bmindex + i * 64;
-                if (rootIndex >= opCount) {
-                    break;
-                }
-
-                printf(" %zu", rootIndex);
-
-                bitmap &= ~(1ull << bmindex);
-                bmindex = std::countr_zero(bitmap);
-            }
-        }
-        printf("\n");
-
-        printf("leaf nodes:");
-        for (size_t i = 0; i < m_leafNodes.size(); i++) {
-            uint64_t bitmap = m_leafNodes[i];
-            size_t bmindex = std::countr_zero(bitmap);
-            while (bmindex < 64) {
-                const size_t leafIndex = bmindex + i * 64;
-                if (leafIndex >= opCount) {
-                    break;
-                }
-
-                printf(" %zu", leafIndex);
-
-                bitmap &= ~(1ull << bmindex);
-                bmindex = std::countr_zero(bitmap);
-            }
-        }
-        printf("\n");
-
-        printf("forward dependencies:\n");
-        for (size_t i = 0; i < m_fwdDeps.size(); i++) {
-            if (!m_fwdDeps[i].empty()) {
-                printf("%zu:", i);
-                for (auto dep : m_fwdDeps[i]) {
-                    printf(" %zu", dep);
-                }
-                printf("\n");
-            }
-        }
-        printf("\n");
-
-        printf("reverse dependencies:\n");
-        for (size_t i = 0; i < m_revDeps.size(); i++) {
-            if (!m_revDeps[i].empty()) {
-                printf("%zu:", i);
-                for (auto dep : m_revDeps[i]) {
-                    printf(" %zu", dep);
-                }
-                printf("\n");
-            }
-        }
-        printf("\n");
-    }
-
-    // Iterate over all nodes in reverse order to compute maximum distances from node to leaves
-    const size_t opCount = m_maxDistToLeaves.size();
-    for (size_t i = 0; i < opCount; i++) {
-        CalcMaxDistanceToLeaves(opCount - i - 1);
-    }
+    const size_t opCount = m_maxDistFromRoot.size();
 
     // Iterate over all root nodes to compute maximum distances from node to root
     for (size_t i = 0; i < m_rootNodes.size(); i++) {
@@ -169,21 +85,6 @@ void VarLifetimeOptimizerPass::PostProcess() {
             bitmap &= ~(1ull << bmindex);
             bmindex = std::countr_zero(bitmap);
         }
-    }
-
-    /*if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466)*/ {
-        printf("max distances:\n");
-        for (size_t i = 0; i < m_maxDistToLeaves.size(); i++) {
-            printf("  %zu = %zu // %zu", i, m_maxDistToLeaves[i], m_maxDistFromRoot[i]);
-            if (IsRootNode(i)) {
-                printf(" (root)");
-            }
-            if (IsLeafNode(i)) {
-                printf(" (leaf)");
-            }
-            printf("\n");
-        }
-        printf("\n");
     }
 
     // Sort leaf nodes from longest to shortest, then highest to lowest index for stability over multiple executions
@@ -211,14 +112,6 @@ void VarLifetimeOptimizerPass::PostProcess() {
 
         return lhs > rhs;
     });
-
-    /*if (m_emitter.GetBlock().Location().PC() == 0xFFFF0466)*/ {
-        printf("sorted leaf nodes:");
-        for (auto index : m_sortedLeafNodes) {
-            printf(" %zu", index);
-        }
-        printf("\n");
-    }
 
     // Rewrite instructions
     for (auto leafIndex : m_sortedLeafNodes) {
@@ -644,41 +537,16 @@ void VarLifetimeOptimizerPass::AddEdge(size_t from, size_t to) {
     ClearRootNode(to);
 }
 
-bool VarLifetimeOptimizerPass::IsRootNode(size_t index) const {
-    const size_t vecIndex = index / 64;
-    const size_t bitIndex = index % 64;
-    return m_rootNodes[vecIndex] & (1ull << bitIndex);
-}
-
 void VarLifetimeOptimizerPass::ClearRootNode(size_t index) {
     const size_t vecIndex = index / 64;
     const size_t bitIndex = index % 64;
     m_rootNodes[vecIndex] &= ~(1ull << bitIndex);
 }
 
-bool VarLifetimeOptimizerPass::IsLeafNode(size_t index) const {
-    const size_t vecIndex = index / 64;
-    const size_t bitIndex = index % 64;
-    return m_leafNodes[vecIndex] & (1ull << bitIndex);
-}
-
 void VarLifetimeOptimizerPass::ClearLeafNode(size_t index) {
     const size_t vecIndex = index / 64;
     const size_t bitIndex = index % 64;
     m_leafNodes[vecIndex] &= ~(1ull << bitIndex);
-}
-
-size_t VarLifetimeOptimizerPass::CalcMaxDistanceToLeaves(size_t nodeIndex) {
-    if (m_maxDistToLeaves[nodeIndex] != ~0) {
-        return m_maxDistToLeaves[nodeIndex];
-    }
-
-    size_t maxDist = 0;
-    for (auto depIndex : m_fwdDeps[nodeIndex]) {
-        maxDist = std::max(maxDist, CalcMaxDistanceToLeaves(depIndex) + 1);
-    }
-    m_maxDistToLeaves[nodeIndex] = maxDist;
-    return maxDist;
 }
 
 size_t VarLifetimeOptimizerPass::CalcMaxDistanceFromRoot(size_t nodeIndex, size_t dist) {
@@ -695,14 +563,6 @@ size_t VarLifetimeOptimizerPass::CalcMaxDistanceFromRoot(size_t nodeIndex, size_
 }
 
 void VarLifetimeOptimizerPass::Rewrite(size_t nodeIndex, size_t dist) {
-    {
-        auto nodeStr = m_ops[nodeIndex]->ToString();
-        for (size_t i = 0; i < dist; i++) {
-            printf("  ");
-        }
-        printf("  >> entering [%zu] %s\n", nodeIndex, nodeStr.c_str());
-    }
-
     // Define function for writing nodes
     auto writeNode = [&](size_t nodeIndex) {
         // Skip already written nodes
@@ -717,13 +577,6 @@ void VarLifetimeOptimizerPass::Rewrite(size_t nodeIndex, size_t dist) {
             }
         }
 
-        {
-            auto nodeStr = m_ops[nodeIndex]->ToString();
-            for (size_t i = 0; i < dist; i++) {
-                printf("  ");
-            }
-            printf("  !! rewriting [%zu] %s\n", nodeIndex, nodeStr.c_str());
-        }
         m_emitter.ReinsertAtHead(m_ops[nodeIndex]);
         SetWrittenNode(nodeIndex);
     };
@@ -742,14 +595,6 @@ void VarLifetimeOptimizerPass::Rewrite(size_t nodeIndex, size_t dist) {
     for (size_t i = 0; i < deps.size(); i++) {
         const size_t depIndex = deps[deps.size() - i - 1];
         Rewrite(depIndex, dist + 1);
-    }
-
-    {
-        auto nodeStr = m_ops[nodeIndex]->ToString();
-        for (size_t i = 0; i < dist; i++) {
-            printf("  ");
-        }
-        printf("  << leaving [%zu] %s\n", nodeIndex, nodeStr.c_str());
     }
 }
 
