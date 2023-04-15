@@ -224,14 +224,18 @@ private:
         }
     }
 
-    IROp *Erase(IROp *op) {
+    IROp *Detach(IROp *op) {
         if (op == m_opsHead) {
             m_opsHead = m_opsHead->Next();
         }
         if (op == m_opsTail) {
-            m_opsTail = m_opsTail->Next();
+            m_opsTail = nullptr;
         }
-        IROp *next = op->Erase();
+        return op->Erase();
+    }
+
+    IROp *Erase(IROp *op) {
+        IROp *next = Detach(op);
         if constexpr (kFreeErasedIROps) {
             m_alloc.Free(op);
         }

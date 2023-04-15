@@ -68,18 +68,14 @@ private:
     // -------------------------------------------------------------------------
     // Read/write tracking
 
-    struct OpRef {
-        IROp *op = nullptr;
-        size_t index = ~0;
-    };
-
     struct AccessRecord {
-        OpRef read;
-        OpRef write;
+        size_t readIndex = ~0;
+        size_t writeIndex = ~0;
     };
 
     size_t m_opIndex = 0;
 
+    std::pmr::vector<IROp *> m_ops;
     std::pmr::vector<AccessRecord> m_varAccesses;
     alignas(16) std::array<AccessRecord, 16 * arm::kNumBankedModes> m_gprAccesses;
     alignas(16) std::array<AccessRecord, 1 + arm::kNumBankedModes> m_psrAccesses; // 0=CPSR, 1..6=SPSR by mode
@@ -90,41 +86,52 @@ private:
 
     void ResizeVarAccesses(size_t index);
 
-    void RecordRead(IROp *op, VarOrImmArg arg);
-    void RecordRead(IROp *op, VariableArg arg);
-    void RecordRead(IROp *op, GPRArg arg);
-    void RecordCPSRRead(IROp *op);
-    void RecordSPSRRead(IROp *op, arm::Mode mode);
-    void RecordPSRRead(IROp *op, size_t index);
-    void RecordRead(IROp *op, arm::Flags flags);
+    void RecordRead(VarOrImmArg arg);
+    void RecordRead(VariableArg arg);
+    void RecordRead(GPRArg arg);
+    void RecordCPSRRead();
+    void RecordSPSRRead(arm::Mode mode);
+    void RecordPSRRead(size_t index);
+    void RecordRead(arm::Flags flags);
 
-    void RecordWrite(IROp *op, VarOrImmArg arg);
-    void RecordWrite(IROp *op, VariableArg arg);
-    void RecordWrite(IROp *op, GPRArg arg);
-    void RecordCPSRWrite(IROp *op);
-    void RecordSPSRWrite(IROp *op, arm::Mode mode);
-    void RecordPSRWrite(IROp *op, size_t index);
-    void RecordWrite(IROp *op, arm::Flags flags);
+    void RecordWrite(VarOrImmArg arg);
+    void RecordWrite(VariableArg arg);
+    void RecordWrite(GPRArg arg);
+    void RecordCPSRWrite();
+    void RecordSPSRWrite(arm::Mode mode);
+    void RecordPSRWrite(size_t index);
+    void RecordWrite(arm::Flags flags);
 
     // -------------------------------------------------------------------------
     // Dependency graph
 
-    std::pmr::vector<uint64_t> m_rootNodes;                    // bit vector
-    std::pmr::vector<std::pmr::vector<size_t>> m_dependencies; // deps[from] -> {to, to, to}; duplicates are harmless
-    std::pmr::vector<size_t> m_sortedRootNodes;
+    std::pmr::vector<uint64_t> m_rootNodes;               // bit vector
+    std::pmr::vector<uint64_t> m_leafNodes;               // bit vector
+    std::pmr::vector<std::pmr::vector<size_t>> m_fwdDeps; // deps[from] -> {to, to, ...}; sorted, no dupes
+    std::pmr::vector<std::pmr::vector<size_t>> m_revDeps; // deps[to] -> {from, from, ...}; sorted, no dupes
+    std::pmr::vector<size_t> m_sortedLeafNodes;
     std::pmr::vector<size_t> m_maxDistToLeaves; // distance to furthest node
     std::pmr::vector<size_t> m_maxDistFromRoot; // max distance from root
+    std::pmr::vector<uint64_t> m_writtenNodes;  // bit vector indicating which nodes have been written
 
-    void AddReadDependencyEdge(IROp *op, AccessRecord &record);
-    void AddWriteDependencyEdge(IROp *op, AccessRecord &record);
+    void AddReadDependencyEdge(AccessRecord &record);
+    void AddWriteDependencyEdge(AccessRecord &record);
 
     void AddEdge(size_t from, size_t to);
 
     bool IsRootNode(size_t index) const;
     void ClearRootNode(size_t index);
 
+    bool IsLeafNode(size_t index) const;
+    void ClearLeafNode(size_t index);
+
     size_t CalcMaxDistanceToLeaves(size_t nodeIndex);
     size_t CalcMaxDistanceFromRoot(size_t nodeIndex, size_t dist = 1);
+
+    void Rewrite(size_t nodeIndex, size_t dist = 0);
+
+    bool IsWrittenNode(size_t index) const;
+    void SetWrittenNode(size_t index);
 };
 
 } // namespace armajitto::ir

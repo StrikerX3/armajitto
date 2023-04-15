@@ -185,6 +185,15 @@ public:
         m_block.RenameVariables();
     }
 
+    // Moves the given instruction to the head of the block.
+    void ReinsertAtHead(IROp *op) {
+        if (op == m_block.Head()) {
+            return;
+        }
+        m_block.Detach(op);
+        m_block.InsertHead(op);
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
     // Basic IR instruction emitters
 
