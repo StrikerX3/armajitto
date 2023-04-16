@@ -52,7 +52,7 @@ uint32_t SystemControlCoprocessor::LoadRegister(CopRegister reg) const {
     case 0x0002: // 0,C0,C0,2 - Tightly Coupled Memory (TCM) size register
         return m_tcm.params.u32;
 
-    case 0x0100: // 0,C1,C0,0 - Control Register
+    case 0x0100: // 0,C1,C0,0 - Control register
         return m_ctl.value.u32;
 
     case 0x0200: // 0,C2,C0,0 - Cachability bits for data/unified protection region
