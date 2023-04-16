@@ -45,6 +45,7 @@ namespace tcm {
 
 // -----------------------------------------------------------------------------
 
+// NOTE: Cache parameters as defined by the ARM946E-S Technical Reference Manual
 namespace cache {
     // Cache types, bits 28..25.
     enum class Type : uint32_t {
@@ -64,17 +65,20 @@ namespace cache {
         WriteBackReg7CleanLockdownB = 0b0111,
     };
 
-    // Cache sizes, bits 20..18 (data cache) and 8..6 (instruction cache).
-    // The M bit (bit 14 for data cache and bit 2 for instruction cache) increases the size by 50% when set.
+    // Cache sizes, bits 21..18 (data cache) and 9..6 (instruction cache).
     enum class Size : uint32_t {
-        _512BOr768B = 0b000,
-        _1KBOr1_5KB = 0b001,
-        _2KBOr3KB = 0b010,
-        _4KBOr6KB = 0b011,
-        _8KBOr12KB = 0b100,
-        _16KBOr24KB = 0b101,
-        _32KBOr48KB = 0b110,
-        _64KBOr96KB = 0b111,
+        _0KB = 0b0000,
+        // _1KB = 0b0001,
+        // _2KB = 0b0010,
+        _4KB = 0b0011,
+        _8KB = 0b0100,
+        _16KB = 0b0101,
+        _32KB = 0b0110,
+        _64KB = 0b0111,
+        _128KB = 0b1000,
+        _256KB = 0b1001,
+        _512KB = 0b1010,
+        _1024KB = 0b1011,
     };
 
     // Cache line lengths, bits 13..12 (data cache) and 1..0 (instruction cache).
@@ -86,17 +90,15 @@ namespace cache {
     };
 
     // Cache associativities, bits 20..18 (data cache) and 8..6 (instruction cache).
-    // The M bit (bit 14 for data cache and bit 2 for instruction cache) increases the ways by 50% when set, except for
-    // 1-way, which means "cache absent".
     enum class Associativity : uint32_t {
-        _1WayOrAbsent = 0b000,
-        _2WayOr3Way = 0b001,
-        _4WayOr6Way = 0b010,
-        _8WayOr12Way = 0b011,
-        _16WayOr24Way = 0b100,
-        _32WayOr48Way = 0b101,
-        _64WayOr96Way = 0b110,
-        _128WayOr192Way = 0b111,
+        _1Way = 0b000, // aka direct mapped
+        // _2Way = 0b001,
+        _4Way = 0b010,
+        // _8Way = 0b011,
+        // _16Way = 0b100,
+        // _32Way = 0b101,
+        // _64Way = 0b110,
+        // _128Way = 0b111,
     };
 
 } // namespace cache
