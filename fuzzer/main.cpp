@@ -194,13 +194,13 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
             {
                 .size = 0x2000,
                 .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4Way,
             },
         .data =
             {
                 .size = 0x1000,
                 .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                .associativity = armajitto::arm::cp15::cache::Associativity::_4Way,
             },
     });
 
@@ -619,8 +619,8 @@ void interpVsJITFuzzer(uint32_t offset, uint32_t limit) {
     // Configure the JIT
     jit.GetOptions().translator.maxBlockSize = numInstrs;
     jit.GetOptions().compiler.enableBlockLinking = true;
-    //jit.GetOptions().optimizer.passes.SetAll(false);
-    //jit.GetOptions().optimizer.passes.constantPropagation = true;
+    // jit.GetOptions().optimizer.passes.SetAll(false);
+    // jit.GetOptions().optimizer.passes.constantPropagation = true;
     jit.GetOptions().translator.cycleCountingMethod =
         armajitto::Options::Translator::CycleCountingMethod::InstructionFixed;
     jit.GetOptions().translator.cyclesPerInstruction = 1;
@@ -800,13 +800,13 @@ void DualJITFuzzer(uint32_t offset, uint32_t limit) {
                 {
                     .size = 0x2000,
                     .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                    .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                    .associativity = armajitto::arm::cp15::cache::Associativity::_4Way,
                 },
             .data =
                 {
                     .size = 0x1000,
                     .lineLength = armajitto::arm::cp15::cache::LineLength::_32B,
-                    .associativity = armajitto::arm::cp15::cache::Associativity::_4WayOr6Way,
+                    .associativity = armajitto::arm::cp15::cache::Associativity::_4Way,
                 },
         });
     };

@@ -522,13 +522,13 @@ void testNDS() {
             {
                 .size = 0x2000,
                 .lineLength = cache::LineLength::_32B,
-                .associativity = cache::Associativity::_4WayOr6Way,
+                .associativity = cache::Associativity::_4Way,
             },
         .data =
             {
                 .size = 0x1000,
                 .lineLength = cache::LineLength::_32B,
-                .associativity = cache::Associativity::_4WayOr6Way,
+                .associativity = cache::Associativity::_4Way,
             },
     });
 
@@ -731,6 +731,9 @@ void testCompiler() {
 
     // writeThumb(0x40D4); // lsrs r4, r2
 
+    // -------------------------------------------------------------------------
+    // Detections in real code
+
     // Bad dead reg optimization
     /*writeARM(0xE59F10DC); // ldr r1, [pc, #0xDC]
     writeARM(0xE3A08000); // mov r8, #0x0
@@ -841,7 +844,7 @@ void testCompiler() {
     writeARM(0xE12FFF1E); // bx lr*/
 
     // Bad bitwise ops coalescence due to multiple rotations in a chain
-    // writeThumb(0x0108); // lsls r0, r1, #0x4
+    /*// writeThumb(0x0108); // lsls r0, r1, #0x4
     // writeThumb(0x4308); // orrs r0, r1
     writeThumb(0x0600); // lsls r0, r0, #0x18
     writeThumb(0x0E01); // lsrs r1, r0, #0x18
@@ -857,7 +860,11 @@ void testCompiler() {
     // writeThumb(0x4362); // muls r2, r4
     // writeThumb(0x435A); // muls r2, r3
     // writeThumb(0xF0A9); // (blx prefix)
-    // writeThumb(0xEEF0); // blx #0x20C4BBA
+    // writeThumb(0xEEF0); // blx #0x20C4BBA*/
+
+    // Bad variable lifetime optimization
+    writeARM(0xE1010090); // swp r0, r0, [r1]
+    writeARM(0xE12FFF1E); // bx lr
 
     using namespace armajitto;
 
@@ -877,7 +884,7 @@ void testCompiler() {
     armState.JumpTo(baseAddress, thumb);
 
     // jit.GetOptions().optimizer.passes.constantPropagation = false;
-    jit.GetOptions().optimizer.passes.varLifetimeOptimization = false;
+    // jit.GetOptions().optimizer.passes.varLifetimeOptimization = false;
 
     /*for (uint32_t reg = 0; reg < 15; reg++) {
         auto gpr = static_cast<arm::GPR>(reg);
