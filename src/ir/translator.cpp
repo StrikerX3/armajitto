@@ -1396,7 +1396,11 @@ void Translator::Translate(const BlockTransfer &instr, Emitter &emitter) {
         } else {
             Variable value{};
             if (!instr.userModeOrPSRTransfer && gpr == instr.baseReg) {
-                value = (i == firstReg) ? startAddress : finalAddress;
+                if (m_context.GetCPUArch() == CPUArch::ARMv4T) {
+                    value = (i == firstReg) ? startAddress : finalAddress;
+                } else {
+                    value = startAddress;
+                }
             } else {
                 value = emitter.GetRegister({gpr, gprMode});
             }
