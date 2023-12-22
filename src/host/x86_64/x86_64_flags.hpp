@@ -36,4 +36,8 @@ constexpr uint32_t x64flgV = (1u << x64flgVPos);
 
 constexpr uint32_t x64FlagsMask = x64flgN | x64flgZ | x64flgC | x64flgV;
 
+constexpr uint32_t ARMtox64Flags(uint32_t armFlags) {
+    return armFlags * ARMTox64FlagsMult & x64FlagsMask;
+}
+
 } // namespace armajitto::x86_64

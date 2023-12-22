@@ -17,6 +17,7 @@ enum class Flags : uint32_t {
     V = (1u << 28),
 
     NZ = N | Z,
+    NZC = N | Z | C,
     NZCV = N | Z | C | V,
 };
 

@@ -38,8 +38,10 @@ inline constexpr uint32_t kMaxSpilledRegs = 32;
 // Size of variable spill area in bytes
 inline constexpr size_t kVarSpillStackSize = kMaxSpilledRegs * sizeof(uint32_t);
 
-// Statically allocaated registers
+// Statically allocated registers
 inline constexpr auto kHostFlagsReg = eax;    // eax = host flags (ah = NZC, al = V)
+inline constexpr auto kHostNZCFlagsReg = ah;  // ah = NZC host flags
+inline constexpr auto kHostVFlagReg = al;     // al = V host flags
 inline constexpr auto kARMStateReg = rbx;     // rbx = pointer to ARM state struct
 inline constexpr auto kShiftCounterReg = rcx; // rcx = shift counter (for use in shift operations)
 inline constexpr auto kVarSpillBaseReg = rbp; // rbp = variable spill area (rbp + index*4)

@@ -89,18 +89,18 @@ public:
     // Building blocks
 
     void SetCFromValue(bool carry);
-    void SetCFromFlags(Xbyak::Reg16 tmpReg16);
+    void SetCFromFlags();
 
     void SetVFromValue(bool overflow);
     void SetVFromFlags();
 
-    void SetNZFromValue(uint32_t value);
-    void SetNZFromValue(uint64_t value);
-    void SetNZFromReg(Xbyak::Reg32 value, Xbyak::Reg32 tmpReg32);
-    void SetNZFromFlags(Xbyak::Reg32 tmpReg32);
+    void SetNZFromValue(uint32_t value, arm::Flags flagsMask);
+    void SetNZFromValue(uint64_t value, arm::Flags flagsMask);
+    void SetNZFromReg(Xbyak::Reg32 value, arm::Flags flagsMask);
+    void SetNZFromFlags(arm::Flags flagsMask);
 
-    void SetNZCVFromValue(uint32_t value, bool carry, bool overflow);
-    void SetNZCVFromFlags();
+    void SetNZCVFromValue(uint32_t value, bool carry, bool overflow, arm::Flags flagsMask);
+    void SetNZCVFromFlags(arm::Flags flagsMask);
 
     // Compiles a MOV <reg>, <value> if <value> != 0, or XOR <reg>, <reg> if 0
     void MOVImmediate(Xbyak::Reg32 reg, uint32_t value);
@@ -109,14 +109,15 @@ public:
     void CopyIfDifferent(Xbyak::Reg32 dst, Xbyak::Reg32 src);
     void CopyIfDifferent(Xbyak::Reg64 dst, Xbyak::Reg64 src);
 
-    void AssignImmResultWithNZ(const ir::VariableArg &dst, uint32_t result, bool setFlags);
-    void AssignImmResultWithNZCV(const ir::VariableArg &dst, uint32_t result, bool carry, bool overflow, bool setFlags);
+    void AssignImmResultWithNZ(const ir::VariableArg &dst, uint32_t result, arm::Flags flagsMask);
+    void AssignImmResultWithNZCV(const ir::VariableArg &dst, uint32_t result, bool carry, bool overflow,
+                                 arm::Flags flagsMask);
     void AssignImmResultWithCarry(const ir::VariableArg &dst, uint32_t result, std::optional<bool> carry,
-                                  bool setFlags);
-    void AssignImmResultWithOverflow(const ir::VariableArg &dst, uint32_t result, bool overflow, bool setFlags);
+                                  bool setCarry);
+    void AssignImmResultWithOverflow(const ir::VariableArg &dst, uint32_t result, bool overflow, bool setOverflow);
 
     void AssignLongImmResultWithNZ(const ir::VariableArg &dstLo, const ir::VariableArg &dstHi, uint64_t result,
-                                   bool setFlags);
+                                   arm::Flags flagsMask);
 
     // -------------------------------------------------------------------------
     // Host function calls
@@ -138,13 +139,13 @@ public:
     void CompileInvokeHostFunctionImpl(Xbyak::Reg dstReg, ReturnType (*fn)(FnArgs...), Args &&...args);
 
 private:
+    RegisterAllocator m_regAlloc;
     Context &m_context;
     CompiledCode &m_compiledCode;
     arm::State &m_armState;
     arm::StateOffsets &m_stateOffsets;
-    MemoryMapPrivateAccess m_memMap;
     Xbyak::CodeGenerator &m_codegen;
-    RegisterAllocator m_regAlloc;
+    MemoryMapPrivateAccess m_memMap;
     arm::Mode m_mode;
     bool m_thumb;
 };
