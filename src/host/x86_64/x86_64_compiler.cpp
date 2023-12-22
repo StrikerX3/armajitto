@@ -371,11 +371,19 @@ void x64Host::Compiler::ReserveTerminalRegisters(const ir::BasicBlock &block) {
     }
 }
 
-void x64Host::Compiler::SubtractCycles(uint64_t cycles) {
+void x64Host::Compiler::CountCycles(uint64_t cycles) {
     if (cycles > 1) {
-        m_codegen.sub(abi::kCycleCountReg, cycles);
+        if (m_armState.deadlinePtr != nullptr) {
+            m_codegen.add(abi::kCycleCountReg, cycles);
+        } else {
+            m_codegen.sub(abi::kCycleCountReg, cycles);
+        }
     } else if (cycles == 1) {
-        m_codegen.dec(abi::kCycleCountReg);
+        if (m_armState.deadlinePtr != nullptr) {
+            m_codegen.inc(abi::kCycleCountReg);
+        } else {
+            m_codegen.dec(abi::kCycleCountReg);
+        }
     }
 }
 

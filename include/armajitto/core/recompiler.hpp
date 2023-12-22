@@ -44,7 +44,7 @@ public:
         return const_cast<Recompiler *>(this)->GetSystem();
     }
 
-    uint64_t Run(uint64_t minCycles);
+    uint64_t Run(uint64_t initialCycles);
 
     void FlushCachedBlocks();
     void InvalidateCodeCache();

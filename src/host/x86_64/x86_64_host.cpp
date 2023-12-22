@@ -23,13 +23,16 @@ struct x64Host::CommonData {
         : stateOffsets(state) {}
 };
 
-x64Host::x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc)
+x64Host::x64Host(Context &context, Options::Compiler &options, const uint64_t *cycleCountDeadline,
+                 std::pmr::memory_resource &alloc)
     : Host(context, options)
     , m_commonData(std::make_unique<CommonData>(context.GetARMState()))
     , m_codeBuffer(new uint8_t[options.initialCodeBufferSize])
     , m_codeBufferSize(options.initialCodeBufferSize)
     , m_codegen(options.initialCodeBufferSize, m_codeBuffer.get())
     , m_alloc(alloc) {
+
+    context.GetARMState().deadlinePtr = cycleCountDeadline;
 
     SetInvalidateCodeCacheCallback(
         [](uint32_t start, uint32_t end, void *ctx) {
@@ -170,7 +173,7 @@ void x64Host::CompileProlog() {
     m_codegen.sub(rsp, abi::kStackReserveSize);
     m_codegen.mov(abi::kVarSpillBaseReg, rsp);                // rbp = Variable spill and cycle counter base register
     m_codegen.mov(abi::kARMStateReg, CastUintPtr(&armState)); // rbx = ARM state pointer
-    m_codegen.mov(abi::kCycleCountReg, abi::kIntArgRegs[1]);  // r10 = remaining cycle count
+    m_codegen.mov(abi::kCycleCountReg, abi::kIntArgRegs[1]);  // r10 = remaining/initial cycle count
 
     // Copy CPSR NZCV and I flags to EAX
     auto flagsReg32 = abi::kHostFlagsReg;
@@ -242,7 +245,7 @@ void x64Host::CompileProlog() {
 void x64Host::CompileEpilog() {
     m_compiledCode.epilog = m_codegen.getCurr<HostCode>();
 
-    // Copy remaining cycles to return value
+    // Copy remaining/current cycles to return value
     m_codegen.mov(abi::kIntReturnValueReg, abi::kCycleCountReg);
 
     // Cleanup stack
@@ -326,7 +329,11 @@ void x64Host::CompileIRQEntry() {
 
     // Count cycles
     // TODO: compute cycles for pipeline refill
-    m_codegen.dec(abi::kCycleCountReg);
+    if (armState.deadlinePtr != nullptr) {
+        m_codegen.inc(abi::kCycleCountReg);
+    } else {
+        m_codegen.dec(abi::kCycleCountReg);
+    }
 
     // -----------------------------------------------------------------------------------------------------------------
     // IRQ handler block linking
@@ -392,10 +399,14 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
     auto &cachedBlock = m_compiledCode.blockCache.GetOrCreate(block.Location().ToUint64());
     Compiler compiler{m_context, m_commonData->stateOffsets, m_compiledCode, m_codegen, block, m_alloc};
 
+    auto &armState = m_context.GetARMState();
+
     auto fnPtr = m_codegen.getCurr<HostCode>();
     cachedBlock = fnPtr;
 
     Xbyak::Label lblCondFail{};
+
+    const auto deadlinePtrOffset = m_stateOffsets.CycleDeadlinePointerOffset();
 
     // Compile pre-execution checks
     compiler.CompileGenerationCheck(block.Location(), block.InstructionCount());
@@ -412,11 +423,17 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
             op = op->Next();
         }
 
-        // Decrement cycles for this block
-        compiler.SubtractCycles(block.PassCycles());
+        // Count cycles for this block
+        compiler.CountCycles(block.PassCycles());
 
         // Bail out if we ran out of cycles
-        m_codegen.jle(m_compiledCode.epilog);
+        if (armState.deadlinePtr != nullptr) {
+            m_codegen.mov(rcx, qword[abi::kARMStateReg + deadlinePtrOffset]);
+            m_codegen.cmp(abi::kCycleCountReg, qword[rcx]);
+            m_codegen.jae(m_compiledCode.epilog);
+        } else {
+            m_codegen.jle(m_compiledCode.epilog);
+        }
     }
 
     if (block.Condition() != arm::Condition::AL) {
@@ -439,12 +456,18 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
             m_codegen.mov(dword[abi::kARMStateReg + pcRegOffset],
                           block.Location().PC() + block.InstructionCount() * instrSize);
 
-            // Decrement cycles for this block's condition fail branch
-            compiler.SubtractCycles(block.FailCycles());
+            // Count cycles for this block's condition fail branch
+            compiler.CountCycles(block.FailCycles());
 
             if (m_compiledCode.enableBlockLinking) {
                 // Bail out if we ran out of cycles
-                m_codegen.jle(m_compiledCode.epilog);
+                if (armState.deadlinePtr != nullptr) {
+                    m_codegen.mov(rcx, qword[abi::kARMStateReg + deadlinePtrOffset]);
+                    m_codegen.cmp(abi::kCycleCountReg, rcx);
+                    m_codegen.jae(m_compiledCode.epilog);
+                } else {
+                    m_codegen.jle(m_compiledCode.epilog);
+                }
 
                 // Link to next instruction
                 compiler.CompileDirectLinkToSuccessor(block);

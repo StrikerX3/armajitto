@@ -18,18 +18,21 @@ struct Recompiler::Impl {
         : context(context)
         , translator(context, params.translator)
         , optimizer(params.optimizer, pmrBuffer)
-        , host(context, params.compiler, pmrBuffer) {}
+        , host(context, params.compiler, spec.cycleCountDeadline, pmrBuffer) {}
 
     void Reset() {
         FlushCachedBlocks();
         context.GetARMState().Reset();
     }
 
-    uint64_t Run(uint64_t minCycles) {
+    uint64_t Run(uint64_t initialCycles) {
         auto &armState = context.GetARMState();
         uint32_t &pc = armState.GPR(arm::GPR::PC);
-        int64_t cyclesRemaining = minCycles;
-        while (cyclesRemaining > 0) {
+
+        const bool hasDeadline = armState.deadlinePtr != nullptr;
+
+        uint64_t cycles = initialCycles;
+        while (hasDeadline ? (cycles < *armState.deadlinePtr) : ((int64_t)cycles > 0)) {
             // Build location reference and get its code
             const LocationRef loc{pc, armState.CPSR().u32};
             auto code = host.GetCodeForLocation(loc);
@@ -61,14 +64,14 @@ struct Recompiler::Impl {
             }
 
             // Invoke code
-            auto nextCyclesRemaining = host.Call(code, cyclesRemaining);
-            if (nextCyclesRemaining == cyclesRemaining) {
+            auto nextCycles = host.Call(code, cycles);
+            if (nextCycles == cycles) {
                 // CPU is halted and no IRQs were raised
                 break;
             }
-            cyclesRemaining = nextCyclesRemaining;
+            cycles = nextCycles;
         }
-        return minCycles - cyclesRemaining;
+        return hasDeadline ? (cycles - initialCycles) : (initialCycles - cycles);
     }
 
     void FlushCachedBlocks() {

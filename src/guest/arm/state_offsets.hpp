@@ -22,6 +22,7 @@ public:
 
         m_irqLineOffset = CastUintPtr(&state.m_irqLine) - statePtr;
         m_execStateOffset = CastUintPtr(&state.m_execState) - statePtr;
+        m_deadlinePtrOffset = CastUintPtr(&state.deadlinePtr) - statePtr;
     }
 
     uintptr_t GPROffset(enum GPR gpr, enum Mode mode) const {
@@ -52,6 +53,10 @@ public:
         return m_execStateOffset;
     }
 
+    uintptr_t CycleDeadlinePointerOffset() const {
+        return m_deadlinePtrOffset;
+    }
+
 private:
     // Lookup tables of GPRs and PSRs offsets
     std::array<uintptr_t, State::kNumGPREntries> m_gprOffsets;
@@ -60,6 +65,7 @@ private:
 
     uintptr_t m_irqLineOffset;
     uintptr_t m_execStateOffset;
+    uintptr_t m_deadlinePtrOffset;
 };
 
 } // namespace armajitto::arm

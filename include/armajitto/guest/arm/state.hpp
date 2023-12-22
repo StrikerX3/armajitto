@@ -20,6 +20,7 @@ namespace armajitto::arm {
 // Helper class used by the host with offsets for all State fields.
 class StateOffsets;
 
+// TODO: should be called JITState and not reside in the arm namespace
 class State {
 public:
     State();
@@ -193,6 +194,14 @@ private:
     std::array<union PSR *, kNumPSREntries> m_psrPtrs;
 
     friend class StateOffsets;
+
+public:
+    // Pointer to the cycle count deadline.
+    // When null, the JIT emits code that counts down cycles and will therefore run until the specified number of cycles
+    // has elapsed.
+    // When non-null, the JIT emits code that counts up cycles and checks if the current cycle count surpassed the
+    // deadline. This is necessary for cases where the deadline might change during the execution of a block.
+    const uint64_t *deadlinePtr = nullptr;
 };
 
 } // namespace armajitto::arm

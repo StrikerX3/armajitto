@@ -22,7 +22,8 @@ namespace armajitto::x86_64 {
 
 class x64Host final : public Host {
 public:
-    x64Host(Context &context, Options::Compiler &options, std::pmr::memory_resource &alloc);
+    x64Host(Context &context, Options::Compiler &options, const uint64_t *cycleCountDeadline,
+            std::pmr::memory_resource &alloc);
     ~x64Host();
 
     HostCode Compile(ir::BasicBlock &block) final;

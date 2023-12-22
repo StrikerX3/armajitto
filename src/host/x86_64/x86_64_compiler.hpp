@@ -34,7 +34,7 @@ public:
 
     void ReserveTerminalRegisters(const ir::BasicBlock &block);
 
-    void SubtractCycles(uint64_t cycles);
+    void CountCycles(uint64_t cycles);
 
 private:
     void CompileDirectLink(LocationRef target, uint64_t blockLocKey);

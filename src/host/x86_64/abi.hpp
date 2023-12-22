@@ -45,7 +45,7 @@ inline constexpr auto kHostVFlagReg = al;     // al = V host flags
 inline constexpr auto kARMStateReg = rbx;     // rbx = pointer to ARM state struct
 inline constexpr auto kShiftCounterReg = rcx; // rcx = shift counter (for use in shift operations)
 inline constexpr auto kVarSpillBaseReg = rbp; // rbp = variable spill area (rbp + index*4)
-inline constexpr auto kCycleCountReg = r10;   // r10 = remaining cycle counter
+inline constexpr auto kCycleCountReg = r10;   // r10 = remaining/current cycle counter
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ABI specifications for each supported system.
