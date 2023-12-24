@@ -194,6 +194,12 @@ void DeadVarStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
     RecordWrite(op->dst, op);
 }
 
+void DeadVarStoreEliminationOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    RecordRead(op->value, true);
+    RecordDependentRead(op->dst, op->value);
+    RecordWrite(op->dst, op);
+}
+
 void DeadVarStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     RecordRead(op->lhs, true);
     RecordRead(op->rhs, true);

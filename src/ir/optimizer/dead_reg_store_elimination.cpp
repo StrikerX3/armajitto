@@ -210,6 +210,13 @@ void DeadRegisterStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
+void DeadRegisterStoreEliminationOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    SubstituteVar(op->value);
+    if (IsTagged(op->value)) {
+        AssignNewVersion(op->dst);
+    }
+}
+
 void DeadRegisterStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     SubstituteVar(op->lhs);
     SubstituteVar(op->rhs);

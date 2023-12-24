@@ -69,6 +69,7 @@ public:
     void CompileOp(const ir::IRSubtractCarryOp *op);
     void CompileOp(const ir::IRMoveOp *op);
     void CompileOp(const ir::IRMoveNegatedOp *op);
+    void CompileOp(const ir::IRSignExtendHalfOp *op);
     void CompileOp(const ir::IRSaturatingAddOp *op);
     void CompileOp(const ir::IRSaturatingSubtractOp *op);
     void CompileOp(const ir::IRMultiplyOp *op);

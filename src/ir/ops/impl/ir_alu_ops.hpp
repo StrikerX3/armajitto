@@ -317,6 +317,23 @@ struct IRMoveNegatedOp : public detail::IRUnaryOpBase<IROpcodeType::MoveNegated>
         : IRUnaryOpBase(dst, value, (setFlags ? arm::Flags::NZ : arm::Flags::None), "mvn") {}
 };
 
+// Sign-extend halfword to word
+//   sx.h <var:dst>, <var/imm:value>
+//
+// Sign-extends the least significant 16 bits of <value> into <dst>.
+struct IRSignExtendHalfOp : public IROpBase<IROpcodeType::SignExtendHalf> {
+    VariableArg dst;
+    VarOrImmArg value;
+
+    IRSignExtendHalfOp(VariableArg dst, VarOrImmArg value)
+        : dst(dst)
+        , value(value) {}
+
+    std::string ToString() const final {
+        return std::string("sx.h ") + dst.ToString() + ", " + value.ToString();
+    }
+};
+
 // Saturating add
 //   qadd.[v] <var:dst>, <var/imm:lhs>, <var/imm:rhs>
 //

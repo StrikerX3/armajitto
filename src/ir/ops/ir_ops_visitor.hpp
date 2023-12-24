@@ -35,6 +35,7 @@ ReturnType VisitIROp(IROp *op, Visitor &&visitor) {
         case IROpcodeType::SubtractCarry: return visitor(Cast<IRSubtractCarryOp>(op));
         case IROpcodeType::Move: return visitor(Cast<IRMoveOp>(op));
         case IROpcodeType::MoveNegated: return visitor(Cast<IRMoveNegatedOp>(op));
+        case IROpcodeType::SignExtendHalf: return visitor(Cast<IRSignExtendHalfOp>(op));
         case IROpcodeType::SaturatingAdd: return visitor(Cast<IRSaturatingAddOp>(op));
         case IROpcodeType::SaturatingSubtract: return visitor(Cast<IRSaturatingSubtractOp>(op));
         case IROpcodeType::Multiply: return visitor(Cast<IRMultiplyOp>(op));
@@ -316,6 +317,17 @@ namespace detail {
 
     template <bool writesFirst, typename Visitor>
     void VisitIROpVars(ir::IRMoveNegatedOp *op, Visitor &&visitor) {
+        if constexpr (writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+        VisitVar(op, op->value, true, visitor);
+        if constexpr (!writesFirst) {
+            VisitVar(op, op->dst, false, visitor);
+        }
+    }
+
+    template <bool writesFirst, typename Visitor>
+    void VisitIROpVars(ir::IRSignExtendHalfOp *op, Visitor &&visitor) {
         if constexpr (writesFirst) {
             VisitVar(op, op->dst, false, visitor);
         }

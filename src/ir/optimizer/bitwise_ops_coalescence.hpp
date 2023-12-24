@@ -134,6 +134,7 @@ private:
     void Process(IRSubtractCarryOp *op) final;
     void Process(IRMoveOp *op) final;
     void Process(IRMoveNegatedOp *op) final;
+    void Process(IRSignExtendHalfOp *op) final;
     void Process(IRSaturatingAddOp *op) final;
     void Process(IRSaturatingSubtractOp *op) final;
     void Process(IRMultiplyOp *op) final;
@@ -309,8 +310,8 @@ private:
     // Value per variable
     std::pmr::vector<Value> m_values;
 
-    std::pmr::vector<Variable *> m_sortedVars;
-    std::pmr::vector<IROp *> m_reanalysisChain;
+    // Memory allocator, for ephemeral vectors
+    std::pmr::memory_resource &m_alloc;
 
     void ResizeValues(size_t index);
 

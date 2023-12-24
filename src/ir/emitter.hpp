@@ -232,6 +232,7 @@ public:
 
     Variable Move(VarOrImmArg value, bool setFlags);
     Variable MoveNegated(VarOrImmArg value, bool setFlags);
+    Variable SignExtendHalf(VarOrImmArg value);
 
     void Test(VarOrImmArg lhs, VarOrImmArg rhs);
     void TestEquivalence(VarOrImmArg lhs, VarOrImmArg rhs);
@@ -297,6 +298,7 @@ public:
 
     void Move(VariableArg dst, VarOrImmArg value, bool setFlags);
     void MoveNegated(VariableArg dst, VarOrImmArg value, bool setFlags);
+    void SignExtendHalf(VariableArg dst, VarOrImmArg value);
 
     void SaturatingAdd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);
     void SaturatingSubtract(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ);

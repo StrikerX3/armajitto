@@ -139,6 +139,10 @@ void DeadFlagValueStoreEliminationOptimizerPass::Process(IRMoveNegatedOp *op) {
     ConsumeFlags(op->value);
 }
 
+void DeadFlagValueStoreEliminationOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    ConsumeFlags(op->value);
+}
+
 void DeadFlagValueStoreEliminationOptimizerPass::Process(IRSaturatingAddOp *op) {
     ConsumeFlags(op->lhs);
     ConsumeFlags(op->rhs);

@@ -251,6 +251,10 @@ auto InterpreterHost::CompileOp(const ir::IRMoveNegatedOp *op) -> InterpInstr {
     return {&InterpreterHost::HandleMoveNegated, {*op}};
 }
 
+auto InterpreterHost::CompileOp(const ir::IRSignExtendHalfOp *op) -> InterpInstr {
+    return {&InterpreterHost::HandleSignExtendHalf, {*op}};
+}
+
 auto InterpreterHost::CompileOp(const ir::IRSaturatingAddOp *op) -> InterpInstr {
     return {&InterpreterHost::HandleSaturatingAdd, {*op}};
 }
@@ -666,6 +670,12 @@ void InterpreterHost::HandleMoveNegated(const Op &varOp, LocationRef loc) {
     const auto value = ~Get(op.value);
     SetVar(op.dst.var, value);
     UpdateNZ(m_flags, op.flags, value);
+}
+
+void InterpreterHost::HandleSignExtendHalf(const Op &varOp, LocationRef loc) {
+    auto &op = std::get<ir::IRSignExtendHalfOp>(varOp);
+    const auto value = bit::sign_extend<16, int32_t>(Get(op.value));
+    SetVar(op.dst.var, value);
 }
 
 void InterpreterHost::HandleSaturatingAdd(const Op &varOp, LocationRef loc) {

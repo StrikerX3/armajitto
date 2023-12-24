@@ -191,6 +191,12 @@ Variable Emitter::MoveNegated(VarOrImmArg value, bool setFlags) {
     return dst;
 }
 
+Variable Emitter::SignExtendHalf(VarOrImmArg value) {
+    auto dst = Var();
+    SignExtendHalf(dst, value);
+    return dst;
+}
+
 void Emitter::Test(VarOrImmArg lhs, VarOrImmArg rhs) {
     Write<IRBitwiseAndOp>(lhs, rhs);
 }
@@ -453,6 +459,10 @@ void Emitter::Move(VariableArg dst, VarOrImmArg value, bool setFlags) {
 
 void Emitter::MoveNegated(VariableArg dst, VarOrImmArg value, bool setFlags) {
     Write<IRMoveNegatedOp>(dst, value, setFlags);
+}
+
+void Emitter::SignExtendHalf(VariableArg dst, VarOrImmArg value) {
+    Write<IRSignExtendHalfOp>(dst, value);
 }
 
 void Emitter::SaturatingAdd(VariableArg dst, VarOrImmArg lhs, VarOrImmArg rhs, bool setQ) {

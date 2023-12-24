@@ -36,6 +36,7 @@ enum class IROpcodeType {
 
     Move,
     MoveNegated,
+    SignExtendHalf,
 
     SaturatingAdd,
     SaturatingSubtract,

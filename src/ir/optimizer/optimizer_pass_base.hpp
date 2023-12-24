@@ -52,6 +52,7 @@ protected:
     virtual void Process(IRSubtractCarryOp *op) {}
     virtual void Process(IRMoveOp *op) {}
     virtual void Process(IRMoveNegatedOp *op) {}
+    virtual void Process(IRSignExtendHalfOp *op) {}
     virtual void Process(IRSaturatingAddOp *op) {}
     virtual void Process(IRSaturatingSubtractOp *op) {}
     virtual void Process(IRMultiplyOp *op) {}

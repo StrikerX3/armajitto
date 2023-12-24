@@ -174,6 +174,10 @@ bool VarSubstitutor::SubstituteImpl(IRMoveNegatedOp *op) {
     return Substitute(op->value);
 }
 
+bool VarSubstitutor::SubstituteImpl(IRSignExtendHalfOp *op) {
+    return Substitute(op->value);
+}
+
 bool VarSubstitutor::SubstituteImpl(IRSaturatingAddOp *op) {
     bool subst1 = Substitute(op->lhs);
     bool subst2 = Substitute(op->rhs);

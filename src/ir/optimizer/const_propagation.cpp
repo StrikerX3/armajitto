@@ -606,6 +606,15 @@ void ConstPropagationOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
+void ConstPropagationOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    Substitute(op->value);
+    if (op->value.immediate) {
+        auto result = bit::sign_extend<16, int32_t>(op->value.imm.value);
+        Assign(op->dst, result);
+        m_emitter.Erase(op);
+    }
+}
+
 void ConstPropagationOptimizerPass::Process(IRSaturatingAddOp *op) {
     Substitute(op->lhs);
     Substitute(op->rhs);

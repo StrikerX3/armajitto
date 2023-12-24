@@ -101,6 +101,10 @@ bool DeadStoreEliminationOptimizerPassBase::IsDeadInstruction(IRMoveNegatedOp *o
     return !op->dst.var.IsPresent() && op->flags == arm::Flags::None;
 }
 
+bool DeadStoreEliminationOptimizerPassBase::IsDeadInstruction(IRSignExtendHalfOp *op) {
+    return !op->dst.var.IsPresent();
+}
+
 bool DeadStoreEliminationOptimizerPassBase::IsDeadInstruction(IRSaturatingAddOp *op) {
     return !op->dst.var.IsPresent() && op->flags == arm::Flags::None;
 }

@@ -148,7 +148,7 @@ private:
 
         ir::IRAddOp, ir::IRAddCarryOp, ir::IRSubtractOp, ir::IRSubtractCarryOp,
 
-        ir::IRMoveOp, ir::IRMoveNegatedOp,
+        ir::IRMoveOp, ir::IRMoveNegatedOp, ir::IRSignExtendHalfOp,
 
         ir::IRSaturatingAddOp, ir::IRSaturatingSubtractOp,
 
@@ -219,6 +219,7 @@ private:
     InterpInstr CompileOp(const ir::IRSubtractCarryOp *op);
     InterpInstr CompileOp(const ir::IRMoveOp *op);
     InterpInstr CompileOp(const ir::IRMoveNegatedOp *op);
+    InterpInstr CompileOp(const ir::IRSignExtendHalfOp *op);
     InterpInstr CompileOp(const ir::IRSaturatingAddOp *op);
     InterpInstr CompileOp(const ir::IRSaturatingSubtractOp *op);
     InterpInstr CompileOp(const ir::IRMultiplyOp *op);
@@ -263,6 +264,7 @@ private:
     void HandleSubtractCarry(const Op &varOp, LocationRef loc);
     void HandleMove(const Op &varOp, LocationRef loc);
     void HandleMoveNegated(const Op &varOp, LocationRef loc);
+    void HandleSignExtendHalf(const Op &varOp, LocationRef loc);
     void HandleSaturatingAdd(const Op &varOp, LocationRef loc);
     void HandleSaturatingSubtract(const Op &varOp, LocationRef loc);
     void HandleMultiply(const Op &varOp, LocationRef loc);

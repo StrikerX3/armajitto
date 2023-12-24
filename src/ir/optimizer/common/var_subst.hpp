@@ -68,6 +68,7 @@ private:
     bool SubstituteImpl(IRSubtractCarryOp *op);
     bool SubstituteImpl(IRMoveOp *op);
     bool SubstituteImpl(IRMoveNegatedOp *op);
+    bool SubstituteImpl(IRSignExtendHalfOp *op);
     bool SubstituteImpl(IRSaturatingAddOp *op);
     bool SubstituteImpl(IRSaturatingSubtractOp *op);
     bool SubstituteImpl(IRMultiplyOp *op);

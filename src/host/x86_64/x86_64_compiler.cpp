@@ -1955,6 +1955,19 @@ void x64Host::Compiler::CompileOp(const ir::IRMoveNegatedOp *op) {
     }
 }
 
+void x64Host::Compiler::CompileOp(const ir::IRSignExtendHalfOp *op) {
+    if (op->dst.var.IsPresent()) {
+        if (op->value.immediate) {
+            auto dstReg32 = m_regAlloc.Get(op->dst.var);
+            MOVImmediate(dstReg32, bit::sign_extend<16, int32_t>(op->value.imm.value));
+        } else {
+            auto valReg32 = m_regAlloc.Get(op->value.var.var);
+            auto dstReg32 = m_regAlloc.ReuseAndGet(op->dst.var, op->value.var.var);
+            m_codegen.movsx(dstReg32, valReg32.cvt16());
+        }
+    }
+}
+
 void x64Host::Compiler::CompileOp(const ir::IRSaturatingAddOp *op) {
     const bool lhsImm = op->lhs.immediate;
     const bool rhsImm = op->rhs.immediate;

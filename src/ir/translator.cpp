@@ -802,10 +802,11 @@ void Translator::Translate(const MultiplyAccumulateLong &instr, Emitter &emitter
 void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitter) {
     auto selectHalf = [&](GPR gpr, bool top) {
         auto value = emitter.GetRegister(gpr);
-        if (!top) {
-            value = emitter.LogicalShiftLeft(value, 16, false);
+        if (top) {
+            return emitter.ArithmeticShiftRight(value, 16, false);
+        } else {
+            return emitter.SignExtendHalf(value);
         }
-        return emitter.ArithmeticShiftRight(value, 16, false);
     };
 
     auto lhs = selectHalf(instr.lhsReg, instr.x);
@@ -833,10 +834,11 @@ void Translator::Translate(const SignedMultiplyAccumulate &instr, Emitter &emitt
 void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &emitter) {
     auto selectHalf = [&](GPR gpr, bool top) {
         auto value = emitter.GetRegister(gpr);
-        if (!top) {
-            value = emitter.LogicalShiftLeft(value, 16, false);
+        if (top) {
+            return emitter.ArithmeticShiftRight(value, 16, false);
+        } else {
+            return emitter.SignExtendHalf(value);
         }
-        return emitter.ArithmeticShiftRight(value, 16, false);
     };
 
     auto lhs = emitter.GetRegister(instr.lhsReg);
@@ -865,10 +867,11 @@ void Translator::Translate(const SignedMultiplyAccumulateWord &instr, Emitter &e
 void Translator::Translate(const SignedMultiplyAccumulateLong &instr, Emitter &emitter) {
     auto selectHalf = [&](GPR gpr, bool top) {
         auto value = emitter.GetRegister(gpr);
-        if (!top) {
-            value = emitter.LogicalShiftLeft(value, 16, false);
+        if (top) {
+            return emitter.ArithmeticShiftRight(value, 16, false);
+        } else {
+            return emitter.SignExtendHalf(value);
         }
-        return emitter.ArithmeticShiftRight(value, 16, false);
     };
 
     auto lhs = selectHalf(instr.lhsReg, instr.x);

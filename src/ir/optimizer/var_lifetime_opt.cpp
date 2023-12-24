@@ -300,6 +300,11 @@ void VarLifetimeOptimizerPass::Process(IRMoveNegatedOp *op) {
     RecordWrite(op->flags);
 }
 
+void VarLifetimeOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    RecordRead(op->value);
+    RecordWrite(op->dst);
+}
+
 void VarLifetimeOptimizerPass::Process(IRSaturatingAddOp *op) {
     RecordRead(op->lhs);
     RecordRead(op->rhs);

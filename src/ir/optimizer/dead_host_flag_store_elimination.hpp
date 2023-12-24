@@ -76,6 +76,7 @@ private:
     void Process(IRSubtractCarryOp *op) final;
     void Process(IRMoveOp *op) final;
     void Process(IRMoveNegatedOp *op) final;
+    // void Process(IRSignExtendHalfOp *op) final;
     void Process(IRSaturatingAddOp *op) final;
     void Process(IRSaturatingSubtractOp *op) final;
     void Process(IRMultiplyOp *op) final;

@@ -197,6 +197,12 @@ void BasicBlock::RenameVariables() {
             map(opImpl->value);
             break;
         }
+        case IROpcodeType::SignExtendHalf: {
+            auto opImpl = Cast<IRSignExtendHalfOp>(op);
+            map(opImpl->dst);
+            map(opImpl->value);
+            break;
+        }
         case IROpcodeType::SaturatingAdd: {
             auto opImpl = Cast<IRSaturatingAddOp>(op);
             map(opImpl->dst);

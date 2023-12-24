@@ -53,6 +53,7 @@ protected:
     bool IsDeadInstruction(IRSubtractCarryOp *op);
     bool IsDeadInstruction(IRMoveOp *op);
     bool IsDeadInstruction(IRMoveNegatedOp *op);
+    bool IsDeadInstruction(IRSignExtendHalfOp *op);
     bool IsDeadInstruction(IRSaturatingAddOp *op);
     bool IsDeadInstruction(IRSaturatingSubtractOp *op);
     bool IsDeadInstruction(IRMultiplyOp *op);

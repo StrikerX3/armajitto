@@ -351,6 +351,10 @@ void ArithmeticOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
+void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    ConsumeValue(op, op->value);
+}
+
 void ArithmeticOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
     ConsumeValues(op, op->lhs, op->rhs);
 }

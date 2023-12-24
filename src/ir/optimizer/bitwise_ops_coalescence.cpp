@@ -8,8 +8,7 @@ BitwiseOpsCoalescenceOptimizerPass::BitwiseOpsCoalescenceOptimizerPass(Emitter &
                                                                        std::pmr::memory_resource &alloc)
     : OptimizerPassBase(emitter)
     , m_values(&alloc)
-    , m_sortedVars(&alloc)
-    , m_reanalysisChain(&alloc)
+    , m_alloc(alloc)
     , m_varLifetimes(alloc)
     , m_varSubst(emitter.VariableCount(), alloc) {
 
@@ -396,6 +395,10 @@ void BitwiseOpsCoalescenceOptimizerPass::Process(IRMoveNegatedOp *op) {
     }
 }
 
+void BitwiseOpsCoalescenceOptimizerPass::Process(IRSignExtendHalfOp *op) {
+    ConsumeValue(op, op->value);
+}
+
 void BitwiseOpsCoalescenceOptimizerPass::Process(IRSaturatingAddOp *op) {
     ConsumeValues(op, op->lhs, op->rhs);
 }
@@ -544,24 +547,25 @@ static std::pair<bool, bool> ShiftMatch(uint32_t knownBitsMask, uint32_t knownBi
 
 template <typename... Args>
 void BitwiseOpsCoalescenceOptimizerPass::ConsumeValues(IROp *op, Args &...args) {
-    m_sortedVars.clear();
+    std::pmr::vector<Variable *> sortedVars{&m_alloc};
+    sortedVars.reserve(sizeof...(args));
     (
         [&] {
             using T = std::decay_t<decltype(args)>;
             if constexpr (std::is_same_v<VariableArg, T>) {
                 if (args.var.IsPresent()) {
-                    m_sortedVars.push_back(&args.var);
+                    sortedVars.push_back(&args.var);
                 }
             } else if constexpr (std::is_same_v<VarOrImmArg, T>) {
                 if (!args.immediate && args.var.var.IsPresent()) {
-                    m_sortedVars.push_back(&args.var.var);
+                    sortedVars.push_back(&args.var.var);
                 }
             }
         }(),
         ...);
-    std::sort(m_sortedVars.begin(), m_sortedVars.end(),
+    std::sort(sortedVars.begin(), sortedVars.end(),
               [](const Variable *lhs, const Variable *rhs) { return lhs->Index() < rhs->Index(); });
-    for (auto *var : m_sortedVars) {
+    for (auto *var : sortedVars) {
         ConsumeValue(op, *var);
     }
 }
@@ -592,7 +596,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var) {
 
     // Reanalyze the value in a previous value in the chain was consumed
     if (value->prev != value->source) {
-        m_reanalysisChain.push_back(value->writerOp);
+        std::pmr::vector<IROp *> reanalysisChain{&m_alloc};
+        reanalysisChain.push_back(value->writerOp);
         auto var = value->prev;
         auto *prevValue = value;
         auto *chainValue = GetValue(value->prev);
@@ -600,22 +605,21 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var) {
             if (chainValue->consumed) {
                 // Found a consumed value; reanalyze from the next instruction
                 prevValue->Reset();
-                while (!m_reanalysisChain.empty()) {
-                    IROp *op = m_reanalysisChain.back();
-                    m_reanalysisChain.pop_back();
+                while (!reanalysisChain.empty()) {
+                    IROp *op = reanalysisChain.back();
+                    reanalysisChain.pop_back();
                     m_varSubst.Substitute(op);
                     VisitIROp(op, [this](auto op) -> void { Process(op); });
                 }
                 break;
             } else {
-                m_reanalysisChain.push_back(chainValue->writerOp);
+                reanalysisChain.push_back(chainValue->writerOp);
             }
             prevValue = chainValue;
             var = chainValue->prev;
             chainValue = GetValue(chainValue->prev);
         }
     }
-    m_reanalysisChain.clear();
 
     bool match = false;
     if (value->knownBitsMask == ~0) {
