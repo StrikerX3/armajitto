@@ -463,7 +463,7 @@ HostCode x64Host::CompileImpl(ir::BasicBlock &block) {
                 // Bail out if we ran out of cycles
                 if (armState.deadlinePtr != nullptr) {
                     m_codegen.mov(rcx, qword[abi::kARMStateReg + deadlinePtrOffset]);
-                    m_codegen.cmp(abi::kCycleCountReg, rcx);
+                    m_codegen.cmp(abi::kCycleCountReg, qword[rcx]);
                     m_codegen.jae(m_compiledCode.epilog);
                 } else {
                     m_codegen.jle(m_compiledCode.epilog);
