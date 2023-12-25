@@ -770,7 +770,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             m_codegen.mov(rcx, ~0xFF000000'00000000);
             m_codegen.mov(genReg64, qword[genReg64]);
             m_codegen.and_(genReg64, rcx);
-            m_codegen.cmp(byte[genReg64 + 7], MGT::kL2SplitThreshold);
+            m_codegen.cmp(byte[genReg64 + index2 * sizeof(void *) + 7], MGT::kL2SplitThreshold);
             m_codegen.jae(lblDone);
             m_codegen.inc(byte[genReg64 + index2 * sizeof(void *) + 7]);
         } else if (level == 3) {
