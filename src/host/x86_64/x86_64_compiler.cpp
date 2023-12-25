@@ -138,32 +138,80 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
     const uint32_t instrSize = baseLoc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
     const uint32_t baseAddress = baseLoc.PC() - instrSize * 2;
     const uint32_t finalAddress = baseAddress + instrSize * instrCount - 1;
-    const uint32_t basePage = baseAddress >> CompiledCode::kPageShift;
-    const uint32_t finalPage = finalAddress >> CompiledCode::kPageShift;
 
-    auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
+    auto basePtrReg64 = m_regAlloc.GetTemporary().cvt64();
+    auto l2BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
+    auto l3BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
 
     Xbyak::Label lblContinue{};
     Xbyak::Label lblMismatch{};
 
-    // Check if any of the generations of all pages that this block spans has the expected (current) generation
-    m_codegen.mov(ptrReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()));
-    for (uint32_t page = basePage; page <= finalPage; page++) {
-        const uint32_t generation = m_compiledCode.memPageGenerations[page];
-        m_codegen.cmp(dword[ptrReg64 + page * sizeof(uint32_t)], generation);
-        m_codegen.jne(lblMismatch);
+    // Check the generation tracker for all entries corresponding to this block
+    using MGT = MemoryGenerationTracker;
+    auto &mgt = m_compiledCode.memGenTracker;
+    m_codegen.mov(basePtrReg64, mgt.MapAddress());
+
+    bool maskSetUp = false;
+
+    const uint32_t baseIndex1 = MGT::Level1Index(baseAddress);
+    const uint32_t finalIndex1 = MGT::Level1Index(finalAddress);
+    for (uint32_t index1 = baseIndex1; index1 <= finalIndex1; index1++) {
+        const uint32_t addr1 = index1 << MGT::kL1Shift;
+        const auto entry1 = mgt.Get(addr1);
+        if (entry1.level == 1) {
+            m_codegen.cmp(byte[basePtrReg64 + index1 * 8 + 7], entry1.counter); // check generation
+            m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);           // mismatch; bail out
+        } else {
+            if (!maskSetUp) {
+                m_codegen.mov(rcx, ~0xFF000000'00000000); // setup mask to fixup pointers
+                maskSetUp = true;
+            }
+            m_codegen.mov(l2BasePtrReg64, qword[basePtrReg64 + index1 * 8]); // get level 2 pointer
+            m_codegen.and_(l2BasePtrReg64, rcx);                             // clear top bits
+
+            const uint32_t baseAddress1 = std::max(baseAddress, index1 << MGT::kL1Shift);
+            const uint32_t finalAddress1 = std::min(finalAddress, baseAddress1 + (1 << MGT::kL1Shift));
+
+            const uint32_t baseIndex2 = MGT::Level2Index(baseAddress1);
+            const uint32_t finalIndex2 = MGT::Level2Index(finalAddress1);
+
+            for (uint32_t index2 = baseIndex2; index2 <= finalIndex2; index2++) {
+                const uint32_t addr2 = addr1 | (index2 << MGT::kL2Shift);
+                const auto entry2 = mgt.Get(addr2);
+                if (entry2.level == 2) {
+                    m_codegen.cmp(byte[l2BasePtrReg64 + index2 * 8 + 7], entry2.counter); // check generation
+                    m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);             // mismatch; bail out
+                } else {
+                    m_codegen.mov(l3BasePtrReg64, qword[l2BasePtrReg64 + index2 * 8]); // get level 3 pointer
+                    m_codegen.and_(l3BasePtrReg64, rcx);                               // clear top bits
+
+                    const uint32_t baseAddress2 = std::max(baseAddress, index2 << MGT::kL2Shift);
+                    const uint32_t finalAddress2 = std::min(finalAddress, baseAddress2 + (1 << MGT::kL2Shift));
+
+                    const uint32_t baseIndex3 = MGT::Level3Index(baseAddress2);
+                    const uint32_t finalIndex3 = MGT::Level3Index(finalAddress2);
+
+                    for (uint32_t index3 = baseIndex3; index3 <= finalIndex3; index3++) {
+                        const uint32_t addr3 = addr2 | (index3 << MGT::kL3Shift);
+                        const auto entry3 = mgt.Get(addr3);
+                        m_codegen.cmp(dword[l3BasePtrReg64 + index3 * 4], entry3.counter);
+                        m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);
+                    }
+                }
+            }
+        }
     }
     m_codegen.jmp(lblContinue);
 
-    // One of the pages has a generation mismatch, which means code was potentially modified
+    // One of the entries has a generation mismatch, which means code was potentially modified
     m_codegen.L(lblMismatch);
     {
         // Mark block as invalid by setting the host code pointer to null.
         // This will cause the recompiler to request a block invalidation later on, to clean up patches.
         const auto blockPtr = m_compiledCode.blockCache.Get(baseLoc.ToUint64());
         if (blockPtr != nullptr) {
-            m_codegen.mov(ptrReg64, CastUintPtr(blockPtr));
-            m_codegen.mov(qword[ptrReg64], CastUintPtr(nullptr));
+            m_codegen.mov(basePtrReg64, CastUintPtr(blockPtr));
+            m_codegen.mov(qword[basePtrReg64], CastUintPtr(nullptr));
         }
 
         // Go to epilog to recompile the block
@@ -701,20 +749,102 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     // TODO: handle caches, permissions, etc.
     // TODO: virtual memory, exception handling, rewriting accessors
 
+    using MGT = MemoryGenerationTracker;
+    auto &mgt = m_compiledCode.memGenTracker;
+
     // Increment memory page generation
+    Xbyak::Label lblDone{};
     auto genReg64 = m_regAlloc.GetTemporary().cvt64();
     if (op->address.immediate) {
-        const uint32_t page = op->address.imm.value >> CompiledCode::kPageShift;
-        m_codegen.mov(genReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()) + page * sizeof(uint32_t));
-        m_codegen.inc(dword[genReg64]);
+        const uint32_t address = op->address.imm.value;
+        const uint32_t level = mgt.GetLevel(address);
+        const uint32_t index1 = MGT::Level1Index(address);
+
+        m_codegen.mov(genReg64, mgt.MapAddress() + index1 * sizeof(void *));
+        if (level == 1) {
+            m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold);
+            m_codegen.jae(lblDone);
+            m_codegen.inc(byte[genReg64 + 7]);
+        } else if (level == 2) {
+            const uint32_t index2 = MGT::Level2Index(address);
+            m_codegen.mov(rcx, ~0xFF000000'00000000);
+            m_codegen.mov(genReg64, qword[genReg64]);
+            m_codegen.and_(genReg64, rcx);
+            m_codegen.cmp(byte[genReg64 + 7], MGT::kL2SplitThreshold);
+            m_codegen.jae(lblDone);
+            m_codegen.inc(byte[genReg64 + index2 * sizeof(void *) + 7]);
+        } else if (level == 3) {
+            const uint32_t index2 = MGT::Level2Index(address);
+            const uint32_t index3 = MGT::Level3Index(address);
+            m_codegen.mov(rcx, ~0xFF000000'00000000);
+            m_codegen.mov(genReg64, qword[genReg64]);
+            m_codegen.and_(genReg64, rcx);
+            m_codegen.mov(genReg64, qword[genReg64 + index2 * sizeof(void *)]);
+            m_codegen.and_(genReg64, rcx);
+            m_codegen.inc(dword[genReg64 + index3 * sizeof(uint32_t)]);
+        }
     } else {
         auto addrReg32 = m_regAlloc.Get(op->address.var.var);
-        auto tmpReg64 = m_regAlloc.GetTemporary().cvt64();
-        m_codegen.mov(tmpReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()));
-        m_codegen.mov(genReg64.cvt32(), addrReg32);
-        m_codegen.shr(genReg64, CompiledCode::kPageShift);
-        m_codegen.inc(dword[tmpReg64 + genReg64 * sizeof(uint32_t)]);
+        auto tmpReg32 = m_regAlloc.GetTemporary();
+        auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
+        auto ptrReg8 = GetReg8(ptrReg64);
+        auto maskReg64 = m_regAlloc.GetRCX();
+
+        Xbyak::Label lblNoInc2{};
+        Xbyak::Label lblLevel2{};
+        Xbyak::Label lblLevel3{};
+
+        m_codegen.mov(genReg64, mgt.MapAddress());
+
+        // Level 1
+        m_codegen.mov(tmpReg32, addrReg32);
+        m_codegen.shr(tmpReg32, MGT::kL1Shift);
+        // m_codegen.and_(tmpReg32, MGT::kL1Mask); // shouldn't be necessary
+        m_codegen.lea(genReg64, qword[genReg64 + tmpReg32.cvt64() * sizeof(void *)]);
+        m_codegen.mov(ptrReg64, qword[genReg64]);
+
+        m_codegen.rol(ptrReg64, 8);
+        m_codegen.cmp(ptrReg8, 0xFF);
+        m_codegen.je(lblLevel2);
+
+        m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold);
+        m_codegen.jae(lblDone);
+        m_codegen.inc(byte[genReg64 + 7]);
+        m_codegen.jmp(lblDone);
+
+        // Level 2
+        m_codegen.L(lblLevel2);
+        m_codegen.ror(ptrReg64, 8);
+        m_codegen.mov(maskReg64, ~0xFF000000'00000000);
+        m_codegen.and_(ptrReg64, maskReg64);
+
+        m_codegen.mov(tmpReg32, addrReg32);
+        m_codegen.shr(tmpReg32, MGT::kL2Shift);
+        m_codegen.and_(tmpReg32, MGT::kL2Mask);
+        m_codegen.lea(genReg64, qword[ptrReg64 + tmpReg32.cvt64() * sizeof(void *)]);
+        m_codegen.mov(ptrReg64, qword[genReg64]);
+
+        m_codegen.rol(ptrReg64, 8);
+        m_codegen.cmp(ptrReg8, 0xFF);
+        m_codegen.je(lblLevel3);
+
+        m_codegen.cmp(byte[genReg64 + 7], MGT::kL2SplitThreshold);
+        m_codegen.jae(lblDone);
+        m_codegen.inc(byte[genReg64 + 7]);
+        m_codegen.jmp(lblDone);
+
+        // Level 3
+        m_codegen.L(lblLevel3);
+        m_codegen.ror(ptrReg64, 8);
+        m_codegen.and_(ptrReg64, maskReg64);
+
+        m_codegen.mov(tmpReg32, addrReg32);
+        m_codegen.shr(tmpReg32, MGT::kL3Shift);
+        m_codegen.and_(tmpReg32, MGT::kL3Mask);
+
+        m_codegen.inc(dword[ptrReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
     }
+    m_codegen.L(lblDone);
 
     // Get source register if it is a variable
     Xbyak::Reg32 srcReg32{};

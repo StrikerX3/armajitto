@@ -3,6 +3,7 @@
 #include "core/location_ref.hpp"
 #include "host/block_cache.hpp"
 #include "host/host_code.hpp"
+#include "host/mem_gen_tracker.hpp"
 #include "util/pointer_cast.hpp"
 
 #include <cstdint>
@@ -33,9 +34,7 @@ struct CompiledCode {
     std::multimap<uint64_t, PatchInfo> appliedPatches;
 
     // Memory generation tracker; used to invalidate modified blocks
-    static constexpr uint32_t kPageShift = 10;
-    static constexpr uint32_t kPageCount = 1u << (32u - kPageShift);
-    alignas(16) std::array<uint32_t, kPageCount> memPageGenerations;
+    MemoryGenerationTracker memGenTracker;
 
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
@@ -50,7 +49,7 @@ struct CompiledCode {
         blockCache.Clear();
         pendingPatches.clear();
         appliedPatches.clear();
-        memPageGenerations.fill(0);
+        memGenTracker.Clear();
         prolog = nullptr;
         epilog = nullptr;
         irqEntry = nullptr;

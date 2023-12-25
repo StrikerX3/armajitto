@@ -79,6 +79,7 @@ add_library(armajitto
     src/host/block_cache.hpp
     src/host/host.hpp
     src/host/host_code.hpp
+    src/host/mem_gen_tracker.hpp
     src/host/interp/interp_host.cpp
     src/host/interp/interp_host.hpp
     src/host/x86_64/abi.hpp
