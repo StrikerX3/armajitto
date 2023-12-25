@@ -863,8 +863,18 @@ void testCompiler() {
     // writeThumb(0xEEF0); // blx #0x20C4BBA*/
 
     // Bad variable lifetime optimization
-    writeARM(0xE1010090); // swp r0, r0, [r1]
-    writeARM(0xE12FFF1E); // bx lr
+    /*writeARM(0xE1010090); // swp r0, r0, [r1]
+    writeARM(0xE12FFF1E); // bx lr*/
+
+    // Bad bitwise ops coalescence
+    //writeARM(0xE1A04A23); // lsr r4, r3, #0x14
+    //writeARM(0xE08B4084); // add r4, r11, r4, lsl #1
+    //writeARM(0xE1D440B0); // ldrh r4, [r4]
+    //writeARM(0xE204500F); // and r5, r4, #0xF
+    writeARM(0xE1A04224); // lsr r4, r4, #4
+    writeARM(0xE204601F); // and r6, r4, #0x1F
+    writeARM(0xE1A042A4); // lsr r4, r4, #5
+    //writeARM(0xE1B03513); // lsls r3, r3, r5
 
     using namespace armajitto;
 

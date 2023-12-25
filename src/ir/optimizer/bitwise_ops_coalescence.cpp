@@ -613,6 +613,7 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var) {
                 }
                 break;
             } else {
+                chainValue->chained = true;
                 reanalysisChain.push_back(chainValue->writerOp);
             }
             prevValue = chainValue;
@@ -727,7 +728,8 @@ void BitwiseOpsCoalescenceOptimizerPass::ConsumeValue(IROp *op, Variable &var) {
     if (!match) {
         auto var = value->prev;
         value = GetValue(value->prev);
-        while (value != nullptr && value->valid && !value->consumed && m_varLifetimes.IsExpired(var)) {
+        while (value != nullptr && value->valid && !value->consumed && !value->chained &&
+               m_varLifetimes.IsExpired(var)) {
             m_emitter.Erase(value->writerOp);
             var = value->prev;
             value = GetValue(value->prev);

@@ -108,6 +108,7 @@ private:
         bool used = false;    // Marks this value as used, to avoid removing necessary ops
 
         bool consumed = false; // Indicates if this value was consumed, to prevent overoptimization
+        bool chained = false;  // Indicates if this value is part of a consumed chain, to prevent overoptimization
 
         void Reset() {
             valid = false;
@@ -122,6 +123,7 @@ private:
             used = false;
 
             consumed = false;
+            chained = false;
         }
 
         void Add(uint32_t amount) {

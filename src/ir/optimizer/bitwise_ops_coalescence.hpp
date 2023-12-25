@@ -166,6 +166,7 @@ private:
         Variable prev;            // Previous variable from which this was derived
 
         bool consumed = false; // Indicates if this value was consumed, to prevent overoptimization
+        bool chained = false;  // Indicates if this value is part of a consumed chain, to prevent overoptimization
 
         void Reset() {
             valid = false;
@@ -173,9 +174,13 @@ private:
             knownBitsValue = 0;
             flippedBits = 0;
             rotateOffset = 0;
+
             writerOp = nullptr;
             source = {};
             prev = {};
+
+            consumed = false;
+            chained = false;
         }
 
         uint32_t Ones() const {
