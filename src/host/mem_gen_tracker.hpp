@@ -10,9 +10,9 @@ namespace armajitto {
 
 class MemoryGenerationTracker final {
 public:
-    static constexpr uint32_t kL1Bits = 12;
+    static constexpr uint32_t kL1Bits = 14;
     static constexpr uint32_t kL2Bits = 12;
-    static constexpr uint32_t kL3Bits = 6;
+    static constexpr uint32_t kL3Bits = 4;
     static constexpr uint32_t kRemainingBits = 32 - (kL1Bits + kL2Bits + kL3Bits);
 
     static constexpr uint32_t kL1Size = 1u << kL1Bits;
@@ -27,8 +27,8 @@ public:
     static constexpr uint32_t kL3Mask = kL3Size - 1u;
     static constexpr uint32_t kL3Shift = kRemainingBits;
 
-    static constexpr uint32_t kL1SplitThreshold = 16;
-    static constexpr uint32_t kL2SplitThreshold = 32;
+    static constexpr uint32_t kL1SplitThreshold = 120;
+    static constexpr uint32_t kL2SplitThreshold = 240;
 
     static_assert(kL1SplitThreshold > 0 && kL1SplitThreshold <= 253,
                   "Level 1 split threshold must be between 1 and 253");
@@ -104,17 +104,17 @@ public:
         for (auto l1Index = l1StartIndex; l1Index <= l1EndIndex; l1Index++) {
             auto &l1 = m_map[l1Index];
             if (l1.counter == 0xFF) {
-                const auto start2 = l1Index << kL1Shift;
-                const auto end2 = start2 + (1 << kL1Shift);
+                const auto start2 = std::max(start, l1Index << kL1Shift);
+                const auto end2 = std::min(end, start2 + (1 << kL1Shift) - 1);
 
                 const auto l2StartIndex = Level2Index(start2);
                 const auto l2EndIndex = Level2Index(end2);
 
                 for (auto l2Index = l2StartIndex; l2Index <= l2EndIndex; l2Index++) {
-                    auto &l2 = (*l1)[l1Index];
+                    auto &l2 = (*l1)[l2Index];
                     if (l2.counter == 0xFF) {
-                        const auto start3 = l2Index << kL2Shift;
-                        const auto end3 = start3 + (1 << kL2Shift);
+                        const auto start3 = std::max(start, l2Index << kL2Shift);
+                        const auto end3 = std::min(end, start3 + (1 << kL2Shift) - 1);
 
                         const auto l3StartIndex = Level3Index(start3);
                         const auto l3EndIndex = Level3Index(end3);
@@ -122,18 +122,14 @@ public:
                         for (auto l3Index = l3StartIndex; l3Index <= l3EndIndex; l3Index++) {
                             ++(*l2)[l3Index];
                         }
-                    } else if (l2.counter != kL2SplitThreshold) {
-                        if (++l2.counter == kL2SplitThreshold) {
-                            l2 = m_allocator.Allocate<L3Entry>();
-                            l2->fill(kL2SplitThreshold);
-                        }
+                    } else if (++l2.counter >= kL2SplitThreshold) {
+                        l2 = m_allocator.Allocate<L3Entry>();
+                        l2->fill(kL2SplitThreshold);
                     }
                 }
-            } else if (l1.counter < kL1SplitThreshold) {
-                if (++l1.counter == kL1SplitThreshold) {
-                    l1 = m_allocator.Allocate<L2Entry>();
-                    l1->fill({.counter = kL1SplitThreshold});
-                }
+            } else if (++l1.counter >= kL1SplitThreshold) {
+                l1 = m_allocator.Allocate<L2Entry>();
+                l1->fill({.counter = kL1SplitThreshold});
             }
         }
     }
