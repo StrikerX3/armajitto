@@ -749,6 +749,24 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     // TODO: handle caches, permissions, etc.
     // TODO: virtual memory, exception handling, rewriting accessors
 
+    // Get source register if it is a variable
+    Xbyak::Reg32 srcReg32{};
+    if (!op->src.immediate) {
+        srcReg32 = m_regAlloc.Get(op->src.var.var);
+    }
+
+    // Get address register if it is a variable
+    Xbyak::Reg32 addrReg32{};
+    if (!op->address.immediate) {
+        addrReg32 = m_regAlloc.Get(op->address.var.var);
+    }
+
+    // Reserve temporary register for the slow memory path
+    Xbyak::Reg32 indexReg32{};
+    if (!op->address.immediate) {
+        indexReg32 = m_regAlloc.GetTemporary();
+    }
+
     using MGT = MemoryGenerationTracker;
     auto &mgt = m_compiledCode.memGenTracker;
 
@@ -784,7 +802,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             m_codegen.inc(dword[genReg64 + index3 * sizeof(uint32_t)]);
         }
     } else {
-        auto addrReg32 = m_regAlloc.Get(op->address.var.var);
         auto tmpReg32 = m_regAlloc.GetTemporary();
         auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
         auto ptrReg8 = GetReg8(ptrReg64);
@@ -845,24 +862,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.inc(dword[ptrReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
     }
     m_codegen.L(lblDone);
-
-    // Get source register if it is a variable
-    Xbyak::Reg32 srcReg32{};
-    if (!op->src.immediate) {
-        srcReg32 = m_regAlloc.Get(op->src.var.var);
-    }
-
-    // Get address register if it is a variable
-    Xbyak::Reg32 addrReg32{};
-    if (!op->address.immediate) {
-        addrReg32 = m_regAlloc.Get(op->address.var.var);
-    }
-
-    // Reserve temporary register for the slow memory path
-    Xbyak::Reg32 indexReg32{};
-    if (!op->address.immediate) {
-        indexReg32 = m_regAlloc.GetTemporary();
-    }
 
     Xbyak::Label lblSlowMem;
     Xbyak::Label lblEnd{};
@@ -984,7 +983,6 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     };
 
     auto invokeFnReg32 = [&](auto fn, const ir::VarOrImmArg &address, ir::Variable src) {
-        auto srcReg32 = m_regAlloc.Get(src);
         if (address.immediate) {
             CompileInvokeHostFunction(fn, system, address.imm.value, srcReg32);
         } else {
