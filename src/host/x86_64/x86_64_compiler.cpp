@@ -142,9 +142,10 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
     auto basePtrReg64 = m_regAlloc.GetTemporary().cvt64();
     auto l2BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
     auto l3BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
+    // auto counterReg8 = GetReg8(m_regAlloc.GetTemporary());
 
     Xbyak::Label lblContinue{};
-    Xbyak::Label lblMismatch{};
+    Xbyak::Label lblInvalidate{};
 
     // Check the generation tracker for all entries corresponding to this block
     using MGT = MemoryGenerationTracker;
@@ -159,8 +160,14 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
         const uint32_t addr1 = index1 << MGT::kL1Shift;
         const auto entry1 = mgt.Get(addr1);
         if (entry1.level == 1) {
-            m_codegen.cmp(byte[basePtrReg64 + index1 * 8 + 7], entry1.counter); // check generation
-            m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);           // mismatch; bail out
+            m_codegen.cmp(byte[basePtrReg64 + index1 * 8 + 7], entry1.counter); // must match current generation
+            m_codegen.jne(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);         // invalidate otherwise
+
+            /*m_codegen.mov(counterReg8, byte[basePtrReg64 + index1 * 8 + 7]);
+            m_codegen.cmp(counterReg8, entry1.counter);                 // must match current generation
+            m_codegen.jne(lblInvalidate, Xbyak::CodeGenerator::T_NEAR); // invalidate otherwise
+            m_codegen.cmp(counterReg8, MGT::kL1SplitThreshold);         // also invalidate if threshold reached
+            m_codegen.je(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);*/
         } else {
             if (!maskSetUp) {
                 m_codegen.mov(rcx, ~0xFF000000'00000000); // setup mask to fixup pointers
@@ -179,8 +186,15 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
                 const uint32_t addr2 = addr1 | (index2 << MGT::kL2Shift);
                 const auto entry2 = mgt.Get(addr2);
                 if (entry2.level == 2) {
-                    m_codegen.cmp(byte[l2BasePtrReg64 + index2 * 8 + 7], entry2.counter); // check generation
-                    m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);             // mismatch; bail out
+                    m_codegen.cmp(byte[l2BasePtrReg64 + index2 * 8 + 7],
+                                  entry2.counter);                              // must match current generation
+                    m_codegen.jne(lblInvalidate, Xbyak::CodeGenerator::T_NEAR); // invalidate otherwise
+
+                    /*m_codegen.mov(counterReg8, byte[l2BasePtrReg64 + index2 * 8 + 7]);
+                    m_codegen.cmp(counterReg8, entry2.counter);                 // must match current generation
+                    m_codegen.jne(lblInvalidate, Xbyak::CodeGenerator::T_NEAR); // invalidate otherwise
+                    m_codegen.cmp(counterReg8, MGT::kL2SplitThreshold);         // also invalidate if threshold reached
+                    m_codegen.je(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);*/
                 } else {
                     m_codegen.mov(l3BasePtrReg64, qword[l2BasePtrReg64 + index2 * 8]); // get level 3 pointer
                     m_codegen.and_(l3BasePtrReg64, rcx);                               // clear top bits
@@ -195,7 +209,7 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
                         const uint32_t addr3 = addr2 | (index3 << MGT::kL3Shift);
                         const auto entry3 = mgt.Get(addr3);
                         m_codegen.cmp(dword[l3BasePtrReg64 + index3 * 4], entry3.counter);
-                        m_codegen.jne(lblMismatch, Xbyak::CodeGenerator::T_NEAR);
+                        m_codegen.jne(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);
                     }
                 }
             }
@@ -204,7 +218,7 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
     m_codegen.jmp(lblContinue);
 
     // One of the entries has a generation mismatch, which means code was potentially modified
-    m_codegen.L(lblMismatch);
+    m_codegen.L(lblInvalidate);
     {
         // Mark block as invalid by setting the host code pointer to null.
         // This will cause the recompiler to request a block invalidation later on, to clean up patches.
@@ -745,6 +759,10 @@ void x64Host::Compiler::CompileOp(const ir::IRMemReadOp *op) {
     m_codegen.L(lblEnd);
 }
 
+void IncMemGen(uintptr_t mgt, uint32_t address) {
+    ((MemoryGenerationTracker *)mgt)->Increment(address, address);
+}
+
 void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     // TODO: handle caches, permissions, etc.
     // TODO: virtual memory, exception handling, rewriting accessors
@@ -771,6 +789,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     auto &mgt = m_compiledCode.memGenTracker;
 
     // Increment memory page generation
+    Xbyak::Label lblSplit{};
     Xbyak::Label lblDone{};
     auto genReg64 = m_regAlloc.GetTemporary().cvt64();
     if (op->address.immediate) {
@@ -780,16 +799,16 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
         m_codegen.mov(genReg64, mgt.MapAddress() + index1 * sizeof(void *));
         if (level == 1) {
-            m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold);
-            m_codegen.jae(lblDone);
+            m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold - 1);
+            m_codegen.jae(lblSplit);
             m_codegen.inc(byte[genReg64 + 7]);
         } else if (level == 2) {
             const uint32_t index2 = MGT::Level2Index(address);
             m_codegen.mov(rcx, ~0xFF000000'00000000);
             m_codegen.mov(genReg64, qword[genReg64]);
             m_codegen.and_(genReg64, rcx);
-            m_codegen.cmp(byte[genReg64 + index2 * sizeof(void *) + 7], MGT::kL2SplitThreshold);
-            m_codegen.jae(lblDone);
+            m_codegen.cmp(byte[genReg64 + index2 * sizeof(void *) + 7], MGT::kL2SplitThreshold - 1);
+            m_codegen.jae(lblSplit);
             m_codegen.inc(byte[genReg64 + index2 * sizeof(void *) + 7]);
         } else if (level == 3) {
             const uint32_t index2 = MGT::Level2Index(address);
@@ -801,6 +820,8 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             m_codegen.and_(genReg64, rcx);
             m_codegen.inc(dword[genReg64 + index3 * sizeof(uint32_t)]);
         }
+        m_codegen.L(lblSplit);
+        CompileInvokeHostFunction(IncMemGen, CastUintPtr(&m_compiledCode.memGenTracker), address);
     } else {
         auto tmpReg32 = m_regAlloc.GetTemporary();
         auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
@@ -824,10 +845,10 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.cmp(ptrReg8, 0xFF);
         m_codegen.je(lblLevel2);
 
-        m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold);
-        m_codegen.jae(lblDone);
+        m_codegen.cmp(byte[genReg64 + 7], MGT::kL1SplitThreshold - 1);
+        m_codegen.jae(lblSplit);
         m_codegen.inc(byte[genReg64 + 7]);
-        m_codegen.jmp(lblDone);
+        m_codegen.jmp(lblDone, Xbyak::CodeGenerator::T_NEAR);
 
         // Level 2
         m_codegen.L(lblLevel2);
@@ -845,10 +866,10 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.cmp(ptrReg8, 0xFF);
         m_codegen.je(lblLevel3);
 
-        m_codegen.cmp(byte[genReg64 + 7], MGT::kL2SplitThreshold);
-        m_codegen.jae(lblDone);
+        m_codegen.cmp(byte[genReg64 + 7], MGT::kL2SplitThreshold - 1);
+        m_codegen.jae(lblSplit);
         m_codegen.inc(byte[genReg64 + 7]);
-        m_codegen.jmp(lblDone);
+        m_codegen.jmp(lblDone, Xbyak::CodeGenerator::T_NEAR);
 
         // Level 3
         m_codegen.L(lblLevel3);
@@ -860,6 +881,8 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
         m_codegen.and_(tmpReg32, MGT::kL3Mask);
 
         m_codegen.inc(dword[ptrReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
+        m_codegen.L(lblSplit);
+        CompileInvokeHostFunction(IncMemGen, CastUintPtr(&m_compiledCode.memGenTracker), addrReg32);
     }
     m_codegen.L(lblDone);
 
