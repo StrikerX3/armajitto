@@ -135,6 +135,46 @@ void x64Host::Compiler::PostProcessOp(const ir::IROp *op) {
 }
 
 void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const uint32_t instrCount) {
+    // -------- old code start --------
+    /*const uint32_t instrSize = baseLoc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
+    const uint32_t baseAddress = baseLoc.PC() - instrSize * 2;
+    const uint32_t finalAddress = baseAddress + instrSize * instrCount - 1;
+    const uint32_t basePage = baseAddress >> CompiledCode::kPageShift;
+    const uint32_t finalPage = finalAddress >> CompiledCode::kPageShift;
+
+    auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
+
+    Xbyak::Label lblContinue{};
+    Xbyak::Label lblMismatch{};
+
+    // Check if any of the generations of all pages that this block spans has the expected (current) generation
+    m_codegen.mov(ptrReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()));
+    for (uint32_t page = basePage; page <= finalPage; page++) {
+        const uint32_t generation = m_compiledCode.memPageGenerations[page];
+        m_codegen.cmp(dword[ptrReg64 + page * sizeof(uint32_t)], generation);
+        m_codegen.jne(lblMismatch);
+    }
+    m_codegen.jmp(lblContinue);
+
+    // One of the pages has a generation mismatch, which means code was potentially modified
+    m_codegen.L(lblMismatch);
+    {
+        // Mark block as invalid by setting the host code pointer to null.
+        // This will cause the recompiler to request a block invalidation later on, to clean up patches.
+        const auto blockPtr = m_compiledCode.blockCache.Get(baseLoc.ToUint64());
+        if (blockPtr != nullptr) {
+            m_codegen.mov(ptrReg64, CastUintPtr(blockPtr));
+            m_codegen.mov(qword[ptrReg64], CastUintPtr(nullptr));
+        }
+
+        // Go to epilog to recompile the block
+        m_codegen.jmp(m_compiledCode.epilog);
+    }
+    // All checks passed, continue execution
+    m_codegen.L(lblContinue);
+    m_regAlloc.ReleaseTemporaries();*/
+    // -------- old code end --------
+
     const uint32_t instrSize = baseLoc.IsThumbMode() ? sizeof(uint16_t) : sizeof(uint32_t);
     const uint32_t baseAddress = baseLoc.PC() - instrSize * 2;
     const uint32_t finalAddress = baseAddress + instrSize * instrCount - 1;
@@ -784,6 +824,23 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     if (!op->address.immediate) {
         indexReg32 = m_regAlloc.GetTemporary();
     }
+
+    // -------- old code start --------
+    // Increment memory page generation
+    /*auto genReg64 = m_regAlloc.GetTemporary().cvt64();
+    if (op->address.immediate) {
+        const uint32_t page = op->address.imm.value >> CompiledCode::kPageShift;
+        m_codegen.mov(genReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()) + page * sizeof(uint32_t));
+        m_codegen.inc(dword[genReg64]);
+    } else {
+        auto addrReg32 = m_regAlloc.Get(op->address.var.var);
+        auto tmpReg64 = m_regAlloc.GetTemporary().cvt64();
+        m_codegen.mov(tmpReg64, CastUintPtr(m_compiledCode.memPageGenerations.data()));
+        m_codegen.mov(genReg64.cvt32(), addrReg32);
+        m_codegen.shr(genReg64, CompiledCode::kPageShift);
+        m_codegen.inc(dword[tmpReg64 + genReg64 * sizeof(uint32_t)]);
+    }*/
+    // -------- old code end --------
 
     using MGT = MemoryGenerationTracker;
     auto &mgt = m_compiledCode.memGenTracker;

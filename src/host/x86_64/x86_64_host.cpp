@@ -143,6 +143,14 @@ void x64Host::InvalidateCodeCacheRange(uint32_t start, uint32_t end) {
 void x64Host::ReportMemoryWrite(uint32_t start, uint32_t end) {
     // Increment memory generations for all affected pages
     m_compiledCode.memGenTracker.Increment(start, end);
+
+    // -------- old code start --------
+    /*const uint32_t basePage = start >> CompiledCode::kPageShift;
+    const uint32_t finalPage = end >> CompiledCode::kPageShift;
+    for (uint32_t page = basePage; page <= finalPage; page++) {
+        ++m_compiledCode.memPageGenerations[page];
+    }*/
+    // -------- old code end --------
 }
 
 void x64Host::CompileCommon() {

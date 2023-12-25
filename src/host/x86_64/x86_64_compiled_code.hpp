@@ -35,6 +35,11 @@ struct CompiledCode {
 
     // Memory generation tracker; used to invalidate modified blocks
     MemoryGenerationTracker memGenTracker;
+    // -------- old code start --------
+    // static constexpr uint32_t kPageShift = 10;
+    // static constexpr uint32_t kPageCount = 1u << (32u - kPageShift);
+    // alignas(16) std::array<uint32_t, kPageCount> memPageGenerations;
+    // -------- old code end --------
 
     // Retrieves the cached block for the specified location, or nullptr if no block was compiled there.
     HostCode GetCodeForLocation(LocationRef loc) {
@@ -50,6 +55,9 @@ struct CompiledCode {
         pendingPatches.clear();
         appliedPatches.clear();
         memGenTracker.Clear();
+        // -------- old code start --------
+        // memPageGenerations.fill(0);
+        // -------- old code end --------
         prolog = nullptr;
         epilog = nullptr;
         irqEntry = nullptr;
