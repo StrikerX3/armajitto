@@ -79,6 +79,12 @@ CPUID::CPUID() noexcept {
         cpuid(0x8000'0001, eax, ebx, ecx, edx);
         hasLZCNT = ecx & (1 << 5);
     }
+
+    // Get virtual address bits
+    if (maxExtLeaf >= 0x8000'0008) {
+        cpuid(0x8000'0008, eax, ebx, ecx, edx);
+        virtualAddressBits = (eax >> 8) & 0xFF;
+    }
 }
 
 } // namespace armajitto::x86_64

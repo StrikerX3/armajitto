@@ -145,6 +145,7 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
     auto l2BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
     auto l3BasePtrReg64 = m_regAlloc.GetTemporary().cvt64();
     // auto counterReg8 = GetReg8(m_regAlloc.GetTemporary());
+    const uint8_t addrBits = 64 - CPUID::VirtualAddressBits();
 
     Xbyak::Label lblContinue{};
     Xbyak::Label lblInvalidate{};
@@ -153,8 +154,6 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
     using MGT = MemoryGenerationTracker;
     auto &mgt = m_compiledCode.memGenTracker;
     m_codegen.mov(basePtrReg64, mgt.MapAddress());
-
-    bool maskSetUp = false;
 
     const uint32_t baseIndex1 = MGT::Level1Index(baseAddress);
     const uint32_t finalIndex1 = MGT::Level1Index(finalAddress);
@@ -171,12 +170,9 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
             m_codegen.cmp(counterReg8, MGT::kL1SplitThreshold);         // also invalidate if threshold reached
             m_codegen.je(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);*/
         } else {
-            if (!maskSetUp) {
-                m_codegen.mov(rcx, ~0xFF000000'00000000); // setup mask to fixup pointers
-                maskSetUp = true;
-            }
             m_codegen.mov(l2BasePtrReg64, qword[basePtrReg64 + index1 * 8]); // get level 2 pointer
-            m_codegen.and_(l2BasePtrReg64, rcx);                             // clear top bits
+            m_codegen.shl(l2BasePtrReg64, addrBits);                         // fixup pointer
+            m_codegen.sar(l2BasePtrReg64, addrBits);
 
             const uint32_t baseAddress1 = std::max(baseAddress, index1 << MGT::kL1Shift);
             const uint32_t finalAddress1 = std::min(finalAddress, baseAddress1 + (1 << MGT::kL1Shift));
@@ -199,7 +195,8 @@ void x64Host::Compiler::CompileGenerationCheck(const LocationRef &baseLoc, const
                     m_codegen.je(lblInvalidate, Xbyak::CodeGenerator::T_NEAR);*/
                 } else {
                     m_codegen.mov(l3BasePtrReg64, qword[l2BasePtrReg64 + index2 * 8]); // get level 3 pointer
-                    m_codegen.and_(l3BasePtrReg64, rcx);                               // clear top bits
+                    m_codegen.shl(l3BasePtrReg64, addrBits);                           // fixup pointer
+                    m_codegen.sar(l3BasePtrReg64, addrBits);
 
                     const uint32_t baseAddress2 = std::max(baseAddress, index2 << MGT::kL2Shift);
                     const uint32_t finalAddress2 = std::min(finalAddress, baseAddress2 + (1 << MGT::kL2Shift));
@@ -794,6 +791,7 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
     Xbyak::Label lblSplit{};
     Xbyak::Label lblDone{};
     auto genReg64 = m_regAlloc.GetTemporary().cvt64();
+    const uint8_t addrBits = 64 - CPUID::VirtualAddressBits();
     if (op->address.immediate) {
         const uint32_t address = op->address.imm.value;
         const uint32_t level = mgt.GetLevel(address);
@@ -806,29 +804,31 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
             m_codegen.inc(byte[genReg64 + 7]);
         } else if (level == 2) {
             const uint32_t index2 = MGT::Level2Index(address);
-            m_codegen.mov(rcx, ~0xFF000000'00000000);
             m_codegen.mov(genReg64, qword[genReg64]);
-            m_codegen.and_(genReg64, rcx);
+            m_codegen.shl(genReg64, addrBits);
+            m_codegen.sar(genReg64, addrBits);
             m_codegen.cmp(byte[genReg64 + index2 * sizeof(void *) + 7], MGT::kL2SplitThreshold - 1);
             m_codegen.jae(lblSplit);
             m_codegen.inc(byte[genReg64 + index2 * sizeof(void *) + 7]);
         } else if (level == 3) {
             const uint32_t index2 = MGT::Level2Index(address);
             const uint32_t index3 = MGT::Level3Index(address);
-            m_codegen.mov(rcx, ~0xFF000000'00000000);
             m_codegen.mov(genReg64, qword[genReg64]);
-            m_codegen.and_(genReg64, rcx);
+            m_codegen.shl(genReg64, addrBits);
+            m_codegen.sar(genReg64, addrBits);
             m_codegen.mov(genReg64, qword[genReg64 + index2 * sizeof(void *)]);
-            m_codegen.and_(genReg64, rcx);
+            m_codegen.shl(genReg64, addrBits);
+            m_codegen.sar(genReg64, addrBits);
             m_codegen.inc(dword[genReg64 + index3 * sizeof(uint32_t)]);
         }
+        m_codegen.jmp(lblDone);
+
         m_codegen.L(lblSplit);
         CompileInvokeHostFunction(IncMemGen, CastUintPtr(&m_compiledCode.memGenTracker), address);
     } else {
         auto tmpReg32 = m_regAlloc.GetTemporary();
         auto ptrReg64 = m_regAlloc.GetTemporary().cvt64();
         auto ptrReg8 = GetReg8(ptrReg64);
-        auto maskReg64 = m_regAlloc.GetRCX();
 
         Xbyak::Label lblNoInc2{};
         Xbyak::Label lblLevel2{};
@@ -854,9 +854,10 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
         // Level 2
         m_codegen.L(lblLevel2);
-        m_codegen.ror(ptrReg64, 8);
-        m_codegen.mov(maskReg64, ~0xFF000000'00000000);
-        m_codegen.and_(ptrReg64, maskReg64);
+        if (addrBits != 8) {
+            m_codegen.shl(ptrReg64, addrBits - 8);
+        }
+        m_codegen.sar(ptrReg64, addrBits);
 
         m_codegen.mov(tmpReg32, addrReg32);
         m_codegen.shr(tmpReg32, MGT::kL2Shift);
@@ -875,14 +876,18 @@ void x64Host::Compiler::CompileOp(const ir::IRMemWriteOp *op) {
 
         // Level 3
         m_codegen.L(lblLevel3);
-        m_codegen.ror(ptrReg64, 8);
-        m_codegen.and_(ptrReg64, maskReg64);
+        if (addrBits != 8) {
+            m_codegen.shl(ptrReg64, addrBits - 8);
+        }
+        m_codegen.sar(ptrReg64, addrBits);
 
         m_codegen.mov(tmpReg32, addrReg32);
         m_codegen.shr(tmpReg32, MGT::kL3Shift);
         m_codegen.and_(tmpReg32, MGT::kL3Mask);
 
         m_codegen.inc(dword[ptrReg64 + tmpReg32.cvt64() * sizeof(uint32_t)]);
+        m_codegen.jmp(lblDone);
+
         m_codegen.L(lblSplit);
         CompileInvokeHostFunction(IncMemGen, CastUintPtr(&m_compiledCode.memGenTracker), addrReg32);
     }

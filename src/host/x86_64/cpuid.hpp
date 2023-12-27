@@ -30,6 +30,10 @@ public:
         return s_instance.hasBMI2 && (s_instance.family != 0x17);
     }
 
+    [[nodiscard]] static uint8_t VirtualAddressBits() noexcept {
+        return s_instance.virtualAddressBits;
+    }
+
 private:
     CPUID() noexcept;
 
@@ -44,6 +48,8 @@ private:
     bool hasBMI1 = false;
     bool hasBMI2 = false;
     bool hasLZCNT = false;
+
+    uint8_t virtualAddressBits = 48;
 };
 
 } // namespace armajitto::x86_64
