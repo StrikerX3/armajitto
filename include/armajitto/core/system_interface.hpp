@@ -18,6 +18,10 @@ public:
     virtual void MemWriteHalf(uint32_t address, uint16_t value) = 0;
     virtual void MemWriteWord(uint32_t address, uint32_t value) = 0;
 
+    virtual uint32_t TranslateAddress(uint32_t address) const {
+        return address;
+    }
+
     MemoryMap &GetMemoryMap() {
         return m_memMap;
     }

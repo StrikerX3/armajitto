@@ -27,14 +27,41 @@ struct Recompiler::Impl {
 
     uint64_t Run(uint64_t initialCycles) {
         auto &armState = context.GetARMState();
-        uint32_t &pc = armState.GPR(arm::GPR::PC);
+        const uint32_t &pc = armState.GPR(arm::GPR::PC);
 
         const bool hasDeadline = armState.deadlinePtr != nullptr;
 
         uint64_t cycles = initialCycles;
         while (hasDeadline ? (cycles < *armState.deadlinePtr) : ((int64_t)cycles > 0)) {
+            // Translate PC
+            const uint32_t opcodeSize = armState.CPSR().t ? sizeof(uint16_t) : sizeof(uint32_t);
+            const uint32_t adjustedPC = pc - opcodeSize * 2;
+
+            const uint32_t translatedPC = [&] {
+                const auto &cp15 = context.GetARMState().GetSystemControlCoprocessor();
+                if (cp15.IsPresent()) {
+                    const auto &ctl = cp15.GetControlRegister();
+                    const auto &tcm = cp15.GetTCM();
+                    if (ctl.value.itcmEnable && !ctl.value.itcmLoad) {
+                        if (adjustedPC < tcm.itcmReadSize) {
+                            return pc & (tcm.itcmSize - 1);
+                        }
+                    }
+                    if (ctl.value.dtcmEnable && !ctl.value.dtcmLoad) {
+                        if (adjustedPC >= tcm.dtcmBase && adjustedPC - tcm.dtcmBase < tcm.dtcmReadSize) {
+                            return (pc - tcm.dtcmBase) & (tcm.dtcmSize - 1);
+                        }
+                    }
+                }
+                return context.GetSystem().TranslateAddress(pc);
+            }();
+
+            if (pc != translatedPC) {
+                printf("[%u] %08X -> %08X\n", static_cast<uint32_t>(context.GetCPUArch()), pc, translatedPC);
+            }
+
             // Build location reference and get its code
-            const LocationRef loc{pc, armState.CPSR().u32};
+            const LocationRef loc{translatedPC, armState.CPSR().u32};
             auto code = host.GetCodeForLocation(loc);
 
             // Compile code if not yet compiled
