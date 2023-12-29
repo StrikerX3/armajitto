@@ -91,7 +91,6 @@ void Optimizer::DetectIdleLoops(ir::BasicBlock &block) {
     // - Only modifies registers read from within the block
     ir::IROp *op = block.Head();
     while (op != nullptr) {
-        uint16_t readRegs = 0;
         uint16_t writtenRegs = 0;
         uint16_t disallowedRegs = 0;
         auto result = VisitIROp(op, [&](auto *op) {
@@ -113,14 +112,16 @@ void Optimizer::DetectIdleLoops(ir::BasicBlock &block) {
                     return Result::Denied;
                 }
             } else if constexpr (std::is_same_v<TOp, ir::IRGetRegisterOp>) {
-                readRegs |= 1u << static_cast<uint16_t>(op->src.gpr);
+                const uint16_t reg = 1u << static_cast<uint16_t>(op->src.gpr);
+                if (~writtenRegs & reg) {
+                    disallowedRegs |= reg;
+                }
             } else if constexpr (std::is_same_v<TOp, ir::IRSetRegisterOp>) {
-                const auto reg = 1u << static_cast<uint16_t>(op->dst.gpr);
+                const uint16_t reg = 1u << static_cast<uint16_t>(op->dst.gpr);
                 if (disallowedRegs & reg) {
                     return Result::Denied;
                 }
                 writtenRegs |= reg;
-                disallowedRegs |= readRegs & ~writtenRegs;
             }
             return Result::Possible;
         });
