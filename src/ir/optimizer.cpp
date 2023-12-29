@@ -125,12 +125,11 @@ void Optimizer::DetectIdleLoops(ir::BasicBlock &block) {
             return Result::Possible;
         });
 
-        auto locStr = loc.ToString();
-        if (result == Result::Confirmed) {
-            ir::Emitter emitter{block};
-            emitter.TerminateIdleLoop();
-            break;
-        } else if (result == Result::Denied) {
+        if (result != Result::Possible) {
+            if (result == Result::Confirmed) {
+                ir::Emitter emitter{block};
+                emitter.TerminateIdleLoop();
+            }
             break;
         }
         op = op->Next();
