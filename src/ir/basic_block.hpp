@@ -34,6 +34,10 @@ public:
         // Return to dispatcher (default).
         // Used by exceptions, ALU writes to PC and writes to coprocessors with side-effects.
         Return,
+
+        // Idle loop.
+        // Used by branches to the beginning of the block under specific conditions.
+        IdleLoop,
     };
 
     BasicBlock(memory::Allocator &alloc, LocationRef location)
@@ -267,6 +271,10 @@ private:
 
     void TerminateReturn() {
         m_terminal = Terminal::Return;
+    }
+
+    void TerminateIdleLoop() {
+        m_terminal = Terminal::IdleLoop;
     }
 };
 

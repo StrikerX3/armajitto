@@ -647,6 +647,10 @@ void Emitter::TerminateReturn() {
     m_block.TerminateReturn();
 }
 
+void Emitter::TerminateIdleLoop() {
+    m_block.TerminateIdleLoop();
+}
+
 Variable Emitter::Var() {
     return Variable{m_block.NextVarID()};
 }

@@ -17,7 +17,7 @@ struct Recompiler::Impl {
     Impl(Context &context, Specification spec, Options &params)
         : context(context)
         , translator(context, params.translator)
-        , optimizer(params.optimizer, pmrBuffer)
+        , optimizer(context, params.optimizer, pmrBuffer)
         , host(context, params.compiler, spec.cycleCountDeadline, pmrBuffer) {}
 
     void Reset() {

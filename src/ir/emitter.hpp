@@ -342,6 +342,7 @@ public:
     void TerminateIndirectLink();
     void TerminateContinueExecution();
     void TerminateReturn();
+    void TerminateIdleLoop();
 
 private:
     BasicBlock &m_block;

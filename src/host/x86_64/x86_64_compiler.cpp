@@ -399,6 +399,17 @@ void x64Host::Compiler::CompileTerminal(const ir::BasicBlock &block) {
         break;
     }
     case Terminal::Return: CompileExit(); break;
+    case Terminal::IdleLoop:
+        // Skip cycles until the deadline is reached
+        if (m_armState.deadlinePtr != nullptr) {
+            const auto deadlinePtrOffset = m_stateOffsets.CycleDeadlinePointerOffset();
+            m_codegen.mov(rcx, qword[abi::kARMStateReg + deadlinePtrOffset]);
+            m_codegen.mov(abi::kCycleCountReg, qword[rcx]);
+        } else {
+            m_codegen.xor_(abi::kCycleCountReg, abi::kCycleCountReg);
+        }
+        CompileExit();
+        break;
     }
 }
 
